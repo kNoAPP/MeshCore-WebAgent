@@ -22,16 +22,36 @@ import { ADV_ICON } from '@/lib/utils';
 import { MessageBubble } from './MessageBubble';
 
 const FAVOURITE_FLAG = 0x01;
+const MAX_SUGGESTIONS = 5;
+
+function getMentionQuery(value: string, cursor: number): string | null {
+  const before = value.slice(0, cursor);
+  const atIdx = before.lastIndexOf('@');
+  if (atIdx === -1) return null;
+  const fragment = before.slice(atIdx + 1);
+  if (/\s/.test(fragment)) return null;
+  return fragment;
+}
 
 export function ChatArea() {
-  const { activeConvo, msgHistory, contacts } = useMeshStore();
+  const { activeConvo, msgHistory, contacts, deviceName } = useMeshStore();
   const { sendMessage } = useMeshCore();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const messages = activeConvo ? (msgHistory[activeConvo.id] ?? []) : [];
+
+  const contactNames = Object.values(contacts).map((c) => c.name).filter(Boolean);
+
+  const suggestions =
+    mentionQuery !== null
+      ? contactNames
+          .filter((name) => name.toLowerCase().startsWith(mentionQuery.toLowerCase()))
+          .slice(0, MAX_SUGGESTIONS)
+      : [];
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -44,16 +64,50 @@ export function ChatArea() {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, [text]);
 
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    const cursor = e.target.selectionStart ?? val.length;
+    setText(val);
+    setMentionQuery(getMentionQuery(val, cursor));
+  };
+
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget;
+    setMentionQuery(getMentionQuery(el.value, el.selectionStart ?? el.value.length));
+  };
+
+  const insertMention = (name: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const cursor = el.selectionStart ?? text.length;
+    const before = text.slice(0, cursor);
+    const atIdx = before.lastIndexOf('@');
+    const newText = text.slice(0, atIdx) + `@[${name}]` + text.slice(cursor);
+    setText(newText);
+    setMentionQuery(null);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = atIdx + name.length + 3;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
   const handleSend = useCallback(async () => {
     if (!text.trim() || sending || !activeConvo) return;
     setSending(true);
     await sendMessage(text, activeConvo);
     setText('');
     setSending(false);
+    setMentionQuery(null);
   }, [text, sending, activeConvo, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Escape' && mentionQuery !== null) {
+      e.preventDefault();
+      setMentionQuery(null);
+      return;
+    }
+    if (e.key === 'Enter' && !e.shiftKey && mentionQuery === null) {
       e.preventDefault();
       handleSend();
     }
@@ -106,18 +160,42 @@ export function ChatArea() {
           </div>
         )}
         {messages.map((msg, i) => {
-          const contact = msg.pubkeyPrefix
-            ? contacts[msg.pubkeyPrefix]
-            : undefined;
-          const senderLabel = msg.own
-            ? 'You'
-            : (contact?.name ?? msg.pubkeyPrefix?.slice(0, 8) ?? '?');
+          let senderLabel: string;
+          let bodyText = msg.text;
+
+          if (msg.own) {
+            senderLabel = 'You';
+          } else if (msg.kind === 'channel') {
+            const colonIdx = msg.text.indexOf(': ');
+            if (colonIdx !== -1) {
+              senderLabel = msg.text.slice(0, colonIdx);
+              bodyText = msg.text.slice(colonIdx + 2);
+            } else {
+              senderLabel = '?';
+            }
+          } else {
+            const contact = msg.pubkeyPrefix ? contacts[msg.pubkeyPrefix] : undefined;
+            senderLabel = contact?.name ?? msg.pubkeyPrefix?.slice(0, 8) ?? '?';
+          }
+
+          const mentioned =
+            !msg.own &&
+            !msg.system &&
+            deviceName.length > 0 &&
+            bodyText.toLowerCase().includes(`@[${deviceName.toLowerCase()}]`);
+
           return (
-            <MessageBubble
+            <div
               key={msg.id ?? i}
-              msg={msg}
-              senderLabel={senderLabel}
-            />
+              className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
+            >
+              {!msg.system && (
+                <div className='px-1 text-[11px] text-(--text2)'>
+                  {senderLabel}
+                </div>
+              )}
+              <MessageBubble msg={msg} text={bodyText} deviceName={deviceName} mentioned={mentioned} />
+            </div>
           );
         })}
         <div ref={bottomRef} />
@@ -125,36 +203,59 @@ export function ChatArea() {
 
       {/* Input bar */}
       <div
-        className='flex shrink-0 items-end gap-2 border-t px-4 py-3'
+        className='relative flex shrink-0 flex-col border-t'
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          rows={1}
-          maxLength={160}
-          placeholder='Type a message… (Enter to send, Shift+Enter for newline)'
-          className='flex-1 resize-none rounded-[10px] border border-(--border) bg-(--surface2) px-3 py-2
-            text-sm text-(--text) outline-none
-            placeholder:text-(--text2) focus:border-(--accent)'
-          style={{ maxHeight: 120 }}
-        />
-        <span
-          className={`self-center text-[11px] ${charCount > 140 ? 'text-(--yellow)' : 'text-(--text2)'}`}
-        >
-          {charCount}/160
-        </span>
-        <button
-          onClick={handleSend}
-          disabled={!text.trim() || sending}
-          className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent)
-            text-base text-white transition-opacity
-            hover:opacity-85 disabled:opacity-40'
-        >
-          ➤
-        </button>
+        {suggestions.length > 0 && (
+          <div
+            className='absolute bottom-full left-4 right-4 mb-1 overflow-hidden rounded-[10px] border border-(--border) shadow-lg'
+            style={{ background: 'var(--surface2)' }}
+          >
+            {suggestions.map((name) => (
+              <button
+                key={name}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  insertMention(name);
+                }}
+                className='w-full px-3 py-2 text-left text-sm text-(--text) hover:bg-(--surface) hover:text-(--accent)'
+              >
+                @[{name}]
+              </button>
+            ))}
+          </div>
+        )}
+        <div className='flex items-end gap-2 px-4 py-3'>
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={handleTextChange}
+            onKeyDown={handleKeyDown}
+            onKeyUp={handleKeyUp}
+            onClick={handleKeyUp as unknown as React.MouseEventHandler<HTMLTextAreaElement>}
+            rows={1}
+            maxLength={160}
+            placeholder='Type a message… (Enter to send, Shift+Enter for newline)'
+            className='flex-1 resize-none rounded-[10px] border border-(--border) bg-(--surface2) px-3 py-2
+              text-sm text-(--text) outline-none
+              placeholder:text-(--text2) focus:border-(--accent)'
+            style={{ maxHeight: 120 }}
+          />
+          <span
+            className={`self-center text-[11px] ${charCount > 140 ? 'text-(--yellow)' : 'text-(--text2)'}`}
+          >
+            {charCount}/160
+          </span>
+          <button
+            onClick={handleSend}
+            disabled={!text.trim() || sending}
+            className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent)
+              text-base text-white transition-opacity
+              hover:opacity-85 disabled:opacity-40'
+          >
+            ➤
+          </button>
+        </div>
       </div>
     </div>
   );

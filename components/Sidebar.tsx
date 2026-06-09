@@ -35,7 +35,7 @@ export function Sidebar() {
   const dragStartH = useRef(160);
   const sidebarRef = useRef<HTMLElement>(null);
   const channelsSectionRef = useRef<HTMLDivElement>(null);
-  const channelsListRef = useRef<HTMLDivElement>(null);
+  const channelsContentRef = useRef<HTMLDivElement>(null);
   const channelsHeaderRef = useRef<HTMLDivElement>(null);
 
   const sortedChannels = Object.values(channels).sort((a, b) => a.idx - b.idx);
@@ -61,12 +61,8 @@ export function Sidebar() {
           ? parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
           : 0;
         const headerH = channelsHeaderRef.current?.offsetHeight ?? 0;
-        const contentMax =
-          Math.ceil(
-            (channelsListRef.current?.scrollHeight ?? 9999) +
-              headerH +
-              sectionPadding,
-          ) + 1;
+        const contentH = channelsContentRef.current?.offsetHeight ?? 9999;
+        const contentMax = Math.ceil(contentH + headerH + sectionPadding) + 1;
         const next = Math.min(
           contentMax,
           Math.max(MIN_SECTION_PX, dragStartH.current + delta),
@@ -104,7 +100,8 @@ export function Sidebar() {
         >
           Channels
         </div>
-        <div ref={channelsListRef} className='flex-1 overflow-y-auto'>
+        <div className='flex-1 overflow-y-auto'>
+          <div ref={channelsContentRef}>
           {sortedChannels.map((ch) => {
             const id = channelConvoId(ch.idx);
             const unread = unreadCount(msgHistory, id);
@@ -127,6 +124,7 @@ export function Sidebar() {
               />
             );
           })}
+          </div>
         </div>
       </div>
 
