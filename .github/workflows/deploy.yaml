@@ -1,0 +1,67 @@
+# Copyright 2026 Knoban LLC. All rights reserved.
+#
+# This software is confidential and proprietary, intended for use only by
+# Knoban LLC or its authorized users. Unauthorized use, copying, modification,
+# distribution of this software, or any part of it, is strictly prohibited and
+# may be subject to civil and criminal penalties.
+#
+# A License Agreement is required to view, use, and/or modify this software.
+#
+# Disclaimer: This software is provided 'as is' and without any express or
+# implied warranties. Knoban LLC is not liable for any damages arising out of
+# the use of this software.
+#
+# For inquiries, contact: alden@knoban.com
+
+name: Deploy
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static site
+        run: npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: out
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5.0.0

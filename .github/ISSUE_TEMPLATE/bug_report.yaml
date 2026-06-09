@@ -1,0 +1,78 @@
+# Copyright 2026 Knoban LLC. All rights reserved.
+#
+# This software is confidential and proprietary, intended for use only by
+# Knoban LLC or its authorized users. Unauthorized use, copying, modification,
+# distribution of this software, or any part of it, is strictly prohibited and
+# may be subject to civil and criminal penalties.
+#
+# A License Agreement is required to view, use, and/or modify this software.
+#
+# Disclaimer: This software is provided 'as is' and without any express or
+# implied warranties. Knoban LLC is not liable for any damages arising out of
+# the use of this software.
+#
+# For inquiries, contact: alden@knoban.com
+
+name: Bug Report
+description: Something isn't working correctly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing a bug, check that you're using **Chrome or Edge on desktop** — Web Serial and Web Bluetooth are not supported in Firefox or Safari.
+
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Connection Type
+      description: How were you connecting to your radio?
+      options:
+        - USB Serial
+        - Bluetooth LE
+        - WiFi WebSocket
+        - Not connected / UI issue
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser & Version
+      placeholder: 'Chrome 124, Edge 122, etc.'
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      placeholder: 'macOS 14.4, Windows 11, Ubuntu 24.04'
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Open the app
+        2. Connect via USB
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser Console Output
+      description: Open DevTools (F12) → Console and paste any errors here.
+      render: text

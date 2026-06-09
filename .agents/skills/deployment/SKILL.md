@@ -1,0 +1,58 @@
+---
+# Copyright 2026 Knoban LLC. All rights reserved.
+#
+# This software is confidential and proprietary, intended for use only by
+# Knoban LLC or its authorized users. Unauthorized use, copying, modification,
+# distribution of this software, or any part of it, is strictly prohibited and
+# may be subject to civil and criminal penalties.
+#
+# A License Agreement is required to view, use, and/or modify this software.
+#
+# Disclaimer: This software is provided 'as is' and without any express or
+# implied warranties. Knoban LLC is not liable for any damages arising out of
+# the use of this software.
+#
+# For inquiries, contact: alden@knoban.com
+
+name: deployment
+description: >
+  Build and deployment process for the live site at kn0.app. Use when working
+  on next.config.ts, GitHub Actions workflows, or anything that affects the
+  production build or deployment pipeline.
+license: Proprietary. See LICENSE for complete terms.
+metadata:
+  author: kNoAPP
+  version: '1.0.0'
+---
+
+# Deployment
+
+The live site is hosted at **[kn0.app](https://kn0.app)** via GitHub Pages.
+
+## How It Works
+
+1. Push to `main` triggers `.github/workflows/deploy.yaml`.
+2. The workflow runs `npm run build`, which produces a static site in `out/` (configured via `output: 'export'` in `next.config.ts`).
+3. The `out/` directory is uploaded as a GitHub Pages artifact and deployed.
+4. `public/CNAME` contains `kn0.app` — GitHub Pages uses this for the custom domain.
+
+## Critical Constraints
+
+- `next.config.ts` must keep `output: 'export'` and `trailingSlash: true` — changing either will break the GitHub Pages deployment.
+- Do not add any Next.js features that require a server (API routes, middleware, ISR, SSR) — the entire site is statically exported.
+- Do not remove `public/CNAME` — it is required for the custom domain to work after every deploy.
+
+## Local Build Verification
+
+```bash
+npm run build     # produces out/
+npx serve out     # serve locally to verify before pushing
+```
+
+## GitHub Pages Setup (one-time)
+
+In the repository settings → Pages:
+
+- Source: **GitHub Actions**
+- Custom domain: `kn0.app`
+- Enforce HTTPS: enabled

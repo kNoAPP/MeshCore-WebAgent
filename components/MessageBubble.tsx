@@ -1,0 +1,60 @@
+// Copyright 2026 Knoban LLC. All rights reserved.
+//
+// This software is confidential and proprietary, intended for use only by
+// Knoban LLC or its authorized users. Unauthorized use, copying, modification,
+// distribution of this software, or any part of it, is strictly prohibited and
+// may be subject to civil and criminal penalties.
+//
+// A License Agreement is required to view, use, and/or modify this software.
+//
+// Disclaimer: This software is provided 'as is' and without any express or
+// implied warranties. Knoban LLC is not liable for any damages arising out of
+// the use of this software.
+//
+// For inquiries, contact: alden@knoban.com
+
+'use client';
+
+import type { Message } from '@/types/meshcore';
+import { formatTime } from '@/lib/utils';
+
+interface Props {
+  msg: Message;
+  senderLabel: string;
+}
+
+export function MessageBubble({ msg, senderLabel }: Props) {
+  const time = msg.timestamp ? formatTime(msg.timestamp) : '';
+
+  if (msg.system) {
+    return (
+      <div className='my-1 flex justify-center'>
+        <div className='rounded-lg border border-dashed border-(--border) px-3 py-1.5 text-[11px] text-(--text2) italic'>
+          {msg.text}{' '}
+        </div>{' '}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
+    >
+      <div className='px-1 text-[11px] text-(--text2)'>
+        {' '}
+        {senderLabel} {time}
+      </div>{' '}
+      <div
+        className={`max-w-[70%] px-3 py-2 text-sm leading-snug wrap-break-word           ${msg.own ? 'rounded-[14px_4px_14px_14px] bg-(--accent) text-white' : 'rounded-[4px_14px_14px_14px] bg-(--surface2) text-(--text)'}`}
+      >
+        {msg.text}{' '}
+      </div>{' '}
+      {msg.snr != null && (
+        <div className='px-1 text-[10px] text-(--text2)'>
+          {' '}
+          SNR: {msg.snr > 0 ? '+' : ''} {msg.snr} dB{' '}
+        </div>
+      )}{' '}
+    </div>
+  );
+}

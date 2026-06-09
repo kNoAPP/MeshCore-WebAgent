@@ -1,0 +1,37 @@
+# Copyright 2026 Knoban LLC. All rights reserved.
+#
+# This software is confidential and proprietary, intended for use only by
+# Knoban LLC or its authorized users. Unauthorized use, copying, modification,
+# distribution of this software, or any part of it, is strictly prohibited and
+# may be subject to civil and criminal penalties.
+#
+# A License Agreement is required to view, use, and/or modify this software.
+#
+# Disclaimer: This software is provided 'as is' and without any express or
+# implied warranties. Knoban LLC is not liable for any damages arising out of
+# the use of this software.
+#
+# For inquiries, contact: alden@knoban.com
+
+name: Release
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Create or update release PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: googleapis/release-please-action@v5.0.0
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

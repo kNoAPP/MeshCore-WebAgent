@@ -1,0 +1,51 @@
+# Copyright 2026 Knoban LLC. All rights reserved.
+#
+# This software is confidential and proprietary, intended for use only by
+# Knoban LLC or its authorized users. Unauthorized use, copying, modification,
+# distribution of this software, or any part of it, is strictly prohibited and
+# may be subject to civil and criminal penalties.
+#
+# A License Agreement is required to view, use, and/or modify this software.
+#
+# Disclaimer: This software is provided 'as is' and without any express or
+# implied warranties. Knoban LLC is not liable for any damages arising out of
+# the use of this software.
+#
+# For inquiries, contact: alden@knoban.com
+
+name: Feature Request
+description: Suggest an improvement or new capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description:
+        What problem does this solve? What's currently missing or frustrating?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe what you'd like to see added or changed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any other approaches you've thought about?
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This stays fully client-side (no backend required)
+        - label: This works within the existing Companion Protocol
+        - label:
+            This requires changes to the binary protocol layer (`lib/meshcore/`)

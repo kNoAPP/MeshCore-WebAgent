@@ -1,0 +1,35 @@
+{
+  "name": "meshcore-webagent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "type-check": "tsc --noEmit",
+    "spell-check": "cspell \"**/*.{ts,tsx,md}\" --no-progress",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "next": "16.2.7",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^25.9.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/w3c-web-serial": "^1.0.8",
+    "@types/web-bluetooth": "^0.0.21",
+    "cspell": "^8.17.5",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.7",
+    "prettier": "^3.5.3",
+    "tailwindcss": "^4",
+    "typescript": "^6.0.3"
+  }
+}
