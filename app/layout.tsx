@@ -28,9 +28,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang='en' className='h-full'>
-      <body className='flex h-full flex-col overflow-hidden'>
-        {children}
-      </body>{' '}
+      <body className='flex h-full flex-col overflow-hidden'>{children}</body>
     </html>
   );
 }

@@ -20,41 +20,69 @@ import { formatTime } from '@/lib/utils';
 
 interface Props {
   msg: Message;
-  senderLabel: string;
+  text: string;
+  deviceName: string;
+  mentioned: boolean;
 }
 
-export function MessageBubble({ msg, senderLabel }: Props) {
+function renderText(text: string, deviceName: string): React.ReactNode[] {
+  const parts = text.split(/(@\[[^\]]+\])/g);
+  return parts.map((part, i) => {
+    if (!part.startsWith('@[')) return part;
+    const isSelf =
+      deviceName.length > 0 &&
+      part.toLowerCase() === `@[${deviceName.toLowerCase()}]`;
+    return (
+      <span
+        key={i}
+        className={
+          isSelf
+            ? 'font-semibold text-yellow-300'
+            : 'font-semibold text-(--accent)'
+        }
+      >
+        {part}
+      </span>
+    );
+  });
+}
+
+export function MessageBubble({ msg, text, deviceName, mentioned }: Props) {
   const time = msg.timestamp ? formatTime(msg.timestamp) : '';
 
   if (msg.system) {
     return (
       <div className='my-1 flex justify-center'>
         <div className='rounded-lg border border-dashed border-(--border) px-3 py-1.5 text-[11px] text-(--text2) italic'>
-          {msg.text}{' '}
-        </div>{' '}
+          {text}
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
-    >
-      <div className='px-1 text-[11px] text-(--text2)'>
-        {' '}
-        {senderLabel} {time}
-      </div>{' '}
+    <>
       <div
-        className={`max-w-[70%] px-3 py-2 text-sm leading-snug wrap-break-word           ${msg.own ? 'rounded-[14px_4px_14px_14px] bg-(--accent) text-white' : 'rounded-[4px_14px_14px_14px] bg-(--surface2) text-(--text)'}`}
+        className={`max-w-[70%] px-3 py-2 text-sm leading-snug wrap-break-word ${
+          msg.own
+            ? 'rounded-[14px_4px_14px_14px] bg-(--accent) text-white'
+            : mentioned
+              ? 'rounded-[4px_14px_14px_14px] border border-yellow-400/60 bg-yellow-400/10 text-(--text)'
+              : 'rounded-[4px_14px_14px_14px] bg-(--surface2) text-(--text)'
+        }`}
       >
-        {msg.text}{' '}
-      </div>{' '}
-      {msg.snr != null && (
-        <div className='px-1 text-[10px] text-(--text2)'>
-          {' '}
-          SNR: {msg.snr > 0 ? '+' : ''} {msg.snr} dB{' '}
-        </div>
-      )}{' '}
-    </div>
+        {renderText(text, deviceName)}
+      </div>
+      <div className='px-1 text-[10px] text-(--text2)'>
+        {[
+          msg.snr != null
+            ? `SNR: ${msg.snr > 0 ? '+' : ''}${msg.snr.toFixed(2)} dB`
+            : null,
+          time,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </div>
+    </>
   );
 }
