@@ -20,28 +20,16 @@ updates:
     directory: /
     schedule:
       interval: weekly
-      day: monday
-    open-pull-requests-limit: 10
-    commit-message:
-      prefix: chore
-      include: scope
-    labels:
-      - dependencies
     groups:
-      dev-dependencies:
-        dependency-type: development
-        update-types:
-          - minor
-          - patch
+      npm-all:
+        patterns:
+          - '*'
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-      day: monday
-    commit-message:
-      prefix: ci
-      include: scope
-    labels:
-      - dependencies
-      - ci
+    groups:
+      actions-all:
+        patterns:
+          - '*'

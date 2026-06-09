@@ -13,35 +13,31 @@
 #
 # For inquiries, contact: alden@knoban.com
 
-name: PR Title
+name: ~PR Preparation
 
 on:
-  pull_request:
-    types: [opened, edited, synchronize, reopened]
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
 
 permissions:
-  pull-requests: read
+  contents: read
+  pull-requests: write
 
 jobs:
-  validate:
-    name: Validate Conventional Commit title
+  pr-lint-title:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: amannn/action-semantic-pull-request@v6.1.1
+      - uses: amannn/action-semantic-pull-request@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  pr-label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v6
         with:
-          types: |
-            feat
-            fix
-            docs
-            refactor
-            test
-            ci
-            chore
-          requireScope: false
-          subjectPattern: ^(?![A-Z]).+$
-          subjectPatternError: |
-            The subject "{subject}" must start with a lowercase letter.
-            Example: "feat: add wifi auto-reconnect" not "feat: Add WiFi auto-reconnect"
+          sync-labels: true
+          configuration-path: .github/labeler.yaml
