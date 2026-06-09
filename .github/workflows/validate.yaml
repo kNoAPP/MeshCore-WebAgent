@@ -15,6 +15,9 @@
 
 name: Validate Branch
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     branches:
@@ -23,8 +26,9 @@ on:
     branches:
       - develop
 
-permissions:
-  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
