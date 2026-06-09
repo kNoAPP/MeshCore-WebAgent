@@ -102,28 +102,28 @@ export function Sidebar() {
         </div>
         <div className='flex-1 overflow-y-auto'>
           <div ref={channelsContentRef}>
-          {sortedChannels.map((ch) => {
-            const id = channelConvoId(ch.idx);
-            const unread = unreadCount(msgHistory, id);
-            const active = activeConvo?.id === id;
-            return (
-              <SidebarItem
-                key={id}
-                icon={ch.idx === 0 ? '📢' : '🔒'}
-                label={ch.name || `Channel ${ch.idx}`}
-                active={active}
-                unread={unread}
-                onClick={() =>
-                  openConvo({
-                    kind: 'channel',
-                    id,
-                    rawId: ch.idx,
-                    label: ch.name || `Channel ${ch.idx}`,
-                  })
-                }
-              />
-            );
-          })}
+            {sortedChannels.map((ch) => {
+              const id = channelConvoId(ch.idx);
+              const unread = unreadCount(msgHistory, id);
+              const active = activeConvo?.id === id;
+              return (
+                <SidebarItem
+                  key={id}
+                  icon={ch.idx === 0 ? '📢' : '🔒'}
+                  label={ch.name || `Channel ${ch.idx}`}
+                  active={active}
+                  unread={unread}
+                  onClick={() =>
+                    openConvo({
+                      kind: 'channel',
+                      id,
+                      rawId: ch.idx,
+                      label: ch.name || `Channel ${ch.idx}`,
+                    })
+                  }
+                />
+              );
+            })}
           </div>
         </div>
       </div>

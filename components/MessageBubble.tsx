@@ -74,7 +74,12 @@ export function MessageBubble({ msg, text, deviceName, mentioned }: Props) {
         {renderText(text, deviceName)}
       </div>
       <div className='px-1 text-[10px] text-(--text2)'>
-        {[msg.snr != null ? `SNR: ${msg.snr > 0 ? '+' : ''}${msg.snr.toFixed(2)} dB` : null, time]
+        {[
+          msg.snr != null
+            ? `SNR: ${msg.snr > 0 ? '+' : ''}${msg.snr.toFixed(2)} dB`
+            : null,
+          time,
+        ]
           .filter(Boolean)
           .join(' · ')}
       </div>

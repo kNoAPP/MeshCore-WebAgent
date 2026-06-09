@@ -44,12 +44,16 @@ export function ChatArea() {
 
   const messages = activeConvo ? (msgHistory[activeConvo.id] ?? []) : [];
 
-  const contactNames = Object.values(contacts).map((c) => c.name).filter(Boolean);
+  const contactNames = Object.values(contacts)
+    .map((c) => c.name)
+    .filter(Boolean);
 
   const suggestions =
     mentionQuery !== null
       ? contactNames
-          .filter((name) => name.toLowerCase().startsWith(mentionQuery.toLowerCase()))
+          .filter((name) =>
+            name.toLowerCase().startsWith(mentionQuery.toLowerCase()),
+          )
           .slice(0, MAX_SUGGESTIONS)
       : [];
 
@@ -73,7 +77,9 @@ export function ChatArea() {
 
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const el = e.currentTarget;
-    setMentionQuery(getMentionQuery(el.value, el.selectionStart ?? el.value.length));
+    setMentionQuery(
+      getMentionQuery(el.value, el.selectionStart ?? el.value.length),
+    );
   };
 
   const insertMention = (name: string) => {
@@ -174,7 +180,9 @@ export function ChatArea() {
               senderLabel = '?';
             }
           } else {
-            const contact = msg.pubkeyPrefix ? contacts[msg.pubkeyPrefix] : undefined;
+            const contact = msg.pubkeyPrefix
+              ? contacts[msg.pubkeyPrefix]
+              : undefined;
             senderLabel = contact?.name ?? msg.pubkeyPrefix?.slice(0, 8) ?? '?';
           }
 
@@ -194,7 +202,12 @@ export function ChatArea() {
                   {senderLabel}
                 </div>
               )}
-              <MessageBubble msg={msg} text={bodyText} deviceName={deviceName} mentioned={mentioned} />
+              <MessageBubble
+                msg={msg}
+                text={bodyText}
+                deviceName={deviceName}
+                mentioned={mentioned}
+              />
             </div>
           );
         })}
@@ -232,7 +245,9 @@ export function ChatArea() {
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onKeyUp={handleKeyUp}
-            onClick={handleKeyUp as unknown as React.MouseEventHandler<HTMLTextAreaElement>}
+            onClick={
+              handleKeyUp as unknown as React.MouseEventHandler<HTMLTextAreaElement>
+            }
             rows={1}
             maxLength={160}
             placeholder='Type a message… (Enter to send, Shift+Enter for newline)'
