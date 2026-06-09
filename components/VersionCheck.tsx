@@ -43,7 +43,11 @@ export function VersionCheck() {
     async function check() {
       if (initialVersion.current === null) return;
       const current = await fetchVersion();
-      if (!cancelled && current !== null && current !== initialVersion.current) {
+      if (
+        !cancelled &&
+        current !== null &&
+        current !== initialVersion.current
+      ) {
         window.location.reload();
       }
     }

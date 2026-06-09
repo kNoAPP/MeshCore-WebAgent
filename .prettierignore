@@ -19,3 +19,4 @@ node_modules
 package-lock.json 
 public/\*.svg 
 app/favicon.ico
+CHANGELOG.md
