@@ -21,6 +21,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/meshcore-webagent-v1.0.0...meshcore-webagent-v1.1.0) (2026-06-09)
+
+
+### Features
+
+* cache bust the app on release ([#13](https://github.com/kNoAPP/MeshCore-WebAgent/issues/13)) ([fb92668](https://github.com/kNoAPP/MeshCore-WebAgent/commit/fb92668f5e4a4a2fda6a7a141eb94f94627b4bb1))
+
 ## 1.0.0 (2026-06-09)
 
 
