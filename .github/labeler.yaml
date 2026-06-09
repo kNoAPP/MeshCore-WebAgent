@@ -13,47 +13,63 @@
 #
 # For inquiries, contact: alden@knoban.com
 
-transport:
-  - changed-files:
-      - any-glob-to-any-file: lib/meshcore/transports.ts
-
 protocol:
   - changed-files:
       - any-glob-to-any-file:
-          - lib/meshcore/client.ts
-          - lib/meshcore/frames.ts
-          - lib/meshcore/frameParser.ts
-          - lib/meshcore/parsers.ts
-          - lib/meshcore/constants.ts
+          - lib/meshcore/**
 
 ui:
   - changed-files:
       - any-glob-to-any-file:
           - components/**
           - app/**
-          - app/globals.css
+          - public/**
 
 state:
   - changed-files:
       - any-glob-to-any-file:
           - store/**
           - hooks/**
+          - types/**
 
 storage:
   - changed-files:
       - any-glob-to-any-file: lib/storage.ts
 
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - next.config.ts
+          - tsconfig.json
+          - postcss.config.mjs
+          - eslint.config.mjs
+          - cspell.json
+          - .prettierrc
+          - .prettierignore
+          - .editorconfig
+          - .gitattributes
+          - .gitignore
+
 documentation:
   - changed-files:
       - any-glob-to-any-file:
           - '*.md'
-          - docs/**
+          - .github/PULL_REQUEST_TEMPLATE.md
+          - .github/ISSUE_TEMPLATE/**
+          - .github/copilot-instructions.md
+          - AGENTS.md
+          - CLAUDE.md
+          - .agents/**
+          - .claude/**
 
 ci:
   - changed-files:
       - any-glob-to-any-file:
           - .github/workflows/**
-          - .github/dependabot.yaml
+          - .github/dependabot.yml
+          - .github/labeler.yaml
+          - release-please-config.json
+          - .release-please-manifest.json
 
 dependencies:
   - changed-files:
