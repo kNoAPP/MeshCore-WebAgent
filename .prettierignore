@@ -17,6 +17,7 @@
 out 
 node_modules 
 package-lock.json 
-public/\*.svg 
+public/\*.svg
+public/version.json
 app/favicon.ico
 CHANGELOG.md
