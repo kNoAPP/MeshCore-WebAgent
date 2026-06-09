@@ -14,6 +14,7 @@
 // For inquiries, contact: alden@knoban.com
 
 import type { Metadata } from 'next';
+import { VersionCheck } from '@/components/VersionCheck';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -28,7 +29,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang='en' className='h-full'>
-      <body className='flex h-full flex-col overflow-hidden'>{children}</body>
+      <head>
+        <meta
+          httpEquiv='Cache-Control'
+          content='no-cache, no-store, must-revalidate'
+        />
+        <meta httpEquiv='Pragma' content='no-cache' />
+        <meta httpEquiv='Expires' content='0' />
+      </head>
+      <body className='flex h-full flex-col overflow-hidden'>
+        <VersionCheck />
+        {children}
+      </body>
     </html>
   );
 }
