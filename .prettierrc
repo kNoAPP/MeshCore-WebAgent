@@ -17,7 +17,10 @@
   "overrides": [
     {
       "files": "**/*.{md,mdx}",
-      "options": { "proseWrap": "preserve", "jsxSingleQuote": false }
+      "options": {
+        "proseWrap": "preserve",
+        "jsxSingleQuote": false
+      }
     }
   ]
 }

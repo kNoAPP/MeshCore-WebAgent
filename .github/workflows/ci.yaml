@@ -13,25 +13,33 @@
 #
 # For inquiries, contact: alden@knoban.com
 
-name: CI
+name: Validate Branch
 
 on:
-  push:
-    branches: [develop]
   pull_request:
+    branches:
+      - develop
+  merge_group:
+    branches:
+      - develop
 
 permissions:
   contents: read
 
 jobs:
-  ci:
-    name: Format, Lint, Type-check, Spell-check, Build
+  validate:
+    name: Validate branch
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6.0.3
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v6.4.0
+      - name: Spell-check
+        run: npm run spell-check
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm
@@ -48,8 +56,18 @@ jobs:
       - name: Type-check
         run: npm run type-check
 
-      - name: Spell-check
-        run: npm run spell-check
-
       - name: Build
         run: npm run build
+
+  validation-outcome:
+    needs: [validate]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validation Failure
+        if: ${{ contains(join(needs.*.result, ','), 'failure') }}
+        run: |
+          echo "One or more jobs failed."
+          exit 1
+      - name: Validation Success
+        run: echo "All jobs completed successfully."
