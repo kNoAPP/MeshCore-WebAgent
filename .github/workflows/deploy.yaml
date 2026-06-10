@@ -16,13 +16,13 @@
 name: Deploy
 
 on:
-  workflow_run:
-    workflows: [Release]
-    types: [completed]
+  pull_request:
+    branches: [develop]
+    types: [closed]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -34,9 +34,10 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    if:
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+    if: |
+      ${{ github.event_name != 'pull_request' ||
+      (github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release-please--')) }}
 
     steps:
       - name: Checkout
@@ -58,6 +59,15 @@ jobs:
         uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: out
+
+      - name: Upload archive to release
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(jq -r .version package.json)
+          zip -r meshcore-webagent-v${VERSION}.zip out/
+          gh release upload v${VERSION} meshcore-webagent-v${VERSION}.zip
 
   deploy:
     name: Deploy to GitHub Pages

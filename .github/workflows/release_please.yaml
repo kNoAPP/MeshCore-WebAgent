@@ -13,7 +13,7 @@
 #
 # For inquiries, contact: alden@knoban.com
 
-name: Release
+name: ~Release Please
 
 on:
   push:
@@ -31,7 +31,8 @@ jobs:
 
     steps:
       - name: Run release-please
-        uses: googleapis/release-please-action@v5.0.0
-        id: release
+        uses: googleapis/release-please-action@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
