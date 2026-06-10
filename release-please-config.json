@@ -1,20 +1,27 @@
 {
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "packages": {
     ".": {
       "changelog-path": "CHANGELOG.md",
+      "changelog-host": "https://github.com",
       "release-type": "node",
       "bump-minor-pre-major": false,
       "bump-patch-for-minor-pre-major": false,
       "draft": false,
       "prerelease": false,
+      "package-name": "MeshCore-WebAgent",
       "extra-files": [
         {
           "type": "json",
           "path": "public/version.json",
           "jsonpath": "$.version"
         }
-      ]
+      ],
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "include-v-in-release-name": true
     }
   },
-  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
+  "pull-request-title-pattern": "chore: release${component} v${version}",
+  "pull-request-header": "Merging this PR will create a release."
 }
