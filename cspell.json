@@ -2,14 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
   "version": "0.2",
   "language": "en",
-  "dictionaries": [
-    "typescript",
-    "node",
-    "npm",
-    "html",
-    "css",
-    "markdown"
-  ],
+  "dictionaries": ["typescript", "node", "npm", "html", "css", "markdown"],
   "ignorePaths": [
     "node_modules",
     ".next",
