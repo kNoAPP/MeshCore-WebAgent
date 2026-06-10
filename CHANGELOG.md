@@ -1,6 +1,10 @@
 # Changelog
 
-## [1.2.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.1.1...v1.2.0) (2026-06-10)
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [1.0.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.0.0...v1.0.0) (2026-06-10)
 
 
 ### Features
@@ -16,9 +20,3 @@
 * repair first-pass items ([#3](https://github.com/kNoAPP/MeshCore-WebAgent/issues/3)) ([85c93a1](https://github.com/kNoAPP/MeshCore-WebAgent/commit/85c93a1982cdd31fe6f2108b9bd32d181095b9ad))
 * repair initial issues ([#6](https://github.com/kNoAPP/MeshCore-WebAgent/issues/6)) ([8102022](https://github.com/kNoAPP/MeshCore-WebAgent/commit/8102022b8254878f84b9f93b39b784f8e6909977))
 * repair release-please ([#8](https://github.com/kNoAPP/MeshCore-WebAgent/issues/8)) ([0e1d568](https://github.com/kNoAPP/MeshCore-WebAgent/commit/0e1d568a376cbb5ba92881e8d760a814f8e58fa0))
-
-## Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
