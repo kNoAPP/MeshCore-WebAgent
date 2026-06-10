@@ -9,7 +9,7 @@
       "bump-patch-for-minor-pre-major": false,
       "draft": false,
       "prerelease": false,
-      "package-name": "MeshCore-WebAgent",
+      "package-name": "meshcore-webagent",
       "extra-files": [
         {
           "type": "json",
