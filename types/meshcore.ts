@@ -105,6 +105,13 @@ export interface ActiveConvo {
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
+export interface SyncProgress {
+  stage: 'device' | 'contacts' | 'channels' | 'messages';
+  percent: number;
+  current?: number;
+  total?: number;
+}
+
 export type TransportKind = 'usb' | 'ble' | 'wifi';
 
 export interface ITransport {
