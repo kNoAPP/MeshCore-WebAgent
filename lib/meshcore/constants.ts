@@ -58,6 +58,7 @@ export const RESP = {
   PUSH_SEND_CONFIRMED: 0x82,
   PUSH_MSG_WAITING: 0x83,
   PUSH_LOG_RX_DATA: 0x88,
+  PUSH_NEW_ADVERT: 0x8a,
 } as const;
 
 // Raw MeshCore packet header (PUSH_LOG_RX_DATA payload)

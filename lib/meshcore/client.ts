@@ -190,13 +190,23 @@ export class MeshCoreClient {
       if (ack) this.callbacks.onAck?.(ack.ackCode, ack.roundTripMs);
       return;
     }
-    if (type === RESP.PUSH_PATH_UPDATED) {
-      // The mesh found (or lost) a route to a contact — refresh contact data,
-      // coalescing bursts of path updates into one re-sync
+    if (type === RESP.PUSH_PATH_UPDATED || type === RESP.PUSH_ADVERT) {
+      // The mesh found (or lost) a route to a contact, or a known contact
+      // re-advertised — refresh contact data, coalescing bursts into one re-sync
       this.pathSyncTimer ??= setTimeout(() => {
         this.pathSyncTimer = null;
         if (!this.collectingContacts) this.syncContacts();
       }, 2000);
+      return;
+    }
+    if (type === RESP.PUSH_NEW_ADVERT) {
+      // Fired when the radio auto-adds a discovered contact; payload matches
+      // the CONTACT response frame layout
+      const c = parseContact(d);
+      if (c) {
+        this.contacts[c.pubkeyPrefix] = c;
+        this.callbacks.onContactsUpdated?.(this.contacts);
+      }
       return;
     }
     if (type === RESP.PUSH_LOG_RX_DATA) {
@@ -204,7 +214,6 @@ export class MeshCoreClient {
       if (pkt) this.callbacks.onLogRx?.(pkt);
       return;
     }
-    if (type === RESP.PUSH_ADVERT) return;
 
     if (this.collectingContacts) {
       if (type === RESP.CONTACTS_START) {
