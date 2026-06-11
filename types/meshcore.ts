@@ -32,7 +32,7 @@ export interface Channel {
 export type MessageKind = 'channel' | 'direct' | 'system';
 
 export interface Message {
-  id?: string; // stable UUID, assigned on creation and preserved through localStorage
+  id?: string; // stable UUID, assigned on creation and preserved through IndexedDB
   kind: MessageKind;
   text: string;
   own?: boolean;
