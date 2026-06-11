@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.0.0...v1.1.0) (2026-06-11)
+
+
+### Features
+
+* show companion synchronization UI when first connected ([#23](https://github.com/kNoAPP/MeshCore-WebAgent/issues/23)) ([8ebbdd3](https://github.com/kNoAPP/MeshCore-WebAgent/commit/8ebbdd31c5db169faf7d50e1b8fe781e86617eca))
+* use IndexedDB over localStorage for message history ([#21](https://github.com/kNoAPP/MeshCore-WebAgent/issues/21)) ([c697f42](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c697f4200ddfb6004e1381ffafe8ab99df303c3c))
+
 ## [1.0.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.0.0...v1.0.0) (2026-06-10)
 
 
