@@ -162,7 +162,7 @@ export function parseContactMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 17) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   const txtType = d[11];
-  const textOffset = txtType === 2 ? 21 : 17;
+  const textOffset = txtType === 2 ? 20 : 16;
   return {
     snr: new Int8Array([d[1]])[0] / 4,
     pubkeyPrefix: hexBytes(d, 4, 10),
