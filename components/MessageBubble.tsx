@@ -23,6 +23,7 @@ interface Props {
   text: string;
   deviceName: string;
   mentioned: boolean;
+  statusActions?: React.ReactNode;
 }
 
 function renderText(text: string, deviceName: string): React.ReactNode[] {
@@ -47,8 +48,46 @@ function renderText(text: string, deviceName: string): React.ReactNode[] {
   });
 }
 
-export function MessageBubble({ msg, text, deviceName, mentioned }: Props) {
+function statusTick(
+  msg: Message,
+): { glyph: string; title: string; color?: string } | null {
+  if (!msg.own || !msg.status) return null;
+  switch (msg.status) {
+    case 'sending':
+      return { glyph: '⏳', title: 'Sending…' };
+    case 'sent':
+      return msg.kind === 'channel'
+        ? {
+            glyph: '✓',
+            title: 'Broadcast sent — channels have no delivery receipts',
+          }
+        : {
+            glyph: '✓',
+            title: `Sent${msg.routeFlood ? ' via flood' : ''} — awaiting delivery confirmation`,
+          };
+    case 'delivered':
+      return {
+        glyph: '✓✓',
+        title: msg.roundTripMs
+          ? `Delivered in ${(msg.roundTripMs / 1000).toFixed(1)}s`
+          : 'Delivered',
+        color: 'var(--green)',
+      };
+    case 'failed':
+      // The "! No acknowledgment" row rendered below the bubble covers this state
+      return null;
+  }
+}
+
+export function MessageBubble({
+  msg,
+  text,
+  deviceName,
+  mentioned,
+  statusActions,
+}: Props) {
   const time = msg.timestamp ? formatTime(msg.timestamp) : '';
+  const tick = statusTick(msg);
 
   if (msg.system) {
     return (
@@ -74,9 +113,27 @@ export function MessageBubble({ msg, text, deviceName, mentioned }: Props) {
         {renderText(text, deviceName)}
       </div>
       <div className='px-1 text-[10px] text-(--text2)'>
+        {statusActions}
+        {tick && (
+          <span
+            title={tick.title}
+            className='mr-1 cursor-default font-semibold'
+            style={tick.color ? { color: tick.color } : undefined}
+          >
+            {tick.glyph}
+          </span>
+        )}
         {[
           msg.snr != null
             ? `SNR: ${msg.snr > 0 ? '+' : ''}${msg.snr.toFixed(2)} dB`
+            : null,
+          !msg.own && msg.pathLen != null
+            ? msg.pathLen === 0
+              ? 'Direct'
+              : `${msg.pathLen} hop${msg.pathLen === 1 ? '' : 's'}`
+            : null,
+          msg.own && msg.heardByRepeaters
+            ? `Heard by ${msg.heardByRepeaters} repeater${msg.heardByRepeaters === 1 ? '' : 's'}`
             : null,
           time,
         ]

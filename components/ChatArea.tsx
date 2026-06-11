@@ -20,6 +20,8 @@ import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ADV_ICON } from '@/lib/utils';
 import { MessageBubble } from './MessageBubble';
+import { RouteChip } from './RouteChip';
+import { NO_PATH, ADV_TYPE_REPEATER } from '@/lib/meshcore/constants';
 
 const FAVOURITE_FLAG = 0x01;
 const MAX_SUGGESTIONS = 5;
@@ -35,7 +37,7 @@ function getMentionQuery(value: string, cursor: number): string | null {
 
 export function ChatArea() {
   const { activeConvo, msgHistory, contacts, deviceName } = useMeshStore();
-  const { sendMessage } = useMeshCore();
+  const { sendMessage, retryMessage } = useMeshCore();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -66,6 +68,7 @@ export function ChatArea() {
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden';
   }, [text]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -151,6 +154,7 @@ export function ChatArea() {
       >
         <span className='text-lg'>{icon}</span>
         <span className='text-[15px] font-semibold'>{activeConvo.label}</span>
+        {directContact && <RouteChip contact={directContact} />}
         <span className='ml-auto text-xs text-(--text2)'>
           {activeConvo.kind === 'channel'
             ? `Channel ${activeConvo.rawId}`
@@ -207,6 +211,37 @@ export function ChatArea() {
                 text={bodyText}
                 deviceName={deviceName}
                 mentioned={mentioned}
+                statusActions={
+                  msg.own && msg.status === 'failed' ? (
+                    <span
+                      className='mr-1.5 inline-flex items-center gap-1.5'
+                      style={{ color: 'var(--amber)' }}
+                    >
+                      <span title='The message may still have arrived — the acknowledgment can be lost in route'>
+                        No acknowledgment
+                      </span>
+                      <span>·</span>
+                      <button
+                        onClick={() => retryMessage(msg, activeConvo)}
+                        className='font-semibold underline hover:opacity-80'
+                      >
+                        Retry?
+                      </button>
+                      {msg.kind === 'direct' &&
+                        (msg.attempt ?? 0) >= 1 &&
+                        directContact &&
+                        directContact.outPathLen !== NO_PATH && (
+                          <button
+                            onClick={() => retryMessage(msg, activeConvo, true)}
+                            title='Discard the saved route to this contact and resend via flood'
+                            className='font-semibold underline hover:opacity-80'
+                          >
+                            Reset route & retry
+                          </button>
+                        )}
+                    </span>
+                  ) : undefined
+                }
               />
             </div>
           );
@@ -215,63 +250,72 @@ export function ChatArea() {
       </div>
 
       {/* Input bar */}
-      <div
-        className='relative flex shrink-0 flex-col border-t'
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
-        {suggestions.length > 0 && (
-          <div
-            className='absolute bottom-full left-4 right-4 mb-1 overflow-hidden rounded-[10px] border border-(--border) shadow-lg'
-            style={{ background: 'var(--surface2)' }}
-          >
-            {suggestions.map((name) => (
-              <button
-                key={name}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  insertMention(name);
-                }}
-                className='w-full px-3 py-2 text-left text-sm text-(--text) hover:bg-(--surface) hover:text-(--accent)'
-              >
-                @[{name}]
-              </button>
-            ))}
-          </div>
-        )}
-        <div className='flex items-end gap-2 px-4 py-3'>
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={handleTextChange}
-            onKeyDown={handleKeyDown}
-            onKeyUp={handleKeyUp}
-            onClick={
-              handleKeyUp as unknown as React.MouseEventHandler<HTMLTextAreaElement>
-            }
-            rows={1}
-            maxLength={160}
-            placeholder='Type a message… (Enter to send, Shift+Enter for newline)'
-            className='flex-1 resize-none rounded-[10px] border border-(--border) bg-(--surface2) px-3 py-2
+      {directContact?.advType === ADV_TYPE_REPEATER ? (
+        <div
+          className='shrink-0 border-t px-4 py-3 text-center text-xs text-(--text2)'
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          Repeaters can&apos;t be messaged
+        </div>
+      ) : (
+        <div
+          className='relative flex shrink-0 flex-col border-t'
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          {suggestions.length > 0 && (
+            <div
+              className='absolute bottom-full left-4 right-4 mb-1 overflow-hidden rounded-[10px] border border-(--border) shadow-lg'
+              style={{ background: 'var(--surface2)' }}
+            >
+              {suggestions.map((name) => (
+                <button
+                  key={name}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    insertMention(name);
+                  }}
+                  className='w-full px-3 py-2 text-left text-sm text-(--text) hover:bg-(--surface) hover:text-(--accent)'
+                >
+                  @[{name}]
+                </button>
+              ))}
+            </div>
+          )}
+          <div className='flex items-end gap-2 px-4 py-3'>
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={handleTextChange}
+              onKeyDown={handleKeyDown}
+              onKeyUp={handleKeyUp}
+              onClick={
+                handleKeyUp as unknown as React.MouseEventHandler<HTMLTextAreaElement>
+              }
+              rows={1}
+              maxLength={160}
+              placeholder='Type a message… (Enter to send, Shift+Enter for newline)'
+              className='flex-1 resize-none overflow-y-hidden rounded-[10px] border border-(--border) bg-(--surface2) px-3 py-2
               text-sm text-(--text) outline-none
               placeholder:text-(--text2) focus:border-(--accent)'
-            style={{ maxHeight: 120 }}
-          />
-          <span
-            className={`self-center text-[11px] ${charCount > 140 ? 'text-(--yellow)' : 'text-(--text2)'}`}
-          >
-            {charCount}/160
-          </span>
-          <button
-            onClick={handleSend}
-            disabled={!text.trim() || sending}
-            className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent)
+              style={{ maxHeight: 120 }}
+            />
+            <span
+              className={`self-center text-[11px] ${charCount > 140 ? 'text-(--yellow)' : 'text-(--text2)'}`}
+            >
+              {charCount}/160
+            </span>
+            <button
+              onClick={handleSend}
+              disabled={!text.trim() || sending}
+              className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent)
               text-base text-white transition-opacity
               hover:opacity-85 disabled:opacity-40'
-          >
-            ➤
-          </button>
+            >
+              ➤
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

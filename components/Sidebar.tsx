@@ -15,7 +15,7 @@
 
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useLayoutEffect } from 'react';
 import {
   useMeshStore,
   openConvo,
@@ -24,6 +24,7 @@ import {
   unreadCount,
 } from '@/store/meshStore';
 import { ADV_ICON } from '@/lib/utils';
+import { ADV_TYPE_REPEATER } from '@/lib/meshcore/constants';
 
 const FAVOURITE_FLAG = 0x01;
 const MIN_SECTION_PX = 40;
@@ -33,12 +34,39 @@ export function Sidebar() {
   const [channelsHeight, setChannelsHeight] = useState(160);
   const dragStartY = useRef<number | null>(null);
   const dragStartH = useRef(160);
+  const userResized = useRef(false);
   const sidebarRef = useRef<HTMLElement>(null);
   const channelsSectionRef = useRef<HTMLDivElement>(null);
   const channelsContentRef = useRef<HTMLDivElement>(null);
   const channelsHeaderRef = useRef<HTMLDivElement>(null);
+  const dividerRef = useRef<HTMLDivElement>(null);
 
   const sortedChannels = Object.values(channels).sort((a, b) => a.idx - b.idx);
+
+  const measureChannelsFitHeight = useCallback(() => {
+    const section = channelsSectionRef.current;
+    const style = section ? getComputedStyle(section) : null;
+    const sectionPadding = style
+      ? parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+      : 0;
+    const headerH = channelsHeaderRef.current?.offsetHeight ?? 0;
+    const contentH = channelsContentRef.current?.offsetHeight ?? 9999;
+    return Math.ceil(contentH + headerH + sectionPadding) + 1;
+  }, []);
+
+  useLayoutEffect(() => {
+    if (userResized.current || !sidebarRef.current) return;
+    const dividerH = dividerRef.current?.offsetHeight ?? 0;
+    const contactsMatchHeight = Math.floor(
+      (sidebarRef.current.offsetHeight - dividerH) / 2,
+    );
+    setChannelsHeight(
+      Math.max(
+        MIN_SECTION_PX,
+        Math.min(measureChannelsFitHeight(), contactsMatchHeight),
+      ),
+    );
+  }, [sortedChannels.length, measureChannelsFitHeight]);
   const sortedContacts = Object.values(contacts).sort((a, b) => {
     const aFav = a.flags & FAVOURITE_FLAG ? 0 : 1;
     const bFav = b.flags & FAVOURITE_FLAG ? 0 : 1;
@@ -51,20 +79,13 @@ export function Sidebar() {
       e.preventDefault();
       dragStartY.current = e.clientY;
       dragStartH.current = channelsHeight;
+      userResized.current = true;
 
       const onMove = (ev: MouseEvent) => {
         if (dragStartY.current === null || !sidebarRef.current) return;
         const delta = ev.clientY - dragStartY.current;
-        const section = channelsSectionRef.current;
-        const style = section ? getComputedStyle(section) : null;
-        const sectionPadding = style
-          ? parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
-          : 0;
-        const headerH = channelsHeaderRef.current?.offsetHeight ?? 0;
-        const contentH = channelsContentRef.current?.offsetHeight ?? 9999;
-        const contentMax = Math.ceil(contentH + headerH + sectionPadding) + 1;
         const next = Math.min(
-          contentMax,
+          measureChannelsFitHeight(),
           Math.max(MIN_SECTION_PX, dragStartH.current + delta),
         );
         setChannelsHeight(next);
@@ -79,7 +100,7 @@ export function Sidebar() {
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
     },
-    [channelsHeight],
+    [channelsHeight, measureChannelsFitHeight],
   );
 
   return (
@@ -130,6 +151,7 @@ export function Sidebar() {
 
       {/* Draggable divider */}
       <div
+        ref={dividerRef}
         onMouseDown={onDividerMouseDown}
         className='group flex h-2 shrink-0 cursor-row-resize items-center justify-center'
         style={{
@@ -153,6 +175,7 @@ export function Sidebar() {
             const unread = unreadCount(msgHistory, id);
             const active = activeConvo?.id === id;
             const isFav = (c.flags & FAVOURITE_FLAG) !== 0;
+            const isRepeater = c.advType === ADV_TYPE_REPEATER;
             return (
               <SidebarItem
                 key={id}
@@ -160,6 +183,8 @@ export function Sidebar() {
                 label={c.name || c.pubkeyPrefix.slice(0, 8)}
                 active={active}
                 unread={unread}
+                disabled={isRepeater}
+                title={isRepeater ? 'Repeaters can’t be messaged' : undefined}
                 onClick={() =>
                   openConvo({
                     kind: 'direct',
@@ -182,21 +207,29 @@ function SidebarItem({
   label,
   active,
   unread,
+  disabled,
+  title,
   onClick,
 }: {
   icon: string;
   label: string;
   active: boolean;
   unread: number;
+  disabled?: boolean;
+  title?: string;
   onClick: () => void;
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      title={title}
       className={`flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm transition-colors ${
-        active
-          ? 'bg-[rgba(79,142,247,0.15)] text-(--accent)'
-          : 'text-(--text) hover:bg-(--surface2)'
+        disabled
+          ? 'cursor-default text-(--text2)'
+          : active
+            ? 'bg-[rgba(79,142,247,0.15)] text-(--accent)'
+            : 'text-(--text) hover:bg-(--surface2)'
       }`}
     >
       <span className='shrink-0 text-base'>{icon}</span>

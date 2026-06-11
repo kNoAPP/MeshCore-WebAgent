@@ -79,14 +79,22 @@ export function buildSendChannelMsg(
 export function buildSendDirectMsg(
   pubkeyPrefix6: Uint8Array,
   text: string,
+  attempt = 0,
 ): Uint8Array {
   const textBytes = enc.encode(text.slice(0, 160));
   const p = new Uint8Array(13 + textBytes.length);
   p[0] = CMD.SEND_TXT_MSG;
   p[1] = 0x00; // txt_type = plain
-  p[2] = 0x00; // attempt
+  p[2] = attempt & 0xff;
   new DataView(p.buffer).setUint32(3, Math.floor(Date.now() / 1000), true);
   p.set(pubkeyPrefix6.slice(0, 6), 7);
   p.set(textBytes, 13);
+  return p;
+}
+
+export function buildResetPath(pubkey: Uint8Array): Uint8Array {
+  const p = new Uint8Array(1 + 32);
+  p[0] = CMD.RESET_PATH;
+  p.set(pubkey.slice(0, 32), 1);
   return p;
 }
