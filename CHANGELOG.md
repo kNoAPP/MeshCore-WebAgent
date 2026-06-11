@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.1](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.1.0...v1.1.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* deploy new web artifact on release ([47d430e](https://github.com/kNoAPP/MeshCore-WebAgent/commit/47d430eac4821db5cbb1b21bbe71ab75b9964749))
+
 ## [1.1.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.0.0...v1.1.0) (2026-06-11)
 
 
