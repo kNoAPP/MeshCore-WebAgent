@@ -16,9 +16,7 @@
 name: Deploy
 
 on:
-  pull_request:
-    branches: [develop]
-    types: [closed]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -34,10 +32,6 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    if: |
-      ${{ github.event_name != 'pull_request' ||
-      (github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'release-please--')) }}
 
     steps:
       - name: Checkout
@@ -61,7 +55,7 @@ jobs:
           path: out
 
       - name: Upload archive to release
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

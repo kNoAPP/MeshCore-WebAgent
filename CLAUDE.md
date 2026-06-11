@@ -4,7 +4,7 @@
 
 Browser-based companion client for [MeshCore](https://github.com/meshcore-dev/MeshCore) LoRa mesh radios. Fully client-side Next.js static site — no backend. Connects to companion radios over USB Serial (Web Serial API), Bluetooth LE (Nordic UART service), or WiFi WebSocket.
 
-Live at **[kn0.app](https://kn0.app)** · Deployed via GitHub Pages from `main`.
+Live at **[kn0.app](https://kn0.app)** · Deployed via GitHub Pages on each release.
 
 ## Dev Commands
 
@@ -59,7 +59,7 @@ The binary Companion Protocol is documented at [docs.meshcore.io/companion_proto
 
 ## Deployment
 
-GitHub Pages with custom domain `kn0.app`. The build uses `output: 'export'` in `next.config.ts` and produces a static site in `out/`. Push to `main` triggers the `deploy` workflow automatically.
+GitHub Pages with custom domain `kn0.app`. The build uses `output: 'export'` in `next.config.ts` and produces a static site in `out/`. Releases are managed by release-please on `develop`: merging the release PR creates a GitHub release and triggers the `deploy` workflow (callable manually via `workflow_dispatch`).
 
 ## What to Avoid
 

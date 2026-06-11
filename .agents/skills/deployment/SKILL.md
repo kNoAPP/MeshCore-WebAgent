@@ -31,10 +31,11 @@ The live site is hosted at **[kn0.app](https://kn0.app)** via GitHub Pages.
 
 ## How It Works
 
-1. Push to `main` triggers `.github/workflows/deploy.yaml`.
-2. The workflow runs `npm run build`, which produces a static site in `out/` (configured via `output: 'export'` in `next.config.ts`).
-3. The `out/` directory is uploaded as a GitHub Pages artifact and deployed.
-4. `public/CNAME` contains `kn0.app` — GitHub Pages uses this for the custom domain.
+1. Every push to `develop` runs `.github/workflows/release_please.yaml`, which maintains a release PR.
+2. Merging that release PR creates a GitHub release, and the workflow then calls `.github/workflows/deploy.yaml` (reusable via `workflow_call`; also runnable manually with `workflow_dispatch`). Deploys must run in a `push`-to-`develop` context — the `github-pages` environment protection rules reject any other ref, including `refs/pull/N/merge`.
+3. The workflow runs `npm run build`, which produces a static site in `out/` (configured via `output: 'export'` in `next.config.ts`).
+4. The `out/` directory is uploaded as a GitHub Pages artifact and deployed, and a zip of the build is attached to the GitHub release.
+5. `public/CNAME` contains `kn0.app` — GitHub Pages uses this for the custom domain.
 
 ## Critical Constraints
 
