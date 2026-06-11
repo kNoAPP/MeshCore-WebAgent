@@ -22,6 +22,7 @@ import type {
   BatteryInfo,
   StatsResult,
   Message,
+  SyncProgress,
 } from '@/types/meshcore';
 import { RESP } from './constants';
 import {
@@ -67,6 +68,7 @@ export interface MeshCoreCallbacks {
   onDeviceInfo?: (info: DeviceInfo) => void;
   onBattery?: (info: BatteryInfo) => void;
   onAck?: () => void;
+  onSyncProgress?: (progress: SyncProgress) => void;
 }
 
 export class MeshCoreClient {
@@ -81,6 +83,9 @@ export class MeshCoreClient {
   private collectingContacts = false;
   private contactsStarted = false;
   private contactsResolve: (() => void) | null = null;
+  private contactsTotal = 0;
+  private contactsSeen = 0;
+  private initialSync = false;
 
   constructor(
     private transport: ITransport,
@@ -89,16 +94,38 @@ export class MeshCoreClient {
 
   async init(): Promise<void> {
     this.transport.startReading((d) => this.handleFrame(d));
+    this.initialSync = true;
+    this.reportSync('device', 0);
     try {
       await this.cmd(buildAppStart(), [RESP.SELF_INFO], 6000);
     } catch {}
+    this.reportSync('device', 5);
     try {
       await this.cmd(buildDeviceQuery(), [RESP.DEVICE_INFO], 5000);
     } catch {}
+    this.reportSync('contacts', 10);
     await this.syncContacts();
     await this.syncChannels();
     await this.pollMessages();
+    this.reportSync('messages', 100);
+    this.initialSync = false;
     this.pollTimer = setInterval(() => this.pollMessages(), 5000);
+  }
+
+  private reportSync(
+    stage: SyncProgress['stage'],
+    percent: number,
+    current?: number,
+    total?: number,
+  ): void {
+    if (this.initialSync) {
+      this.callbacks.onSyncProgress?.({
+        stage,
+        percent: Math.round(percent),
+        current,
+        total,
+      });
+    }
   }
 
   private cmd(
@@ -159,11 +186,27 @@ export class MeshCoreClient {
     if (this.collectingContacts) {
       if (type === RESP.CONTACTS_START) {
         this.contactsStarted = true;
+        // Bytes 1-4: uint32 LE total contact count
+        this.contactsTotal =
+          d.length >= 5
+            ? new DataView(d.buffer, d.byteOffset).getUint32(1, true)
+            : 0;
+        this.contactsSeen = 0;
         return;
       }
       if (type === RESP.CONTACT && this.contactsStarted) {
         const c = parseContact(d);
         if (c) this.contacts[c.pubkeyPrefix] = c;
+        this.contactsSeen++;
+        if (this.contactsTotal > 0) {
+          const frac = Math.min(1, this.contactsSeen / this.contactsTotal);
+          this.reportSync(
+            'contacts',
+            10 + 35 * frac,
+            this.contactsSeen,
+            this.contactsTotal,
+          );
+        }
         return;
       }
       if (type === RESP.END_OF_CONTACTS) {
@@ -226,6 +269,7 @@ export class MeshCoreClient {
 
   private async syncChannels(): Promise<void> {
     for (let i = 0; i <= 7; i++) {
+      this.reportSync('channels', 45 + (30 * i) / 8, i + 1, 8);
       try {
         await this.cmd(buildGetChannelInfo(i), [RESP.CHANNEL_INFO], 2000);
       } catch {}
@@ -246,6 +290,8 @@ export class MeshCoreClient {
     ];
     try {
       for (let i = 0; i < 64; i++) {
+        // Queue depth is unknown ahead of time — creep toward the end of the bar
+        this.reportSync('messages', Math.min(99, 75 + i * 2), i);
         const d = await this.cmd(buildSyncNextMessage(), msgTypes, 3000);
         if (d[0] === RESP.NO_MORE_MESSAGES) break;
       }

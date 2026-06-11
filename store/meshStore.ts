@@ -23,6 +23,7 @@ import type {
   ActiveConvo,
   ConnectionStatus,
   BatteryInfo,
+  SyncProgress,
 } from '@/types/meshcore';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { convoId } from '@/lib/utils';
@@ -39,6 +40,7 @@ interface MeshState {
   status: ConnectionStatus;
   deviceName: string;
   battery: BatteryInfo | null;
+  syncProgress: SyncProgress | null;
 
   // Mesh data
   contacts: Record<string, Contact>;
@@ -58,6 +60,7 @@ interface MeshActions {
   setStatus: (s: ConnectionStatus) => void;
   setDeviceName: (name: string) => void;
   setBattery: (b: BatteryInfo | null) => void;
+  setSyncProgress: (p: SyncProgress | null) => void;
   setContacts: (c: Record<string, Contact>) => void;
   setChannels: (ch: Record<number, Channel>) => void;
   addMessage: (id: string, msg: Message) => void;
@@ -75,6 +78,7 @@ const initialState: MeshState = {
   status: 'disconnected',
   deviceName: '',
   battery: null,
+  syncProgress: null,
   contacts: {},
   channels: {},
   msgHistory: {},
@@ -92,6 +96,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setStatus: (status) => set({ status }),
   setDeviceName: (deviceName) => set({ deviceName }),
   setBattery: (battery) => set({ battery }),
+  setSyncProgress: (syncProgress) => set({ syncProgress }),
   setContacts: (contacts) => set({ contacts }),
   setChannels: (channels) => set({ channels }),
 

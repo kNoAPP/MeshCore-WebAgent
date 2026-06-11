@@ -33,6 +33,7 @@ export function useMeshCore() {
     setStatus,
     setDeviceName,
     setBattery,
+    setSyncProgress,
     setContacts,
     setChannels,
     addMessage,
@@ -50,6 +51,7 @@ export function useMeshCore() {
         onSelfInfo: (info) => setDeviceName(info.name),
         onDeviceInfo: () => {},
         onBattery: (b) => setBattery(b),
+        onSyncProgress: (p) => setSyncProgress(p),
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
         onAck: () => showToast('✓ Message delivered', 'success'),
@@ -77,6 +79,7 @@ export function useMeshCore() {
     [
       setDeviceName,
       setBattery,
+      setSyncProgress,
       setContacts,
       setChannels,
       addMessage,
@@ -92,6 +95,7 @@ export function useMeshCore() {
         wireClient(c);
         setClient(c);
         await c.init();
+        setSyncProgress(null);
         setStatus('connected');
         setDeviceName(
           c.selfInfo?.name ?? c.deviceInfo?.model ?? 'MeshCore Device',
@@ -124,6 +128,7 @@ export function useMeshCore() {
           });
         }
       } catch (err) {
+        setSyncProgress(null);
         setStatus('disconnected');
         showToast(`Connection failed: ${(err as Error).message}`, 'error');
       }
@@ -133,6 +138,7 @@ export function useMeshCore() {
       setClient,
       setDeviceName,
       setBattery,
+      setSyncProgress,
       showToast,
       wireClient,
       restoreHistory,
