@@ -29,7 +29,7 @@ type-check, spell-check, build.
 app/              Next.js App Router entry (page.tsx → AppShell)
 components/       React UI (AppShell, Header, Sidebar, ChatArea, ConnectPanel, ...)
 hooks/
-  useMeshCore.ts  Wires MeshCoreClient ↔ Zustand store ↔ IndexedDB persistence
+  useMeshCore.ts  Wires MeshCoreClient ↔ Zustand store ↔ localStorage persistence
 lib/
   meshcore/
     client.ts     MeshCoreClient — command/response protocol, 5s polling loop
@@ -38,7 +38,7 @@ lib/
     frameParser.ts 0x3C-delimited frame parsing (USB + WiFi)
     parsers.ts    Binary response decoding → typed objects
     constants.ts  CMD/RESP codes, BLE UUIDs
-  storage.ts      IndexedDB with AES-GCM encryption (key derived from channel secret + pubkey)
+  storage.ts      localStorage with AES-GCM encryption (key derived from channel secret + pubkey)
 store/
   meshStore.ts    Zustand store — connection state, contacts, channels, messages, UI state
 types/

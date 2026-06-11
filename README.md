@@ -12,7 +12,7 @@ Live at **[kn0.app](https://kn0.app)**
 - **Channels & direct messages** — Up to 8 named channels with 16-byte secrets; encrypted 1-to-1 DMs
 - **Contact management** — Chat nodes, repeaters, and room servers with hop-distance tracking and favorites
 - **Device stats** — Battery, RSSI/SNR, packet counters, uptime, and storage at a glance
-- **Persistent history** — Messages stored in IndexedDB with AES-GCM encryption, restored on reconnect
+- **Persistent history** — Messages stored in localStorage with AES-GCM encryption, restored on reconnect
 - **Fully client-side** — No server, no account, no cloud; everything runs in your browser
 
 ## Browser Requirements
@@ -62,7 +62,7 @@ components/       React UI components
 hooks/            useMeshCore — device communication hook
 lib/
   meshcore/       Binary protocol implementation (client, transports, parsers)
-  storage.ts      IndexedDB persistence with AES-GCM encryption
+  storage.ts      localStorage persistence with AES-GCM encryption
 store/            Zustand global state
 types/            TypeScript interfaces
 ```
