@@ -37,7 +37,7 @@ You can expect an acknowledgement within 72 hours and a resolution timeline with
 
 ## Scope
 
-This project is a **fully client-side** web application. There is no backend server, no authentication system, and no stored credentials beyond what the browser's localStorage holds locally. The primary security surface is:
+This project is a **fully client-side** web application. There is no backend server, no authentication system, and no stored credentials beyond what the browser's IndexedDB holds locally. The primary security surface is:
 
 - AES-GCM encryption of locally stored message history (`lib/storage.ts`)
 - Web Serial / Web Bluetooth permission handling in the browser

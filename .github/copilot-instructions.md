@@ -10,7 +10,7 @@ Fully client-side Next.js static web app for communicating with [MeshCore](https
 - **Tailwind CSS 4** for layout; CSS variables in `app/globals.css` for theming
 - **Zustand** for global state (`store/meshStore.ts`)
 - **Web Serial API**, **Web Bluetooth API**, **WebSocket** for hardware connectivity
-- **localStorage** + AES-GCM for encrypted local message persistence (`lib/storage.ts`)
+- **IndexedDB** + AES-GCM for encrypted local message persistence (`lib/storage.ts`)
 
 ## Architecture
 

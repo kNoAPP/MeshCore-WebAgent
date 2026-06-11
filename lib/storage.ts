@@ -15,10 +15,17 @@
 
 import type { Message } from '@/types/meshcore';
 
-const PREFIX = 'meshcore:radio:';
+const DB_NAME = 'meshcore';
+const DB_VERSION = 1;
+const STORE_NAME = 'radios';
 
 export interface PersistedRadioData {
   msgHistory: Record<string, Message[]>;
+}
+
+interface EncryptedRecord {
+  iv: Uint8Array<ArrayBuffer>;
+  data: ArrayBuffer;
 }
 
 // Derive an AES-256-GCM key from the radio's channel secrets and pubkey.
@@ -62,14 +69,43 @@ export async function deriveStorageKey(
   );
 }
 
-function toBase64(buf: ArrayBuffer): string {
-  return btoa(
-    Array.from(new Uint8Array(buf), (b) => String.fromCharCode(b)).join(''),
-  );
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+function openDB(): Promise<IDBDatabase> {
+  dbPromise ??= new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(STORE_NAME);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => {
+      dbPromise = null;
+      reject(req.error);
+    };
+  });
+  return dbPromise;
 }
 
-function fromBase64(s: string): Uint8Array {
-  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function idbGet(pubkey: string): Promise<EncryptedRecord | undefined> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const req = db
+      .transaction(STORE_NAME, 'readonly')
+      .objectStore(STORE_NAME)
+      .get(pubkey);
+    req.onsuccess = () => resolve(req.result as EncryptedRecord | undefined);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbPut(pubkey: string, record: EncryptedRecord): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(record, pubkey);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 export async function saveRadioData(
@@ -85,11 +121,7 @@ export async function saveRadioData(
       key,
       plaintext.buffer as ArrayBuffer,
     );
-    const payload = JSON.stringify({
-      iv: toBase64(iv.buffer as ArrayBuffer),
-      data: toBase64(ciphertext),
-    });
-    localStorage.setItem(PREFIX + pubkey, payload);
+    await idbPut(pubkey, { iv, data: ciphertext });
   } catch {}
 }
 
@@ -98,15 +130,12 @@ export async function loadRadioData(
   key: CryptoKey,
 ): Promise<PersistedRadioData | null> {
   try {
-    const raw = localStorage.getItem(PREFIX + pubkey);
-    if (!raw) return null;
-    const { iv, data } = JSON.parse(raw) as { iv: string; data: string };
-    const ivBytes = fromBase64(iv);
-    const cipherbytes = fromBase64(data);
+    const record = await idbGet(pubkey);
+    if (!record) return null;
     const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: ivBytes.buffer as ArrayBuffer },
+      { name: 'AES-GCM', iv: record.iv },
       key,
-      cipherbytes.buffer as ArrayBuffer,
+      record.data,
     );
     return JSON.parse(
       new TextDecoder().decode(plaintext),
