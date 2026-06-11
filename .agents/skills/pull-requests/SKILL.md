@@ -22,7 +22,7 @@ description: >
 license: Proprietary. See LICENSE for complete terms.
 metadata:
   author: kNoAPP
-  version: '1.0.0'
+  version: '1.1.0'
 ---
 
 # Pull Request Requirements
@@ -31,6 +31,6 @@ metadata:
 - PR titles must follow Conventional Commits and use imperative mood.
 - For the "Type of Change" section, select all applicable types based on the changes made. Do not delete the other options.
 - Do not delete the comments in the PR template; replace the "None" placeholders with appropriate content.
-- If the PR touches `lib/meshcore/`, fill out the "Protocol Changes" section with the affected commands and a link to the relevant [Companion Protocol docs](https://docs.meshcore.io/companion_protocol/).
-- All four checks must pass before requesting review: `npm run lint`, `npm run type-check`, `npm run spell-check`, `npm run build`.
+- If the PR touches `lib/meshcore/`, the Description must list the affected commands and link to the relevant [Companion Protocol docs](https://docs.meshcore.io/companion_protocol/).
+- All five checks must pass before requesting review: `npm run spell-check`, `npm run format:check`, `npm run lint`, `npm run type-check`, `npm run build`.
 - Request review from `@kNoAPP`.

@@ -1,12 +1,33 @@
 # MeshCore-WebAgent — Agent Instructions
 
+This is the canonical instruction set for all coding agents (Claude Code, GitHub Copilot,
+and others). `CLAUDE.md` and `.github/copilot-instructions.md` defer to this file — make
+instruction changes here only.
+
+## New Sessions
+
+Please explore this codebase and online documentation available for MeshCore:
+
+- https://docs.meshcore.io
+- https://github.com/meshcore-dev/MeshCore
+
+Get prepared to work within the codebase and interact with MeshCore companion radios.
+
 ## Project Overview
 
 Browser-based companion client for [MeshCore](https://github.com/meshcore-dev/MeshCore) LoRa
 mesh radios. Fully client-side Next.js static site — no backend. Connects to companion radios
 over USB Serial (Web Serial API), Bluetooth LE (Nordic UART service), or WiFi WebSocket.
 
-Live at **[kn0.app](https://kn0.app)** · Deployed via GitHub Pages from `main`.
+Live at **[kn0.app](https://kn0.app)** · Deployed via GitHub Pages on each release.
+
+## Stack
+
+- **Next.js** (App Router, `output: 'export'`) + **React** + **TypeScript** (strict)
+- **Tailwind CSS** for layout; CSS variables in `app/globals.css` for theming
+- **Zustand** for global state (`store/meshStore.ts`)
+- **Web Serial API**, **Web Bluetooth API**, **WebSocket** for hardware connectivity
+- **IndexedDB** + AES-GCM for encrypted local message persistence (`lib/storage.ts`)
 
 ## Dev Commands
 
@@ -20,8 +41,8 @@ npm run type-check    # tsc --noEmit
 npm run spell-check   # cspell
 ```
 
-Run all checks before pushing — CI enforces all of them in this order: format, lint,
-type-check, spell-check, build.
+Run all checks before pushing. CI enforces all of them: spell-check, format check, lint,
+type-check, build.
 
 ## Architecture
 
@@ -35,7 +56,7 @@ lib/
     client.ts     MeshCoreClient — command/response protocol, 5s polling loop
     transports.ts USB / BLE / WiFi transport implementations (ITransport interface)
     frames.ts     Binary command encoding
-    frameParser.ts 0x3C-delimited frame parsing (USB + WiFi)
+    frameParser.ts Inbound 0x3C-delimited frame parsing (USB + WiFi)
     parsers.ts    Binary response decoding → typed objects
     constants.ts  CMD/RESP codes, BLE UUIDs
   storage.ts      IndexedDB with AES-GCM encryption (key derived from channel secret + pubkey)
@@ -44,6 +65,10 @@ store/
 types/
   meshcore.ts     Shared TypeScript interfaces (Contact, Channel, Message, ...)
 ```
+
+Core data flow: `MeshCoreClient` polls the radio every 5 seconds and fires callbacks →
+`useMeshCore` bridges the client to the Zustand store → React components re-render from
+store subscriptions.
 
 ## Agent Skills
 
@@ -64,7 +89,7 @@ working in that area:
 - **TypeScript strict mode** — no `any`, no `// @ts-ignore` without explanation
 - **State changes go through Zustand actions** — not local component state
 - **Tailwind for layout/spacing**, CSS variables for theming (`app/globals.css`)
-- **No new abstractions** beyond what the immediate task requires
+- **No new abstractions** beyond what the immediate task requires — three similar lines is fine
 - **Prettier formats on save** — config is in `.prettierrc`; run `npm run format` if needed
 
 ## Protocol Layer
@@ -73,21 +98,24 @@ The binary Companion Protocol is documented at
 [docs.meshcore.io/companion_protocol](https://docs.meshcore.io/companion_protocol/). When
 touching `lib/meshcore/`:
 
-- Command bytes are in `constants.ts` (`CMD_*` / `RESP_*`)
-- Frame format: `0x3C` delimiter + 2-byte length + payload
-- BLE MTU is 23 bytes by default; larger frames require negotiated MTU
+- Command and response bytes are in `constants.ts` (`CMD` / `RESP` const objects)
+- USB/WiFi frame format: delimiter + 2-byte LE length + payload — `0x3C` inbound, `0x3E` outbound
+- BLE has no frame delimiter: each GATT notification is one frame; outbound writes are
+  chunked at 512 bytes
 - Changes to the protocol layer need a PR description referencing the affected commands
 
 ## Deployment
 
 GitHub Pages with custom domain `kn0.app`. The build uses `output: 'export'` in
-`next.config.ts` and produces a static site in `out/`. Push to `main` triggers the `deploy`
-workflow automatically.
+`next.config.ts` and produces a static site in `out/`. Releases are managed by
+release-please on `develop`: merging the release PR creates a GitHub release and triggers
+the `deploy` workflow (callable manually via `workflow_dispatch`).
 
 ## What to Avoid
 
 - Do not add a backend, authentication, or any server-side code — this is intentionally
   serverless
+- Do not change `output: 'export'` (e.g. to `'standalone'`) — required for GitHub Pages
 - Do not use `useEffect` for state that belongs in Zustand
 - Do not import from `node:` built-ins — this runs in the browser
 - Do not add error handling for scenarios that can't happen in the browser environment

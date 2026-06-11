@@ -21,7 +21,7 @@ description: >
 license: Proprietary. See LICENSE for complete terms.
 metadata:
   author: kNoAPP
-  version: '1.0.0'
+  version: '1.1.0'
 ---
 
 # Commit Conventions
@@ -45,10 +45,16 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/).
 | `feat`     | New feature or capability           |
 | `fix`      | Bug fix                             |
 | `docs`     | Documentation only                  |
+| `style`    | Formatting-only code changes        |
 | `refactor` | Code change with no behavior change |
+| `perf`     | Performance improvement             |
 | `test`     | Adding or updating tests            |
+| `build`    | Build system or external deps       |
 | `ci`       | CI/CD workflow changes              |
 | `chore`    | Dependency updates, tooling, config |
+| `revert`   | Revert previous changes             |
+
+Breaking changes append `!` to the type: `feat!: drop support for v1 frames`.
 
 ## Rules
 
