@@ -13,6 +13,12 @@
 //
 // For inquiries, contact: alden@knoban.com
 
+export function toHex(bytes: Uint8Array, separator = ''): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join(separator);
+}
+
 export function convoId(
   kind: 'channel' | 'direct',
   rawId: string | number,

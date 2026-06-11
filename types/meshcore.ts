@@ -19,7 +19,8 @@ export interface Contact {
   pubkeyBytes: Uint8Array;
   advType: number; // 0=none 1=chat 2=repeater 3=room
   flags: number;
-  outPathLen: number;
+  outPathLen: number; // 255 = no route (flood), 0 = direct neighbor, 1-63 = hops
+  path: Uint8Array; // one repeater hash byte per hop
   name: string;
 }
 
@@ -31,6 +32,10 @@ export interface Channel {
 
 export type MessageKind = 'channel' | 'direct' | 'system';
 
+// 'sent' means the radio transmitted it; 'delivered' means the recipient's
+// radio ACKed (direct messages only — channel broadcasts have no receipts)
+export type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'failed';
+
 export interface Message {
   id?: string; // stable UUID, assigned on creation and preserved through IndexedDB
   kind: MessageKind;
@@ -41,8 +46,31 @@ export interface Message {
   pubkeyPrefix?: string;
   senderName?: string;
   snr?: number | null;
+  pathLen?: number; // hops the received message traveled (0 = heard directly)
   system?: boolean;
+  status?: DeliveryStatus;
+  routeFlood?: boolean;
+  roundTripMs?: number;
+  attempt?: number;
+  heardByRepeaters?: number;
   _unread?: boolean;
+}
+
+export interface RawRxPacket {
+  snr: number;
+  rssi: number;
+  routeType: number;
+  payloadType: number;
+  hopCount: number;
+  hashSize: number; // bytes per path hop hash (1 or 2)
+  path: Uint8Array;
+  payload: Uint8Array;
+}
+
+export interface SendReceipt {
+  routeFlood: boolean;
+  expectedAck: number;
+  suggestedTimeoutMs: number;
 }
 
 export interface SelfInfo {

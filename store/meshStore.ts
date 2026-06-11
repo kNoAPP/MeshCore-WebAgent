@@ -64,6 +64,7 @@ interface MeshActions {
   setContacts: (c: Record<string, Contact>) => void;
   setChannels: (ch: Record<number, Channel>) => void;
   addMessage: (id: string, msg: Message) => void;
+  updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
   markRead: (id: string) => void;
   restoreHistory: (persisted: Record<string, Message[]>) => void;
@@ -112,6 +113,18 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       return { msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] } };
     }),
 
+  updateMessage: (id, msgId, patch) =>
+    set((state) => {
+      const msgs = state.msgHistory[id];
+      if (!msgs) return {};
+      return {
+        msgHistory: {
+          ...state.msgHistory,
+          [id]: msgs.map((m) => (m.id === msgId ? { ...m, ...patch } : m)),
+        },
+      };
+    }),
+
   setActiveConvo: (activeConvo) => set({ activeConvo }),
 
   restoreHistory: (persisted) =>
@@ -127,6 +140,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         const old = (persisted[id] ?? []).map((m) => ({
           ...m,
           id: m.id ?? crypto.randomUUID(),
+          // A send still in flight when the session ended can never confirm
+          status: m.status === 'sending' ? ('failed' as const) : m.status,
           _unread: false,
         }));
         merged[id] = [...old, ...(state.msgHistory[id] ?? [])];

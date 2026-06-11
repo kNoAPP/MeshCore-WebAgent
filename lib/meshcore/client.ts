@@ -23,6 +23,8 @@ import type {
   StatsResult,
   Message,
   SyncProgress,
+  SendReceipt,
+  RawRxPacket,
 } from '@/types/meshcore';
 import { RESP } from './constants';
 import {
@@ -35,6 +37,7 @@ import {
   buildGetStats,
   buildSendChannelMsg,
   buildSendDirectMsg,
+  buildResetPath,
 } from './frames';
 import {
   parseSelfInfo,
@@ -46,6 +49,9 @@ import {
   parseChannelMsgV3,
   parseContactMsg,
   parseContactMsgV3,
+  parseMsgSent,
+  parseSendConfirmed,
+  parseLogRxData,
   parseStatsCore,
   parseStatsRadio,
   parseStatsPackets,
@@ -67,7 +73,8 @@ export interface MeshCoreCallbacks {
   onSelfInfo?: (info: SelfInfo) => void;
   onDeviceInfo?: (info: DeviceInfo) => void;
   onBattery?: (info: BatteryInfo) => void;
-  onAck?: () => void;
+  onAck?: (ackCode: number, roundTripMs: number) => void;
+  onLogRx?: (pkt: RawRxPacket) => void;
   onSyncProgress?: (progress: SyncProgress) => void;
 }
 
@@ -79,6 +86,7 @@ export class MeshCoreClient {
 
   private handlers: PendingCmd[] = [];
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pathSyncTimer: ReturnType<typeof setTimeout> | null = null;
   private polling = false;
   private collectingContacts = false;
   private contactsStarted = false;
@@ -178,10 +186,25 @@ export class MeshCoreClient {
       return;
     }
     if (type === RESP.PUSH_SEND_CONFIRMED) {
-      this.callbacks.onAck?.();
+      const ack = parseSendConfirmed(d);
+      if (ack) this.callbacks.onAck?.(ack.ackCode, ack.roundTripMs);
       return;
     }
-    if (type === RESP.PUSH_ADVERT || type === RESP.PUSH_PATH_UPDATED) return;
+    if (type === RESP.PUSH_PATH_UPDATED) {
+      // The mesh found (or lost) a route to a contact — refresh contact data,
+      // coalescing bursts of path updates into one re-sync
+      this.pathSyncTimer ??= setTimeout(() => {
+        this.pathSyncTimer = null;
+        if (!this.collectingContacts) this.syncContacts();
+      }, 2000);
+      return;
+    }
+    if (type === RESP.PUSH_LOG_RX_DATA) {
+      const pkt = parseLogRxData(d);
+      if (pkt) this.callbacks.onLogRx?.(pkt);
+      return;
+    }
+    if (type === RESP.PUSH_ADVERT) return;
 
     if (this.collectingContacts) {
       if (type === RESP.CONTACTS_START) {
@@ -309,13 +332,31 @@ export class MeshCoreClient {
     );
   }
 
-  async sendDirectMessage(contact: Contact, text: string): Promise<void> {
+  async sendDirectMessage(
+    contact: Contact,
+    text: string,
+    attempt = 0,
+  ): Promise<SendReceipt | null> {
     const prefix = contact.pubkeyBytes.slice(0, 6);
-    await this.cmd(
-      buildSendDirectMsg(prefix, text),
+    const d = await this.cmd(
+      buildSendDirectMsg(prefix, text, attempt),
       [RESP.SENT, RESP.OK],
       10000,
     );
+    return d[0] === RESP.SENT ? parseMsgSent(d) : null;
+  }
+
+  async resetPath(contact: Contact): Promise<void> {
+    await this.cmd(buildResetPath(contact.pubkeyBytes), [RESP.OK], 5000);
+    const c = this.contacts[contact.pubkeyPrefix];
+    if (c) {
+      this.contacts[contact.pubkeyPrefix] = {
+        ...c,
+        outPathLen: 255,
+        path: new Uint8Array(0),
+      };
+      this.callbacks.onContactsUpdated?.(this.contacts);
+    }
   }
 
   async getBattery(): Promise<BatteryInfo | null> {
@@ -355,6 +396,7 @@ export class MeshCoreClient {
 
   destroy(): void {
     if (this.pollTimer) clearInterval(this.pollTimer);
+    if (this.pathSyncTimer) clearTimeout(this.pathSyncTimer);
     this.transport.close();
   }
 }

@@ -57,7 +57,16 @@ export const RESP = {
   PUSH_PATH_UPDATED: 0x81,
   PUSH_SEND_CONFIRMED: 0x82,
   PUSH_MSG_WAITING: 0x83,
+  PUSH_LOG_RX_DATA: 0x88,
 } as const;
+
+// Raw MeshCore packet header (PUSH_LOG_RX_DATA payload)
+export const ROUTE_TYPE_FLOOD = 0x01;
+export const PAYLOAD_TYPE_GRP_TXT = 0x05;
+
+export const ADV_TYPE_REPEATER = 2;
+// Contact.outPathLen sentinel: no route known, messages flood
+export const NO_PATH = 255;
 
 export const BLE_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 export const BLE_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';

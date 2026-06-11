@@ -15,7 +15,7 @@
 
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { MeshCoreClient } from '@/lib/meshcore/client';
 import {
   createUSBTransport,
@@ -24,7 +24,147 @@ import {
 } from '@/lib/meshcore/transports';
 import { useMeshStore, channelConvoId, directConvoId } from '@/store/meshStore';
 import { loadRadioData, saveRadioData, deriveStorageKey } from '@/lib/storage';
-import type { ActiveConvo, Contact, ITransport } from '@/types/meshcore';
+import {
+  ROUTE_TYPE_FLOOD,
+  PAYLOAD_TYPE_GRP_TXT,
+  ADV_TYPE_REPEATER,
+} from '@/lib/meshcore/constants';
+import { toHex } from '@/lib/utils';
+import type {
+  ActiveConvo,
+  Contact,
+  Message,
+  RawRxPacket,
+  ITransport,
+} from '@/types/meshcore';
+
+interface PendingAck {
+  convoId: string;
+  msgId: string;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+// Counts repeater rebroadcasts of our last channel TX heard in the RX log.
+// payloadKey locks onto the first group-text echo after sending; rebroadcasts
+// of the same packet carry identical payload bytes.
+interface EchoWindow {
+  convoId: string;
+  msgId: string;
+  payloadKey: string | null;
+  heard: Set<string>;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+// LoRa round trips are spiky — give the radio's suggested timeout some slack
+const ACK_TIMEOUT_GRACE = 1.5;
+const MIN_ACK_TIMEOUT_MS = 5000;
+const DEFAULT_ACK_TIMEOUT_MS = 30000;
+const ECHO_WINDOW_MS = 15000;
+const SAVE_DEBOUNCE_MS = 1000;
+
+// Module scope, not per-instance refs: useMeshCore is mounted by several
+// components but the client callbacks are wired once, so send-tracking state
+// must be shared across all hook instances.
+const pendingAcks = new Map<number, PendingAck>();
+// ACK codes whose timeout already fired — kept so a late ACK can upgrade the
+// message from 'failed' to 'delivered' instead of being dropped
+const expiredAcks = new Map<number, Omit<PendingAck, 'timer'>>();
+const EXPIRED_ACK_LIMIT = 50;
+let echoWindow: EchoWindow | null = null;
+let saveUnsub: (() => void) | null = null;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let storageKey: CryptoKey | null = null;
+let syntheticAckSeq = 0;
+
+function clearPendingAcks(): void {
+  for (const p of pendingAcks.values()) clearTimeout(p.timer);
+  pendingAcks.clear();
+}
+
+// Called when a session begins as well as when one ends: a dropped transport
+// never reaches disconnect(), so stale timers and the previous radio's save
+// subscription must not survive into the next connection
+function clearSessionState(): void {
+  clearPendingAcks();
+  expiredAcks.clear();
+  closeEchoWindow();
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = null;
+  saveUnsub?.();
+  saveUnsub = null;
+  storageKey = null;
+}
+
+function closeEchoWindow(): void {
+  if (echoWindow) clearTimeout(echoWindow.timer);
+  echoWindow = null;
+}
+
+function openEchoWindow(convoId: string, msgId: string): void {
+  closeEchoWindow();
+  echoWindow = {
+    convoId,
+    msgId,
+    payloadKey: null,
+    heard: new Set(),
+    timer: setTimeout(closeEchoWindow, ECHO_WINDOW_MS),
+  };
+}
+
+function handleEchoPacket(pkt: RawRxPacket): void {
+  const w = echoWindow;
+  if (!w) return;
+  if (
+    pkt.routeType !== ROUTE_TYPE_FLOOD ||
+    pkt.payloadType !== PAYLOAD_TYPE_GRP_TXT ||
+    pkt.hopCount < 1
+  ) {
+    return;
+  }
+  const key = toHex(pkt.payload);
+  if (w.payloadKey === null) w.payloadKey = key;
+  else if (w.payloadKey !== key) return;
+  // The repeater that just rebroadcast is the last hash appended to the path
+  const lastHop = toHex(pkt.path.slice(-pkt.hashSize));
+  if (!w.heard.has(lastHop)) {
+    w.heard.add(lastHop);
+    useMeshStore
+      .getState()
+      .updateMessage(w.convoId, w.msgId, { heardByRepeaters: w.heard.size });
+  }
+}
+
+function rememberExpiredAck(
+  ackCode: number,
+  convoId: string,
+  msgId: string,
+): void {
+  expiredAcks.set(ackCode, { convoId, msgId });
+  if (expiredAcks.size > EXPIRED_ACK_LIMIT) {
+    expiredAcks.delete(expiredAcks.keys().next().value!);
+  }
+}
+
+function handleAck(ackCode: number, roundTripMs: number): void {
+  const pending = pendingAcks.get(ackCode);
+  if (pending) {
+    pendingAcks.delete(ackCode);
+    clearTimeout(pending.timer);
+    useMeshStore.getState().updateMessage(pending.convoId, pending.msgId, {
+      status: 'delivered',
+      roundTripMs,
+    });
+    return;
+  }
+  // Late ACK — the timeout already marked the message 'failed'; upgrade it
+  const expired = expiredAcks.get(ackCode);
+  if (!expired) return; // unknown or duplicate ACK
+  expiredAcks.delete(ackCode);
+  useMeshStore.getState().updateMessage(expired.convoId, expired.msgId, {
+    status: 'delivered',
+    roundTripMs,
+  });
+}
 
 export function useMeshCore() {
   const {
@@ -37,13 +177,11 @@ export function useMeshCore() {
     setContacts,
     setChannels,
     addMessage,
+    updateMessage,
     restoreHistory,
     showToast,
     reset,
   } = useMeshStore();
-
-  const saveUnsubRef = useRef<(() => void) | null>(null);
-  const storageKeyRef = useRef<CryptoKey | null>(null);
 
   const wireClient = useCallback(
     (c: MeshCoreClient) => {
@@ -54,7 +192,8 @@ export function useMeshCore() {
         onSyncProgress: (p) => setSyncProgress(p),
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
-        onAck: () => showToast('✓ Message delivered', 'success'),
+        onLogRx: handleEchoPacket,
+        onAck: handleAck,
         onMessage: (msg) => {
           if (msg.kind === 'channel' && msg.channelIdx !== undefined) {
             const id = channelConvoId(msg.channelIdx);
@@ -90,6 +229,7 @@ export function useMeshCore() {
   const connect = useCallback(
     async (transport: ITransport) => {
       setStatus('connecting');
+      clearSessionState();
       try {
         const c = new MeshCoreClient(transport);
         wireClient(c);
@@ -112,19 +252,23 @@ export function useMeshCore() {
           const secrets = Object.values(c.channels)
             .map((ch) => ch.secret)
             .filter((s): s is Uint8Array => s != null && s.length > 0);
-          const storageKey = await deriveStorageKey(secrets, pubkey);
-          storageKeyRef.current = storageKey;
+          const key = await deriveStorageKey(secrets, pubkey);
+          storageKey = key;
 
-          const saved = await loadRadioData(pubkey, storageKey);
+          const saved = await loadRadioData(pubkey, key);
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);
 
-          saveUnsubRef.current?.();
-          saveUnsubRef.current = useMeshStore.subscribe((state, prev) => {
-            if (state.msgHistory !== prev.msgHistory) {
-              saveRadioData(pubkey, storageKey, {
-                msgHistory: state.msgHistory,
+          saveUnsub = useMeshStore.subscribe((state, prev) => {
+            if (state.msgHistory === prev.msgHistory) return;
+            // Status flickers arrive in bursts — debounce the full-history
+            // encrypt-and-write
+            if (saveTimer) clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => {
+              saveTimer = null;
+              saveRadioData(pubkey, key, {
+                msgHistory: useMeshStore.getState().msgHistory,
               });
-            }
+            }, SAVE_DEBOUNCE_MS);
           });
         }
       } catch (err) {
@@ -180,49 +324,138 @@ export function useMeshCore() {
 
   const disconnect = useCallback(() => {
     const pubkey = client?.selfInfo?.pubkey;
-    const storageKey = storageKeyRef.current;
     if (pubkey && storageKey) {
       saveRadioData(pubkey, storageKey, {
         msgHistory: useMeshStore.getState().msgHistory,
       });
     }
-    saveUnsubRef.current?.();
-    saveUnsubRef.current = null;
-    storageKeyRef.current = null;
+    clearSessionState();
     client?.destroy();
     setClient(null);
     reset();
     showToast('Disconnected');
   }, [client, setClient, reset, showToast]);
 
+  const transmit = useCallback(
+    async (
+      convo: ActiveConvo,
+      msgId: string,
+      text: string,
+      attempt: number,
+      resetRoute = false,
+    ) => {
+      if (!client) return;
+      updateMessage(convo.id, msgId, { status: 'sending', attempt });
+      try {
+        if (convo.kind === 'channel') {
+          await client.sendChannelMessage(Number(convo.rawId), text);
+          updateMessage(convo.id, msgId, { status: 'sent' });
+          openEchoWindow(convo.id, msgId);
+          return;
+        }
+        const contact = client.contacts[convo.rawId as string];
+        if (!contact) {
+          updateMessage(convo.id, msgId, { status: 'failed' });
+          showToast('Contact not found', 'error');
+          return;
+        }
+        if (contact.advType === ADV_TYPE_REPEATER) {
+          updateMessage(convo.id, msgId, { status: 'failed' });
+          showToast('Repeaters can’t be messaged', 'error');
+          return;
+        }
+        if (resetRoute) {
+          try {
+            await client.resetPath(contact);
+          } catch {}
+        }
+        const receipt = await client.sendDirectMessage(contact, text, attempt);
+        updateMessage(convo.id, msgId, {
+          status: 'sent',
+          routeFlood: receipt?.routeFlood,
+        });
+        // Without a receipt (OK-only reply) no ACK can ever match — a
+        // synthetic negative key still gives the message a timeout so it
+        // can't sit at 'sent' forever
+        const ackKey = receipt ? receipt.expectedAck : --syntheticAckSeq;
+        const timeoutMs = receipt
+          ? Math.max(
+              MIN_ACK_TIMEOUT_MS,
+              receipt.suggestedTimeoutMs * ACK_TIMEOUT_GRACE,
+            )
+          : DEFAULT_ACK_TIMEOUT_MS;
+        const timer = setTimeout(() => {
+          pendingAcks.delete(ackKey);
+          if (ackKey >= 0) rememberExpiredAck(ackKey, convo.id, msgId);
+          const current = useMeshStore
+            .getState()
+            .msgHistory[convo.id]?.find((m) => m.id === msgId);
+          // A late ACK from an earlier attempt may have already delivered it
+          if (current?.status !== 'delivered') {
+            updateMessage(convo.id, msgId, { status: 'failed' });
+          }
+        }, timeoutMs);
+        pendingAcks.set(ackKey, { convoId: convo.id, msgId, timer });
+      } catch (err) {
+        updateMessage(convo.id, msgId, { status: 'failed' });
+        showToast(`Send failed: ${(err as Error).message}`, 'error');
+      }
+    },
+    [client, updateMessage, showToast],
+  );
+
   const sendMessage = useCallback(
     async (text: string, activeConvo: ActiveConvo | null) => {
       if (!client || !activeConvo || !text.trim()) return;
       const trimmed = text.trim();
-      try {
-        if (activeConvo.kind === 'channel') {
-          await client.sendChannelMessage(Number(activeConvo.rawId), trimmed);
-        } else {
-          const contact: Contact | undefined =
-            client.contacts[activeConvo.rawId as string];
-          if (!contact) {
-            showToast('Contact not found', 'error');
-            return;
-          }
-          await client.sendDirectMessage(contact, trimmed);
-        }
-        addMessage(activeConvo.id, {
-          kind: activeConvo.kind,
-          text: trimmed,
-          own: true,
-          timestamp: Math.floor(Date.now() / 1000),
-        });
-      } catch (err) {
-        showToast(`Send failed: ${(err as Error).message}`, 'error');
-      }
+      const msgId = crypto.randomUUID();
+      addMessage(activeConvo.id, {
+        id: msgId,
+        kind: activeConvo.kind,
+        text: trimmed,
+        own: true,
+        timestamp: Math.floor(Date.now() / 1000),
+        status: 'sending',
+      });
+      await transmit(activeConvo, msgId, trimmed, 0);
     },
-    [client, addMessage, showToast],
+    [client, addMessage, transmit],
   );
 
-  return { connectUSB, connectBLE, connectWiFi, disconnect, sendMessage };
+  const retryMessage = useCallback(
+    async (msg: Message, convo: ActiveConvo | null, resetRoute = false) => {
+      if (!client || !convo || !msg.id || msg.status !== 'failed') return;
+      await transmit(
+        convo,
+        msg.id,
+        msg.text,
+        (msg.attempt ?? 0) + 1,
+        resetRoute,
+      );
+    },
+    [client, transmit],
+  );
+
+  const resetContactPath = useCallback(
+    async (contact: Contact) => {
+      if (!client) return;
+      try {
+        await client.resetPath(contact);
+        showToast('Route reset — next message will flood', 'success');
+      } catch (err) {
+        showToast(`Route reset failed: ${(err as Error).message}`, 'error');
+      }
+    },
+    [client, showToast],
+  );
+
+  return {
+    connectUSB,
+    connectBLE,
+    connectWiFi,
+    disconnect,
+    sendMessage,
+    retryMessage,
+    resetContactPath,
+  };
 }

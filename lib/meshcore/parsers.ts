@@ -23,7 +23,11 @@ import type {
   StatsRadio,
   StatsPackets,
   Message,
+  SendReceipt,
+  RawRxPacket,
 } from '@/types/meshcore';
+import { ROUTE_TYPE_FLOOD } from './constants';
+import { toHex } from '@/lib/utils';
 
 const dec = new TextDecoder('utf-8');
 
@@ -38,9 +42,24 @@ function nullTermStr(
 }
 
 function hexBytes(bytes: Uint8Array, from: number, to: number): string {
-  return Array.from(bytes.slice(from, to))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  return toHex(bytes.slice(from, to));
+}
+
+// path_len byte: upper 2 bits select hash size ((mode + 1) bytes per hop,
+// mode 3 reserved), lower 6 bits are the hop count
+function decodePathLenByte(
+  b: number,
+): { hashSize: number; hopCount: number } | null {
+  const mode = b >> 6;
+  if (mode === 3) return null;
+  return { hashSize: mode + 1, hopCount: b & 63 };
+}
+
+// Message frames carry the raw packet path_len byte for flood routes,
+// or 0xFF for direct delivery
+function decodeMsgPathLen(b: number): number | undefined {
+  if (b === 0xff) return undefined;
+  return decodePathLenByte(b)?.hopCount;
 }
 
 export function parseSelfInfo(d: Uint8Array): SelfInfo {
@@ -79,13 +98,16 @@ export function parseContact(d: Uint8Array): Contact | null {
   // d[0]: type | d[1..32]: pubkey(32) | d[33]: adv_type | d[34]: flags | d[35]: out_path_len
   // d[36..99]: path buffer (always 64 bytes) | d[100..131]: name(32)
   if (d.length < 132) return null;
+  const outPathLen = d[35];
+  const hopCount = outPathLen > 0 && outPathLen <= 64 ? outPathLen : 0;
   return {
     pubkey: hexBytes(d, 1, 33),
     pubkeyPrefix: hexBytes(d, 1, 7),
     pubkeyBytes: d.slice(1, 33),
     advType: d[33],
     flags: d[34],
-    outPathLen: d[35],
+    outPathLen,
+    path: d.slice(36, 36 + hopCount),
     name: nullTermStr(d, 100, 32),
   };
 }
@@ -104,6 +126,7 @@ export function parseChannelMsg(d: Uint8Array): Omit<Message, 'kind'> | null {
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   return {
     channelIdx: d[1],
+    pathLen: decodeMsgPathLen(d[2]),
     timestamp: v.getUint32(4, true),
     text: dec.decode(d.slice(8)),
     snr: null,
@@ -116,6 +139,7 @@ export function parseChannelMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
   return {
     snr: new Int8Array([d[1]])[0] / 4,
     channelIdx: d[4],
+    pathLen: decodeMsgPathLen(d[5]),
     timestamp: v.getUint32(7, true),
     text: dec.decode(d.slice(11)),
   };
@@ -144,6 +168,53 @@ export function parseContactMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
     pubkeyPrefix: hexBytes(d, 4, 10),
     timestamp: v.getUint32(12, true),
     text: dec.decode(d.slice(textOffset)),
+  };
+}
+
+export function parseMsgSent(d: Uint8Array): SendReceipt | null {
+  if (d.length < 10) return null;
+  const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
+  return {
+    routeFlood: d[1] !== 0,
+    expectedAck: v.getUint32(2, true),
+    suggestedTimeoutMs: v.getUint32(6, true),
+  };
+}
+
+export function parseSendConfirmed(
+  d: Uint8Array,
+): { ackCode: number; roundTripMs: number } | null {
+  if (d.length < 5) return null;
+  const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
+  return {
+    ackCode: v.getUint32(1, true),
+    roundTripMs: d.length >= 9 ? v.getUint32(5, true) : 0,
+  };
+}
+
+// PUSH_LOG_RX_DATA: [0x88, snr*4, rssi, <raw packet>]
+// Raw packet: header byte (route bits 0-1, payload type bits 2-5), path_len,
+// path, payload. Transport-routed packets carry extra transport codes before
+// the path — skip those.
+export function parseLogRxData(d: Uint8Array): RawRxPacket | null {
+  if (d.length < 6) return null;
+  const header = d[3];
+  const routeType = header & 0x03;
+  const payloadType = (header >> 2) & 0x0f;
+  if (routeType !== ROUTE_TYPE_FLOOD && routeType !== 0x02) return null;
+  const path = decodePathLenByte(d[4]);
+  if (!path) return null;
+  const pathByteLen = path.hopCount * path.hashSize;
+  if (d.length < 5 + pathByteLen + 1) return null;
+  return {
+    snr: new Int8Array([d[1]])[0] / 4,
+    rssi: new Int8Array([d[2]])[0],
+    routeType,
+    payloadType,
+    hopCount: path.hopCount,
+    hashSize: path.hashSize,
+    path: d.slice(5, 5 + pathByteLen),
+    payload: d.slice(5 + pathByteLen),
   };
 }
 
