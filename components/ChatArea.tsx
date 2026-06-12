@@ -32,6 +32,7 @@ function getMentionQuery(value: string, cursor: number): string | null {
   if (atIdx === -1) return null;
   const fragment = before.slice(atIdx + 1);
   if (/\s/.test(fragment)) return null;
+  if (fragment.startsWith('[') && fragment.includes(']')) return null;
   return fragment;
 }
 
@@ -111,6 +112,11 @@ export function ChatArea() {
   }, [text, sending, activeConvo, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Tab' && suggestions.length > 0) {
+      e.preventDefault();
+      insertMention(suggestions[0]);
+      return;
+    }
     if (e.key === 'Escape' && mentionQuery !== null) {
       e.preventDefault();
       setMentionQuery(null);
@@ -276,7 +282,7 @@ export function ChatArea() {
                   }}
                   className='w-full px-3 py-2 text-left text-sm text-(--text) hover:bg-(--surface) hover:text-(--accent)'
                 >
-                  @[{name}]
+                  @{name}
                 </button>
               ))}
             </div>

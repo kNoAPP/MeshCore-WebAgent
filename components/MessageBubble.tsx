@@ -26,7 +26,11 @@ interface Props {
   statusActions?: React.ReactNode;
 }
 
-function renderText(text: string, deviceName: string): React.ReactNode[] {
+function renderText(
+  text: string,
+  deviceName: string,
+  own: boolean,
+): React.ReactNode[] {
   const parts = text.split(/(@\[[^\]]+\])/g);
   return parts.map((part, i) => {
     if (!part.startsWith('@[')) return part;
@@ -39,10 +43,12 @@ function renderText(text: string, deviceName: string): React.ReactNode[] {
         className={
           isSelf
             ? 'font-semibold text-yellow-300'
-            : 'font-semibold text-(--accent)'
+            : own
+              ? 'font-semibold text-lime-300'
+              : 'font-semibold text-(--accent)'
         }
       >
-        {part}
+        @{part.slice(2, -1)}
       </span>
     );
   });
@@ -110,7 +116,7 @@ export function MessageBubble({
               : 'rounded-[4px_14px_14px_14px] bg-(--surface2) text-(--text)'
         }`}
       >
-        {renderText(text, deviceName)}
+        {renderText(text, deviceName, msg.own ?? false)}
       </div>
       <div className='px-1 text-[10px] text-(--text2)'>
         {statusActions}
