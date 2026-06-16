@@ -8,4 +8,5 @@ Thanks to everyone who has contributed to MeshCore-WebAgent.
 
 ## How to Contribute
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, branch conventions, and the PR process.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, branch
+conventions, and the PR process.

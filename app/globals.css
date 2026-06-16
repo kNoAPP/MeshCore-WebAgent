@@ -40,10 +40,14 @@
   --surface2: #252836;
   --border: #2e3245;
   --accent: #4f8ef7;
+  --accent-hover: #6ba0f9;
   --text: #e2e8f0;
   --text2: #8892a4;
   --green: #4ade80;
   --red: #f87171;
+  --red-hover: #fa8d8d;
+  --red-dim: #9e5050;
+  --red-dim-hover: #b86161;
   --yellow: #facc15;
   --amber: #f59e0b;
 }

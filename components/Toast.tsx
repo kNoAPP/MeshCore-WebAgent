@@ -17,6 +17,10 @@
 
 import { useMeshStore } from '@/store/meshStore';
 
+/**
+ * Renders the current store toast (top-center), color-coded by variant; nothing
+ * when none is set.
+ */
 export function Toast() {
   const toast = useMeshStore((s) => s.toast);
   if (!toast) return null;

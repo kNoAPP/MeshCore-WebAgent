@@ -13,14 +13,5 @@
   "singleQuote": true,
   "tabWidth": 2,
   "trailingComma": "all",
-  "useTabs": false,
-  "overrides": [
-    {
-      "files": "**/*.{md,mdx}",
-      "options": {
-        "proseWrap": "preserve",
-        "jsxSingleQuote": false
-      }
-    }
-  ]
+  "useTabs": false
 }

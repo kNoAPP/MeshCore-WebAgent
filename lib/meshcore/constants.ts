@@ -13,6 +13,12 @@
 //
 // For inquiries, contact: alden@knoban.com
 
+/**
+ * Outbound command codes — the first payload byte of a frame sent to the radio.
+ *
+ * @see {@link https://docs.meshcore.io/companion_protocol/} and the firmware
+ * `CMD_*` defines in `examples/companion_radio/MyMesh.cpp`.
+ */
 export const CMD = {
   APP_START: 0x01,
   SEND_TXT_MSG: 0x02,
@@ -22,6 +28,7 @@ export const CMD = {
   SET_DEVICE_TIME: 0x06,
   SEND_SELF_ADVERT: 0x07,
   SET_ADVERT_NAME: 0x08,
+  ADD_UPDATE_CONTACT: 0x09,
   SYNC_NEXT_MESSAGE: 0x0a,
   RESET_PATH: 0x0d,
   REMOVE_CONTACT: 0x0f,
@@ -32,9 +39,17 @@ export const CMD = {
   DEVICE_QUERY: 0x16,
   GET_CHANNEL_INFO: 0x1f,
   SET_CHANNEL: 0x20,
+  SET_OTHER_PARAMS: 0x26,
   GET_STATS: 0x38,
+  SET_AUTOADD_CONFIG: 0x3a,
+  GET_AUTOADD_CONFIG: 0x3b,
 } as const;
 
+/**
+ * Inbound response and push codes — the first byte of a frame from the radio.
+ * Codes `>= 0x80` are unsolicited pushes (adverts, acks, incoming messages);
+ * the rest are replies to a {@link CMD}.
+ */
 export const RESP = {
   OK: 0x00,
   ERR: 0x01,
@@ -53,6 +68,7 @@ export const RESP = {
   CHANNEL_MSG_V3: 0x11,
   CHANNEL_INFO: 0x12,
   STATS: 0x18,
+  AUTOADD_CONFIG: 0x19,
   PUSH_ADVERT: 0x80,
   PUSH_PATH_UPDATED: 0x81,
   PUSH_SEND_CONFIRMED: 0x82,
@@ -61,14 +77,67 @@ export const RESP = {
   PUSH_NEW_ADVERT: 0x8a,
 } as const;
 
-// Raw MeshCore packet header (PUSH_LOG_RX_DATA payload)
+/**
+ * `route_type` in a raw MeshCore packet header (the `PUSH_LOG_RX_DATA`
+ * payload): flood routed.
+ */
 export const ROUTE_TYPE_FLOOD = 0x01;
+/**
+ * `payload_type` in a raw MeshCore packet header: group (channel) text message.
+ */
 export const PAYLOAD_TYPE_GRP_TXT = 0x05;
 
+/** {@link Contact.advType} value for a repeater node. */
 export const ADV_TYPE_REPEATER = 2;
-// Contact.outPathLen sentinel: no route known, messages flood
+/**
+ * {@link Contact.outPathLen} sentinel: no route known, so messages flood the
+ * mesh.
+ */
 export const NO_PATH = 255;
 
+/**
+ * Bit 0 of {@link Contact.flags} marks a favorite; upper bits encode telemetry
+ * permissions.
+ */
+export const FAVORITE_FLAG = 0x01;
+
+/**
+ * `autoadd_config` bitmask sent with {@link CMD.SET_AUTOADD_CONFIG}.
+ * `OVERWRITE_OLDEST`
+ * applies in every mode; the type bits filter which node types are auto-added
+ * when in
+ * selective mode (see {@link MANUAL_ADD_ON}).
+ */
+export const AUTOADD = {
+  OVERWRITE_OLDEST: 0x01,
+  CHAT: 0x02,
+  REPEATER: 0x04,
+  ROOM: 0x08,
+  SENSOR: 0x10,
+} as const;
+
+/**
+ * `manual_add_contacts` value for {@link CMD.SET_OTHER_PARAMS}: auto-add every
+ * heard node.
+ */
+export const MANUAL_ADD_OFF = 0;
+/**
+ * `manual_add_contacts` value for {@link CMD.SET_OTHER_PARAMS}: only add the
+ * {@link AUTOADD} types.
+ */
+export const MANUAL_ADD_ON = 1;
+
+/**
+ * Nordic UART Service UUID — the BLE GATT service a companion radio advertises.
+ */
 export const BLE_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+/**
+ * Nordic UART RX characteristic — the app writes outbound frames here (chunked
+ * at 512 bytes).
+ */
 export const BLE_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+/**
+ * Nordic UART TX characteristic — the radio notifies inbound frames here, one
+ * frame per notification.
+ */
 export const BLE_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';

@@ -15,10 +15,17 @@
 
 import type { Message } from '@/types/meshcore';
 
+// Per-radio message history persisted in IndexedDB, encrypted at rest with
+// AES-256-GCM under a key derived from the radio's own secrets (see
+// deriveStorageKey) — so the data is unreadable without that radio's channels.
 const DB_NAME = 'meshcore';
 const DB_VERSION = 1;
 const STORE_NAME = 'radios';
 
+/**
+ * The decrypted payload stored per radio: its conversation history keyed by
+ * conversation id.
+ */
 export interface PersistedRadioData {
   msgHistory: Record<string, Message[]>;
 }
@@ -28,10 +35,16 @@ interface EncryptedRecord {
   data: ArrayBuffer;
 }
 
-// Derive an AES-256-GCM key from the radio's channel secrets and pubkey.
-// Channel secrets (16 bytes each) are concatenated as PBKDF2 password material;
-// the pubkey hex string is used as the salt so different radios always get
-// different keys even if their channel secrets are identical.
+/**
+ * Derives the AES-256-GCM key used to encrypt a radio's stored data.
+ *
+ * @param channelSecrets - the radio's channel secrets (16 bytes each),
+ * concatenated as PBKDF2 password material.
+ * @param pubkey - the radio's public key hex, used as the salt so two radios
+ * never share a key even if their channel secrets coincide.
+ * @remarks Falls back to fixed password material when the radio has no channel
+ * secrets, so persistence still works (with weaker key separation).
+ */
 export async function deriveStorageKey(
   channelSecrets: Uint8Array[],
   pubkey: string,
@@ -108,6 +121,12 @@ async function idbPut(pubkey: string, record: EncryptedRecord): Promise<void> {
   });
 }
 
+/**
+ * Encrypts and stores a radio's data under its public key. Best-effort — any
+ * failure (e.g. IndexedDB unavailable) is swallowed.
+ *
+ * @param key - the key from {@link deriveStorageKey} for this radio.
+ */
 export async function saveRadioData(
   pubkey: string,
   key: CryptoKey,
@@ -125,6 +144,13 @@ export async function saveRadioData(
   } catch {}
 }
 
+/**
+ * Loads and decrypts a radio's stored data.
+ *
+ * @param key - the key from {@link deriveStorageKey} for this radio.
+ * @returns the data, or null if nothing is stored or decryption fails (wrong
+ * key / different radio / corrupt record).
+ */
 export async function loadRadioData(
   pubkey: string,
   key: CryptoKey,
@@ -141,7 +167,8 @@ export async function loadRadioData(
       new TextDecoder().decode(plaintext),
     ) as PersistedRadioData;
   } catch {
-    // Decryption failure = wrong key (different radio) or corrupt data — treat as empty
+    // Decryption failure = wrong key (different radio) or corrupt data — treat
+    // as empty
     return null;
   }
 }

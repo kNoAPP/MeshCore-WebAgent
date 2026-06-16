@@ -28,28 +28,57 @@ metadata:
 
 ## TypeScript
 
-- Strict mode is enabled — no `any`, no `// @ts-ignore` without an explanation comment.
+- Strict mode is enabled — no `any`, no `// @ts-ignore` without an explanation
+  comment.
 - Prefer explicit return types on exported functions and hook return values.
-- Use the types defined in `types/meshcore.ts` — do not inline equivalent ad-hoc types.
+- Use the types defined in `types/meshcore.ts` — do not inline equivalent ad-hoc
+  types.
 - No `node:` built-in imports — this runs entirely in the browser.
 
 ## React
 
 - Components live in `components/`. Hooks live in `hooks/`. Keep them separate.
-- Do not use `useState` or `useEffect` for state that belongs in the Zustand store.
-- All global state changes go through Zustand actions defined in `store/meshStore.ts`.
-- Keep components focused — if a component exceeds ~150 lines it is probably doing too much.
+- Do not use `useState` or `useEffect` for state that belongs in the Zustand
+  store.
+- All global state changes go through Zustand actions defined in
+  `store/meshStore.ts`.
+- Keep components focused — if a component exceeds ~150 lines it is probably
+  doing too much.
 
 ## Styling
 
 - Use Tailwind CSS classes for layout, spacing, and typography.
-- Use CSS variables (defined in `app/globals.css`) for colors and theming — never hardcode hex values in components.
+- Use CSS variables (defined in `app/globals.css`) for colors and theming —
+  never hardcode hex values in components.
 - Do not mix inline `style` props with Tailwind classes for the same property.
 
 ## Comments
 
-- Write no comments unless the _why_ is non-obvious: a hidden constraint, a subtle invariant, or a workaround for a specific bug.
-- Do not comment what the code does — well-named identifiers already say that.
+Two kinds of comments, two different rules. Never narrate _what_ the code does —
+only what a reader can't get from the names and types.
+
+**TSDoc doc comments** (`/** … */`) — required on the public API surface:
+
+- Every **exported** type, interface, class, function, hook, and `const`
+  map/enum, plus **public class methods** and **React component props**.
+- Describe the contract and anything the signature can't carry: units,
+  encodings, sentinels, valid ranges, side effects, and what throws.
+- Do not restate the type — no `@param x {number}`. Use `@param`/`@returns` only
+  to add meaning; `@remarks` for depth; `@see` to link `docs.meshcore.io` or
+  firmware. First line is a tight summary.
+- For `lib/meshcore/`, cite the spec section or firmware struct/offset.
+
+**Inline comments (`//`)** — only when the _why_ is non-obvious: a hidden
+constraint, a subtle invariant, a workaround, or a non-obvious ordering/timing
+dependency. Private helpers get no doc comment by default; add a `//`
+why-comment only if subtle.
+
+**Banned:** commented-out code, decorative banners, restating a name/signature,
+`TODO` without a reference. Keep comment lines within 80 characters — Prettier
+does not reflow prose in comments, so ESLint's `max-len` (`comments: 80`)
+enforces it, and `tsdoc/syntax` lints doc-comment syntax. Both run under
+`npm run lint` (CI uses `--max-warnings 0`, so either fails the build); coverage
+is enforced by review.
 
 ## General
 

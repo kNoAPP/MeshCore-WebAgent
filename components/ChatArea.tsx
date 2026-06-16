@@ -21,11 +21,22 @@ import { useMeshCore } from '@/hooks/useMeshCore';
 import { ADV_ICON } from '@/lib/utils';
 import { MessageBubble } from './MessageBubble';
 import { RouteChip } from './RouteChip';
-import { NO_PATH, ADV_TYPE_REPEATER } from '@/lib/meshcore/constants';
+import {
+  NO_PATH,
+  ADV_TYPE_REPEATER,
+  FAVORITE_FLAG,
+} from '@/lib/meshcore/constants';
 
-const FAVOURITE_FLAG = 0x01;
+/** Max at-mention autocomplete suggestions shown at once. */
 const MAX_SUGGESTIONS = 5;
 
+/**
+ * Extracts the in-progress at-mention fragment at the cursor for autocomplete.
+ *
+ * @returns the text after the nearest at-sign, or null if the cursor isn't in a
+ * mention (whitespace follows it, or it's already a completed bracketed
+ * mention).
+ */
 function getMentionQuery(value: string, cursor: number): string | null {
   const before = value.slice(0, cursor);
   const atIdx = before.lastIndexOf('@');
@@ -36,6 +47,11 @@ function getMentionQuery(value: string, cursor: number): string | null {
   return fragment;
 }
 
+/**
+ * The main conversation pane for the active channel or contact: header with
+ * route info, the scrolling message list, and the composer with at-mention
+ * autocomplete, retry actions, and a repeater-can't-message guard.
+ */
 export function ChatArea() {
   const { activeConvo, msgHistory, contacts, deviceName } = useMeshStore();
   const { sendMessage, retryMessage } = useMeshCore();
@@ -147,7 +163,7 @@ export function ChatArea() {
       ? activeConvo.rawId === 0
         ? '📢'
         : '🔒'
-      : directContact && directContact.flags & FAVOURITE_FLAG
+      : directContact && directContact.flags & FAVORITE_FLAG
         ? '⭐'
         : (ADV_ICON[directContact?.advType ?? 0] ?? '👤');
 

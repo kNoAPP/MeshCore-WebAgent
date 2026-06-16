@@ -20,12 +20,17 @@ import { useMeshStore } from '@/store/meshStore';
 import type { StatsResult } from '@/types/meshcore';
 import { fmtUptime, fmtAirtime, fmtVoltage } from '@/lib/utils';
 
+/**
+ * Device stats overlay. Fetches battery + all stats pages when opened (and on
+ * Refresh), laid out as cards. Renders nothing while `statsOpen` is false.
+ */
 export function StatsModal() {
   const { client, statsOpen, setStatsOpen, battery } = useMeshStore();
   const [stats, setStats] = useState<StatsResult | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Auto-fetch when modal opens; only setState inside the .then callback (not synchronously)
+  // Auto-fetch when modal opens; only setState inside the .then callback (not
+  // synchronously)
   useEffect(() => {
     if (!statsOpen || !client) return;
     let active = true;
@@ -152,6 +157,7 @@ export function StatsModal() {
   );
 }
 
+/** A titled card rendering `[label, value]` rows for one stats group. */
 function StatCard({
   title,
   rows,

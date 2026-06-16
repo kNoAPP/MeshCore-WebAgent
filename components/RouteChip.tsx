@@ -21,12 +21,17 @@ import { NO_PATH } from '@/lib/meshcore/constants';
 import { toHex } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
 
+/** Short route label for the chip: `Flood`, `Direct`, or `N hops`. */
 function routeLabel(contact: Contact): string {
   if (contact.outPathLen === NO_PATH) return 'Flood';
   if (contact.outPathLen === 0) return 'Direct';
   return `${contact.outPathLen} hop${contact.outPathLen === 1 ? '' : 's'}`;
 }
 
+/**
+ * A pill showing a contact's current route that expands into a popover with the
+ * hop path and a "reset to flood" action.
+ */
 export function RouteChip({ contact }: { contact: Contact }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);

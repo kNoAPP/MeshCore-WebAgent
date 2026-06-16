@@ -19,7 +19,8 @@ description: >
   MeshCore binary Companion Protocol conventions. Use when reading or writing
   anything in lib/meshcore/ — commands, responses, frame parsing, or transports.
 license: Proprietary. See LICENSE for complete terms.
-compatibility: Requires access to https://docs.meshcore.io/companion_protocol/ for full spec.
+compatibility:
+  Requires access to https://docs.meshcore.io/companion_protocol/ for full spec.
 metadata:
   author: kNoAPP
   version: '1.1.0'
@@ -30,8 +31,8 @@ metadata:
 Full spec: https://docs.meshcore.io/companion_protocol/
 
 The docs are incomplete in places — the firmware source at
-https://github.com/meshcore-dev/MeshCore is the authority when they disagree (e.g.
-`out_path_len` mode bits, the `0x88` RX log push).
+https://github.com/meshcore-dev/MeshCore is the authority when they disagree
+(e.g. `out_path_len` mode bits, the `0x88` RX log push).
 
 ## Frame Format (USB + WiFi)
 
@@ -41,29 +42,41 @@ Same structure both directions, but the delimiter differs:
 [delimiter] [length: 2 bytes LE] [payload: N bytes]
 ```
 
-- Inbound (radio → app): delimiter `0x3C`, parsed in `lib/meshcore/frameParser.ts`. Frames with length 0 or > 512 are discarded.
+- Inbound (radio → app): delimiter `0x3C`, parsed in
+  `lib/meshcore/frameParser.ts`. Frames with length 0 or > 512 are discarded.
 - Outbound (app → radio): delimiter `0x3E`, built in `lib/meshcore/frames.ts`.
 
 ## Frame Format (BLE)
 
-BLE uses the Nordic UART Service (NUS). No delimiter or length prefix — each GATT notification is treated as one complete inbound frame, and outbound payloads are written with `writeValueWithResponse` in 512-byte chunks (`lib/meshcore/transports.ts`).
+BLE uses the Nordic UART Service (NUS). No delimiter or length prefix — each
+GATT notification is treated as one complete inbound frame, and outbound
+payloads are written with `writeValueWithResponse` in 512-byte chunks
+(`lib/meshcore/transports.ts`).
 
 ## Command / Response Flow
 
-- Commands are fire-and-forget writes; responses are matched by a timeout-based promise in `MeshCoreClient` (`lib/meshcore/client.ts`). Default timeout is 5 s.
-- Command bytes live in the `CMD` const object in `lib/meshcore/constants.ts`; response bytes in the `RESP` object.
-- Codes `>= 0x80` are unsolicited pushes from the radio (`RESP.PUSH_ADVERT`, `PUSH_PATH_UPDATED`, `PUSH_SEND_CONFIRMED`, `PUSH_MSG_WAITING`, `PUSH_LOG_RX_DATA`), not command responses.
-- The client also polls for new messages (`CMD.SYNC_NEXT_MESSAGE`) every 5 seconds.
+- Commands are fire-and-forget writes; responses are matched by a timeout-based
+  promise in `MeshCoreClient` (`lib/meshcore/client.ts`). Default timeout is 5
+  s.
+- Command bytes live in the `CMD` const object in `lib/meshcore/constants.ts`;
+  response bytes in the `RESP` object.
+- Codes `>= 0x80` are unsolicited pushes from the radio (`RESP.PUSH_ADVERT`,
+  `PUSH_PATH_UPDATED`, `PUSH_SEND_CONFIRMED`, `PUSH_MSG_WAITING`,
+  `PUSH_LOG_RX_DATA`), not command responses.
+- The client also polls for new messages (`CMD.SYNC_NEXT_MESSAGE`) every 5
+  seconds.
 - Command encoding is in `lib/meshcore/frames.ts`.
 - Response decoding is in `lib/meshcore/parsers.ts`.
 
 ## Key Constraints
 
 - Timestamps are Unix epoch seconds as `uint32` little-endian.
-- Contact public keys are 32-byte arrays; the UI identifies contacts by a 6-byte hex prefix (`pubkeyPrefix` in `parsers.ts`).
+- Contact public keys are 32-byte arrays; the UI identifies contacts by a 6-byte
+  hex prefix (`pubkeyPrefix` in `parsers.ts`).
 - Channel index is 0–7; channel secrets are exactly 16 bytes.
 - Outgoing message text is truncated to 160 bytes (`frames.ts`).
-- `Contact.outPathLen === 255` (`NO_PATH`) means no route is known and messages flood.
+- `Contact.outPathLen === 255` (`NO_PATH`) means no route is known and messages
+  flood.
 
 ## Adding a New Command
 

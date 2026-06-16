@@ -19,6 +19,10 @@ import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { fmtVoltage } from '@/lib/utils';
 
+/**
+ * Top bar: connection status, device name, battery/storage, and
+ * Stats/Disconnect actions when connected.
+ */
 export function Header() {
   const { status, deviceName, battery, setStatsOpen } = useMeshStore();
   const { disconnect } = useMeshCore();

@@ -20,12 +20,25 @@ import { formatTime } from '@/lib/utils';
 
 interface Props {
   msg: Message;
+  /**
+   * The display text (already resolved from the message, e.g. sender-prefixed).
+   */
   text: string;
+  /** This radio's name, used to highlight self-mentions. */
   deviceName: string;
+  /** Whether this radio is at-mentioned in the message (tints the bubble). */
   mentioned: boolean;
+  /**
+   * Optional controls (e.g. retry) rendered in the status line under the
+   * bubble.
+   */
   statusActions?: React.ReactNode;
 }
 
+/**
+ * Splits message text into nodes, styling bracketed name-mention tokens
+ * (self/own/other get distinct colors).
+ */
 function renderText(
   text: string,
   deviceName: string,
@@ -54,6 +67,11 @@ function renderText(
   });
 }
 
+/**
+ * The delivery-status glyph for an own message (⏳ / ✓ / ✓✓), with tooltip and
+ * optional color. Null for incoming messages or the failed state (handled
+ * separately).
+ */
 function statusTick(
   msg: Message,
 ): { glyph: string; title: string; color?: string } | null {
@@ -80,11 +98,17 @@ function statusTick(
         color: 'var(--green)',
       };
     case 'failed':
-      // The "! No acknowledgment" row rendered below the bubble covers this state
+      // The "! No acknowledgment" row rendered below the bubble covers this
+      // state
       return null;
   }
 }
 
+/**
+ * One chat message: a styled bubble (own / mentioned / plain, or a centered
+ * system note) plus a metadata line with delivery status, SNR, hop count, and
+ * time.
+ */
 export function MessageBubble({
   msg,
   text,

@@ -28,11 +28,14 @@ import {
   ROUTE_TYPE_FLOOD,
   PAYLOAD_TYPE_GRP_TXT,
   ADV_TYPE_REPEATER,
+  FAVORITE_FLAG,
 } from '@/lib/meshcore/constants';
-import { toHex } from '@/lib/utils';
+import { toHex, fromHex, bytesEqual } from '@/lib/utils';
 import type {
   ActiveConvo,
   Contact,
+  Advert,
+  AutoAddConfig,
   Message,
   RawRxPacket,
   ITransport,
@@ -166,6 +169,18 @@ function handleAck(ackCode: number, roundTripMs: number): void {
   });
 }
 
+/**
+ * The bridge between {@link MeshCoreClient} and the Zustand store.
+ *
+ * @returns connect/disconnect entry points and the action handlers components
+ * call (send/retry messages, manage contacts and channels, apply settings).
+ * @remarks
+ * Wires the client's {@link MeshCoreCallbacks} into store updates, owns
+ * outbound-message delivery tracking (acks, retries, repeater-echo counting),
+ * and handles encrypted history persistence. Send-tracking state lives at
+ * module scope because the hook is mounted by several components but the
+ * client callbacks are wired once.
+ */
 export function useMeshCore() {
   const {
     client,
@@ -176,6 +191,8 @@ export function useMeshCore() {
     setSyncProgress,
     setContacts,
     setChannels,
+    setAdverts,
+    setAutoAddConfig,
     addMessage,
     updateMessage,
     restoreHistory,
@@ -183,6 +200,8 @@ export function useMeshCore() {
     reset,
   } = useMeshStore();
 
+  // Installs the client callbacks that funnel radio events into the store and
+  // route incoming messages to the right conversation with a toast.
   const wireClient = useCallback(
     (c: MeshCoreClient) => {
       c.callbacks = {
@@ -192,6 +211,7 @@ export function useMeshCore() {
         onSyncProgress: (p) => setSyncProgress(p),
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
+        onAdvertsUpdated: (adverts) => setAdverts({ ...adverts }),
         onLogRx: handleEchoPacket,
         onAck: handleAck,
         onMessage: (msg) => {
@@ -221,11 +241,14 @@ export function useMeshCore() {
       setSyncProgress,
       setContacts,
       setChannels,
+      setAdverts,
       addMessage,
       showToast,
     ],
   );
 
+  // Shared connect path for all transports: build + wire the client, run the
+  // initial sync, hydrate settings/history, then subscribe history to be saved.
   const connect = useCallback(
     async (transport: ITransport) => {
       setStatus('connecting');
@@ -246,6 +269,22 @@ export function useMeshCore() {
           `Connected — ${c.selfInfo?.name ?? 'MeshCore Device'}`,
           'success',
         );
+
+        // Hydrate auto-add settings FROM the radio so the app reflects the
+        // device's persisted state (shared with any other companion client)
+        // instead of overwriting it. The mode always comes from the handshake;
+        // the per-type bitmask needs CMD_GET_AUTOADD_CONFIG, which older
+        // firmware lacks — when it's absent we keep the existing local values
+        // rather than wiping them. showPublicKeys is app-only, always local.
+        const mode = c.manualAddMode;
+        const bits = await c.readAutoAddBits();
+        if (mode || bits) {
+          setAutoAddConfig({
+            ...useMeshStore.getState().autoAddConfig,
+            ...(mode ? { mode } : {}),
+            ...(bits ?? {}),
+          });
+        }
 
         const pubkey = c.selfInfo?.pubkey;
         if (pubkey) {
@@ -286,9 +325,11 @@ export function useMeshCore() {
       showToast,
       wireClient,
       restoreHistory,
+      setAutoAddConfig,
     ],
   );
 
+  /** Prompts for a USB serial port and connects. */
   const connectUSB = useCallback(
     async (baud: number) => {
       try {
@@ -301,6 +342,7 @@ export function useMeshCore() {
     [connect, showToast],
   );
 
+  /** Prompts for a BLE companion and connects. */
   const connectBLE = useCallback(async () => {
     try {
       const transport = await createBLETransport();
@@ -310,6 +352,7 @@ export function useMeshCore() {
     }
   }, [connect, showToast]);
 
+  /** Connects to a radio's WiFi WebSocket bridge at `url`. */
   const connectWiFi = useCallback(
     async (url: string) => {
       try {
@@ -322,6 +365,10 @@ export function useMeshCore() {
     [connect, showToast],
   );
 
+  /**
+   * Persists history, tears down the client and session state, and resets the
+   * store.
+   */
   const disconnect = useCallback(() => {
     const pubkey = client?.selfInfo?.pubkey;
     if (pubkey && storageKey) {
@@ -336,6 +383,10 @@ export function useMeshCore() {
     showToast('Disconnected');
   }, [client, setClient, reset, showToast]);
 
+  // Core send routine for an existing message bubble: transmits to a channel or
+  // contact, then tracks delivery — opens a repeater-echo window for channels,
+  // or registers an ack timeout for direct messages (with a synthetic key when
+  // the radio gives no receipt, so the bubble can't hang at 'sent' forever).
   const transmit = useCallback(
     async (
       convo: ActiveConvo,
@@ -404,6 +455,10 @@ export function useMeshCore() {
     [client, updateMessage, showToast],
   );
 
+  /**
+   * Adds an outgoing message bubble to the active conversation and transmits
+   * it.
+   */
   const sendMessage = useCallback(
     async (text: string, activeConvo: ActiveConvo | null) => {
       if (!client || !activeConvo || !text.trim()) return;
@@ -422,6 +477,12 @@ export function useMeshCore() {
     [client, addMessage, transmit],
   );
 
+  /**
+   * Re-sends a failed message, bumping its attempt counter.
+   *
+   * @param resetRoute - if true, clears the contact's route first so the resend
+   * floods.
+   */
   const retryMessage = useCallback(
     async (msg: Message, convo: ActiveConvo | null, resetRoute = false) => {
       if (!client || !convo || !msg.id || msg.status !== 'failed') return;
@@ -436,6 +497,10 @@ export function useMeshCore() {
     [client, transmit],
   );
 
+  /**
+   * Resets a contact's route on the radio so its next message floods to
+   * rediscover a path.
+   */
   const resetContactPath = useCallback(
     async (contact: Contact) => {
       if (!client) return;
@@ -449,6 +514,152 @@ export function useMeshCore() {
     [client, showToast],
   );
 
+  /** Flips a contact's favorite flag on the radio. */
+  const toggleFavorite = useCallback(
+    async (contact: Contact) => {
+      if (!client) return;
+      const fav = (contact.flags & FAVORITE_FLAG) === 0;
+      try {
+        await client.setFavorite(contact, fav);
+        showToast(fav ? 'Added to favorites' : 'Removed from favorites');
+      } catch (err) {
+        showToast(
+          `Failed to update favorite: ${(err as Error).message}`,
+          'error',
+        );
+      }
+    },
+    [client, showToast],
+  );
+
+  /** Saves a heard advert as a contact on the radio. */
+  const addDiscoveredContact = useCallback(
+    async (advert: Advert) => {
+      if (!client) return;
+      const pubkeyBytes = fromHex(advert.pubkey, 32);
+      if (!pubkeyBytes) {
+        showToast('Invalid public key', 'error');
+        return;
+      }
+      const contact: Contact = {
+        pubkey: advert.pubkey,
+        pubkeyPrefix: advert.pubkeyPrefix,
+        pubkeyBytes,
+        advType: advert.advType,
+        flags: 0,
+        outPathLen: 255,
+        path: new Uint8Array(0),
+        name: advert.name,
+        lastAdvert: advert.lastHeard,
+        advLat: advert.advLat,
+        advLon: advert.advLon,
+      };
+      try {
+        await client.addContact(contact);
+        showToast(`Added ${advert.name || advert.pubkeyPrefix}`, 'success');
+      } catch (err) {
+        showToast(`Failed to add contact: ${(err as Error).message}`, 'error');
+      }
+    },
+    [client, showToast],
+  );
+
+  /** Deletes a contact from the radio. */
+  const removeContact = useCallback(
+    async (contact: Contact) => {
+      if (!client) return;
+      try {
+        await client.removeContact(contact);
+        showToast('Contact removed');
+      } catch (err) {
+        showToast(
+          `Failed to remove contact: ${(err as Error).message}`,
+          'error',
+        );
+      }
+    },
+    [client, showToast],
+  );
+
+  /**
+   * Joins or creates a channel, placing it in the lowest free slot (1–7).
+   *
+   * @remarks No-ops with a toast if the secret already matches a joined
+   * channel, or if all private slots are full.
+   */
+  const addChannel = useCallback(
+    async (name: string, secret: Uint8Array) => {
+      if (!client) return;
+      // A channel is identified by its secret — don't create a duplicate slot
+      const existing = Object.values(client.channels).find(
+        (ch) => ch.secret && bytesEqual(ch.secret, secret),
+      );
+      if (existing) {
+        showToast(`Already joined “${existing.name || name}”`);
+        return;
+      }
+      // Indices 1-7 are private channels; pick the lowest free slot
+      let idx = -1;
+      for (let i = 1; i <= 7; i++) {
+        if (!client.channels[i]) {
+          idx = i;
+          break;
+        }
+      }
+      if (idx === -1) {
+        showToast('All channel slots are full', 'error');
+        return;
+      }
+      try {
+        await client.setChannel(idx, name, secret);
+        showToast(`Channel “${name}” added`, 'success');
+      } catch (err) {
+        showToast(`Failed to add channel: ${(err as Error).message}`, 'error');
+      }
+    },
+    [client, showToast],
+  );
+
+  /** Removes a channel slot (rejected by the client for the Public channel). */
+  const removeChannel = useCallback(
+    async (idx: number) => {
+      if (!client) return;
+      try {
+        await client.removeChannel(idx);
+        showToast('Channel removed');
+      } catch (err) {
+        showToast(
+          `Failed to remove channel: ${(err as Error).message}`,
+          'error',
+        );
+      }
+    },
+    [client, showToast],
+  );
+
+  /** Persists auto-add settings locally and writes them to the radio. */
+  const applyAutoAddConfig = useCallback(
+    async (cfg: AutoAddConfig) => {
+      // Persist locally only after the radio write succeeds, so a failed write
+      // doesn't leave the app showing settings the radio never accepted.
+      if (!client) {
+        setAutoAddConfig(cfg);
+        return;
+      }
+      try {
+        await client.setAutoAddPrefs(cfg);
+        setAutoAddConfig(cfg);
+        showToast('Auto-add settings saved', 'success');
+      } catch (err) {
+        showToast(
+          `Failed to save settings: ${(err as Error).message}`,
+          'error',
+        );
+      }
+    },
+    [client, setAutoAddConfig, showToast],
+  );
+
   return {
     connectUSB,
     connectBLE,
@@ -457,5 +668,11 @@ export function useMeshCore() {
     sendMessage,
     retryMessage,
     resetContactPath,
+    toggleFavorite,
+    addDiscoveredContact,
+    removeContact,
+    addChannel,
+    removeChannel,
+    applyAutoAddConfig,
   };
 }

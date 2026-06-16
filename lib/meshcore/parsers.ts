@@ -29,6 +29,11 @@ import type {
 import { ROUTE_TYPE_FLOOD } from './constants';
 import { toHex } from '@/lib/utils';
 
+// Decoders for inbound frame payloads → typed objects. Each takes the full
+// frame bytes (including the leading RESP code at index 0). Integers are
+// little-endian; offsets and field widths match the firmware's wire layout.
+// Length-guarded parsers return null on a short/malformed frame rather than
+// throw.
 const dec = new TextDecoder('utf-8');
 
 function nullTermStr(
@@ -62,17 +67,50 @@ function decodeMsgPathLen(b: number): number | undefined {
   return decodePathLenByte(b)?.hopCount;
 }
 
+/**
+ * Parses the `SELF_INFO` handshake reply: this radio's name, public key, and
+ * auto-add mode.
+ *
+ * @remarks
+ * `manual_add_contacts` sits at offset 47 (after the pubkey, GPS lat/lon,
+ * `multi_acks`, `advert_loc_policy`, and telemetry modes); it is absent on
+ * older firmware frames, hence the optional {@link SelfInfo.manualAdd}.
+ */
 export function parseSelfInfo(d: Uint8Array): SelfInfo {
   try {
     const pubkey = d.length >= 33 ? hexBytes(d, 1, 33) : '';
     const name =
       d.length > 58 ? dec.decode(d.slice(58)).replace(/\0.*$/, '') : '';
-    return { name: name || 'MeshCore Device', pubkey };
+    // manual_add_contacts sits at offset 47 (after pubkey, lat/lon, multi_acks,
+    // advert_loc_policy, telemetry modes); absent on older firmware frames
+    const manualAdd = d.length >= 48 ? d[47] : undefined;
+    return { name: name || 'MeshCore Device', pubkey, manualAdd };
   } catch {
     return { name: 'MeshCore Device', pubkey: '' };
   }
 }
 
+/**
+ * Parses the `AUTOADD_CONFIG` reply into the raw `autoadd_config` bitmask and
+ * raw `autoadd_max_hops` byte.
+ *
+ * @remarks
+ * Frame layout: `[code] autoadd_config(1) autoadd_max_hops(1)`. `maxHops` is
+ * the
+ * radio's raw encoding (hop + 1; 0 = no limit) — callers convert for display.
+ */
+export function parseAutoAddConfig(d: Uint8Array): {
+  config: number;
+  maxHops: number;
+} {
+  return { config: d[1] ?? 0, maxHops: d[2] ?? 0 };
+}
+
+/**
+ * Parses the `DEVICE_INFO` reply: firmware version, capacities, BLE pin, model.
+ *
+ * @remarks `maxContacts` is sent halved, so it is doubled back here.
+ */
 export function parseDeviceInfo(d: Uint8Array): DeviceInfo {
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   return {
@@ -85,6 +123,10 @@ export function parseDeviceInfo(d: Uint8Array): DeviceInfo {
   };
 }
 
+/**
+ * Parses the `BATT_AND_STORAGE` reply: battery millivolts and flash usage in
+ * KB.
+ */
 export function parseBattAndStorage(d: Uint8Array): BatteryInfo {
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   return {
@@ -94,10 +136,20 @@ export function parseBattAndStorage(d: Uint8Array): BatteryInfo {
   };
 }
 
+/**
+ * Parses one `CONTACT` frame (also the payload of a `PUSH_NEW_ADVERT`).
+ *
+ * @returns the contact, or null if the frame is too short to hold the struct.
+ * @remarks
+ * Layout: `d[0]` RESP code, `d[1..32]` pubkey(32), `d[33]` adv_type,
+ * `d[34]` flags, `d[35]` out_path_len, `d[36..99]` path buffer (always 64
+ * bytes), `d[100..131]` name(32), `d[132..135]` last_advert ts,
+ * `d[136..139]` gps_lat, `d[140..143]` gps_lon. The trailing GPS fields are
+ * present only on newer firmware.
+ */
 export function parseContact(d: Uint8Array): Contact | null {
-  // d[0]: type | d[1..32]: pubkey(32) | d[33]: adv_type | d[34]: flags | d[35]: out_path_len
-  // d[36..99]: path buffer (always 64 bytes) | d[100..131]: name(32)
   if (d.length < 132) return null;
+  const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   const outPathLen = d[35];
   const hopCount = outPathLen > 0 && outPathLen <= 64 ? outPathLen : 0;
   return {
@@ -109,9 +161,17 @@ export function parseContact(d: Uint8Array): Contact | null {
     outPathLen,
     path: d.slice(36, 36 + hopCount),
     name: nullTermStr(d, 100, 32),
+    lastAdvert: d.length >= 136 ? v.getUint32(132, true) : undefined,
+    advLat: d.length >= 140 ? v.getInt32(136, true) : undefined,
+    advLon: d.length >= 144 ? v.getInt32(140, true) : undefined,
   };
 }
 
+/**
+ * Parses a `CHANNEL_INFO` frame: slot index, name, and 16-byte secret.
+ *
+ * @remarks Layout: `[code] idx(1) name(32) secret(16)`.
+ */
 export function parseChannelInfo(d: Uint8Array): Channel | null {
   if (d.length < 50) return null;
   return {
@@ -121,6 +181,9 @@ export function parseChannelInfo(d: Uint8Array): Channel | null {
   };
 }
 
+/**
+ * Parses a v1 channel (group) message frame. SNR is unavailable in v1 (null).
+ */
 export function parseChannelMsg(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 8) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
@@ -133,6 +196,9 @@ export function parseChannelMsg(d: Uint8Array): Omit<Message, 'kind'> | null {
   };
 }
 
+/**
+ * Parses a v3 channel message frame, which adds an SNR byte (quarter-dB units).
+ */
 export function parseChannelMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 12) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
@@ -145,6 +211,11 @@ export function parseChannelMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
   };
 }
 
+/**
+ * Parses a v1 direct (1:1) message frame. SNR is unavailable in v1 (null).
+ *
+ * @remarks `txt_type` 2 (signed) carries a 4-byte prefix before the text.
+ */
 export function parseContactMsg(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 13) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
@@ -158,6 +229,9 @@ export function parseContactMsg(d: Uint8Array): Omit<Message, 'kind'> | null {
   };
 }
 
+/**
+ * Parses a v3 direct message frame, which adds an SNR byte (quarter-dB units).
+ */
 export function parseContactMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 17) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
@@ -171,6 +245,10 @@ export function parseContactMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
   };
 }
 
+/**
+ * Parses the `SENT` reply to an outbound message: whether it flooded, the
+ * expected ack code, and a suggested ack timeout in ms.
+ */
 export function parseMsgSent(d: Uint8Array): SendReceipt | null {
   if (d.length < 10) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
@@ -181,6 +259,10 @@ export function parseMsgSent(d: Uint8Array): SendReceipt | null {
   };
 }
 
+/**
+ * Parses a `PUSH_SEND_CONFIRMED` ack: the ack code (matched against the
+ * expected ack from {@link parseMsgSent}) and round-trip time in ms.
+ */
 export function parseSendConfirmed(
   d: Uint8Array,
 ): { ackCode: number; roundTripMs: number } | null {
@@ -192,10 +274,18 @@ export function parseSendConfirmed(
   };
 }
 
-// PUSH_LOG_RX_DATA: [0x88, snr*4, rssi, <raw packet>]
-// Raw packet: header byte (route bits 0-1, payload type bits 2-5), path_len,
-// path, payload. Transport-routed packets carry extra transport codes before
-// the path — skip those.
+/**
+ * Parses a `PUSH_LOG_RX_DATA` raw-packet log entry — used to count repeater
+ * rebroadcasts of our own channel sends.
+ *
+ * @returns the decoded packet, or null if it isn't a flood/transport-routed
+ * frame or is truncated.
+ * @remarks
+ * Frame: `[0x88, snr*4, rssi, <raw packet>]`. The raw packet is a header byte
+ * (route in bits 0–1, payload type in bits 2–5), a path_len byte, the path,
+ * then
+ * the payload.
+ */
 export function parseLogRxData(d: Uint8Array): RawRxPacket | null {
   if (d.length < 6) return null;
   const header = d[3];
@@ -218,6 +308,10 @@ export function parseLogRxData(d: Uint8Array): RawRxPacket | null {
   };
 }
 
+/**
+ * Parses the core `STATS` page (subtype 0): battery, uptime, error count, queue
+ * depth.
+ */
 export function parseStatsCore(d: Uint8Array): StatsCore | null {
   if (d.length < 11) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
@@ -229,6 +323,10 @@ export function parseStatsCore(d: Uint8Array): StatsCore | null {
   };
 }
 
+/**
+ * Parses the radio `STATS` page (subtype 1): noise floor, last RSSI/SNR, TX/RX
+ * airtime.
+ */
 export function parseStatsRadio(d: Uint8Array): StatsRadio | null {
   if (d.length < 14) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
@@ -241,6 +339,10 @@ export function parseStatsRadio(d: Uint8Array): StatsRadio | null {
   };
 }
 
+/**
+ * Parses the packet `STATS` page (subtype 2): recv/sent totals and flood/direct
+ * TX/RX counters. `recvErrors` is present only on newer firmware (else null).
+ */
 export function parseStatsPackets(d: Uint8Array): StatsPackets | null {
   if (d.length < 26) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);

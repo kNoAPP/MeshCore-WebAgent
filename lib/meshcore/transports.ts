@@ -24,6 +24,10 @@ import {
 
 // ─── USB Serial ──────────────────────────────────────────────────────────────
 
+/**
+ * Web Serial transport. Reads run in a background loop that feeds a
+ * {@link USBFrameParser}; writes are length-framed via {@link encodeUSBFrame}.
+ */
 export class USBTransport implements ITransport {
   private writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
   private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
@@ -32,6 +36,7 @@ export class USBTransport implements ITransport {
 
   constructor(private port: SerialPort) {}
 
+  /** Opens the serial port at the given baud rate and acquires the writer. */
   async open(baud: number): Promise<void> {
     await this.port.open({ baudRate: baud });
     this.writer = this.port.writable!.getWriter();
@@ -82,6 +87,11 @@ export class USBTransport implements ITransport {
 
 // ─── BLE (Nordic UART) ───────────────────────────────────────────────────────
 
+/**
+ * Bluetooth LE transport over the Nordic UART service. Unlike USB/WiFi there is
+ * no frame delimiter: each inbound GATT notification is exactly one frame, and
+ * outbound writes are chunked to the 512-byte characteristic limit.
+ */
 export class BLETransport implements ITransport {
   private onFrame: ((d: Uint8Array) => void) | null = null;
   private started = false;
@@ -92,6 +102,7 @@ export class BLETransport implements ITransport {
     private txChar: BluetoothRemoteGATTCharacteristic,
   ) {}
 
+  /** Writes a payload to the RX characteristic, split into ≤512-byte chunks. */
   async send(payload: Uint8Array): Promise<void> {
     const chunkSize = 512;
     for (let i = 0; i < payload.length; i += chunkSize) {
@@ -124,12 +135,19 @@ export class BLETransport implements ITransport {
 
 // ─── WiFi / WebSocket ────────────────────────────────────────────────────────
 
+/**
+ * WebSocket transport. Uses the same `0x3C`/length framing as USB (parsed by
+ * {@link USBFrameParser}) over a binary WebSocket to the radio's WiFi bridge.
+ */
 export class WiFiTransport implements ITransport {
   private ws: WebSocket | null = null;
   private parser: USBFrameParser | null = null;
 
   constructor(private url: string) {}
 
+  /**
+   * Connects the WebSocket; resolves on open, rejects if the connection fails.
+   */
   async open(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(this.url);
@@ -156,6 +174,13 @@ export class WiFiTransport implements ITransport {
 
 // ─── Factory helpers ─────────────────────────────────────────────────────────
 
+/**
+ * Prompts the user to pick a serial port and returns an opened transport.
+ *
+ * @param baud - serial baud rate.
+ * @remarks Must be called from a user gesture (Web Serial permission
+ * requirement).
+ */
 export async function createUSBTransport(baud: number): Promise<USBTransport> {
   const port = await navigator.serial.requestPort();
   const t = new USBTransport(port);
@@ -163,6 +188,13 @@ export async function createUSBTransport(baud: number): Promise<USBTransport> {
   return t;
 }
 
+/**
+ * Prompts the user to pick a BLE companion (filtered to the Nordic UART
+ * service) and returns a connected transport.
+ *
+ * @remarks Must be called from a user gesture (Web Bluetooth permission
+ * requirement).
+ */
 export async function createBLETransport(): Promise<BLETransport> {
   const device = await navigator.bluetooth.requestDevice({
     filters: [{ services: [BLE_SERVICE_UUID] }],
@@ -175,6 +207,11 @@ export async function createBLETransport(): Promise<BLETransport> {
   return new BLETransport(device, rxChar, txChar);
 }
 
+/**
+ * Connects to a radio's WiFi WebSocket bridge and returns an opened transport.
+ *
+ * @param url - WebSocket URL of the bridge (e.g. `ws://192.168.x.x/ws`).
+ */
 export async function createWiFiTransport(url: string): Promise<WiFiTransport> {
   const t = new WiFiTransport(url);
   await t.open();
