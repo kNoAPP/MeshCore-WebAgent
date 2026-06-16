@@ -5,11 +5,15 @@
   "dictionaries": ["typescript", "node", "npm", "html", "css", "markdown"],
   "ignorePaths": [
     "node_modules",
+    ".git",
+    ".vscode",
     ".next",
     "out",
+    "package.json",
     "package-lock.json",
     "*.tsbuildinfo",
-    "public"
+    "public",
+    "locales"
   ],
   "words": [
     "acked",

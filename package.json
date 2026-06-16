@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint --max-warnings 0",
     "type-check": "tsc --noEmit",
-    "spell-check": "cspell \"**/*.{ts,tsx,md}\" --no-progress",
+    "spell-check": "cspell \"**\" --no-progress --dot",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
