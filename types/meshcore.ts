@@ -226,6 +226,9 @@ export interface SyncProgress {
 /** The three supported connection transports. */
 export type TransportKind = 'usb' | 'ble' | 'wifi';
 
+/** Supported UI locale codes. */
+export type Locale = 'en' | 'ja';
+
 /**
  * Transport abstraction the {@link MeshCoreClient} talks through, implemented
  * by the USB, BLE, and WiFi transports.

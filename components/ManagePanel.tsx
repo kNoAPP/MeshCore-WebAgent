@@ -18,11 +18,12 @@
 import { useEffect, useState } from 'react';
 import { useMeshStore, channelConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ModalShell } from './ModalShell';
 import { CopyButton } from './CopyButton';
 import {
   ADV_ICON,
-  ADV_LABEL,
+  getAdvLabel,
   formatRelative,
   toHex,
   fromHex,
@@ -32,6 +33,7 @@ import {
 } from '@/lib/utils';
 import { FAVORITE_FLAG, NO_PATH } from '@/lib/meshcore/constants';
 import type { Contact, Channel } from '@/types/meshcore';
+import type { TranslationFn } from '@/lib/i18n';
 
 /**
  * The detail/management modal for a contact or channel, driven by the store's
@@ -46,6 +48,7 @@ export function ManagePanel() {
     useMeshStore();
   const { toggleFavorite, removeContact, resetContactPath, removeChannel } =
     useMeshCore();
+  const { t } = useTranslation();
   const [confirming, setConfirming] = useState(false);
 
   if (!managePanel) return null;
@@ -60,30 +63,30 @@ export function ManagePanel() {
     if (!channel) return null;
     return (
       <ModalShell
-        title={`🔒 ${channel.name || `Channel ${idx}`}`}
+        title={`🔒 ${channel.name || t('channelN', { n: idx })}`}
         onClose={close}
       >
         <ChannelDetails channel={channel} />
         {confirming ? (
           <ConfirmRow
-            message='Remove this channel from the radio?'
+            message={t('manageConfirmRemoveChannel')}
             onCancel={() => setConfirming(false)}
             onConfirm={() => {
               removeChannel(idx);
               close();
             }}
+            cancelLabel={t('manageBtnCancel')}
+            confirmLabel={t('manageBtnRemove')}
           />
         ) : (
           <div className='mt-6 flex justify-end border-t border-(--border) pt-4'>
             <button
               disabled={idx === 0}
               onClick={() => setConfirming(true)}
-              title={
-                idx === 0 ? 'The Public channel cannot be removed' : undefined
-              }
+              title={idx === 0 ? t('managePublicChannelProtected') : undefined}
               className='rounded-md bg-(--red-dim) px-3 py-1.5 text-sm text-white hover:bg-(--red-dim-hover) disabled:opacity-40 disabled:hover:bg-(--red-dim)'
             >
-              Remove channel
+              {t('manageBtnRemoveChannel')}
             </button>
           </div>
         )}
@@ -103,39 +106,50 @@ export function ManagePanel() {
     >
       <div className='space-y-2'>
         <DetailRow
-          label='Type'
-          value={ADV_LABEL[contact.advType] ?? 'Unknown'}
+          label={t('manageLabelType')}
+          value={getAdvLabel(contact.advType, t)}
         />
         <DetailRow
-          label='Public key'
+          label={t('manageLabelPublicKey')}
           value={
             autoAddConfig.showPublicKeys
               ? contact.pubkey
-              : `${contact.pubkeyPrefix}…`
+              : `${contact.pubkeyPrefix}\u2026`
           }
           mono
           copy={contact.pubkey}
         />
-        <DetailRow label='Route' value={routeLabel(contact)} />
+        <DetailRow
+          label={t('manageLabelRoute')}
+          value={routeLabel(contact, t)}
+        />
         {hasRoute && contact.path.length > 0 && (
-          <DetailRow label='Path' value={toHex(contact.path, ' ')} mono />
+          <DetailRow
+            label={t('manageLabelPath')}
+            value={toHex(contact.path, ' ')}
+            mono
+          />
         )}
         <DetailRow
-          label='Last advert'
+          label={t('manageLabelLastAdvert')}
           value={
-            contact.lastAdvert ? formatRelative(contact.lastAdvert) : 'Unknown'
+            contact.lastAdvert
+              ? formatRelative(contact.lastAdvert, t)
+              : t('manageLabelUnknown')
           }
         />
       </div>
 
       {confirming ? (
         <ConfirmRow
-          message='Remove this contact from the radio?'
+          message={t('manageConfirmRemoveContact')}
           onCancel={() => setConfirming(false)}
           onConfirm={() => {
             removeContact(contact);
             close();
           }}
+          cancelLabel={t('manageBtnCancel')}
+          confirmLabel={t('manageBtnRemove')}
         />
       ) : (
         <div className='mt-6 flex flex-wrap justify-end gap-2 border-t border-(--border) pt-4'>
@@ -143,28 +157,28 @@ export function ManagePanel() {
             onClick={() => toggleFavorite(contact)}
             className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
           >
-            {isFav ? '★ Unfavorite' : '☆ Favorite'}
+            {isFav ? t('manageBtnUnfavorite') : t('manageBtnFavorite')}
           </button>
           {hasRoute && (
             <button
               onClick={() => resetContactPath(contact)}
               className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
             >
-              Reset route
+              {t('manageBtnResetRoute')}
             </button>
           )}
           <button
             disabled
-            title='Coming soon'
+            title={t('manageBtnShareSoon')}
             className='rounded-md px-3 py-1.5 text-sm text-(--text2) opacity-40'
           >
-            Share
+            {t('manageBtnShare')}
           </button>
           <button
             onClick={() => setConfirming(true)}
             className='rounded-md bg-(--red-dim) px-3 py-1.5 text-sm text-white hover:bg-(--red-dim-hover)'
           >
-            Remove
+            {t('manageBtnRemove')}
           </button>
         </div>
       )}
@@ -179,6 +193,7 @@ export function ManagePanel() {
  */
 function ChannelDetails({ channel }: { channel: Channel }) {
   const msgHistory = useMeshStore((s) => s.msgHistory);
+  const { t } = useTranslation();
   const [reveal, setReveal] = useState(false);
   const [hash, setHash] = useState('');
   const [type, setType] = useState('');
@@ -196,48 +211,59 @@ function ChannelDetails({ channel }: { channel: Channel }) {
       if (!secret) {
         if (active) {
           setHash('');
-          setType(channel.idx === 0 ? 'Public' : 'Private');
+          setType(
+            channel.idx === 0
+              ? t('manageChannelTypePublic')
+              : t('manageChannelTypePrivate'),
+          );
         }
         return;
       }
       const h = await channelHashHex(secret);
-      let t: string;
+      let channelType: string;
       if (channel.idx === 0) {
-        t = 'Public';
+        channelType = t('manageChannelTypePublic');
       } else if (
         channel.name.startsWith('#') &&
         bytesEqual(await deriveHashtagSecret(channel.name.slice(1)), secret)
       ) {
-        t = 'Hashtag';
+        channelType = t('manageChannelTypeHashtag');
       } else {
-        t = 'Private';
+        channelType = t('manageChannelTypePrivate');
       }
       if (active) {
         setHash(h);
-        setType(t);
+        setType(channelType);
       }
     })();
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel.idx, channel.name, secretHex]);
 
   return (
     <div className='space-y-2'>
       <DetailRow
-        label='Name'
-        value={channel.name || `Channel ${channel.idx}`}
+        label={t('manageChannelName')}
+        value={channel.name || t('channelN', { n: channel.idx })}
       />
-      <DetailRow label='Index' value={String(channel.idx)} />
-      {type && <DetailRow label='Type' value={type} />}
-      {hash && <DetailRow label='Channel hash' value={`0x${hash}`} mono />}
-      <DetailRow label='Messages' value={String(msgCount)} />
+      <DetailRow label={t('manageChannelIndex')} value={String(channel.idx)} />
+      {type && <DetailRow label={t('manageChannelType')} value={type} />}
+      {hash && (
+        <DetailRow label={t('manageChannelHash')} value={`0x${hash}`} mono />
+      )}
+      <DetailRow label={t('manageChannelMessages')} value={String(msgCount)} />
       {secretHex && (
         <div className='flex items-center gap-3 text-sm'>
-          <span className='w-24 shrink-0 text-(--text2)'>Secret key</span>
+          <span className='w-24 shrink-0 text-(--text2)'>
+            {t('manageChannelSecret')}
+          </span>
           <button
             onClick={() => setReveal(!reveal)}
-            aria-label={reveal ? 'Hide secret key' : 'Reveal secret key'}
+            aria-label={
+              reveal ? t('manageChannelHide') : t('manageChannelReveal')
+            }
             className='relative flex-1 cursor-pointer text-left'
           >
             <span
@@ -266,10 +292,14 @@ function ConfirmRow({
   message,
   onCancel,
   onConfirm,
+  cancelLabel,
+  confirmLabel,
 }: {
   message: string;
   onCancel: () => void;
   onConfirm: () => void;
+  cancelLabel: string;
+  confirmLabel: string;
 }) {
   return (
     <div className='mt-6 flex items-center justify-between gap-3 border-t border-(--border) pt-4'>
@@ -279,13 +309,13 @@ function ConfirmRow({
           onClick={onCancel}
           className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
         >
-          Cancel
+          {cancelLabel}
         </button>
         <button
           onClick={onConfirm}
           className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--red-hover)'
         >
-          Remove
+          {confirmLabel}
         </button>
       </div>
     </div>
@@ -293,10 +323,12 @@ function ConfirmRow({
 }
 
 /** Verbose route description for the contact detail row. */
-function routeLabel(contact: Contact): string {
-  if (contact.outPathLen === NO_PATH) return 'No route — floods';
-  if (contact.outPathLen === 0) return 'Direct (0 hops)';
-  return `${contact.outPathLen} hop${contact.outPathLen === 1 ? '' : 's'}`;
+function routeLabel(contact: Contact, t: TranslationFn): string {
+  if (contact.outPathLen === NO_PATH) return t('manageRouteNoRoute');
+  if (contact.outPathLen === 0) return t('manageRouteDirect');
+  return t(contact.outPathLen === 1 ? 'manageRouteHop' : 'manageRouteHops', {
+    n: contact.outPathLen,
+  });
 }
 
 /**

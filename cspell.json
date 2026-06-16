@@ -9,7 +9,8 @@
     "out",
     "package-lock.json",
     "*.tsbuildinfo",
-    "public"
+    "public",
+    "locales/ja.ts"
   ],
   "words": [
     "acked",

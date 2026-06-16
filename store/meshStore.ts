@@ -26,10 +26,12 @@ import type {
   ConnectionStatus,
   BatteryInfo,
   SyncProgress,
+  Locale,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { convoId } from '@/lib/utils';
+import { detectLocale, LOCALE_STORAGE_KEY } from '@/lib/i18n';
 
 /** localStorage key for the persisted {@link AutoAddConfig}. */
 const AUTOADD_STORAGE_KEY = 'meshcore.autoAddConfig';
@@ -93,6 +95,7 @@ interface MeshState {
   discoverOpen: boolean;
   autoAddOpen: boolean;
   addChannelOpen: boolean;
+  locale: Locale;
 }
 
 interface MeshActions {
@@ -119,6 +122,7 @@ interface MeshActions {
   setDiscoverOpen: (open: boolean) => void;
   setAutoAddOpen: (open: boolean) => void;
   setAddChannelOpen: (open: boolean) => void;
+  setLocale: (locale: Locale) => void;
   reset: () => void;
 }
 
@@ -140,6 +144,7 @@ const initialState: MeshState = {
   discoverOpen: false,
   autoAddOpen: false,
   addChannelOpen: false,
+  locale: detectLocale(),
 };
 
 let toastSeq = 0;
@@ -249,12 +254,23 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setAutoAddOpen: (autoAddOpen) => set({ autoAddOpen }),
   setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
 
+  setLocale: (locale) => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+      } catch {}
+    }
+    set({ locale });
+  },
+
   reset: () =>
     set({
       ...initialState,
       toast: get().toast,
-      // Auto-add config is a persistent user preference, not session state
+      // Auto-add config and locale are persistent user preferences, not
+      // session state
       autoAddConfig: get().autoAddConfig,
+      locale: get().locale,
     }),
 }));
 

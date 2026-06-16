@@ -18,6 +18,7 @@
 import { useState } from 'react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ModalShell } from './ModalShell';
 import { fromHex, randomSecret, deriveHashtagSecret, toHex } from '@/lib/utils';
 
@@ -27,24 +28,6 @@ import { fromHex, randomSecret, deriveHashtagSecret, toHex } from '@/lib/utils';
  * name.
  */
 type Mode = 'create' | 'joinPrivate' | 'joinHashtag';
-
-const MODES: { id: Mode; label: string; hint: string }[] = [
-  {
-    id: 'create',
-    label: 'Create Private',
-    hint: 'Generates a random secret key. Share it so others can join.',
-  },
-  {
-    id: 'joinPrivate',
-    label: 'Join Private',
-    hint: 'Enter the channel name and its 16-byte secret key (hex).',
-  },
-  {
-    id: 'joinHashtag',
-    label: 'Join Hashtag',
-    hint: 'Hashtag channels are public — anyone entering the same name joins. Use a–z, 0–9, and hyphens only.',
-  },
-];
 
 /**
  * Modal for adding a channel in one of three {@link Mode}s (create private,
@@ -56,12 +39,32 @@ const MODES: { id: Mode; label: string; hint: string }[] = [
 export function AddChannelModal() {
   const { addChannelOpen, setAddChannelOpen } = useMeshStore();
   const { addChannel } = useMeshCore();
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('create');
   const [name, setName] = useState('');
   const [secretHex, setSecretHex] = useState('');
   const [hashtag, setHashtag] = useState('');
   const [generated, setGenerated] = useState(() => toHex(randomSecret()));
   const [error, setError] = useState('');
+
+  // Mode definitions require `t` so they're constructed inside the component.
+  const MODES: { id: Mode; label: string; hint: string }[] = [
+    {
+      id: 'create',
+      label: t('addChannelModeCreate'),
+      hint: t('addChannelHintCreate'),
+    },
+    {
+      id: 'joinPrivate',
+      label: t('addChannelModeJoinPrivate'),
+      hint: t('addChannelHintJoinPrivate'),
+    },
+    {
+      id: 'joinHashtag',
+      label: t('addChannelModeJoinHashtag'),
+      hint: t('addChannelHintJoinHashtag'),
+    },
+  ];
 
   if (!addChannelOpen) return null;
   const close = () => {
@@ -78,7 +81,7 @@ export function AddChannelModal() {
     setError('');
     if (mode === 'joinHashtag') {
       if (!/^[a-z0-9-]+$/.test(hashtag)) {
-        setError('Use only a–z, 0–9, and hyphens.');
+        setError(t('addChannelErrorHashtagChars'));
         return;
       }
       addChannel(`#${hashtag}`, await deriveHashtagSecret(hashtag));
@@ -86,7 +89,7 @@ export function AddChannelModal() {
       return;
     }
     if (!name.trim()) {
-      setError('Enter a channel name.');
+      setError(t('addChannelErrorNoName'));
       return;
     }
     if (mode === 'create') {
@@ -97,7 +100,7 @@ export function AddChannelModal() {
     }
     const secret = fromHex(secretHex.trim(), 16);
     if (!secret) {
-      setError('Secret key must be 32 hex characters (16 bytes).');
+      setError(t('addChannelErrorSecretLen'));
       return;
     }
     addChannel(name.trim(), secret);
@@ -107,7 +110,7 @@ export function AddChannelModal() {
   const hint = MODES.find((m) => m.id === mode)!.hint;
 
   return (
-    <ModalShell title='➕ Add channel' onClose={close} widthClass='w-112'>
+    <ModalShell title={t('addChannelTitle')} onClose={close} widthClass='w-112'>
       <div
         className='mb-3 flex gap-1 rounded-md p-1'
         style={{ background: 'var(--bg)' }}
@@ -134,7 +137,9 @@ export function AddChannelModal() {
       <div className='space-y-4'>
         {mode === 'joinHashtag' ? (
           <label className='block'>
-            <span className='mb-1 block text-xs text-(--text2)'>Name</span>
+            <span className='mb-1 block text-xs text-(--text2)'>
+              {t('addChannelLabelName')}
+            </span>
             <div
               className='flex items-center rounded-md border'
               style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
@@ -154,7 +159,9 @@ export function AddChannelModal() {
           </label>
         ) : (
           <label className='block'>
-            <span className='mb-1 block text-xs text-(--text2)'>Name</span>
+            <span className='mb-1 block text-xs text-(--text2)'>
+              {t('addChannelLabelName')}
+            </span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -168,12 +175,12 @@ export function AddChannelModal() {
         {mode === 'create' && (
           <label className='block'>
             <span className='mb-1 flex items-center justify-between text-xs text-(--text2)'>
-              Secret key (generated)
+              {t('addChannelLabelSecretGenerated')}
               <button
                 onClick={() => setGenerated(toHex(randomSecret()))}
                 className='text-(--accent) hover:underline'
               >
-                Regenerate
+                {t('addChannelBtnRegenerate')}
               </button>
             </span>
             <input
@@ -188,7 +195,7 @@ export function AddChannelModal() {
         {mode === 'joinPrivate' && (
           <label className='block'>
             <span className='mb-1 block text-xs text-(--text2)'>
-              Secret key (hex, 16 bytes)
+              {t('addChannelLabelSecretHex')}
             </span>
             <input
               value={secretHex}
@@ -207,13 +214,15 @@ export function AddChannelModal() {
           onClick={close}
           className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
         >
-          Cancel
+          {t('addChannelBtnCancel')}
         </button>
         <button
           onClick={submit}
           className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--accent-hover)'
         >
-          {mode === 'create' ? 'Create' : 'Join'}
+          {mode === 'create'
+            ? t('addChannelBtnCreate')
+            : t('addChannelBtnJoin')}
         </button>
       </div>
     </ModalShell>

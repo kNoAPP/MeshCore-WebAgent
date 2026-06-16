@@ -18,6 +18,7 @@
 import { useState, useSyncExternalStore } from 'react';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useMeshStore } from '@/store/meshStore';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { SyncProgress } from '@/types/meshcore';
 
 type Tab = 'usb' | 'ble' | 'wifi';
@@ -34,19 +35,20 @@ const SYNC_STAGES: SyncProgress['stage'][] = [
   'messages',
 ];
 
-const SYNC_STAGE_LABEL: Record<SyncProgress['stage'], string> = {
-  device: 'Reading device info',
-  contacts: 'Syncing contacts',
-  channels: 'Syncing channels',
-  messages: 'Syncing messages',
-};
-
 /**
  * Builds the parenthetical detail after a sync stage label (e.g. ` (3 of 8)`).
  */
-function syncDetail({ stage, current, total }: SyncProgress): string {
-  if (stage === 'messages') return current ? ` (${current} received)` : '';
-  if (current != null && total != null) return ` (${current} of ${total})`;
+function syncDetail(
+  { stage, current, total }: SyncProgress,
+  t: (
+    key: import('@/lib/i18n').TranslationKey,
+    vars?: Record<string, string | number>,
+  ) => string,
+): string {
+  if (stage === 'messages')
+    return current ? ` ${t('syncDetailReceived', { n: current })}` : '';
+  if (current != null && total != null)
+    return ` ${t('syncDetailOf', { current, total })}`;
   return '';
 }
 
@@ -86,6 +88,7 @@ export function ConnectPanel() {
   const status = useMeshStore((s) => s.status);
   const syncProgress = useMeshStore((s) => s.syncProgress);
   const deviceName = useMeshStore((s) => s.deviceName);
+  const { t } = useTranslation();
 
   const usbSupported = support?.usb ?? true;
   const bleSupported = support?.ble ?? true;
@@ -99,6 +102,17 @@ export function ConnectPanel() {
     }
   };
 
+  /** Stage key → translation key mapping. */
+  const stageLabelKey: Record<
+    SyncProgress['stage'],
+    import('@/lib/i18n').TranslationKey
+  > = {
+    device: 'syncStageDevice',
+    contacts: 'syncStageContacts',
+    channels: 'syncStageChannels',
+    messages: 'syncStageMessages',
+  };
+
   if (status === 'connecting' && syncProgress) {
     const { stage, percent } = syncProgress;
     const stageIdx = SYNC_STAGES.indexOf(stage);
@@ -108,16 +122,16 @@ export function ConnectPanel() {
           className='w-105 max-w-[95vw] rounded-[10px] border p-8'
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
-          <h2 className='mb-1 text-xl font-bold'>Syncing with radio</h2>
+          <h2 className='mb-1 text-xl font-bold'>{t('syncTitle')}</h2>
           <p className='mb-5 text-sm text-(--text2)'>
             {deviceName
-              ? `Loading stored data from ${deviceName}.`
-              : 'Loading stored data from your companion radio.'}
+              ? t('syncSubtitleNamed', { name: deviceName })
+              : t('syncSubtitleUnnamed')}
           </p>
           <div className='mb-1.5 flex items-baseline justify-between gap-3'>
             <span className='text-sm'>
-              {SYNC_STAGE_LABEL[stage]}
-              {syncDetail(syncProgress)}…
+              {t(stageLabelKey[stage])}
+              {syncDetail(syncProgress, t)}\u2026
             </span>
             <span className='text-xs text-(--text2)'>{percent}%</span>
           </div>
@@ -149,7 +163,7 @@ export function ConnectPanel() {
                   <span className='w-3 text-center'>
                     {done ? '✓' : active ? '●' : '○'}
                   </span>
-                  {SYNC_STAGE_LABEL[s]}
+                  {t(stageLabelKey[s])}
                 </li>
               );
             })}
@@ -166,27 +180,28 @@ export function ConnectPanel() {
         className='w-105 max-w-[95vw] rounded-[10px] border p-8'
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
-        <h2 className='mb-1 text-xl font-bold'>Connect to MeshCore</h2>
-        <p className='mb-5 text-sm text-(--text2)'>
-          {' '}
-          Connect via USB, Bluetooth, or WiFi to your Companion Radio.{' '}
-        </p>
+        <h2 className='mb-1 text-xl font-bold'>{t('connectTitle')}</h2>
+        <p className='mb-5 text-sm text-(--text2)'>{t('connectSubtitle')}</p>
 
         {/* Tabs */}
         <div
           className='mb-5 flex overflow-hidden rounded-lg border'
           style={{ borderColor: 'var(--border)' }}
         >
-          {(['usb', 'ble', 'wifi'] as Tab[]).map((t, i) => (
+          {(['usb', 'ble', 'wifi'] as Tab[]).map((tabId, i) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={tabId}
+              onClick={() => setTab(tabId)}
               className={`flex-1 py-2 text-[13px] font-medium transition-all
                 ${i > 0 ? 'border-l' : ''}
-                ${tab === t ? 'bg-(--accent) text-white' : 'text-(--text2) hover:text-(--text)'}`}
+                ${tab === tabId ? 'bg-(--accent) text-white' : 'text-(--text2) hover:text-(--text)'}`}
               style={i > 0 ? { borderColor: 'var(--border)' } : {}}
             >
-              {t === 'usb' ? '🔌 USB' : t === 'ble' ? '📡 BLE' : '🌐 WiFi'}
+              {tabId === 'usb'
+                ? t('tabUSB')
+                : tabId === 'ble'
+                  ? t('tabBLE')
+                  : t('tabWifi')}
             </button>
           ))}
         </div>
@@ -195,18 +210,14 @@ export function ConnectPanel() {
         {tab === 'usb' && (
           <div className='flex flex-col gap-3'>
             {usbSupported ? (
-              <InfoBox>
-                Uses Web Serial API (Chrome / Edge). Connect your MeshCore
-                Companion via USB cable.
-              </InfoBox>
+              <InfoBox>{t('usbInfo')}</InfoBox>
             ) : (
-              <WarningBox>
-                USB is not supported in this browser. Use a supported browser
-                like Chrome to connect over USB.
-              </WarningBox>
+              <WarningBox>{t('usbUnsupported')}</WarningBox>
             )}
             <label className='flex flex-col gap-1'>
-              <span className='text-xs text-(--text2)'>Baud Rate</span>
+              <span className='text-xs text-(--text2)'>
+                {t('labelBaudRate')}
+              </span>
               <input
                 type='number'
                 value={baud}
@@ -218,7 +229,7 @@ export function ConnectPanel() {
               disabled={busy || !usbSupported}
               onClick={() => run(() => connectUSB(baud))}
             >
-              {busy ? 'Connecting…' : 'Connect USB'}
+              {busy ? t('btnConnecting') : t('btnConnectUSB')}
             </PrimaryButton>
           </div>
         )}
@@ -228,25 +239,17 @@ export function ConnectPanel() {
           <div className='flex flex-col gap-3'>
             {bleSupported ? (
               <InfoBox>
-                Uses Web Bluetooth API (Chrome). Scans for devices advertising
-                the Nordic UART service.
-                <div className='mt-1.5'>
-                  Don&apos;t see your companion? It may already be connected to
-                  another device, like your phone&apos;s MeshCore app.
-                  Disconnect it there first.
-                </div>
+                {t('bleInfo')}
+                <div className='mt-1.5'>{t('bleInfoExtra')}</div>
               </InfoBox>
             ) : (
-              <WarningBox>
-                Bluetooth is not supported in this browser. Use a supported
-                browser like Chrome to connect over BLE.
-              </WarningBox>
+              <WarningBox>{t('bleUnsupported')}</WarningBox>
             )}
             <PrimaryButton
               disabled={busy || !bleSupported}
               onClick={() => run(connectBLE)}
             >
-              {busy ? 'Scanning…' : 'Scan & Connect BLE'}
+              {busy ? t('btnScanning') : t('btnScanBLE')}
             </PrimaryButton>
           </div>
         )}
@@ -255,15 +258,13 @@ export function ConnectPanel() {
         {tab === 'wifi' && (
           <div className='flex flex-col gap-3'>
             <InfoBox>
-              Connects via WebSocket. Same frame protocol as USB serial.
-              <div className='mt-1.5'>
-                Can&apos;t reach your companion? It may already be connected to
-                another device, like your phone&apos;s MeshCore app. Disconnect
-                it there first.
-              </div>
+              {t('wifiInfo')}
+              <div className='mt-1.5'>{t('wifiInfoExtra')}</div>
             </InfoBox>
             <label className='flex flex-col gap-1'>
-              <span className='text-xs text-(--text2)'>WebSocket URL</span>
+              <span className='text-xs text-(--text2)'>
+                {t('labelWebSocketURL')}
+              </span>
               <input
                 type='text'
                 value={wifiUrl}
@@ -276,7 +277,7 @@ export function ConnectPanel() {
               disabled={busy || !wifiUrl.startsWith('ws')}
               onClick={() => run(() => connectWiFi(wifiUrl))}
             >
-              {busy ? 'Connecting…' : 'Connect WiFi'}
+              {busy ? t('btnConnecting') : t('btnConnectWifi')}
             </PrimaryButton>
           </div>
         )}

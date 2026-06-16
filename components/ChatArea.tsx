@@ -18,6 +18,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ADV_ICON } from '@/lib/utils';
 import { MessageBubble } from './MessageBubble';
 import { RouteChip } from './RouteChip';
@@ -55,6 +56,7 @@ function getMentionQuery(value: string, cursor: number): string | null {
 export function ChatArea() {
   const { activeConvo, msgHistory, contacts, deviceName } = useMeshStore();
   const { sendMessage, retryMessage } = useMeshCore();
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -149,7 +151,7 @@ export function ChatArea() {
   if (!activeConvo) {
     return (
       <div className='flex flex-1 items-center justify-center text-sm text-(--text2)'>
-        Select a channel or contact to start chatting
+        {t('chatSelectPrompt')}
       </div>
     );
   }
@@ -179,8 +181,8 @@ export function ChatArea() {
         {directContact && <RouteChip contact={directContact} />}
         <span className='ml-auto text-xs text-(--text2)'>
           {activeConvo.kind === 'channel'
-            ? `Channel ${activeConvo.rawId}`
-            : (activeConvo.rawId as string).slice(0, 16) + '…'}
+            ? t('chatChannelLabel', { n: activeConvo.rawId as number })
+            : (activeConvo.rawId as string).slice(0, 16) + '\u2026'}
         </span>
       </div>
 
@@ -188,7 +190,7 @@ export function ChatArea() {
       <div className='flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'>
         {messages.length === 0 && (
           <div className='mt-8 text-center text-xs text-(--text2)'>
-            No messages yet
+            {t('chatNoMessages')}
           </div>
         )}
         {messages.map((msg, i) => {
@@ -196,7 +198,7 @@ export function ChatArea() {
           let bodyText = msg.text;
 
           if (msg.own) {
-            senderLabel = 'You';
+            senderLabel = t('chatSenderYou');
           } else if (msg.kind === 'channel') {
             const colonIdx = msg.text.indexOf(': ');
             if (colonIdx !== -1) {
@@ -239,15 +241,13 @@ export function ChatArea() {
                       className='mr-1.5 inline-flex items-center gap-1.5'
                       style={{ color: 'var(--amber)' }}
                     >
-                      <span title='The message may still have arrived — the acknowledgment can be lost in route'>
-                        No acknowledgment
-                      </span>
+                      <span title={t('chatNoAckTitle')}>{t('chatNoAck')}</span>
                       <span>·</span>
                       <button
                         onClick={() => retryMessage(msg, activeConvo)}
                         className='font-semibold underline hover:opacity-80'
                       >
-                        Retry?
+                        {t('chatRetry')}
                       </button>
                       {msg.kind === 'direct' &&
                         (msg.attempt ?? 0) >= 1 &&
@@ -255,10 +255,10 @@ export function ChatArea() {
                         directContact.outPathLen !== NO_PATH && (
                           <button
                             onClick={() => retryMessage(msg, activeConvo, true)}
-                            title='Discard the saved route to this contact and resend via flood'
+                            title={t('chatResetRetryTitle')}
                             className='font-semibold underline hover:opacity-80'
                           >
-                            Reset route & retry
+                            {t('chatResetRetry')}
                           </button>
                         )}
                     </span>
@@ -277,7 +277,7 @@ export function ChatArea() {
           className='shrink-0 border-t px-4 py-3 text-center text-xs text-(--text2)'
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
-          Repeaters can&apos;t be messaged
+          {t('chatRepeaterBlock')}
         </div>
       ) : (
         <div
@@ -315,7 +315,7 @@ export function ChatArea() {
               }
               rows={1}
               maxLength={160}
-              placeholder='Type a message… (Enter to send, Shift+Enter for newline)'
+              placeholder={t('chatPlaceholder')}
               className='flex-1 resize-none overflow-y-hidden rounded-[10px] border border-(--border) bg-(--surface2) px-3 py-2
               text-sm text-(--text) outline-none
               placeholder:text-(--text2) focus:border-(--accent)'

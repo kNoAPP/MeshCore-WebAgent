@@ -17,8 +17,9 @@
 
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ModalShell } from './ModalShell';
-import { ADV_ICON, ADV_LABEL, formatRelative } from '@/lib/utils';
+import { ADV_ICON, getAdvLabel, formatRelative } from '@/lib/utils';
 
 /**
  * Modal listing heard adverts (most-recent first), each with an Add button (or
@@ -28,6 +29,7 @@ export function DiscoverPanel() {
   const { discoverOpen, setDiscoverOpen, adverts, contacts, autoAddConfig } =
     useMeshStore();
   const { addDiscoveredContact } = useMeshCore();
+  const { t } = useTranslation();
 
   if (!discoverOpen) return null;
   const sorted = Object.values(adverts).sort(
@@ -36,13 +38,12 @@ export function DiscoverPanel() {
 
   return (
     <ModalShell
-      title='📡 Discovered nodes'
+      title={t('discoverTitle')}
       onClose={() => setDiscoverOpen(false)}
     >
       {sorted.length === 0 ? (
         <p className='py-8 text-center text-sm text-(--text2)'>
-          No adverts heard yet. Discovered nodes appear here as their adverts
-          arrive.
+          {t('discoverEmpty')}
         </p>
       ) : (
         <div className='space-y-1'>
@@ -59,20 +60,22 @@ export function DiscoverPanel() {
                     {a.name || a.pubkeyPrefix.slice(0, 8)}
                   </div>
                   <div className='truncate text-xs text-(--text2)'>
-                    {ADV_LABEL[a.advType] ?? 'Node'} ·{' '}
-                    {formatRelative(a.lastHeard)}
+                    {getAdvLabel(a.advType, t)} &middot;{' '}
+                    {formatRelative(a.lastHeard, t)}
                     {autoAddConfig.showPublicKeys && ` · ${a.pubkeyPrefix}`}
                   </div>
                 </div>
                 {added ? (
-                  <span className='text-xs text-(--green)'>✓ Added</span>
+                  <span className='text-xs text-(--green)'>
+                    {t('discoverAdded')}
+                  </span>
                 ) : (
                   <button
                     onClick={() => addDiscoveredContact(a)}
                     className='rounded-md px-3 py-1 text-xs font-semibold text-white'
                     style={{ background: 'var(--accent)' }}
                   >
-                    Add
+                    {t('discoverBtnAdd')}
                   </button>
                 )}
               </div>

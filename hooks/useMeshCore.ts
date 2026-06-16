@@ -31,6 +31,7 @@ import {
   FAVORITE_FLAG,
 } from '@/lib/meshcore/constants';
 import { toHex, fromHex, bytesEqual } from '@/lib/utils';
+import { useTranslation } from '@/hooks/useTranslation';
 import type {
   ActiveConvo,
   Contact,
@@ -199,6 +200,7 @@ export function useMeshCore() {
     showToast,
     reset,
   } = useMeshStore();
+  const { t } = useTranslation();
 
   // Installs the client callbacks that funnel radio events into the store and
   // route incoming messages to the right conversation with a toast.
@@ -219,8 +221,9 @@ export function useMeshCore() {
             const id = channelConvoId(msg.channelIdx);
             addMessage(id, { ...msg, senderName: undefined });
             const chName =
-              c.channels[msg.channelIdx]?.name || `Channel ${msg.channelIdx}`;
-            showToast(`New message in ${chName}`);
+              c.channels[msg.channelIdx]?.name ||
+              t('channelN', { n: msg.channelIdx });
+            showToast(t('toastNewMessageIn', { name: chName }));
           } else if (msg.kind === 'direct' && msg.pubkeyPrefix) {
             const id = directConvoId(msg.pubkeyPrefix);
             const contact = c.lookupContact(msg.pubkeyPrefix);
@@ -229,7 +232,9 @@ export function useMeshCore() {
               senderName: contact?.name ?? msg.pubkeyPrefix.slice(0, 8),
             });
             showToast(
-              `New message from ${contact?.name ?? msg.pubkeyPrefix.slice(0, 8)}`,
+              t('toastNewMessageFrom', {
+                name: contact?.name ?? msg.pubkeyPrefix.slice(0, 8),
+              }),
             );
           }
         },
@@ -244,6 +249,7 @@ export function useMeshCore() {
       setAdverts,
       addMessage,
       showToast,
+      t,
     ],
   );
 
@@ -266,7 +272,9 @@ export function useMeshCore() {
         const batt = await c.getBattery();
         if (batt) setBattery(batt);
         showToast(
-          `Connected — ${c.selfInfo?.name ?? 'MeshCore Device'}`,
+          t('toastConnected', {
+            name: c.selfInfo?.name ?? 'MeshCore Device',
+          }),
           'success',
         );
 
@@ -313,7 +321,10 @@ export function useMeshCore() {
       } catch (err) {
         setSyncProgress(null);
         setStatus('disconnected');
-        showToast(`Connection failed: ${(err as Error).message}`, 'error');
+        showToast(
+          t('toastConnectionFailed', { msg: (err as Error).message }),
+          'error',
+        );
       }
     },
     [
@@ -326,6 +337,7 @@ export function useMeshCore() {
       wireClient,
       restoreHistory,
       setAutoAddConfig,
+      t,
     ],
   );
 
@@ -336,10 +348,10 @@ export function useMeshCore() {
         const transport = await createUSBTransport(baud);
         await connect(transport);
       } catch (err) {
-        showToast(`USB error: ${(err as Error).message}`, 'error');
+        showToast(t('toastUsbError', { msg: (err as Error).message }), 'error');
       }
     },
-    [connect, showToast],
+    [connect, showToast, t],
   );
 
   /** Prompts for a BLE companion and connects. */
@@ -348,9 +360,9 @@ export function useMeshCore() {
       const transport = await createBLETransport();
       await connect(transport);
     } catch (err) {
-      showToast(`BLE error: ${(err as Error).message}`, 'error');
+      showToast(t('toastBleError', { msg: (err as Error).message }), 'error');
     }
-  }, [connect, showToast]);
+  }, [connect, showToast, t]);
 
   /** Connects to a radio's WiFi WebSocket bridge at `url`. */
   const connectWiFi = useCallback(
@@ -359,10 +371,13 @@ export function useMeshCore() {
         const transport = await createWiFiTransport(url);
         await connect(transport);
       } catch (err) {
-        showToast(`WiFi error: ${(err as Error).message}`, 'error');
+        showToast(
+          t('toastWifiError', { msg: (err as Error).message }),
+          'error',
+        );
       }
     },
-    [connect, showToast],
+    [connect, showToast, t],
   );
 
   /**
@@ -380,8 +395,8 @@ export function useMeshCore() {
     client?.destroy();
     setClient(null);
     reset();
-    showToast('Disconnected');
-  }, [client, setClient, reset, showToast]);
+    showToast(t('toastDisconnected'));
+  }, [client, setClient, reset, showToast, t]);
 
   // Core send routine for an existing message bubble: transmits to a channel or
   // contact, then tracks delivery — opens a repeater-echo window for channels,
@@ -407,12 +422,12 @@ export function useMeshCore() {
         const contact = client.contacts[convo.rawId as string];
         if (!contact) {
           updateMessage(convo.id, msgId, { status: 'failed' });
-          showToast('Contact not found', 'error');
+          showToast(t('toastContactNotFound'), 'error');
           return;
         }
         if (contact.advType === ADV_TYPE_REPEATER) {
           updateMessage(convo.id, msgId, { status: 'failed' });
-          showToast('Repeaters can’t be messaged', 'error');
+          showToast(t('toastRepeaterCantMessage'), 'error');
           return;
         }
         if (resetRoute) {
@@ -449,10 +464,13 @@ export function useMeshCore() {
         pendingAcks.set(ackKey, { convoId: convo.id, msgId, timer });
       } catch (err) {
         updateMessage(convo.id, msgId, { status: 'failed' });
-        showToast(`Send failed: ${(err as Error).message}`, 'error');
+        showToast(
+          t('toastSendFailed', { msg: (err as Error).message }),
+          'error',
+        );
       }
     },
-    [client, updateMessage, showToast],
+    [client, updateMessage, showToast, t],
   );
 
   /**
@@ -506,12 +524,15 @@ export function useMeshCore() {
       if (!client) return;
       try {
         await client.resetPath(contact);
-        showToast('Route reset — next message will flood', 'success');
+        showToast(t('toastRouteReset'), 'success');
       } catch (err) {
-        showToast(`Route reset failed: ${(err as Error).message}`, 'error');
+        showToast(
+          t('toastRouteResetFailed', { msg: (err as Error).message }),
+          'error',
+        );
       }
     },
-    [client, showToast],
+    [client, showToast, t],
   );
 
   /** Flips a contact's favorite flag on the radio. */
@@ -521,15 +542,17 @@ export function useMeshCore() {
       const fav = (contact.flags & FAVORITE_FLAG) === 0;
       try {
         await client.setFavorite(contact, fav);
-        showToast(fav ? 'Added to favorites' : 'Removed from favorites');
+        showToast(
+          fav ? t('toastAddedToFavorites') : t('toastRemovedFromFavorites'),
+        );
       } catch (err) {
         showToast(
-          `Failed to update favorite: ${(err as Error).message}`,
+          t('toastFavoriteFailed', { msg: (err as Error).message }),
           'error',
         );
       }
     },
-    [client, showToast],
+    [client, showToast, t],
   );
 
   /** Saves a heard advert as a contact on the radio. */
@@ -538,7 +561,7 @@ export function useMeshCore() {
       if (!client) return;
       const pubkeyBytes = fromHex(advert.pubkey, 32);
       if (!pubkeyBytes) {
-        showToast('Invalid public key', 'error');
+        showToast(t('toastInvalidPublicKey'), 'error');
         return;
       }
       const contact: Contact = {
@@ -556,12 +579,18 @@ export function useMeshCore() {
       };
       try {
         await client.addContact(contact);
-        showToast(`Added ${advert.name || advert.pubkeyPrefix}`, 'success');
+        showToast(
+          t('toastContactAdded', { name: advert.name || advert.pubkeyPrefix }),
+          'success',
+        );
       } catch (err) {
-        showToast(`Failed to add contact: ${(err as Error).message}`, 'error');
+        showToast(
+          t('toastContactAddFailed', { msg: (err as Error).message }),
+          'error',
+        );
       }
     },
-    [client, showToast],
+    [client, showToast, t],
   );
 
   /** Deletes a contact from the radio. */
@@ -570,15 +599,15 @@ export function useMeshCore() {
       if (!client) return;
       try {
         await client.removeContact(contact);
-        showToast('Contact removed');
+        showToast(t('toastContactRemoved'));
       } catch (err) {
         showToast(
-          `Failed to remove contact: ${(err as Error).message}`,
+          t('toastContactRemoveFailed', { msg: (err as Error).message }),
           'error',
         );
       }
     },
-    [client, showToast],
+    [client, showToast, t],
   );
 
   /**
@@ -595,7 +624,7 @@ export function useMeshCore() {
         (ch) => ch.secret && bytesEqual(ch.secret, secret),
       );
       if (existing) {
-        showToast(`Already joined “${existing.name || name}”`);
+        showToast(t('toastAlreadyJoined', { name: existing.name || name }));
         return;
       }
       // Indices 1-7 are private channels; pick the lowest free slot
@@ -607,17 +636,20 @@ export function useMeshCore() {
         }
       }
       if (idx === -1) {
-        showToast('All channel slots are full', 'error');
+        showToast(t('toastChannelsFull'), 'error');
         return;
       }
       try {
         await client.setChannel(idx, name, secret);
-        showToast(`Channel “${name}” added`, 'success');
+        showToast(t('toastChannelAdded', { name }), 'success');
       } catch (err) {
-        showToast(`Failed to add channel: ${(err as Error).message}`, 'error');
+        showToast(
+          t('toastChannelAddFailed', { msg: (err as Error).message }),
+          'error',
+        );
       }
     },
-    [client, showToast],
+    [client, showToast, t],
   );
 
   /** Removes a channel slot (rejected by the client for the Public channel). */
@@ -626,15 +658,15 @@ export function useMeshCore() {
       if (!client) return;
       try {
         await client.removeChannel(idx);
-        showToast('Channel removed');
+        showToast(t('toastChannelRemoved'));
       } catch (err) {
         showToast(
-          `Failed to remove channel: ${(err as Error).message}`,
+          t('toastChannelRemoveFailed', { msg: (err as Error).message }),
           'error',
         );
       }
     },
-    [client, showToast],
+    [client, showToast, t],
   );
 
   /** Persists auto-add settings locally and writes them to the radio. */
@@ -649,15 +681,15 @@ export function useMeshCore() {
       try {
         await client.setAutoAddPrefs(cfg);
         setAutoAddConfig(cfg);
-        showToast('Auto-add settings saved', 'success');
+        showToast(t('toastAutoAddSaved'), 'success');
       } catch (err) {
         showToast(
-          `Failed to save settings: ${(err as Error).message}`,
+          t('toastAutoAddFailed', { msg: (err as Error).message }),
           'error',
         );
       }
     },
-    [client, setAutoAddConfig, showToast],
+    [client, setAutoAddConfig, showToast, t],
   );
 
   return {

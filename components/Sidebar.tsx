@@ -23,6 +23,7 @@ import {
   directConvoId,
   unreadCount,
 } from '@/store/meshStore';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ADV_ICON } from '@/lib/utils';
 import { ADV_TYPE_REPEATER, FAVORITE_FLAG } from '@/lib/meshcore/constants';
 
@@ -49,6 +50,7 @@ export function Sidebar() {
     setAutoAddOpen,
     setAddChannelOpen,
   } = useMeshStore();
+  const { t } = useTranslation();
   const [channelsHeight, setChannelsHeight] = useState(160);
   const dragStartY = useRef<number | null>(null);
   const dragStartH = useRef(160);
@@ -140,12 +142,12 @@ export function Sidebar() {
           className='flex shrink-0 items-center justify-between px-3.5 pb-1'
         >
           <span className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'>
-            Channels
+            {t('sidebarChannels')}
           </span>
           <button
             onClick={() => setAddChannelOpen(true)}
-            title='Add channel'
-            aria-label='Add channel'
+            title={t('sidebarAddChannel')}
+            aria-label={t('sidebarAddChannel')}
             className='text-(--text2) hover:text-(--accent)'
           >
             ＋
@@ -157,13 +159,15 @@ export function Sidebar() {
               const id = channelConvoId(ch.idx);
               const unread = unreadCount(msgHistory, id);
               const active = activeConvo?.id === id;
+              const chLabel = ch.name || t('channelN', { n: ch.idx });
               return (
                 <SidebarItem
                   key={id}
                   icon={ch.idx === 0 ? '📢' : '🔒'}
-                  label={ch.name || `Channel ${ch.idx}`}
+                  label={chLabel}
                   active={active}
                   unread={unread}
+                  manageLabel={t('sidebarManage')}
                   onManage={() =>
                     setManagePanel({ kind: 'channel', id: String(ch.idx) })
                   }
@@ -172,7 +176,7 @@ export function Sidebar() {
                       kind: 'channel',
                       id,
                       rawId: ch.idx,
-                      label: ch.name || `Channel ${ch.idx}`,
+                      label: chLabel,
                     })
                   }
                 />
@@ -192,7 +196,7 @@ export function Sidebar() {
           borderBottom: '1px solid var(--border)',
           background: 'var(--surface)',
         }}
-        title='Drag to resize'
+        title={t('sidebarDragToResize')}
       >
         <div className='h-0.5 w-8 rounded-full bg-(--border) transition-colors group-hover:bg-(--accent)' />
       </div>
@@ -201,21 +205,21 @@ export function Sidebar() {
       <div className='flex min-h-0 flex-1 flex-col overflow-hidden pt-2'>
         <div className='flex shrink-0 items-center justify-between px-3.5 pb-1'>
           <span className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'>
-            Contacts
+            {t('sidebarContacts')}
           </span>
           <div className='flex items-center gap-2'>
             <button
               onClick={() => setAutoAddOpen(true)}
-              title='Auto-add settings'
-              aria-label='Auto-add settings'
+              title={t('sidebarAutoAddSettings')}
+              aria-label={t('sidebarAutoAddSettings')}
               className='text-(--text2) hover:text-(--accent)'
             >
               ⚙
             </button>
             <button
               onClick={() => setDiscoverOpen(true)}
-              title='Add contact'
-              aria-label='Add contact'
+              title={t('sidebarAddContact')}
+              aria-label={t('sidebarAddContact')}
               className='text-(--text2) hover:text-(--accent)'
             >
               ＋
@@ -229,15 +233,17 @@ export function Sidebar() {
             const active = activeConvo?.id === id;
             const isFav = (c.flags & FAVORITE_FLAG) !== 0;
             const isRepeater = c.advType === ADV_TYPE_REPEATER;
+            const contactLabel = c.name || c.pubkeyPrefix.slice(0, 8);
             return (
               <SidebarItem
                 key={id}
                 icon={isFav ? '⭐' : (ADV_ICON[c.advType] ?? '👤')}
-                label={c.name || c.pubkeyPrefix.slice(0, 8)}
+                label={contactLabel}
                 active={active}
                 unread={unread}
                 disabled={isRepeater}
-                title={isRepeater ? 'Repeaters can’t be messaged' : undefined}
+                title={isRepeater ? t('chatRepeaterBlock') : undefined}
+                manageLabel={t('sidebarManage')}
                 onManage={() =>
                   setManagePanel({ kind: 'contact', id: c.pubkeyPrefix })
                 }
@@ -246,7 +252,7 @@ export function Sidebar() {
                     kind: 'direct',
                     id,
                     rawId: c.pubkeyPrefix,
-                    label: c.name || c.pubkeyPrefix.slice(0, 8),
+                    label: contactLabel,
                   })
                 }
               />
@@ -264,6 +270,7 @@ export function Sidebar() {
  *
  * @param onManage - opens the manage panel for this item.
  * @param onClick - opens this conversation.
+ * @param manageLabel - accessible label for the manage button (localized).
  */
 function SidebarItem({
   icon,
@@ -272,6 +279,7 @@ function SidebarItem({
   unread,
   disabled,
   title,
+  manageLabel,
   onManage,
   onClick,
 }: {
@@ -281,6 +289,7 @@ function SidebarItem({
   unread: number;
   disabled?: boolean;
   title?: string;
+  manageLabel: string;
   onManage: () => void;
   onClick: () => void;
 }) {
@@ -310,8 +319,8 @@ function SidebarItem({
       )}
       <button
         onClick={onManage}
-        title='Manage'
-        aria-label='Manage'
+        title={manageLabel}
+        aria-label={manageLabel}
         className='shrink-0 text-(--text2) opacity-0 transition-opacity group-hover:opacity-100 hover:text-(--text)'
       >
         ⋯

@@ -13,6 +13,8 @@
 //
 // For inquiries, contact: alden@knoban.com
 
+import type { TranslationFn } from '@/lib/i18n';
+
 /**
  * Hex-encodes bytes as lowercase, two chars per byte.
  *
@@ -145,13 +147,43 @@ export const ADV_LABEL: Record<number, string> = {
 };
 
 /**
- * Formats a Unix epoch-seconds timestamp as a relative age (`just now`,
- * `5m ago`, `2h ago`, `3d ago`).
+ * Returns the localized human label for a {@link Contact.advType}.
+ *
+ * @param type - the numeric advert type (0 = Contact, 1 = Chat, 2 = Repeater,
+ * 3 = Room Server).
+ * @param t - translation function from {@link useTranslation}.
  */
-export function formatRelative(timestamp: number): string {
+export function getAdvLabel(type: number, t: TranslationFn): string {
+  switch (type) {
+    case 0:
+      return t('advLabelContact');
+    case 1:
+      return t('advLabelChat');
+    case 2:
+      return t('advLabelRepeater');
+    case 3:
+      return t('advLabelRoomServer');
+    default:
+      return t('manageLabelUnknown');
+  }
+}
+
+/**
+ * Formats a Unix epoch-seconds timestamp as a relative age (`just now`,
+ * `5m ago`, `2h ago`, `3d ago`). Pass a `t` function from
+ * {@link useTranslation} to localize the output.
+ */
+export function formatRelative(timestamp: number, t?: TranslationFn): string {
   const secs = Math.floor(Date.now() / 1000) - timestamp;
-  if (secs < 60) return 'just now';
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-  return `${Math.floor(secs / 86400)}d ago`;
+  if (!t) {
+    if (secs < 60) return 'just now';
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+    return `${Math.floor(secs / 86400)}d ago`;
+  }
+  if (secs < 60) return t('relativeJustNow');
+  if (secs < 3600) return t('relativeMinutesAgo', { n: Math.floor(secs / 60) });
+  if (secs < 86400)
+    return t('relativeHoursAgo', { n: Math.floor(secs / 3600) });
+  return t('relativeDaysAgo', { n: Math.floor(secs / 86400) });
 }

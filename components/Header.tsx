@@ -17,16 +17,25 @@
 
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useTranslation } from '@/hooks/useTranslation';
 import { fmtVoltage } from '@/lib/utils';
+import type { Locale } from '@/types/meshcore';
+
+/** Display labels shown in the locale selector button. */
+const LOCALE_LABELS: Record<Locale, string> = { en: 'EN', ja: '日本語' };
 
 /**
- * Top bar: connection status, device name, battery/storage, and
- * Stats/Disconnect actions when connected.
+ * Top bar: connection status, device name, battery/storage, locale selector,
+ * and Stats/Disconnect actions when connected.
  */
 export function Header() {
-  const { status, deviceName, battery, setStatsOpen } = useMeshStore();
+  const { status, deviceName, battery, setStatsOpen, locale, setLocale } =
+    useMeshStore();
   const { disconnect } = useMeshCore();
+  const { t } = useTranslation();
   const connected = status === 'connected';
+
+  const toggleLocale = () => setLocale(locale === 'en' ? 'ja' : 'en');
 
   return (
     <header
@@ -48,10 +57,10 @@ export function Header() {
 
       <span className='text-xs text-(--text2)'>
         {status === 'connecting'
-          ? 'Connecting…'
+          ? t('headerConnecting')
           : status === 'connected'
-            ? 'Connected'
-            : 'Disconnected'}
+            ? t('headerConnected')
+            : t('headerDisconnected')}
       </span>
 
       {connected && (
@@ -69,16 +78,26 @@ export function Header() {
             onClick={() => setStatsOpen(true)}
             className='rounded-md border border-(--border) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent)'
           >
-            📊 Stats
+            {t('headerStats')}
           </button>
           <button
             onClick={disconnect}
             className='rounded-md border border-(--border) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--red) hover:text-(--red)'
           >
-            Disconnect
+            {t('headerDisconnect')}
           </button>
         </>
       )}
+
+      {!connected && <span className='ml-auto' />}
+
+      <button
+        onClick={toggleLocale}
+        aria-label='Switch language'
+        className='rounded-md border border-(--border) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent)'
+      >
+        {LOCALE_LABELS[locale]}
+      </button>
     </header>
   );
 }
