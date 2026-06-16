@@ -32,5 +32,10 @@
     "prettier": "^3.5.3",
     "tailwindcss": "^4",
     "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "eslint-plugin-tsdoc": {
+      "@typescript-eslint/utils": "^8.61.1"
+    }
   }
 }

@@ -145,6 +145,7 @@ export function Sidebar() {
           <button
             onClick={() => setAddChannelOpen(true)}
             title='Add channel'
+            aria-label='Add channel'
             className='text-(--text2) hover:text-(--accent)'
           >
             ＋
@@ -206,6 +207,7 @@ export function Sidebar() {
             <button
               onClick={() => setAutoAddOpen(true)}
               title='Auto-add settings'
+              aria-label='Auto-add settings'
               className='text-(--text2) hover:text-(--accent)'
             >
               ⚙
@@ -213,6 +215,7 @@ export function Sidebar() {
             <button
               onClick={() => setDiscoverOpen(true)}
               title='Add contact'
+              aria-label='Add contact'
               className='text-(--text2) hover:text-(--accent)'
             >
               ＋
@@ -308,6 +311,7 @@ function SidebarItem({
       <button
         onClick={onManage}
         title='Manage'
+        aria-label='Manage'
         className='shrink-0 text-(--text2) opacity-0 transition-opacity group-hover:opacity-100 hover:text-(--text)'
       >
         ⋯

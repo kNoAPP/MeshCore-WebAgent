@@ -141,11 +141,11 @@ export function parseBattAndStorage(d: Uint8Array): BatteryInfo {
  *
  * @returns the contact, or null if the frame is too short to hold the struct.
  * @remarks
- * Layout: `d[0]` type, `d[1..32]` pubkey(32), `d[33]` adv_type, `d[34]` flags,
- * `d[35]` out_path_len, `d[36..99]` path buffer (always 64 bytes),
- * `d[100..131]`
- * name(32), `d[132..135]` last_advert ts, `d[136..139]` gps_lat, `d[140..143]`
- * gps_lon. The trailing GPS fields are present only on newer firmware.
+ * Layout: `d[0]` RESP code, `d[1..32]` pubkey(32), `d[33]` adv_type,
+ * `d[34]` flags, `d[35]` out_path_len, `d[36..99]` path buffer (always 64
+ * bytes), `d[100..131]` name(32), `d[132..135]` last_advert ts,
+ * `d[136..139]` gps_lat, `d[140..143]` gps_lon. The trailing GPS fields are
+ * present only on newer firmware.
  */
 export function parseContact(d: Uint8Array): Contact | null {
   if (d.length < 132) return null;

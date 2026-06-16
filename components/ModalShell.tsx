@@ -48,6 +48,7 @@ export function ModalShell({
           <h2 className='text-base font-bold'>{title}</h2>
           <button
             onClick={onClose}
+            aria-label='Close'
             className='text-lg leading-none text-(--text2) hover:text-(--text)'
           >
             ✕
