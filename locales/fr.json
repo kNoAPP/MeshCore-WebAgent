@@ -9,7 +9,8 @@
     "copy": "Copier",
     "copied": "Copié",
     "channelName": "Canal {{index}}",
-    "unknown": "Inconnu"
+    "unknown": "Inconnu",
+    "device": "Appareil MeshCore"
   },
   "header": {
     "connecting": "Connexion…",

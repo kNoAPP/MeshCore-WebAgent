@@ -18,7 +18,7 @@
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { Message } from '@/types/meshcore';
-import { formatTime } from '@/lib/utils';
+import { formatTime } from '@/lib/i18n/format';
 
 interface Props {
   msg: Message;

@@ -25,13 +25,13 @@ import { CopyButton } from './CopyButton';
 import {
   ADV_ICON,
   ADV_LABEL_KEY,
-  formatRelative,
   toHex,
   fromHex,
   channelHashHex,
   deriveHashtagSecret,
   bytesEqual,
 } from '@/lib/utils';
+import { formatRelative } from '@/lib/i18n/format';
 import { FAVORITE_FLAG, NO_PATH } from '@/lib/meshcore/constants';
 import type { Contact, Channel } from '@/types/meshcore';
 

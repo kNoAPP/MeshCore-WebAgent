@@ -19,7 +19,8 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
-import { ADV_ICON, ADV_LABEL_KEY, formatRelative } from '@/lib/utils';
+import { ADV_ICON, ADV_LABEL_KEY } from '@/lib/utils';
+import { formatRelative } from '@/lib/i18n/format';
 
 /**
  * Modal listing heard adverts (most-recent first), each with an Add button (or

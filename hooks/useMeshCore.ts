@@ -264,14 +264,14 @@ export function useMeshCore() {
         await c.init();
         setSyncProgress(null);
         setStatus('connected');
-        setDeviceName(
-          c.selfInfo?.name ?? c.deviceInfo?.model ?? 'MeshCore Device',
-        );
+        const deviceName =
+          c.selfInfo?.name ?? c.deviceInfo?.model ?? i18n.t('common.device');
+        setDeviceName(deviceName);
         const batt = await c.getBattery();
         if (batt) setBattery(batt);
         showToast(
           i18n.t('toast.connected', {
-            device: c.selfInfo?.name ?? 'MeshCore Device',
+            device: deviceName,
           }),
           'success',
         );

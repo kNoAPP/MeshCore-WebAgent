@@ -26,7 +26,7 @@ import { fmtUptime, fmtAirtime, fmtVoltage } from '@/lib/utils';
  * Refresh), laid out as cards. Renders nothing while `statsOpen` is false.
  */
 export function StatsModal() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { client, statsOpen, setStatsOpen, battery } = useMeshStore();
   const [stats, setStats] = useState<StatsResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -86,11 +86,17 @@ export function StatsModal() {
               title={t('stats.card.storageBattery')}
               rows={[
                 [t('stats.voltage'), fmtVoltage(battery.voltage)],
-                [t('stats.used'), `${battery.usedKB.toLocaleString()} KB`],
-                [t('stats.total'), `${battery.totalKB.toLocaleString()} KB`],
+                [
+                  t('stats.used'),
+                  `${battery.usedKB.toLocaleString(i18n.language)} KB`,
+                ],
+                [
+                  t('stats.total'),
+                  `${battery.totalKB.toLocaleString(i18n.language)} KB`,
+                ],
                 [
                   t('stats.free'),
-                  `${(battery.totalKB - battery.usedKB).toLocaleString()} KB`,
+                  `${(battery.totalKB - battery.usedKB).toLocaleString(i18n.language)} KB`,
                 ],
                 [
                   t('stats.usage'),
@@ -129,17 +135,35 @@ export function StatsModal() {
             <StatCard
               title={t('stats.card.packets')}
               rows={[
-                [t('stats.received'), stats.packets.recv.toLocaleString()],
-                [t('stats.sent'), stats.packets.sent.toLocaleString()],
-                [t('stats.floodTx'), stats.packets.floodTx.toLocaleString()],
-                [t('stats.floodRx'), stats.packets.floodRx.toLocaleString()],
-                [t('stats.directTx'), stats.packets.directTx.toLocaleString()],
-                [t('stats.directRx'), stats.packets.directRx.toLocaleString()],
+                [
+                  t('stats.received'),
+                  stats.packets.recv.toLocaleString(i18n.language),
+                ],
+                [
+                  t('stats.sent'),
+                  stats.packets.sent.toLocaleString(i18n.language),
+                ],
+                [
+                  t('stats.floodTx'),
+                  stats.packets.floodTx.toLocaleString(i18n.language),
+                ],
+                [
+                  t('stats.floodRx'),
+                  stats.packets.floodRx.toLocaleString(i18n.language),
+                ],
+                [
+                  t('stats.directTx'),
+                  stats.packets.directTx.toLocaleString(i18n.language),
+                ],
+                [
+                  t('stats.directRx'),
+                  stats.packets.directRx.toLocaleString(i18n.language),
+                ],
                 ...(stats.packets.recvErrors != null
                   ? ([
                       [
                         t('stats.rxErrors'),
-                        stats.packets.recvErrors.toLocaleString(),
+                        stats.packets.recvErrors.toLocaleString(i18n.language),
                       ],
                     ] as [string, string][])
                   : []),

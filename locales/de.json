@@ -9,7 +9,8 @@
     "copy": "Kopieren",
     "copied": "Kopiert",
     "channelName": "Kanal {{index}}",
-    "unknown": "Unbekannt"
+    "unknown": "Unbekannt",
+    "device": "MeshCore-Gerät"
   },
   "header": {
     "connecting": "Verbinde…",
