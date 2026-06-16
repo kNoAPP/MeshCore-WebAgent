@@ -39,6 +39,7 @@ WebSocket.
   (strict)
 - **Tailwind CSS** for layout; CSS variables in `app/globals.css` for theming
 - **Zustand** for global state (`store/meshStore.ts`)
+- **react-i18next** for in-app localization (`lib/i18n/`, `locales/*.json`)
 - **Web Serial API**, **Web Bluetooth API**, **WebSocket** for hardware
   connectivity
 - **IndexedDB** + AES-GCM for encrypted local message persistence
@@ -60,10 +61,15 @@ lib/
     parsers.ts    Binary response decoding → typed objects
     constants.ts  CMD/RESP codes, BLE UUIDs
   storage.ts      IndexedDB with AES-GCM encryption (key derived from channel secret + pubkey)
+  i18n/
+    config.ts     Supported locales, storage key, browser-language detection
+    index.ts      react-i18next instance bundling locales/*.json under one namespace
+locales/          Per-language UI dictionaries (en is authoritative; es/de/fr drafts)
 store/
   meshStore.ts    Zustand store — connection state, contacts, channels, messages, UI state
 types/
   meshcore.ts     Shared TypeScript interfaces (Contact, Channel, Message, ...)
+  i18next.d.ts    Module augmentation making t() keys type-safe against en.json
 ```
 
 ## Core Data Flow
@@ -75,3 +81,13 @@ re-render from store subscriptions.
 State changes go through Zustand actions in `store/meshStore.ts` — never local
 component state for data that belongs in the store, and never `useEffect` for
 state that belongs in Zustand.
+
+## Internationalization
+
+All user-facing strings go through `react-i18next`'s `t()`, keyed against
+`locales/en.json` (the authoritative dictionary). `components/I18nProvider.tsx`
+mounts the instance and syncs the active language from the store's `locale`
+state; `setLocale` persists the choice to `localStorage`. In non-component code
+(hooks, `lib/utils.ts`), use the `i18n` instance directly (`i18n.t(...)`). Any
+new string must be added to `locales/en.json` and referenced via `t()` — never
+hardcode display text in components.

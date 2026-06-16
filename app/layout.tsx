@@ -14,6 +14,7 @@
 // For inquiries, contact: alden@knoban.com
 
 import type { Metadata } from 'next';
+import { I18nProvider } from '@/components/I18nProvider';
 import { VersionCheck } from '@/components/VersionCheck';
 import './globals.css';
 
@@ -43,8 +44,10 @@ export default function RootLayout({
         <meta httpEquiv='Expires' content='0' />
       </head>
       <body className='flex h-full flex-col overflow-hidden'>
-        <VersionCheck />
-        {children}
+        <I18nProvider>
+          <VersionCheck />
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );

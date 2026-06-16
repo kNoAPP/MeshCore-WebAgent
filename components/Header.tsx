@@ -15,16 +15,21 @@
 
 'use client';
 
+import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { fmtVoltage } from '@/lib/utils';
+import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
+import type { SupportedLocale } from '@/lib/i18n/config';
 
 /**
  * Top bar: connection status, device name, battery/storage, and
  * Stats/Disconnect actions when connected.
  */
 export function Header() {
-  const { status, deviceName, battery, setStatsOpen } = useMeshStore();
+  const { t } = useTranslation();
+  const { status, deviceName, battery, locale, setStatsOpen, setLocale } =
+    useMeshStore();
   const { disconnect } = useMeshCore();
   const connected = status === 'connected';
 
@@ -48,10 +53,10 @@ export function Header() {
 
       <span className='text-xs text-(--text2)'>
         {status === 'connecting'
-          ? 'Connecting…'
+          ? t('header.connecting')
           : status === 'connected'
-            ? 'Connected'
-            : 'Disconnected'}
+            ? t('header.connected')
+            : t('header.disconnected')}
       </span>
 
       {connected && (
@@ -69,15 +74,30 @@ export function Header() {
             onClick={() => setStatsOpen(true)}
             className='rounded-md border border-(--border) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent)'
           >
-            📊 Stats
+            {t('header.stats')}
           </button>
           <button
             onClick={disconnect}
             className='rounded-md border border-(--border) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--red) hover:text-(--red)'
           >
-            Disconnect
+            {t('header.disconnect')}
           </button>
         </>
+      )}
+
+      {!connected && (
+        <select
+          value={locale}
+          onChange={(e) => setLocale(e.target.value as SupportedLocale)}
+          aria-label={t('header.language')}
+          className='ml-auto cursor-pointer rounded-md border border-(--border) bg-(--surface) px-2 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent)'
+        >
+          {SUPPORTED_LOCALES.map((l) => (
+            <option key={l} value={l}>
+              {LOCALE_NAMES[l]}
+            </option>
+          ))}
+        </select>
       )}
     </header>
   );

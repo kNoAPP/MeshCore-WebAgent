@@ -16,16 +16,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { NO_PATH } from '@/lib/meshcore/constants';
 import { toHex } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
 
 /** Short route label for the chip: `Flood`, `Direct`, or `N hops`. */
-function routeLabel(contact: Contact): string {
-  if (contact.outPathLen === NO_PATH) return 'Flood';
-  if (contact.outPathLen === 0) return 'Direct';
-  return `${contact.outPathLen} hop${contact.outPathLen === 1 ? '' : 's'}`;
+function routeLabel(t: TFunction, contact: Contact): string {
+  if (contact.outPathLen === NO_PATH) return t('routeChip.flood');
+  if (contact.outPathLen === 0) return t('routeChip.direct');
+  return t('route.hops', { count: contact.outPathLen });
 }
 
 /**
@@ -33,6 +35,7 @@ function routeLabel(contact: Contact): string {
  * hop path and a "reset to flood" action.
  */
 export function RouteChip({ contact }: { contact: Contact }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -61,11 +64,11 @@ export function RouteChip({ contact }: { contact: Contact }) {
     <div ref={rootRef} className='relative'>
       <button
         onClick={() => setOpen((o) => !o)}
-        title='Route to this contact'
+        title={t('routeChip.tooltip')}
         className='rounded-full border px-2 py-0.5 text-[11px] text-(--text2) transition-colors hover:text-(--text)'
         style={{ borderColor: 'var(--border)', background: 'var(--surface2)' }}
       >
-        {routeLabel(contact)}
+        {routeLabel(t, contact)}
       </button>
       {open && (
         <div
@@ -76,24 +79,20 @@ export function RouteChip({ contact }: { contact: Contact }) {
           }}
         >
           <div className='mb-1 font-semibold'>
-            Route to {contact.name || contact.pubkeyPrefix.slice(0, 8)}
+            {t('routeChip.routeTo', {
+              name: contact.name || contact.pubkeyPrefix.slice(0, 8),
+            })}
           </div>
           {!hasRoute && (
-            <p className='text-(--text2)'>
-              No route known — messages flood the mesh until a reply establishes
-              a path.
-            </p>
+            <p className='text-(--text2)'>{t('routeChip.noRoute')}</p>
           )}
           {hasRoute && contact.outPathLen === 0 && (
-            <p className='text-(--text2)'>
-              Direct neighbor — no repeaters in between.
-            </p>
+            <p className='text-(--text2)'>{t('routeChip.directNeighbor')}</p>
           )}
           {hasRoute && contact.outPathLen > 0 && (
             <>
               <p className='text-(--text2)'>
-                Via {contact.outPathLen} repeater
-                {contact.outPathLen === 1 ? '' : 's'}:
+                {t('routeChip.viaRepeaters', { count: contact.outPathLen })}
               </p>
               <div className='my-1.5 font-mono text-(--text)'>{hops}</div>
             </>
@@ -107,11 +106,10 @@ export function RouteChip({ contact }: { contact: Contact }) {
                   hover:bg-(--surface) disabled:cursor-not-allowed disabled:opacity-45'
                 style={{ borderColor: 'var(--red)', color: 'var(--red)' }}
               >
-                {busy ? 'Resetting…' : 'Reset to flood'}
+                {busy ? t('routeChip.resetting') : t('routeChip.resetToFlood')}
               </button>
               <p className='mt-1.5 text-(--text2)'>
-                Discards this route. Messages will flood the mesh until a new
-                route is found.
+                {t('routeChip.resetExplain')}
               </p>
             </>
           )}

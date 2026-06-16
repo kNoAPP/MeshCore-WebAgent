@@ -30,6 +30,12 @@ import type {
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { convoId } from '@/lib/utils';
+import i18n from '@/lib/i18n';
+import {
+  LOCALE_STORAGE_KEY,
+  resolveInitialLocale,
+  type SupportedLocale,
+} from '@/lib/i18n/config';
 
 /** localStorage key for the persisted {@link AutoAddConfig}. */
 const AUTOADD_STORAGE_KEY = 'meshcore.autoAddConfig';
@@ -87,6 +93,7 @@ interface MeshState {
   activeConvo: ActiveConvo | null;
 
   // UI
+  locale: SupportedLocale;
   toast: Toast | null;
   statsOpen: boolean;
   managePanel: { kind: 'contact' | 'channel'; id: string } | null;
@@ -105,6 +112,7 @@ interface MeshActions {
   setChannels: (ch: Record<number, Channel>) => void;
   setAdverts: (a: Record<string, Advert>) => void;
   setAutoAddConfig: (cfg: AutoAddConfig) => void;
+  setLocale: (locale: SupportedLocale) => void;
   addMessage: (id: string, msg: Message) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
@@ -134,6 +142,7 @@ const initialState: MeshState = {
   autoAddConfig: loadAutoAddConfig(),
   msgHistory: {},
   activeConvo: null,
+  locale: resolveInitialLocale(),
   toast: null,
   statsOpen: false,
   managePanel: null,
@@ -171,6 +180,17 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       } catch {}
     }
     set({ autoAddConfig });
+  },
+
+  setLocale: (locale) => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+      } catch {}
+      document.documentElement.lang = locale;
+    }
+    void i18n.changeLanguage(locale);
+    set({ locale });
   },
 
   addMessage: (id, msg) =>
@@ -255,6 +275,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       toast: get().toast,
       // Auto-add config is a persistent user preference, not session state
       autoAddConfig: get().autoAddConfig,
+      // Locale is a persistent user preference, not session state
+      locale: get().locale,
     }),
 }));
 

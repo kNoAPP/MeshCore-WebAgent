@@ -16,6 +16,7 @@
 'use client';
 
 import { useRef, useState, useCallback, useLayoutEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   useMeshStore,
   openConvo,
@@ -39,6 +40,7 @@ const MIN_SECTION_PX = 40;
  * affordances. Selecting an item opens that conversation.
  */
 export function Sidebar() {
+  const { t } = useTranslation();
   const {
     channels,
     contacts,
@@ -140,12 +142,12 @@ export function Sidebar() {
           className='flex shrink-0 items-center justify-between px-3.5 pb-1'
         >
           <span className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'>
-            Channels
+            {t('sidebar.channels')}
           </span>
           <button
             onClick={() => setAddChannelOpen(true)}
-            title='Add channel'
-            aria-label='Add channel'
+            title={t('sidebar.addChannel')}
+            aria-label={t('sidebar.addChannel')}
             className='text-(--text2) hover:text-(--accent)'
           >
             ＋
@@ -161,7 +163,7 @@ export function Sidebar() {
                 <SidebarItem
                   key={id}
                   icon={ch.idx === 0 ? '📢' : '🔒'}
-                  label={ch.name || `Channel ${ch.idx}`}
+                  label={ch.name || t('common.channelName', { index: ch.idx })}
                   active={active}
                   unread={unread}
                   onManage={() =>
@@ -172,7 +174,8 @@ export function Sidebar() {
                       kind: 'channel',
                       id,
                       rawId: ch.idx,
-                      label: ch.name || `Channel ${ch.idx}`,
+                      label:
+                        ch.name || t('common.channelName', { index: ch.idx }),
                     })
                   }
                 />
@@ -192,7 +195,7 @@ export function Sidebar() {
           borderBottom: '1px solid var(--border)',
           background: 'var(--surface)',
         }}
-        title='Drag to resize'
+        title={t('sidebar.dragResize')}
       >
         <div className='h-0.5 w-8 rounded-full bg-(--border) transition-colors group-hover:bg-(--accent)' />
       </div>
@@ -201,21 +204,21 @@ export function Sidebar() {
       <div className='flex min-h-0 flex-1 flex-col overflow-hidden pt-2'>
         <div className='flex shrink-0 items-center justify-between px-3.5 pb-1'>
           <span className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'>
-            Contacts
+            {t('sidebar.contacts')}
           </span>
           <div className='flex items-center gap-2'>
             <button
               onClick={() => setAutoAddOpen(true)}
-              title='Auto-add settings'
-              aria-label='Auto-add settings'
+              title={t('sidebar.autoAddSettings')}
+              aria-label={t('sidebar.autoAddSettings')}
               className='text-(--text2) hover:text-(--accent)'
             >
               ⚙
             </button>
             <button
               onClick={() => setDiscoverOpen(true)}
-              title='Add contact'
-              aria-label='Add contact'
+              title={t('sidebar.addContact')}
+              aria-label={t('sidebar.addContact')}
               className='text-(--text2) hover:text-(--accent)'
             >
               ＋
@@ -237,7 +240,9 @@ export function Sidebar() {
                 active={active}
                 unread={unread}
                 disabled={isRepeater}
-                title={isRepeater ? 'Repeaters can’t be messaged' : undefined}
+                title={
+                  isRepeater ? t('sidebar.repeaterCantMessage') : undefined
+                }
                 onManage={() =>
                   setManagePanel({ kind: 'contact', id: c.pubkeyPrefix })
                 }
@@ -284,6 +289,7 @@ function SidebarItem({
   onManage: () => void;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className={`group flex w-full items-center gap-2 px-3.5 py-2 text-sm transition-colors ${
@@ -310,8 +316,8 @@ function SidebarItem({
       )}
       <button
         onClick={onManage}
-        title='Manage'
-        aria-label='Manage'
+        title={t('sidebar.manage')}
+        aria-label={t('sidebar.manage')}
         className='shrink-0 text-(--text2) opacity-0 transition-opacity group-hover:opacity-100 hover:text-(--text)'
       >
         ⋯

@@ -16,6 +16,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
@@ -28,23 +29,27 @@ import { fromHex, randomSecret, deriveHashtagSecret, toHex } from '@/lib/utils';
  */
 type Mode = 'create' | 'joinPrivate' | 'joinHashtag';
 
-const MODES: { id: Mode; label: string; hint: string }[] = [
+const MODES = [
   {
     id: 'create',
-    label: 'Create Private',
-    hint: 'Generates a random secret key. Share it so others can join.',
+    labelKey: 'addChannel.mode.createLabel',
+    hintKey: 'addChannel.mode.createHint',
   },
   {
     id: 'joinPrivate',
-    label: 'Join Private',
-    hint: 'Enter the channel name and its 16-byte secret key (hex).',
+    labelKey: 'addChannel.mode.joinPrivateLabel',
+    hintKey: 'addChannel.mode.joinPrivateHint',
   },
   {
     id: 'joinHashtag',
-    label: 'Join Hashtag',
-    hint: 'Hashtag channels are public — anyone entering the same name joins. Use a–z, 0–9, and hyphens only.',
+    labelKey: 'addChannel.mode.joinHashtagLabel',
+    hintKey: 'addChannel.mode.joinHashtagHint',
   },
-];
+] as const satisfies readonly {
+  id: Mode;
+  labelKey: string;
+  hintKey: string;
+}[];
 
 /**
  * Modal for adding a channel in one of three {@link Mode}s (create private,
@@ -54,6 +59,7 @@ const MODES: { id: Mode; label: string; hint: string }[] = [
  * `addChannelOpen` is set.
  */
 export function AddChannelModal() {
+  const { t } = useTranslation();
   const { addChannelOpen, setAddChannelOpen } = useMeshStore();
   const { addChannel } = useMeshCore();
   const [mode, setMode] = useState<Mode>('create');
@@ -78,7 +84,7 @@ export function AddChannelModal() {
     setError('');
     if (mode === 'joinHashtag') {
       if (!/^[a-z0-9-]+$/.test(hashtag)) {
-        setError('Use only a–z, 0–9, and hyphens.');
+        setError(t('addChannel.error.hashtagChars'));
         return;
       }
       addChannel(`#${hashtag}`, await deriveHashtagSecret(hashtag));
@@ -86,7 +92,7 @@ export function AddChannelModal() {
       return;
     }
     if (!name.trim()) {
-      setError('Enter a channel name.');
+      setError(t('addChannel.error.enterName'));
       return;
     }
     if (mode === 'create') {
@@ -97,17 +103,21 @@ export function AddChannelModal() {
     }
     const secret = fromHex(secretHex.trim(), 16);
     if (!secret) {
-      setError('Secret key must be 32 hex characters (16 bytes).');
+      setError(t('addChannel.error.invalidSecret'));
       return;
     }
     addChannel(name.trim(), secret);
     close();
   };
 
-  const hint = MODES.find((m) => m.id === mode)!.hint;
+  const hint = t(MODES.find((m) => m.id === mode)!.hintKey);
 
   return (
-    <ModalShell title='➕ Add channel' onClose={close} widthClass='w-112'>
+    <ModalShell
+      title={t('addChannel.title')}
+      onClose={close}
+      widthClass='w-112'
+    >
       <div
         className='mb-3 flex gap-1 rounded-md p-1'
         style={{ background: 'var(--bg)' }}
@@ -125,7 +135,7 @@ export function AddChannelModal() {
                 : 'text-(--text2) hover:bg-(--surface2)'
             }`}
           >
-            {m.label}
+            {t(m.labelKey)}
           </button>
         ))}
       </div>
@@ -134,7 +144,9 @@ export function AddChannelModal() {
       <div className='space-y-4'>
         {mode === 'joinHashtag' ? (
           <label className='block'>
-            <span className='mb-1 block text-xs text-(--text2)'>Name</span>
+            <span className='mb-1 block text-xs text-(--text2)'>
+              {t('addChannel.name')}
+            </span>
             <div
               className='flex items-center rounded-md border'
               style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
@@ -154,7 +166,9 @@ export function AddChannelModal() {
           </label>
         ) : (
           <label className='block'>
-            <span className='mb-1 block text-xs text-(--text2)'>Name</span>
+            <span className='mb-1 block text-xs text-(--text2)'>
+              {t('addChannel.name')}
+            </span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -168,12 +182,12 @@ export function AddChannelModal() {
         {mode === 'create' && (
           <label className='block'>
             <span className='mb-1 flex items-center justify-between text-xs text-(--text2)'>
-              Secret key (generated)
+              {t('addChannel.secretGenerated')}
               <button
                 onClick={() => setGenerated(toHex(randomSecret()))}
                 className='text-(--accent) hover:underline'
               >
-                Regenerate
+                {t('addChannel.regenerate')}
               </button>
             </span>
             <input
@@ -188,7 +202,7 @@ export function AddChannelModal() {
         {mode === 'joinPrivate' && (
           <label className='block'>
             <span className='mb-1 block text-xs text-(--text2)'>
-              Secret key (hex, 16 bytes)
+              {t('addChannel.secretHex')}
             </span>
             <input
               value={secretHex}
@@ -207,13 +221,13 @@ export function AddChannelModal() {
           onClick={close}
           className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           onClick={submit}
           className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--accent-hover)'
         >
-          {mode === 'create' ? 'Create' : 'Join'}
+          {mode === 'create' ? t('addChannel.create') : t('addChannel.join')}
         </button>
       </div>
     </ModalShell>

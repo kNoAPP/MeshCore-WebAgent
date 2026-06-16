@@ -13,6 +13,8 @@
 //
 // For inquiries, contact: alden@knoban.com
 
+import i18n from '@/lib/i18n';
+
 /**
  * Hex-encodes bytes as lowercase, two chars per byte.
  *
@@ -120,7 +122,7 @@ export function fmtVoltage(mv: number): string {
  * Formats a Unix epoch-seconds timestamp as a locale wall-clock time (hh:mm).
  */
 export function formatTime(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleTimeString([], {
+  return new Date(timestamp * 1000).toLocaleTimeString(i18n.language, {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -136,13 +138,13 @@ export const ADV_ICON: Record<number, string> = {
   3: '🏠',
 };
 
-/** Human label for each {@link Contact.advType}. */
-export const ADV_LABEL: Record<number, string> = {
-  0: 'Contact',
-  1: 'Chat',
-  2: 'Repeater',
-  3: 'Room Server',
-};
+/** Translation key for each {@link Contact.advType}. */
+export const ADV_LABEL_KEY = {
+  0: 'advType.contact',
+  1: 'advType.chat',
+  2: 'advType.repeater',
+  3: 'advType.roomServer',
+} as const;
 
 /**
  * Formats a Unix epoch-seconds timestamp as a relative age (`just now`,
@@ -150,8 +152,10 @@ export const ADV_LABEL: Record<number, string> = {
  */
 export function formatRelative(timestamp: number): string {
   const secs = Math.floor(Date.now() / 1000) - timestamp;
-  if (secs < 60) return 'just now';
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-  return `${Math.floor(secs / 86400)}d ago`;
+  if (secs < 60) return i18n.t('relative.justNow');
+  if (secs < 3600)
+    return i18n.t('relative.minutes', { count: Math.floor(secs / 60) });
+  if (secs < 86400)
+    return i18n.t('relative.hours', { count: Math.floor(secs / 3600) });
+  return i18n.t('relative.days', { count: Math.floor(secs / 86400) });
 }

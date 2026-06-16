@@ -16,13 +16,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useMeshStore, channelConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
 import { CopyButton } from './CopyButton';
 import {
   ADV_ICON,
-  ADV_LABEL,
+  ADV_LABEL_KEY,
   formatRelative,
   toHex,
   fromHex,
@@ -42,6 +44,7 @@ import type { Contact, Channel } from '@/types/meshcore';
  * confirmed inline. Renders nothing when no item is selected.
  */
 export function ManagePanel() {
+  const { t } = useTranslation();
   const { managePanel, setManagePanel, contacts, channels, autoAddConfig } =
     useMeshStore();
   const { toggleFavorite, removeContact, resetContactPath, removeChannel } =
@@ -60,13 +63,13 @@ export function ManagePanel() {
     if (!channel) return null;
     return (
       <ModalShell
-        title={`🔒 ${channel.name || `Channel ${idx}`}`}
+        title={`🔒 ${channel.name || t('common.channelName', { index: idx })}`}
         onClose={close}
       >
         <ChannelDetails channel={channel} />
         {confirming ? (
           <ConfirmRow
-            message='Remove this channel from the radio?'
+            message={t('manage.removeChannelConfirm')}
             onCancel={() => setConfirming(false)}
             onConfirm={() => {
               removeChannel(idx);
@@ -79,11 +82,11 @@ export function ManagePanel() {
               disabled={idx === 0}
               onClick={() => setConfirming(true)}
               title={
-                idx === 0 ? 'The Public channel cannot be removed' : undefined
+                idx === 0 ? t('manage.publicChannelCantRemove') : undefined
               }
               className='rounded-md bg-(--red-dim) px-3 py-1.5 text-sm text-white hover:bg-(--red-dim-hover) disabled:opacity-40 disabled:hover:bg-(--red-dim)'
             >
-              Remove channel
+              {t('manage.removeChannel')}
             </button>
           </div>
         )}
@@ -103,11 +106,14 @@ export function ManagePanel() {
     >
       <div className='space-y-2'>
         <DetailRow
-          label='Type'
-          value={ADV_LABEL[contact.advType] ?? 'Unknown'}
+          label={t('manage.type')}
+          value={t(
+            ADV_LABEL_KEY[contact.advType as keyof typeof ADV_LABEL_KEY] ??
+              'common.unknown',
+          )}
         />
         <DetailRow
-          label='Public key'
+          label={t('manage.publicKey')}
           value={
             autoAddConfig.showPublicKeys
               ? contact.pubkey
@@ -116,21 +122,27 @@ export function ManagePanel() {
           mono
           copy={contact.pubkey}
         />
-        <DetailRow label='Route' value={routeLabel(contact)} />
+        <DetailRow label={t('manage.route')} value={routeLabel(t, contact)} />
         {hasRoute && contact.path.length > 0 && (
-          <DetailRow label='Path' value={toHex(contact.path, ' ')} mono />
+          <DetailRow
+            label={t('manage.path')}
+            value={toHex(contact.path, ' ')}
+            mono
+          />
         )}
         <DetailRow
-          label='Last advert'
+          label={t('manage.lastAdvert')}
           value={
-            contact.lastAdvert ? formatRelative(contact.lastAdvert) : 'Unknown'
+            contact.lastAdvert
+              ? formatRelative(contact.lastAdvert)
+              : t('common.unknown')
           }
         />
       </div>
 
       {confirming ? (
         <ConfirmRow
-          message='Remove this contact from the radio?'
+          message={t('manage.removeContactConfirm')}
           onCancel={() => setConfirming(false)}
           onConfirm={() => {
             removeContact(contact);
@@ -143,28 +155,28 @@ export function ManagePanel() {
             onClick={() => toggleFavorite(contact)}
             className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
           >
-            {isFav ? '★ Unfavorite' : '☆ Favorite'}
+            {isFav ? t('manage.unfavorite') : t('manage.favorite')}
           </button>
           {hasRoute && (
             <button
               onClick={() => resetContactPath(contact)}
               className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
             >
-              Reset route
+              {t('manage.resetRoute')}
             </button>
           )}
           <button
             disabled
-            title='Coming soon'
+            title={t('manage.comingSoon')}
             className='rounded-md px-3 py-1.5 text-sm text-(--text2) opacity-40'
           >
-            Share
+            {t('manage.share')}
           </button>
           <button
             onClick={() => setConfirming(true)}
             className='rounded-md bg-(--red-dim) px-3 py-1.5 text-sm text-white hover:bg-(--red-dim-hover)'
           >
-            Remove
+            {t('common.remove')}
           </button>
         </div>
       )}
@@ -178,10 +190,11 @@ export function ManagePanel() {
  * the secret key.
  */
 function ChannelDetails({ channel }: { channel: Channel }) {
+  const { t } = useTranslation();
   const msgHistory = useMeshStore((s) => s.msgHistory);
   const [reveal, setReveal] = useState(false);
   const [hash, setHash] = useState('');
-  const [type, setType] = useState('');
+  const [type, setType] = useState<'' | 'Public' | 'Hashtag' | 'Private'>('');
 
   const secretHex = channel.secret ? toHex(channel.secret) : '';
   const msgCount = (msgHistory[channelConvoId(channel.idx)] ?? []).length;
@@ -201,20 +214,20 @@ function ChannelDetails({ channel }: { channel: Channel }) {
         return;
       }
       const h = await channelHashHex(secret);
-      let t: string;
+      let kind: 'Public' | 'Hashtag' | 'Private';
       if (channel.idx === 0) {
-        t = 'Public';
+        kind = 'Public';
       } else if (
         channel.name.startsWith('#') &&
         bytesEqual(await deriveHashtagSecret(channel.name.slice(1)), secret)
       ) {
-        t = 'Hashtag';
+        kind = 'Hashtag';
       } else {
-        t = 'Private';
+        kind = 'Private';
       }
       if (active) {
         setHash(h);
-        setType(t);
+        setType(kind);
       }
     })();
     return () => {
@@ -225,19 +238,36 @@ function ChannelDetails({ channel }: { channel: Channel }) {
   return (
     <div className='space-y-2'>
       <DetailRow
-        label='Name'
-        value={channel.name || `Channel ${channel.idx}`}
+        label={t('manage.name')}
+        value={channel.name || t('common.channelName', { index: channel.idx })}
       />
-      <DetailRow label='Index' value={String(channel.idx)} />
-      {type && <DetailRow label='Type' value={type} />}
-      {hash && <DetailRow label='Channel hash' value={`0x${hash}`} mono />}
-      <DetailRow label='Messages' value={String(msgCount)} />
+      <DetailRow label={t('manage.index')} value={String(channel.idx)} />
+      {type && (
+        <DetailRow
+          label={t('manage.type')}
+          value={
+            type === 'Public'
+              ? t('manage.channelType.public')
+              : type === 'Hashtag'
+                ? t('manage.channelType.hashtag')
+                : t('manage.channelType.private')
+          }
+        />
+      )}
+      {hash && (
+        <DetailRow label={t('manage.channelHash')} value={`0x${hash}`} mono />
+      )}
+      <DetailRow label={t('manage.messages')} value={String(msgCount)} />
       {secretHex && (
         <div className='flex items-center gap-3 text-sm'>
-          <span className='w-24 shrink-0 text-(--text2)'>Secret key</span>
+          <span className='w-24 shrink-0 text-(--text2)'>
+            {t('manage.secretKey')}
+          </span>
           <button
             onClick={() => setReveal(!reveal)}
-            aria-label={reveal ? 'Hide secret key' : 'Reveal secret key'}
+            aria-label={
+              reveal ? t('manage.hideSecret') : t('manage.revealSecret')
+            }
             className='relative flex-1 cursor-pointer text-left'
           >
             <span
@@ -271,6 +301,7 @@ function ConfirmRow({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className='mt-6 flex items-center justify-between gap-3 border-t border-(--border) pt-4'>
       <span className='text-sm text-(--text2)'>{message}</span>
@@ -279,13 +310,13 @@ function ConfirmRow({
           onClick={onCancel}
           className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           onClick={onConfirm}
           className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--red-hover)'
         >
-          Remove
+          {t('common.remove')}
         </button>
       </div>
     </div>
@@ -293,10 +324,10 @@ function ConfirmRow({
 }
 
 /** Verbose route description for the contact detail row. */
-function routeLabel(contact: Contact): string {
-  if (contact.outPathLen === NO_PATH) return 'No route — floods';
-  if (contact.outPathLen === 0) return 'Direct (0 hops)';
-  return `${contact.outPathLen} hop${contact.outPathLen === 1 ? '' : 's'}`;
+function routeLabel(t: TFunction, contact: Contact): string {
+  if (contact.outPathLen === NO_PATH) return t('route.noRouteFloods');
+  if (contact.outPathLen === 0) return t('route.directHops');
+  return t('route.hops', { count: contact.outPathLen });
 }
 
 /**

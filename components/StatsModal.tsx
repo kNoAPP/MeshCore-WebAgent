@@ -16,6 +16,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import type { StatsResult } from '@/types/meshcore';
 import { fmtUptime, fmtAirtime, fmtVoltage } from '@/lib/utils';
@@ -25,6 +26,7 @@ import { fmtUptime, fmtAirtime, fmtVoltage } from '@/lib/utils';
  * Refresh), laid out as cards. Renders nothing while `statsOpen` is false.
  */
 export function StatsModal() {
+  const { t } = useTranslation();
   const { client, statsOpen, setStatsOpen, battery } = useMeshStore();
   const [stats, setStats] = useState<StatsResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -69,7 +71,7 @@ export function StatsModal() {
       >
         {/* Header */}
         <div className='mb-5 flex items-center justify-between'>
-          <h2 className='text-base font-bold'>📊 Device Stats</h2>
+          <h2 className='text-base font-bold'>{t('stats.title')}</h2>
           <button
             onClick={() => setStatsOpen(false)}
             className='text-lg leading-none text-(--text2) hover:text-(--text)'
@@ -81,17 +83,17 @@ export function StatsModal() {
         <div className='grid grid-cols-2 gap-4'>
           {battery && (
             <StatCard
-              title='💾 Storage & Battery'
+              title={t('stats.card.storageBattery')}
               rows={[
-                ['Voltage', fmtVoltage(battery.voltage)],
-                ['Used', `${battery.usedKB.toLocaleString()} KB`],
-                ['Total', `${battery.totalKB.toLocaleString()} KB`],
+                [t('stats.voltage'), fmtVoltage(battery.voltage)],
+                [t('stats.used'), `${battery.usedKB.toLocaleString()} KB`],
+                [t('stats.total'), `${battery.totalKB.toLocaleString()} KB`],
                 [
-                  'Free',
+                  t('stats.free'),
                   `${(battery.totalKB - battery.usedKB).toLocaleString()} KB`,
                 ],
                 [
-                  'Usage',
+                  t('stats.usage'),
                   `${battery.totalKB ? Math.round((battery.usedKB / battery.totalKB) * 100) : '?'}%`,
                 ],
               ]}
@@ -99,43 +101,46 @@ export function StatsModal() {
           )}
           {stats?.core && (
             <StatCard
-              title='🖥️ Core'
+              title={t('stats.card.core')}
               rows={[
-                ['Uptime', fmtUptime(stats.core.uptimeSecs)],
-                ['Battery', fmtVoltage(stats.core.battMv)],
-                ['Errors', String(stats.core.errors)],
-                ['Queue Length', String(stats.core.queueLen)],
+                [t('stats.uptime'), fmtUptime(stats.core.uptimeSecs)],
+                [t('stats.battery'), fmtVoltage(stats.core.battMv)],
+                [t('stats.errors'), String(stats.core.errors)],
+                [t('stats.queueLength'), String(stats.core.queueLen)],
               ]}
             />
           )}
           {stats?.radio && (
             <StatCard
-              title='📻 Radio'
+              title={t('stats.card.radio')}
               rows={[
-                ['Noise Floor', `${stats.radio.noiseFloor} dBm`],
-                ['Last RSSI', `${stats.radio.lastRssi} dBm`],
+                [t('stats.noiseFloor'), `${stats.radio.noiseFloor} dBm`],
+                [t('stats.lastRssi'), `${stats.radio.lastRssi} dBm`],
                 [
-                  'Last SNR',
+                  t('stats.lastSnr'),
                   `${stats.radio.lastSnr > 0 ? '+' : ''}${stats.radio.lastSnr.toFixed(2)} dB`,
                 ],
-                ['TX Airtime', fmtAirtime(stats.radio.txAirSecs)],
-                ['RX Airtime', fmtAirtime(stats.radio.rxAirSecs)],
+                [t('stats.txAirtime'), fmtAirtime(stats.radio.txAirSecs)],
+                [t('stats.rxAirtime'), fmtAirtime(stats.radio.rxAirSecs)],
               ]}
             />
           )}
           {stats?.packets && (
             <StatCard
-              title='📦 Packets'
+              title={t('stats.card.packets')}
               rows={[
-                ['Received', stats.packets.recv.toLocaleString()],
-                ['Sent', stats.packets.sent.toLocaleString()],
-                ['Flood TX', stats.packets.floodTx.toLocaleString()],
-                ['Flood RX', stats.packets.floodRx.toLocaleString()],
-                ['Direct TX', stats.packets.directTx.toLocaleString()],
-                ['Direct RX', stats.packets.directRx.toLocaleString()],
+                [t('stats.received'), stats.packets.recv.toLocaleString()],
+                [t('stats.sent'), stats.packets.sent.toLocaleString()],
+                [t('stats.floodTx'), stats.packets.floodTx.toLocaleString()],
+                [t('stats.floodRx'), stats.packets.floodRx.toLocaleString()],
+                [t('stats.directTx'), stats.packets.directTx.toLocaleString()],
+                [t('stats.directRx'), stats.packets.directRx.toLocaleString()],
                 ...(stats.packets.recvErrors != null
                   ? ([
-                      ['RX Errors', stats.packets.recvErrors.toLocaleString()],
+                      [
+                        t('stats.rxErrors'),
+                        stats.packets.recvErrors.toLocaleString(),
+                      ],
                     ] as [string, string][])
                   : []),
               ]}
@@ -149,7 +154,7 @@ export function StatsModal() {
             disabled={loading}
             className='rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50'
           >
-            {loading ? '⟳ Refreshing…' : '↻ Refresh'}
+            {loading ? t('stats.refreshing') : t('stats.refresh')}
           </button>
         </div>
       </div>
