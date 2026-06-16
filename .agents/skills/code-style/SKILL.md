@@ -52,6 +52,19 @@ metadata:
   never hardcode hex values in components.
 - Do not mix inline `style` props with Tailwind classes for the same property.
 
+## Localization
+
+- Never hardcode user-facing text. Add the string to `locales/en.json` (the
+  authoritative dictionary) and render it via `t('...')` from `react-i18next`'s
+  `useTranslation`.
+- Outside React (hooks, `lib/`), use the shared instance: `i18n.t('...')`.
+- Use `{{var}}` interpolation and `_one`/`_other` plural keys — don't assemble
+  sentences by concatenation.
+- Keep keys type-safe: dynamic keys must resolve to a literal union (e.g. an
+  `as const satisfies Record<...>` map), not a bare template literal.
+- When adding an `en.json` key, mirror it into `es`/`de`/`fr` (drafts are fine,
+  flagged for human review) so the structures stay in sync.
+
 ## Comments
 
 Two kinds of comments, two different rules. Never narrate _what_ the code does —
