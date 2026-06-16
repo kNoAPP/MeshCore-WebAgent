@@ -15,6 +15,10 @@
 
 import { AppShell } from '@/components/AppShell';
 
+/**
+ * The single app route — delegates everything to the client-side
+ * {@link AppShell}.
+ */
 export default function Page() {
   return <AppShell />;
 }

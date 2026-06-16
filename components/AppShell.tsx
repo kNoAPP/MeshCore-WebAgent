@@ -21,8 +21,17 @@ import { Sidebar } from './Sidebar';
 import { ConnectPanel } from './ConnectPanel';
 import { ChatArea } from './ChatArea';
 import { StatsModal } from './StatsModal';
+import { ManagePanel } from './ManagePanel';
+import { DiscoverPanel } from './DiscoverPanel';
+import { AutoAddSettings } from './AutoAddSettings';
+import { AddChannelModal } from './AddChannelModal';
 import { Toast } from './Toast';
 
+/**
+ * Top-level app layout. Always shows the header and toast; swaps the connect
+ * panel for the sidebar + chat once connected, and mounts the management modals
+ * only while connected.
+ */
 export function AppShell() {
   const status = useMeshStore((s) => s.status);
   const connected = status === 'connected';
@@ -36,7 +45,16 @@ export function AppShell() {
         {connected && <Sidebar />}
         {connected ? <ChatArea /> : <ConnectPanel />}{' '}
       </div>{' '}
-      <StatsModal /> <Toast />
+      <StatsModal />
+      {connected && (
+        <>
+          <ManagePanel />
+          <DiscoverPanel />
+          <AutoAddSettings />
+          <AddChannelModal />
+        </>
+      )}
+      <Toast />
     </div>
   );
 }

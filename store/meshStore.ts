@@ -19,15 +19,49 @@ import { create } from 'zustand';
 import type {
   Contact,
   Channel,
+  Advert,
+  AutoAddConfig,
   Message,
   ActiveConvo,
   ConnectionStatus,
   BatteryInfo,
   SyncProgress,
 } from '@/types/meshcore';
+import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { convoId } from '@/lib/utils';
 
+/** localStorage key for the persisted {@link AutoAddConfig}. */
+const AUTOADD_STORAGE_KEY = 'meshcore.autoAddConfig';
+
+const DEFAULT_AUTOADD_CONFIG: AutoAddConfig = {
+  mode: 'all',
+  chat: true,
+  repeater: true,
+  room: true,
+  sensor: false,
+  overwriteOldest: false,
+  maxHops: MAX_HOPS_NO_LIMIT,
+  showPublicKeys: false,
+};
+
+/**
+ * Reads the persisted auto-add config from localStorage, falling back to
+ * defaults (and on SSR).
+ */
+function loadAutoAddConfig(): AutoAddConfig {
+  if (typeof window === 'undefined') return DEFAULT_AUTOADD_CONFIG;
+  try {
+    const raw = window.localStorage.getItem(AUTOADD_STORAGE_KEY);
+    if (raw) return { ...DEFAULT_AUTOADD_CONFIG, ...JSON.parse(raw) };
+  } catch {}
+  return DEFAULT_AUTOADD_CONFIG;
+}
+
+/**
+ * A transient notification banner. `id` lets a later toast supersede an earlier
+ * auto-dismiss.
+ */
 export interface Toast {
   text: string;
   variant: 'success' | 'error' | '';
@@ -45,6 +79,8 @@ interface MeshState {
   // Mesh data
   contacts: Record<string, Contact>;
   channels: Record<number, Channel>;
+  adverts: Record<string, Advert>;
+  autoAddConfig: AutoAddConfig;
 
   // Conversations
   msgHistory: Record<string, Message[]>;
@@ -53,6 +89,10 @@ interface MeshState {
   // UI
   toast: Toast | null;
   statsOpen: boolean;
+  managePanel: { kind: 'contact' | 'channel'; id: string } | null;
+  discoverOpen: boolean;
+  autoAddOpen: boolean;
+  addChannelOpen: boolean;
 }
 
 interface MeshActions {
@@ -63,6 +103,8 @@ interface MeshActions {
   setSyncProgress: (p: SyncProgress | null) => void;
   setContacts: (c: Record<string, Contact>) => void;
   setChannels: (ch: Record<number, Channel>) => void;
+  setAdverts: (a: Record<string, Advert>) => void;
+  setAutoAddConfig: (cfg: AutoAddConfig) => void;
   addMessage: (id: string, msg: Message) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
@@ -71,6 +113,12 @@ interface MeshActions {
   showToast: (text: string, variant?: Toast['variant']) => void;
   dismissToast: () => void;
   setStatsOpen: (open: boolean) => void;
+  setManagePanel: (
+    panel: { kind: 'contact' | 'channel'; id: string } | null,
+  ) => void;
+  setDiscoverOpen: (open: boolean) => void;
+  setAutoAddOpen: (open: boolean) => void;
+  setAddChannelOpen: (open: boolean) => void;
   reset: () => void;
 }
 
@@ -82,14 +130,25 @@ const initialState: MeshState = {
   syncProgress: null,
   contacts: {},
   channels: {},
+  adverts: {},
+  autoAddConfig: loadAutoAddConfig(),
   msgHistory: {},
   activeConvo: null,
   toast: null,
   statsOpen: false,
+  managePanel: null,
+  discoverOpen: false,
+  autoAddOpen: false,
+  addChannelOpen: false,
 };
 
 let toastSeq = 0;
 
+/**
+ * The global Zustand store: connection state, mirrored mesh data, conversation
+ * history, and UI flags. All mutations go through the actions defined here —
+ * components subscribe to slices and re-render on change.
+ */
 export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   ...initialState,
 
@@ -100,6 +159,19 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setSyncProgress: (syncProgress) => set({ syncProgress }),
   setContacts: (contacts) => set({ contacts }),
   setChannels: (channels) => set({ channels }),
+  setAdverts: (adverts) => set({ adverts }),
+
+  setAutoAddConfig: (autoAddConfig) => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(
+          AUTOADD_STORAGE_KEY,
+          JSON.stringify(autoAddConfig),
+        );
+      } catch {}
+    }
+    set({ autoAddConfig });
+  },
 
   addMessage: (id, msg) =>
     set((state) => {
@@ -129,7 +201,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   restoreHistory: (persisted) =>
     set((state) => {
-      // Prepend persisted messages before any newly-polled messages (old → new order).
+      // Prepend persisted messages before any newly-polled messages (old → new
+      // order).
       // Assign IDs to any persisted messages that predate the id field.
       const merged: Record<string, Message[]> = {};
       const allKeys = new Set([
@@ -171,14 +244,21 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   dismissToast: () => set({ toast: null }),
   setStatsOpen: (statsOpen) => set({ statsOpen }),
+  setManagePanel: (managePanel) => set({ managePanel }),
+  setDiscoverOpen: (discoverOpen) => set({ discoverOpen }),
+  setAutoAddOpen: (autoAddOpen) => set({ autoAddOpen }),
+  setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
 
   reset: () =>
     set({
       ...initialState,
       toast: get().toast,
+      // Auto-add config is a persistent user preference, not session state
+      autoAddConfig: get().autoAddConfig,
     }),
 }));
 
+/** Counts unread messages in one conversation. */
 export function unreadCount(
   msgHistory: Record<string, Message[]>,
   id: string,
@@ -186,16 +266,22 @@ export function unreadCount(
   return (msgHistory[id] ?? []).filter((m) => m._unread).length;
 }
 
+/** Opens a conversation and marks it read in one step. */
 export function openConvo(convo: ActiveConvo): void {
   const { setActiveConvo, markRead } = useMeshStore.getState();
   setActiveConvo(convo);
   markRead(convo.id);
 }
 
+/** Builds the conversation id for a channel slot (e.g. `"channel:0"`). */
 export function channelConvoId(idx: number): string {
   return convoId('channel', idx);
 }
 
+/**
+ * Builds the conversation id for a direct chat with a contact (by pubkey
+ * prefix).
+ */
 export function directConvoId(prefix: string): string {
   return convoId('direct', prefix);
 }

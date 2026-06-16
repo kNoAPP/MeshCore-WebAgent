@@ -21,4 +21,6 @@ Run all four CI checks in sequence and report results.
 npm run lint && npm run type-check && npm run spell-check && npm run build
 ```
 
-Report which checks passed and which failed. If any check fails, show the relevant error output and suggest what to fix. Do not proceed to the next check after a failure — stop and report immediately.
+Report which checks passed and which failed. If any check fails, show the
+relevant error output and suggest what to fix. Do not proceed to the next check
+after a failure — stop and report immediately.

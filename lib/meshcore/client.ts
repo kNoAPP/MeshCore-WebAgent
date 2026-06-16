@@ -17,6 +17,8 @@ import type {
   ITransport,
   Contact,
   Channel,
+  Advert,
+  AutoAddConfig,
   SelfInfo,
   DeviceInfo,
   BatteryInfo,
@@ -26,7 +28,14 @@ import type {
   SendReceipt,
   RawRxPacket,
 } from '@/types/meshcore';
-import { RESP } from './constants';
+import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
+import {
+  RESP,
+  FAVORITE_FLAG,
+  AUTOADD,
+  MANUAL_ADD_OFF,
+  MANUAL_ADD_ON,
+} from './constants';
 import {
   buildAppStart,
   buildDeviceQuery,
@@ -38,6 +47,12 @@ import {
   buildSendChannelMsg,
   buildSendDirectMsg,
   buildResetPath,
+  buildAddOrUpdateContact,
+  buildRemoveContact,
+  buildSetChannel,
+  buildSetOtherParams,
+  buildSetAutoAddConfig,
+  buildGetAutoAddConfig,
 } from './frames';
 import {
   parseSelfInfo,
@@ -55,7 +70,13 @@ import {
   parseStatsCore,
   parseStatsRadio,
   parseStatsPackets,
+  parseAutoAddConfig,
 } from './parsers';
+import { toHex } from '@/lib/utils';
+
+// Cap the heard-adverts log so a long session on a busy mesh can't grow
+// unbounded
+const ADVERTS_LIMIT = 200;
 
 type RespCode = number;
 
@@ -66,21 +87,53 @@ interface PendingCmd {
   timer: ReturnType<typeof setTimeout>;
 }
 
+/**
+ * Event hooks the client fires as radio state changes. The `useMeshCore` hook
+ * wires these into the Zustand store. All are optional; collection callbacks
+ * receive a fresh snapshot of the relevant map.
+ */
 export interface MeshCoreCallbacks {
+  /** A new inbound channel or direct message arrived. */
   onMessage?: (msg: Message) => void;
+  /**
+   * The contact table changed (after a sync, add, remove, or favorite toggle).
+   */
   onContactsUpdated?: (contacts: Record<string, Contact>) => void;
+  /** The channel list changed. */
   onChannelsUpdated?: (channels: Record<number, Channel>) => void;
+  /** The heard-adverts log changed (a node advertised or re-advertised). */
+  onAdvertsUpdated?: (adverts: Record<string, Advert>) => void;
+  /** This radio's identity/config (from the `APP_START` handshake). */
   onSelfInfo?: (info: SelfInfo) => void;
+  /** Device hardware/firmware info (from `DEVICE_QUERY`). */
   onDeviceInfo?: (info: DeviceInfo) => void;
+  /** Battery and storage stats. */
   onBattery?: (info: BatteryInfo) => void;
+  /** A delivery ack arrived: the ack code and measured round-trip in ms. */
   onAck?: (ackCode: number, roundTripMs: number) => void;
+  /** A raw RX-log packet (used to count repeater rebroadcasts). */
   onLogRx?: (pkt: RawRxPacket) => void;
+  /** Progress updates during the initial connect sync. */
   onSyncProgress?: (progress: SyncProgress) => void;
 }
 
+/**
+ * Stateful client for the MeshCore Companion Protocol over an
+ * {@link ITransport}.
+ *
+ * @remarks
+ * Owns the local mirror of radio state (`contacts`, `channels`, `adverts`,
+ * `selfInfo`, `deviceInfo`) and a request/response correlator: {@link cmd}
+ * sends a payload and resolves when a matching {@link RESP} frame arrives.
+ * After {@link init} completes it polls for queued messages every 5s. Inbound
+ * frames are dispatched in {@link handleFrame}; pushes update state and fire
+ * {@link MeshCoreCallbacks}. One instance per connection — call {@link destroy}
+ * to tear it down.
+ */
 export class MeshCoreClient {
   contacts: Record<string, Contact> = {};
   channels: Record<number, Channel> = {};
+  adverts: Record<string, Advert> = {};
   selfInfo: SelfInfo | null = null;
   deviceInfo: DeviceInfo | null = null;
 
@@ -100,6 +153,13 @@ export class MeshCoreClient {
     public callbacks: MeshCoreCallbacks = {},
   ) {}
 
+  /**
+   * Runs the connect handshake and initial sync: `APP_START`, `DEVICE_QUERY`,
+   * full contact + channel sync, and a first message drain, reporting progress
+   * via {@link MeshCoreCallbacks.onSyncProgress}. Then starts the 5s message
+   * poll. Individual steps are best-effort — a timeout is swallowed so a slow
+   * radio still finishes connecting.
+   */
   async init(): Promise<void> {
     this.transport.startReading((d) => this.handleFrame(d));
     this.initialSync = true;
@@ -136,6 +196,9 @@ export class MeshCoreClient {
     }
   }
 
+  // Sends a command and resolves with the first inbound frame whose RESP code
+  // is in `types` (an ERR frame rejects any pending command). Rejects on
+  // timeout.
   private cmd(
     payload: Uint8Array,
     types: RespCode[],
@@ -164,8 +227,10 @@ export class MeshCoreClient {
 
   private resolveHandler(type: RespCode, d: Uint8Array): boolean {
     const i = this.handlers.findIndex(
-      // Match explicit type, or treat ERR as a wildcard rejection for any pending handler.
-      // Do NOT wildcard OK — it's already listed explicitly in types arrays that expect it.
+      // Match explicit type, or treat ERR as a wildcard rejection for any
+      // pending handler.
+      // Do NOT wildcard OK — it's already listed explicitly in types arrays
+      // that expect it.
       (h) =>
         h.types.includes(type) || (type === RESP.ERR && h.types.length > 0),
     );
@@ -191,21 +256,22 @@ export class MeshCoreClient {
       return;
     }
     if (type === RESP.PUSH_PATH_UPDATED || type === RESP.PUSH_ADVERT) {
-      // The mesh found (or lost) a route to a contact, or a known contact
-      // re-advertised — refresh contact data, coalescing bursts into one re-sync
-      this.pathSyncTimer ??= setTimeout(() => {
-        this.pathSyncTimer = null;
-        if (!this.collectingContacts) this.syncContacts();
-      }, 2000);
+      // The mesh found (or lost) a route to a contact, or a known node
+      // re-advertised (0x80 carries only the 32-byte pubkey) — refresh the
+      // heard timestamp and re-sync contact data, coalescing bursts.
+      if (type === RESP.PUSH_ADVERT && d.length >= 7) this.touchAdvert(d);
+      this.scheduleContactResync();
       return;
     }
     if (type === RESP.PUSH_NEW_ADVERT) {
-      // Fired when the radio auto-adds a discovered contact; payload matches
-      // the CONTACT response frame layout
+      // A newly heard node; payload matches the CONTACT response layout. Record
+      // it in the heard-adverts list and let the debounced re-sync pull the
+      // authoritative contact table (the radio may or may not have auto-added
+      // it).
       const c = parseContact(d);
       if (c) {
-        this.contacts[c.pubkeyPrefix] = c;
-        this.callbacks.onContactsUpdated?.(this.contacts);
+        this.recordAdvert(c);
+        this.scheduleContactResync();
       }
       return;
     }
@@ -282,6 +348,48 @@ export class MeshCoreClient {
     this.resolveHandler(type, d);
   }
 
+  private scheduleContactResync(): void {
+    this.pathSyncTimer ??= setTimeout(() => {
+      this.pathSyncTimer = null;
+      if (!this.collectingContacts) this.syncContacts();
+    }, 2000);
+  }
+
+  private recordAdvert(c: Contact): void {
+    this.adverts[c.pubkeyPrefix] = {
+      pubkey: c.pubkey,
+      pubkeyPrefix: c.pubkeyPrefix,
+      name: c.name,
+      advType: c.advType,
+      lastHeard: c.lastAdvert ?? Math.floor(Date.now() / 1000),
+      advLat: c.advLat,
+      advLon: c.advLon,
+    };
+    this.evictOldAdverts();
+    this.callbacks.onAdvertsUpdated?.(this.adverts);
+  }
+
+  private evictOldAdverts(): void {
+    const keys = Object.keys(this.adverts);
+    if (keys.length <= ADVERTS_LIMIT) return;
+    keys
+      .sort((a, b) => this.adverts[a].lastHeard - this.adverts[b].lastHeard)
+      .slice(0, keys.length - ADVERTS_LIMIT)
+      .forEach((k) => delete this.adverts[k]);
+  }
+
+  private touchAdvert(d: Uint8Array): void {
+    const prefix = toHex(d.slice(1, 7));
+    const existing = this.adverts[prefix];
+    if (existing) {
+      this.adverts[prefix] = {
+        ...existing,
+        lastHeard: Math.floor(Date.now() / 1000),
+      };
+      this.callbacks.onAdvertsUpdated?.(this.adverts);
+    }
+  }
+
   private async syncContacts(): Promise<void> {
     this.collectingContacts = true;
     this.contactsStarted = false;
@@ -322,7 +430,8 @@ export class MeshCoreClient {
     ];
     try {
       for (let i = 0; i < 64; i++) {
-        // Queue depth is unknown ahead of time — creep toward the end of the bar
+        // Queue depth is unknown ahead of time — creep toward the end of the
+        // bar
         this.reportSync('messages', Math.min(99, 75 + i * 2), i);
         const d = await this.cmd(buildSyncNextMessage(), msgTypes, 3000);
         if (d[0] === RESP.NO_MORE_MESSAGES) break;
@@ -333,6 +442,7 @@ export class MeshCoreClient {
 
   // ─── Public API ────────────────────────────────────────────────────────────
 
+  /** Sends a text message to a channel slot. */
   async sendChannelMessage(channelIdx: number, text: string): Promise<void> {
     await this.cmd(
       buildSendChannelMsg(channelIdx, text),
@@ -341,6 +451,13 @@ export class MeshCoreClient {
     );
   }
 
+  /**
+   * Sends a direct message to a contact.
+   *
+   * @param attempt - retry counter, passed through to vary routing on resends.
+   * @returns the send receipt (flood flag, expected ack, suggested timeout)
+   * when the radio replies `SENT`, or null if it only acked `OK`.
+   */
   async sendDirectMessage(
     contact: Contact,
     text: string,
@@ -355,6 +472,10 @@ export class MeshCoreClient {
     return d[0] === RESP.SENT ? parseMsgSent(d) : null;
   }
 
+  /**
+   * Clears a contact's route locally and on the radio so its next message
+   * floods to rediscover a path.
+   */
   async resetPath(contact: Contact): Promise<void> {
     await this.cmd(buildResetPath(contact.pubkeyBytes), [RESP.OK], 5000);
     const c = this.contacts[contact.pubkeyPrefix];
@@ -368,6 +489,143 @@ export class MeshCoreClient {
     }
   }
 
+  /**
+   * Sets or clears a contact's favorite flag (bit 0 of {@link Contact.flags})
+   * and re-sends it.
+   */
+  async setFavorite(contact: Contact, fav: boolean): Promise<void> {
+    const flags = fav
+      ? contact.flags | FAVORITE_FLAG
+      : contact.flags & ~FAVORITE_FLAG;
+    const updated = { ...contact, flags };
+    await this.cmd(buildAddOrUpdateContact(updated), [RESP.OK], 5000);
+    this.contacts[contact.pubkeyPrefix] = updated;
+    this.callbacks.onContactsUpdated?.(this.contacts);
+  }
+
+  /**
+   * Adds a discovered node as a contact (creates it on the radio if unknown).
+   */
+  async addContact(contact: Contact): Promise<void> {
+    await this.cmd(buildAddOrUpdateContact(contact), [RESP.OK], 5000);
+    this.contacts[contact.pubkeyPrefix] = contact;
+    this.callbacks.onContactsUpdated?.(this.contacts);
+  }
+
+  /** Deletes a contact from the radio and the local mirror. */
+  async removeContact(contact: Contact): Promise<void> {
+    await this.cmd(buildRemoveContact(contact.pubkeyBytes), [RESP.OK], 5000);
+    delete this.contacts[contact.pubkeyPrefix];
+    this.callbacks.onContactsUpdated?.(this.contacts);
+  }
+
+  /**
+   * Writes a channel slot (create or join).
+   *
+   * @param idx - channel slot 0–7.
+   * @param secret - 16-byte channel secret.
+   */
+  async setChannel(
+    idx: number,
+    name: string,
+    secret: Uint8Array,
+  ): Promise<void> {
+    await this.cmd(buildSetChannel(idx, name, secret), [RESP.OK], 5000);
+    this.channels[idx] = { idx, name, secret };
+    this.callbacks.onChannelsUpdated?.(this.channels);
+  }
+
+  /**
+   * Removes a channel slot by clearing its name and secret.
+   *
+   * @throws if `idx` is 0 — the Public channel is reserved and not removable.
+   */
+  async removeChannel(idx: number): Promise<void> {
+    if (idx === 0) throw new Error('The Public channel cannot be removed');
+    await this.cmd(
+      buildSetChannel(idx, '', new Uint8Array(16)),
+      [RESP.OK],
+      5000,
+    );
+    delete this.channels[idx];
+    this.callbacks.onChannelsUpdated?.(this.channels);
+  }
+
+  /**
+   * Writes the auto-add preferences to the radio (`SET_OTHER_PARAMS` for the
+   * mode, then `SET_AUTOADD_CONFIG` for the filter + hop limit).
+   *
+   * @remarks The hop count is converted to the radio's hop+1 encoding here; see
+   * {@link readAutoAddBits} for the inverse. `showPublicKeys` is app-only and
+   * not sent.
+   */
+  async setAutoAddPrefs(cfg: AutoAddConfig): Promise<void> {
+    const manual = cfg.mode === 'all' ? MANUAL_ADD_OFF : MANUAL_ADD_ON;
+    await this.cmd(buildSetOtherParams(manual), [RESP.OK], 5000);
+    // Always write the config: overwrite-oldest and max-hops apply in both
+    // modes, and persisting the type bits in 'all' mode keeps the user's
+    // selection remembered when they switch back to 'selected'.
+    let bits = 0;
+    if (cfg.chat) bits |= AUTOADD.CHAT;
+    if (cfg.repeater) bits |= AUTOADD.REPEATER;
+    if (cfg.room) bits |= AUTOADD.ROOM;
+    if (cfg.sensor) bits |= AUTOADD.SENSOR;
+    if (cfg.overwriteOldest) bits |= AUTOADD.OVERWRITE_OLDEST;
+    // Convert the displayed hop count back to the radio's hop+1 encoding
+    // (clamped to the firmware's 64 ceiling). The "no limit" sentinel maps to
+    // raw 0, which the firmware reads as unlimited.
+    const rawHops =
+      cfg.maxHops >= MAX_HOPS_NO_LIMIT ? 0 : Math.min(cfg.maxHops + 1, 64);
+    await this.cmd(buildSetAutoAddConfig(bits, rawHops), [RESP.OK], 5000);
+  }
+
+  /**
+   * The auto-add mode, derived from the `manual_add` byte in the `APP_START`
+   * handshake (so always available after {@link init}); undefined on older
+   * firmware that omits it.
+   */
+  get manualAddMode(): 'all' | 'selected' | undefined {
+    const m = this.selfInfo?.manualAdd;
+    if (m === undefined) return undefined;
+    return m === MANUAL_ADD_OFF ? 'all' : 'selected';
+  }
+
+  /**
+   * Reads the auto-add filter and hop limit via `GET_AUTOADD_CONFIG`.
+   *
+   * @returns the type flags, overwrite-oldest flag, and display hop count, or
+   * null when the device doesn't answer (older firmware lacks the command) — so
+   * the caller can keep its existing values instead of clobbering them.
+   * @remarks Converts the radio's hop+1 byte back to a display hop count.
+   */
+  async readAutoAddBits(): Promise<Pick<
+    AutoAddConfig,
+    'chat' | 'repeater' | 'room' | 'sensor' | 'overwriteOldest' | 'maxHops'
+  > | null> {
+    try {
+      const d = await this.cmd(
+        buildGetAutoAddConfig(),
+        [RESP.AUTOADD_CONFIG],
+        3000,
+      );
+      const { config, maxHops } = parseAutoAddConfig(d);
+      return {
+        chat: (config & AUTOADD.CHAT) !== 0,
+        repeater: (config & AUTOADD.REPEATER) !== 0,
+        room: (config & AUTOADD.ROOM) !== 0,
+        sensor: (config & AUTOADD.SENSOR) !== 0,
+        overwriteOldest: (config & AUTOADD.OVERWRITE_OLDEST) !== 0,
+        // The radio stores hop+1 (raw 1 = direct/0 hops); the official app
+        // shows the hop count, so subtract 1 to match. raw 0 = "no limit",
+        // surfaced as the MAX_HOPS_NO_LIMIT sentinel so it round-trips.
+        maxHops: maxHops === 0 ? MAX_HOPS_NO_LIMIT : maxHops - 1,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /** Fetches battery and storage stats, or null if the request times out. */
   async getBattery(): Promise<BatteryInfo | null> {
     try {
       return parseBattAndStorage(
@@ -378,6 +636,10 @@ export class MeshCoreClient {
     }
   }
 
+  /**
+   * Fetches all three `STATS` pages (core, radio, packets); each is omitted if
+   * its request fails.
+   */
   async getStats(): Promise<StatsResult> {
     const result: StatsResult = {};
     try {
@@ -395,6 +657,10 @@ export class MeshCoreClient {
     return result;
   }
 
+  /**
+   * Finds a contact by public-key prefix, tolerating either side being the
+   * shorter prefix (incoming frames and stored contacts use different lengths).
+   */
   lookupContact(pubkeyPrefix: string): Contact | undefined {
     return Object.values(this.contacts).find(
       (c) =>
@@ -403,6 +669,10 @@ export class MeshCoreClient {
     );
   }
 
+  /**
+   * Stops the poll/resync timers and closes the transport. Call once when
+   * disconnecting.
+   */
   destroy(): void {
     if (this.pollTimer) clearInterval(this.pollTimer);
     if (this.pathSyncTimer) clearTimeout(this.pathSyncTimer);

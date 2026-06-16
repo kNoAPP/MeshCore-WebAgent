@@ -41,6 +41,9 @@ const SYNC_STAGE_LABEL: Record<SyncProgress['stage'], string> = {
   messages: 'Syncing messages',
 };
 
+/**
+ * Builds the parenthetical detail after a sync stage label (e.g. ` (3 of 8)`).
+ */
 function syncDetail({ stage, current, total }: SyncProgress): string {
   if (stage === 'messages') return current ? ` (${current} received)` : '';
   if (current != null && total != null) return ` (${current} of ${total})`;
@@ -49,6 +52,10 @@ function syncDetail({ stage, current, total }: SyncProgress): string {
 
 // Snapshot must be cached — useSyncExternalStore compares by reference
 let transportSupport: TransportSupport | null = null;
+/**
+ * Feature-detects USB/BLE support, memoized so the snapshot stays
+ * reference-stable.
+ */
 function getTransportSupport(): TransportSupport {
   transportSupport ??= {
     usb: 'serial' in navigator,
@@ -59,6 +66,11 @@ function getTransportSupport(): TransportSupport {
 const subscribeNever = () => () => {};
 const getServerSupport = () => null;
 
+/**
+ * The pre-connection screen: USB/BLE/WiFi transport tabs with their inputs, or
+ * the live sync-progress view while connecting. Shown until a radio is
+ * connected.
+ */
 export function ConnectPanel() {
   const [tab, setTab] = useState<Tab>('usb');
   const [baud, setBaud] = useState(115200);

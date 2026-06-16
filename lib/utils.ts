@@ -13,12 +13,73 @@
 //
 // For inquiries, contact: alden@knoban.com
 
+/**
+ * Hex-encodes bytes as lowercase, two chars per byte.
+ *
+ * @param separator - inserted between bytes (e.g. `' '`); default none.
+ */
 export function toHex(bytes: Uint8Array, separator = ''): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join(separator);
 }
 
+/**
+ * Generates a fresh random 16-byte channel secret for a new private channel.
+ */
+export function randomSecret(): Uint8Array {
+  return crypto.getRandomValues(new Uint8Array(16));
+}
+
+/**
+ * Derives a hashtag channel's shared secret from its name.
+ *
+ * @param name - the channel name **without** the leading `#`.
+ * @returns the first 16 bytes of `SHA-256("#" + name)`, so anyone entering the
+ * same name joins the same channel.
+ */
+export async function deriveHashtagSecret(name: string): Promise<Uint8Array> {
+  const data = new TextEncoder().encode(`#${name}`);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return new Uint8Array(hash).slice(0, 16);
+}
+
+/**
+ * Computes the 1-byte channel identifier carried in group packet headers.
+ *
+ * @returns the first byte of `SHA-256(secret)` as two hex chars.
+ */
+export async function channelHashHex(secret: Uint8Array): Promise<string> {
+  const hash = await crypto.subtle.digest('SHA-256', new Uint8Array(secret));
+  return toHex(new Uint8Array(hash).slice(0, 1));
+}
+
+/** Constant-time-agnostic byte-array equality (length, then element-wise). */
+export function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/**
+ * Decodes a hex string to bytes, tolerating whitespace.
+ *
+ * @param expectedLen - if given, the result must be exactly this many bytes.
+ * @returns the bytes, or null if the input isn't valid hex of the expected
+ * length.
+ */
+export function fromHex(hex: string, expectedLen?: number): Uint8Array | null {
+  const clean = hex.trim().replace(/\s+/g, '');
+  if (clean.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(clean)) return null;
+  const bytes = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  }
+  if (expectedLen !== undefined && bytes.length !== expectedLen) return null;
+  return bytes;
+}
+
+/** Builds a conversation key like `"channel:0"` or `"direct:b6cf429f4882"`. */
 export function convoId(
   kind: 'channel' | 'direct',
   rawId: string | number,
@@ -26,6 +87,10 @@ export function convoId(
   return `${kind}:${rawId}`;
 }
 
+/**
+ * Formats a duration in seconds as a compact `1d 2h 3m 4s` string (zero units
+ * dropped).
+ */
 export function fmtUptime(secs: number): string {
   const d = Math.floor(secs / 86400);
   const h = Math.floor((secs % 86400) / 3600);
@@ -36,16 +101,24 @@ export function fmtUptime(secs: number): string {
     .join(' ');
 }
 
+/**
+ * Formats airtime seconds with a unit that scales: `s` under a minute, `m`,
+ * then `h`.
+ */
 export function fmtAirtime(secs: number): string {
   if (secs < 60) return `${secs}s`;
   if (secs < 3600) return `${(secs / 60).toFixed(1)}m`;
   return `${(secs / 3600).toFixed(2)}h`;
 }
 
+/** Formats millivolts as volts, e.g. `4.16 V`. */
 export function fmtVoltage(mv: number): string {
   return `${(mv / 1000).toFixed(2)} V`;
 }
 
+/**
+ * Formats a Unix epoch-seconds timestamp as a locale wall-clock time (hh:mm).
+ */
 export function formatTime(timestamp: number): string {
   return new Date(timestamp * 1000).toLocaleTimeString([], {
     hour: '2-digit',
@@ -53,9 +126,32 @@ export function formatTime(timestamp: number): string {
   });
 }
 
+/**
+ * Emoji icon for each {@link Contact.advType} (0/1 chat, 2 repeater, 3 room).
+ */
 export const ADV_ICON: Record<number, string> = {
   0: '👤',
   1: '👤',
   2: '📡',
   3: '🏠',
 };
+
+/** Human label for each {@link Contact.advType}. */
+export const ADV_LABEL: Record<number, string> = {
+  0: 'Contact',
+  1: 'Chat',
+  2: 'Repeater',
+  3: 'Room Server',
+};
+
+/**
+ * Formats a Unix epoch-seconds timestamp as a relative age (`just now`,
+ * `5m ago`, `2h ago`, `3d ago`).
+ */
+export function formatRelative(timestamp: number): string {
+  const secs = Math.floor(Date.now() / 1000) - timestamp;
+  if (secs < 60) return 'just now';
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return `${Math.floor(secs / 86400)}d ago`;
+}

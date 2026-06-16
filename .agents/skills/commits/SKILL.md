@@ -16,8 +16,8 @@
 
 name: commits
 description: >
-  Commit message and branch naming conventions. Use when writing commit messages,
-  naming branches, or squashing changes before a pull request.
+  Commit message and branch naming conventions. Use when writing commit
+  messages, naming branches, or squashing changes before a pull request.
 license: Proprietary. See LICENSE for complete terms.
 metadata:
   author: kNoAPP
@@ -58,9 +58,11 @@ Breaking changes append `!` to the type: `feat!: drop support for v1 frames`.
 
 ## Rules
 
-- Subject line must use **imperative mood** and **start lowercase**: `add wifi reconnect`, not `Added WiFi Reconnect`.
+- Subject line must use **imperative mood** and **start lowercase**:
+  `add wifi reconnect`, not `Added WiFi Reconnect`.
 - Keep the subject under 72 characters.
-- Scope is optional but helpful for the protocol layer: `fix(parser): handle malformed BLE frames`.
+- Scope is optional but helpful for the protocol layer:
+  `fix(parser): handle malformed BLE frames`.
 - PR titles follow the same format — CI will reject non-conforming titles.
 
 ## Branch Naming

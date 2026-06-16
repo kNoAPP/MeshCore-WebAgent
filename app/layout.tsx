@@ -22,6 +22,11 @@ export const metadata: Metadata = {
   description: 'Web interface for MeshCore companion radios',
 };
 
+/**
+ * Next.js root layout. Sets no-cache headers (the static export is redeployed
+ * on each release) and mounts the {@link VersionCheck} update prompt above
+ * the app.
+ */
 export default function RootLayout({
   children,
 }: {

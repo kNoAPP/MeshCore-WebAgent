@@ -13,11 +13,29 @@
 //
 // For inquiries, contact: alden@knoban.com
 
+/**
+ * Invoked with each fully-assembled inbound frame payload (delimiter and length
+ * stripped).
+ */
 type FrameCallback = (frame: Uint8Array) => void;
 type State = 'idle' | 'lenLow' | 'lenHigh' | 'data';
 
-/** Parses the USB/WiFi inbound framing: 0x3C + uint16_LE(len) + payload */
+/**
+ * Reassembles the USB/WiFi inbound framing — `0x3C` + uint16 LE length +
+ * payload — from an arbitrarily chunked byte stream, emitting one
+ * {@link FrameCallback} per complete frame.
+ *
+ * @remarks
+ * Stateful: bytes arrive in transport-sized chunks that may split or merge
+ * frames, so it walks a small state machine across `feed` calls. Frames with a
+ * zero or `> 512` length are treated as desync and dropped (resyncs on the next
+ * `0x3C`). BLE does not use this — each GATT notification is already one frame.
+ */
 export class USBFrameParser {
+  /**
+   * Current frame sink; may be swapped (e.g. on reconnect) without restarting
+   * the read loop.
+   */
   onFrame: FrameCallback;
   private state: State = 'idle';
   private buf: Uint8Array | null = null;
@@ -29,6 +47,10 @@ export class USBFrameParser {
     this.onFrame = onFrame;
   }
 
+  /**
+   * Feeds a chunk of received bytes, emitting `onFrame` for each frame it
+   * completes.
+   */
   feed(bytes: Uint8Array): void {
     for (const b of bytes) {
       switch (this.state) {

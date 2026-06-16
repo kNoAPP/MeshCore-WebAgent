@@ -17,8 +17,10 @@
 
 import { useEffect, useRef } from 'react';
 
+/** How often to poll `/version.json` for a new deploy. */
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
+/** Fetches the deployed build version, or null if unavailable. */
 async function fetchVersion(): Promise<string | null> {
   try {
     const res = await fetch('/version.json', { cache: 'no-store' });
@@ -30,6 +32,10 @@ async function fetchVersion(): Promise<string | null> {
   }
 }
 
+/**
+ * Reloads the page when a new build is deployed. Records the version at mount,
+ * then polls every {@link CHECK_INTERVAL_MS}; renders nothing.
+ */
 export function VersionCheck() {
   const initialVersion = useRef<string | null>(null);
 

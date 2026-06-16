@@ -1,6 +1,7 @@
 # Contributing to MeshCore-WebAgent
 
-Thanks for your interest in contributing. Here's everything you need to get started.
+Thanks for your interest in contributing. Here's everything you need to get
+started.
 
 ## Prerequisites
 
@@ -66,11 +67,14 @@ PR titles must also follow this format — CI will reject non-conforming titles.
 3. Fill out the PR template completely
 4. Request review from `@kNoAPP`
 
-PRs that change the binary protocol layer (`lib/meshcore/`) should include a description of which Companion Protocol commands are affected and reference the relevant [protocol docs](https://docs.meshcore.io/companion_protocol/).
+PRs that change the binary protocol layer (`lib/meshcore/`) should include a
+description of which Companion Protocol commands are affected and reference the
+relevant [protocol docs](https://docs.meshcore.io/companion_protocol/).
 
 ## Code Style
 
-- TypeScript strict mode — no `any`, no `// @ts-ignore` without a comment explaining why
+- TypeScript strict mode — no `any`, no `// @ts-ignore` without a comment
+  explaining why
 - No comments unless the _why_ is non-obvious
 - No new abstractions beyond what the immediate task requires
 - Tailwind classes for layout/spacing; CSS variables for theming
@@ -78,10 +82,14 @@ PRs that change the binary protocol layer (`lib/meshcore/`) should include a des
 
 ## Adding Words to the Spell Checker
 
-If you introduce a legitimate technical term that cspell flags, add it to the `words` array in [`cspell.json`](cspell.json).
+If you introduce a legitimate technical term that cspell flags, add it to the
+`words` array in [`cspell.json`](cspell.json).
 
 ## Reporting Issues
 
-- **Bugs** — use the [bug report](.github/ISSUE_TEMPLATE/bug_report.yaml) template
-- **Feature requests** — use the [feature request](.github/ISSUE_TEMPLATE/feature_request.yaml) template
-- **Security vulnerabilities** — see [SECURITY.md](SECURITY.md); do not open public issues
+- **Bugs** — use the [bug report](.github/ISSUE_TEMPLATE/bug_report.yaml)
+  template
+- **Feature requests** — use the
+  [feature request](.github/ISSUE_TEMPLATE/feature_request.yaml) template
+- **Security vulnerabilities** — see [SECURITY.md](SECURITY.md); do not open
+  public issues

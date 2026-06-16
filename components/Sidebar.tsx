@@ -24,13 +24,31 @@ import {
   unreadCount,
 } from '@/store/meshStore';
 import { ADV_ICON } from '@/lib/utils';
-import { ADV_TYPE_REPEATER } from '@/lib/meshcore/constants';
+import { ADV_TYPE_REPEATER, FAVORITE_FLAG } from '@/lib/meshcore/constants';
 
-const FAVOURITE_FLAG = 0x01;
+/**
+ * Minimum height (px) either sidebar section can be collapsed to via the
+ * divider.
+ */
 const MIN_SECTION_PX = 40;
 
+/**
+ * Left navigation: a Channels section over a Contacts section, split by a
+ * draggable divider. Auto-sizes the channels section to fit (until the user
+ * drags it), sorts contacts favorites-first, and exposes add/settings/manage
+ * affordances. Selecting an item opens that conversation.
+ */
 export function Sidebar() {
-  const { channels, contacts, msgHistory, activeConvo } = useMeshStore();
+  const {
+    channels,
+    contacts,
+    msgHistory,
+    activeConvo,
+    setManagePanel,
+    setDiscoverOpen,
+    setAutoAddOpen,
+    setAddChannelOpen,
+  } = useMeshStore();
   const [channelsHeight, setChannelsHeight] = useState(160);
   const dragStartY = useRef<number | null>(null);
   const dragStartH = useRef(160);
@@ -43,6 +61,8 @@ export function Sidebar() {
 
   const sortedChannels = Object.values(channels).sort((a, b) => a.idx - b.idx);
 
+  // Pixel height the channels section needs to show every row without
+  // scrolling.
   const measureChannelsFitHeight = useCallback(() => {
     const section = channelsSectionRef.current;
     const style = section ? getComputedStyle(section) : null;
@@ -68,8 +88,8 @@ export function Sidebar() {
     );
   }, [sortedChannels.length, measureChannelsFitHeight]);
   const sortedContacts = Object.values(contacts).sort((a, b) => {
-    const aFav = a.flags & FAVOURITE_FLAG ? 0 : 1;
-    const bFav = b.flags & FAVOURITE_FLAG ? 0 : 1;
+    const aFav = a.flags & FAVORITE_FLAG ? 0 : 1;
+    const bFav = b.flags & FAVORITE_FLAG ? 0 : 1;
     if (aFav !== bFav) return aFav - bFav;
     return a.name.localeCompare(b.name);
   });
@@ -117,9 +137,18 @@ export function Sidebar() {
       >
         <div
           ref={channelsHeaderRef}
-          className='shrink-0 px-3.5 pb-1 text-[11px] font-semibold tracking-widest text-(--text2) uppercase'
+          className='flex shrink-0 items-center justify-between px-3.5 pb-1'
         >
-          Channels
+          <span className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'>
+            Channels
+          </span>
+          <button
+            onClick={() => setAddChannelOpen(true)}
+            title='Add channel'
+            className='text-(--text2) hover:text-(--accent)'
+          >
+            ＋
+          </button>
         </div>
         <div className='flex-1 overflow-y-auto'>
           <div ref={channelsContentRef}>
@@ -134,6 +163,9 @@ export function Sidebar() {
                   label={ch.name || `Channel ${ch.idx}`}
                   active={active}
                   unread={unread}
+                  onManage={() =>
+                    setManagePanel({ kind: 'channel', id: String(ch.idx) })
+                  }
                   onClick={() =>
                     openConvo({
                       kind: 'channel',
@@ -166,15 +198,33 @@ export function Sidebar() {
 
       {/* Contacts */}
       <div className='flex min-h-0 flex-1 flex-col overflow-hidden pt-2'>
-        <div className='shrink-0 px-3.5 pb-1 text-[11px] font-semibold tracking-widest text-(--text2) uppercase'>
-          Contacts
+        <div className='flex shrink-0 items-center justify-between px-3.5 pb-1'>
+          <span className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'>
+            Contacts
+          </span>
+          <div className='flex items-center gap-2'>
+            <button
+              onClick={() => setAutoAddOpen(true)}
+              title='Auto-add settings'
+              className='text-(--text2) hover:text-(--accent)'
+            >
+              ⚙
+            </button>
+            <button
+              onClick={() => setDiscoverOpen(true)}
+              title='Add contact'
+              className='text-(--text2) hover:text-(--accent)'
+            >
+              ＋
+            </button>
+          </div>
         </div>
         <div className='flex-1 overflow-y-auto'>
           {sortedContacts.map((c) => {
             const id = directConvoId(c.pubkeyPrefix);
             const unread = unreadCount(msgHistory, id);
             const active = activeConvo?.id === id;
-            const isFav = (c.flags & FAVOURITE_FLAG) !== 0;
+            const isFav = (c.flags & FAVORITE_FLAG) !== 0;
             const isRepeater = c.advType === ADV_TYPE_REPEATER;
             return (
               <SidebarItem
@@ -185,6 +235,9 @@ export function Sidebar() {
                 unread={unread}
                 disabled={isRepeater}
                 title={isRepeater ? 'Repeaters can’t be messaged' : undefined}
+                onManage={() =>
+                  setManagePanel({ kind: 'contact', id: c.pubkeyPrefix })
+                }
                 onClick={() =>
                   openConvo({
                     kind: 'direct',
@@ -202,6 +255,13 @@ export function Sidebar() {
   );
 }
 
+/**
+ * One channel/contact row: icon, label, unread badge, and a hover-revealed
+ * manage (`⋯`) button. Disabled rows (e.g. repeaters) aren't clickable to open.
+ *
+ * @param onManage - opens the manage panel for this item.
+ * @param onClick - opens this conversation.
+ */
 function SidebarItem({
   icon,
   label,
@@ -209,6 +269,7 @@ function SidebarItem({
   unread,
   disabled,
   title,
+  onManage,
   onClick,
 }: {
   icon: string;
@@ -217,28 +278,40 @@ function SidebarItem({
   unread: number;
   disabled?: boolean;
   title?: string;
+  onManage: () => void;
   onClick: () => void;
 }) {
   return (
-    <button
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      title={title}
-      className={`flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm transition-colors ${
+    <div
+      className={`group flex w-full items-center gap-2 px-3.5 py-2 text-sm transition-colors ${
         disabled
-          ? 'cursor-default text-(--text2)'
+          ? 'text-(--text2)'
           : active
             ? 'bg-[rgba(79,142,247,0.15)] text-(--accent)'
             : 'text-(--text) hover:bg-(--surface2)'
       }`}
     >
-      <span className='shrink-0 text-base'>{icon}</span>
-      <span className='flex-1 truncate'>{label}</span>
+      <button
+        onClick={disabled ? undefined : onClick}
+        disabled={disabled}
+        title={title}
+        className={`flex min-w-0 flex-1 items-center gap-2 text-left ${disabled ? 'cursor-default' : ''}`}
+      >
+        <span className='shrink-0 text-base'>{icon}</span>
+        <span className='flex-1 truncate'>{label}</span>
+      </button>
       {unread > 0 && (
         <span className='min-w-4.5 rounded-full bg-(--accent) px-1.5 py-0.5 text-center text-[10px] font-bold text-white'>
           {unread}
         </span>
       )}
-    </button>
+      <button
+        onClick={onManage}
+        title='Manage'
+        className='shrink-0 text-(--text2) opacity-0 transition-opacity group-hover:opacity-100 hover:text-(--text)'
+      >
+        ⋯
+      </button>
+    </div>
   );
 }
