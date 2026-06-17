@@ -46,7 +46,11 @@ export function resolveInitialTheme(): Theme {
     if (stored && isSupportedTheme(stored)) return stored;
   } catch {}
 
-  return window.matchMedia('(prefers-color-scheme: light)').matches
-    ? 'light'
-    : 'dark';
+  try {
+    return window.matchMedia('(prefers-color-scheme: light)').matches
+      ? 'light'
+      : 'dark';
+  } catch {
+    return DEFAULT_THEME;
+  }
 }

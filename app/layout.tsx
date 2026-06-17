@@ -32,15 +32,18 @@ export const metadata: Metadata = {
  */
 const themeInitScript = `
 (function () {
+  var t;
   try {
-    var t = localStorage.getItem('meshcore.theme');
-    if (t !== 'dark' && t !== 'light') {
+    t = localStorage.getItem('meshcore.theme');
+  } catch (e) {}
+  if (t !== 'dark' && t !== 'light') {
+    try {
       t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    } catch (e) {
+      t = 'dark';
     }
-    document.documentElement.dataset.theme = t;
-  } catch (e) {
-    document.documentElement.dataset.theme = 'dark';
   }
+  document.documentElement.dataset.theme = t;
 })();
 `;
 
