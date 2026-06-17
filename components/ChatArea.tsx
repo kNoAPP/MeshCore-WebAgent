@@ -62,6 +62,7 @@ export function ChatArea() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const prevConvoId = useRef<string | null>(null);
 
   const messages = activeConvo ? (msgHistory[activeConvo.id] ?? []) : [];
 
@@ -78,9 +79,18 @@ export function ChatArea() {
           .slice(0, MAX_SUGGESTIONS)
       : [];
 
+  // Jump to the latest message instantly when switching conversations, but
+  // animate smoothly when a new message arrives in the conversation already
+  // open. Keying only on message count would miss same-length switches and
+  // wrongly animate the rest.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    const convoId = activeConvo?.id ?? null;
+    const switched = prevConvoId.current !== convoId;
+    prevConvoId.current = convoId;
+    bottomRef.current?.scrollIntoView({
+      behavior: switched ? 'auto' : 'smooth',
+    });
+  }, [activeConvo?.id, messages.length]);
 
   useEffect(() => {
     const el = textareaRef.current;
