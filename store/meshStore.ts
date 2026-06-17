@@ -123,7 +123,10 @@ function loadContactView(): ContactView {
         sort: CONTACT_SORTS.includes(parsed.sort)
           ? parsed.sort
           : DEFAULT_CONTACT_VIEW.sort,
-        pinFavorites: Boolean(parsed.pinFavorites),
+        pinFavorites:
+          typeof parsed.pinFavorites === 'boolean'
+            ? parsed.pinFavorites
+            : DEFAULT_CONTACT_VIEW.pinFavorites,
       };
     }
   } catch {}
