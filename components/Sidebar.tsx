@@ -23,10 +23,12 @@ import {
   channelConvoId,
   directConvoId,
   unreadCount,
+  CONTACT_FILTERS,
+  CONTACT_SORTS,
   type ContactFilter,
   type ContactSort,
 } from '@/store/meshStore';
-import { ADV_ICON, contactCategory } from '@/lib/utils';
+import { ADV_ICON, contactCategory, type ContactCategory } from '@/lib/utils';
 import { ADV_TYPE_REPEATER, FAVORITE_FLAG } from '@/lib/meshcore/constants';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import type { Contact, Message } from '@/types/meshcore';
@@ -37,55 +39,69 @@ import type { Contact, Message } from '@/types/meshcore';
  */
 const MIN_SECTION_PX = 40;
 
-/**
- * Filter options in menu order, each paired with its i18n label key. Driving
- * both the menu and the label lookup from one table keeps them in sync.
- */
-const FILTER_OPTIONS = [
-  { value: 'all', labelKey: 'sidebar.filterAll' },
-  { value: 'favorites', labelKey: 'sidebar.filterFavorites' },
-  { value: 'users', labelKey: 'sidebar.filterUsers' },
-  { value: 'repeaters', labelKey: 'sidebar.filterRepeaters' },
-  { value: 'rooms', labelKey: 'sidebar.filterRooms' },
-  { value: 'sensors', labelKey: 'sidebar.filterSensors' },
-] as const satisfies readonly { value: ContactFilter; labelKey: string }[];
+/** i18n label key for each filter value. */
+const FILTER_LABEL_KEYS = {
+  all: 'sidebar.filterAll',
+  favorites: 'sidebar.filterFavorites',
+  users: 'sidebar.filterUsers',
+  repeaters: 'sidebar.filterRepeaters',
+  rooms: 'sidebar.filterRooms',
+  sensors: 'sidebar.filterSensors',
+} as const satisfies Record<ContactFilter, string>;
 
-/** Order options in menu order, each paired with its i18n label key. */
-const SORT_OPTIONS = [
-  { value: 'az', labelKey: 'sidebar.orderAz' },
-  { value: 'heard', labelKey: 'sidebar.orderHeard' },
-  { value: 'latest', labelKey: 'sidebar.orderLatest' },
-] as const satisfies readonly { value: ContactSort; labelKey: string }[];
+/** i18n label key for each order value. */
+const SORT_LABEL_KEYS = {
+  az: 'sidebar.orderAz',
+  heard: 'sidebar.orderHeard',
+  latest: 'sidebar.orderLatest',
+} as const satisfies Record<ContactSort, string>;
+
+/**
+ * Filter/order options paired with their i18n label key. Order and membership
+ * come from {@link CONTACT_FILTERS}/{@link CONTACT_SORTS} (also the persistence
+ * allowlist), so the menu can't drift from the stored values.
+ */
+const FILTER_OPTIONS = CONTACT_FILTERS.map((value) => ({
+  value,
+  labelKey: FILTER_LABEL_KEYS[value],
+}));
+const SORT_OPTIONS = CONTACT_SORTS.map((value) => ({
+  value,
+  labelKey: SORT_LABEL_KEYS[value],
+}));
+
+/** Category-narrowing filters, mapped to the contact category they admit. */
+const FILTER_CATEGORIES: Partial<Record<ContactFilter, ContactCategory>> = {
+  users: 'user',
+  repeaters: 'repeater',
+  rooms: 'room',
+  sensors: 'sensor',
+};
 
 /** Whether a contact belongs in the given filter subset. */
 function matchesFilter(c: Contact, filter: ContactFilter): boolean {
-  switch (filter) {
-    case 'all':
-      return true;
-    case 'favorites':
-      return (c.flags & FAVORITE_FLAG) !== 0;
-    case 'users':
-      return contactCategory(c.advType) === 'user';
-    case 'repeaters':
-      return contactCategory(c.advType) === 'repeater';
-    case 'rooms':
-      return contactCategory(c.advType) === 'room';
-    case 'sensors':
-      return contactCategory(c.advType) === 'sensor';
-  }
+  if (filter === 'all') return true;
+  if (filter === 'favorites') return (c.flags & FAVORITE_FLAG) !== 0;
+  return contactCategory(c.advType) === FILTER_CATEGORIES[filter];
 }
 
 /**
  * Timestamp (Unix secs) of the most recent message in a contact's
- * conversation, or 0 if there are none. Messages are appended chronologically,
- * so the last entry is newest.
+ * conversation, or 0 if there are none. Scans all messages rather than trusting
+ * append order, since a delayed or retransmitted message can arrive (and be
+ * appended) after one with a newer timestamp.
  */
 function lastMessageTime(
   msgHistory: Record<string, Message[]>,
   prefix: string,
 ): number {
   const msgs = msgHistory[directConvoId(prefix)];
-  return msgs?.length ? (msgs[msgs.length - 1].timestamp ?? 0) : 0;
+  if (!msgs?.length) return 0;
+  let latest = 0;
+  for (const m of msgs) {
+    if ((m.timestamp ?? 0) > latest) latest = m.timestamp ?? 0;
+  }
+  return latest;
 }
 
 /** Shared empty timestamp map for orders that don't need per-contact times. */
