@@ -69,17 +69,24 @@ function loadAutoAddConfig(): AutoAddConfig {
   return DEFAULT_AUTOADD_CONFIG;
 }
 
+/** All filter values, in menu order; also the allowlist for persisted state. */
+export const CONTACT_FILTERS = [
+  'all',
+  'favorites',
+  'users',
+  'repeaters',
+  'rooms',
+  'sensors',
+] as const;
+
 /** Which subset of contacts the sidebar shows. */
-export type ContactFilter =
-  | 'all'
-  | 'favorites'
-  | 'users'
-  | 'repeaters'
-  | 'rooms'
-  | 'sensors';
+export type ContactFilter = (typeof CONTACT_FILTERS)[number];
+
+/** All sort values, in menu order; also the allowlist for persisted state. */
+export const CONTACT_SORTS = ['az', 'heard', 'latest'] as const;
 
 /** How the visible contacts are ordered. */
-export type ContactSort = 'az' | 'heard' | 'latest';
+export type ContactSort = (typeof CONTACT_SORTS)[number];
 
 /** Persisted contacts-list view: filter, order, and favorite pinning. */
 export interface ContactView {
@@ -105,7 +112,20 @@ function loadContactView(): ContactView {
   if (typeof window === 'undefined') return DEFAULT_CONTACT_VIEW;
   try {
     const raw = window.localStorage.getItem(CONTACT_VIEW_STORAGE_KEY);
-    if (raw) return { ...DEFAULT_CONTACT_VIEW, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = { ...DEFAULT_CONTACT_VIEW, ...JSON.parse(raw) };
+      // Drop unrecognized filter/sort values (corrupt or stale schema) back to
+      // their defaults so they can't reach the sidebar's exhaustive switches.
+      return {
+        filter: CONTACT_FILTERS.includes(parsed.filter)
+          ? parsed.filter
+          : DEFAULT_CONTACT_VIEW.filter,
+        sort: CONTACT_SORTS.includes(parsed.sort)
+          ? parsed.sort
+          : DEFAULT_CONTACT_VIEW.sort,
+        pinFavorites: Boolean(parsed.pinFavorites),
+      };
+    }
   } catch {}
   return DEFAULT_CONTACT_VIEW;
 }

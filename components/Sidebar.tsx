@@ -88,12 +88,15 @@ function lastMessageTime(
   return msgs?.length ? (msgs[msgs.length - 1].timestamp ?? 0) : 0;
 }
 
+/** Shared empty timestamp map for orders that don't need per-contact times. */
+const EMPTY_LATEST_TIMES: ReadonlyMap<string, number> = new Map();
+
 /** Compares two contacts by the selected order (newest/most-recent first). */
 function compareBySort(
   a: Contact,
   b: Contact,
   sort: ContactSort,
-  latestTimes: Map<string, number>,
+  latestTimes: ReadonlyMap<string, number>,
 ): number {
   switch (sort) {
     case 'heard': {
@@ -177,21 +180,23 @@ export function Sidebar() {
       ),
     );
   }, [sortedChannels.length, measureChannelsFitHeight]);
+  // Precompute each contact's latest-message timestamp once so the comparator
+  // doesn't recompute it on every comparison during sort. Only the 'latest'
+  // order needs it, so other orders reuse a shared empty map — that keeps this
+  // memo's result stable across message arrivals and stops them from forcing a
+  // re-sort below.
+  const latestTimes = useMemo(() => {
+    if (contactSort !== 'latest') return EMPTY_LATEST_TIMES;
+    const times = new Map<string, number>();
+    for (const c of Object.values(contacts)) {
+      times.set(c.pubkeyPrefix, lastMessageTime(msgHistory, c.pubkeyPrefix));
+    }
+    return times;
+  }, [contacts, contactSort, msgHistory]);
   const sortedContacts = useMemo(() => {
     const filtered = Object.values(contacts).filter((c) =>
       matchesFilter(c, contactFilter),
     );
-    // Precompute each contact's latest-message timestamp once so the
-    // comparator doesn't recompute it on every comparison during sort.
-    const latestTimes = new Map<string, number>();
-    if (contactSort === 'latest') {
-      for (const c of filtered) {
-        latestTimes.set(
-          c.pubkeyPrefix,
-          lastMessageTime(msgHistory, c.pubkeyPrefix),
-        );
-      }
-    }
     return filtered.sort((a, b) => {
       // When pinning, favorites float above non-favorites but are still
       // ordered among themselves by the selected order below.
@@ -202,7 +207,7 @@ export function Sidebar() {
       }
       return compareBySort(a, b, contactSort, latestTimes);
     });
-  }, [contacts, contactFilter, contactSort, pinFavorites, msgHistory]);
+  }, [contacts, contactFilter, contactSort, pinFavorites, latestTimes]);
 
   const onDividerMouseDown = useCallback(
     (e: React.MouseEvent) => {
