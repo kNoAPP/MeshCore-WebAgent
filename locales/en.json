@@ -6,6 +6,7 @@
     "close": "Close",
     "add": "Add",
     "manage": "Manage",
+    "back": "Back",
     "copy": "Copy",
     "copied": "Copied",
     "channelName": "Channel {{index}}",
@@ -144,7 +145,11 @@
     "unfavorite": "★ Unfavorite",
     "resetRoute": "Reset route",
     "share": "Share",
-    "comingSoon": "Coming soon",
+    "shareTitle": "Share contact",
+    "shareScanHint": "Scan to add this contact",
+    "zeroHopAdvert": "Zero Hop Advert",
+    "zeroHopAdvertHint": "Re-broadcast this contact's advert to nearby nodes",
+    "zeroHopAdvertRepeater": "Not available for repeaters",
     "name": "Name",
     "index": "Index",
     "channelHash": "Channel hash",
@@ -271,6 +276,9 @@
     "channelRemoved": "Channel removed",
     "removeChannelFailed": "Failed to remove channel: {{error}}",
     "settingsSaved": "Auto-add settings saved",
-    "saveSettingsFailed": "Failed to save settings: {{error}}"
+    "saveSettingsFailed": "Failed to save settings: {{error}}",
+    "advertSent": "Advert sent to nearby nodes",
+    "advertFailed": "Failed to send advert: {{error}}",
+    "advertNoRecent": "Can't share: your radio hasn't heard a recent advert from this contact"
   }
 }

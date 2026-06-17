@@ -29,6 +29,7 @@ import {
   PAYLOAD_TYPE_GRP_TXT,
   ADV_TYPE_REPEATER,
   FAVORITE_FLAG,
+  ERR_CODE,
 } from '@/lib/meshcore/constants';
 import { toHex, fromHex, bytesEqual } from '@/lib/utils';
 import i18n from '@/lib/i18n';
@@ -602,6 +603,33 @@ export function useMeshCore() {
     [client, showToast],
   );
 
+  /**
+   * Shares a contact via a zero-hop advert: the radio re-broadcasts that
+   * contact's advert to direct neighbors so they can hear and add it.
+   */
+  const shareContact = useCallback(
+    async (contact: Contact) => {
+      if (!client) return;
+      try {
+        await client.shareContact(contact);
+        showToast(i18n.t('toast.advertSent'), 'success');
+      } catch (err) {
+        // The radio rebroadcasts a cached copy of the contact's signed advert;
+        // if it never heard one over the air (e.g. a QR-imported contact) it
+        // returns TABLE_FULL with nothing to send. Surface that distinct case.
+        if ((err as { code?: number }).code === ERR_CODE.TABLE_FULL) {
+          showToast(i18n.t('toast.advertNoRecent'), 'error');
+        } else {
+          showToast(
+            i18n.t('toast.advertFailed', { error: (err as Error).message }),
+            'error',
+          );
+        }
+      }
+    },
+    [client, showToast],
+  );
+
   /** Deletes a contact from the radio. */
   const removeContact = useCallback(
     async (contact: Contact) => {
@@ -719,6 +747,7 @@ export function useMeshCore() {
     resetContactPath,
     toggleFavorite,
     addDiscoveredContact,
+    shareContact,
     removeContact,
     addChannel,
     removeChannel,

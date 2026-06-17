@@ -13,6 +13,8 @@
 //
 // For inquiries, contact: alden@knoban.com
 
+import type { Contact } from '@/types/meshcore';
+
 /**
  * Hex-encodes bytes as lowercase, two chars per byte.
  *
@@ -125,6 +127,24 @@ export const ADV_ICON: Record<number, string> = {
   2: '📡',
   3: '🏠',
 };
+
+/**
+ * Builds the `meshcore://contact/add` share URI for a contact — the same format
+ * the official app encodes in its contact QR codes and accepts on import, so a
+ * QR rendered from this string scans cleanly there. The `type` is the advert
+ * type (1=companion, 2=repeater, 3=room, 4=sensor); our `advType` 0 ("none")
+ * maps to 1. See https://docs.meshcore.io/qr_codes/.
+ */
+export function contactShareUri(
+  contact: Pick<Contact, 'name' | 'pubkey' | 'advType'>,
+): string {
+  const params = new URLSearchParams({
+    name: contact.name,
+    public_key: contact.pubkey,
+    type: String(contact.advType || 1),
+  });
+  return `meshcore://contact/add?${params.toString()}`;
+}
 
 /** Translation key for each {@link Contact.advType}. */
 export const ADV_LABEL_KEY = {

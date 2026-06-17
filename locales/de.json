@@ -6,6 +6,7 @@
     "close": "Schließen",
     "add": "Hinzufügen",
     "manage": "Verwalten",
+    "back": "Zurück",
     "copy": "Kopieren",
     "copied": "Kopiert",
     "channelName": "Kanal {{index}}",
@@ -144,7 +145,11 @@
     "unfavorite": "★ Favorit entfernen",
     "resetRoute": "Route zurücksetzen",
     "share": "Teilen",
-    "comingSoon": "Demnächst",
+    "shareTitle": "Kontakt teilen",
+    "shareScanHint": "Scannen, um diesen Kontakt hinzuzufügen",
+    "zeroHopAdvert": "Zero-Hop-Advert",
+    "zeroHopAdvertHint": "Diese Kontakt-Advert an Nodes in der Nähe erneut senden",
+    "zeroHopAdvertRepeater": "Für Repeater nicht verfügbar",
     "name": "Name",
     "index": "Index",
     "channelHash": "Kanal-Hash",
@@ -271,6 +276,9 @@
     "channelRemoved": "Kanal entfernt",
     "removeChannelFailed": "Entfernen des Kanals fehlgeschlagen: {{error}}",
     "settingsSaved": "Auto-Hinzufügen-Einstellungen gespeichert",
-    "saveSettingsFailed": "Speichern der Einstellungen fehlgeschlagen: {{error}}"
+    "saveSettingsFailed": "Speichern der Einstellungen fehlgeschlagen: {{error}}",
+    "advertSent": "Advert an Nodes in der Nähe gesendet",
+    "advertFailed": "Senden des Adverts fehlgeschlagen: {{error}}",
+    "advertNoRecent": "Teilen nicht möglich: Dein Funkgerät hat kürzlich kein Advert von diesem Kontakt empfangen"
   }
 }

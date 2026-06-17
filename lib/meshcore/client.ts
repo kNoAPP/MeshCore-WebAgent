@@ -49,6 +49,7 @@ import {
   buildResetPath,
   buildAddOrUpdateContact,
   buildRemoveContact,
+  buildShareContact,
   buildSetChannel,
   buildSetOtherParams,
   buildSetAutoAddConfig,
@@ -237,8 +238,13 @@ export class MeshCoreClient {
     if (i === -1) return false;
     const h = this.handlers.splice(i, 1)[0];
     clearTimeout(h.timer);
-    if (type === RESP.ERR) h.reject(new Error(`Device error code ${d[1]}`));
-    else h.resolve(d);
+    if (type === RESP.ERR) {
+      const err: Error & { code?: number } = new Error(
+        `Device error code ${d[1]}`,
+      );
+      err.code = d[1];
+      h.reject(err);
+    } else h.resolve(d);
     return true;
   }
 
@@ -510,6 +516,14 @@ export class MeshCoreClient {
     await this.cmd(buildAddOrUpdateContact(contact), [RESP.OK], 5000);
     this.contacts[contact.pubkeyPrefix] = contact;
     this.callbacks.onContactsUpdated?.(this.contacts);
+  }
+
+  /**
+   * Shares a contact by having the radio zero-hop re-broadcast that contact's
+   * original advert, letting direct neighbors hear and add it.
+   */
+  async shareContact(contact: Contact): Promise<void> {
+    await this.cmd(buildShareContact(contact.pubkeyBytes), [RESP.OK], 5000);
   }
 
   /** Deletes a contact from the radio and the local mirror. */

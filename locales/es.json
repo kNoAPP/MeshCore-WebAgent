@@ -6,6 +6,7 @@
     "close": "Cerrar",
     "add": "Añadir",
     "manage": "Gestionar",
+    "back": "Atrás",
     "copy": "Copiar",
     "copied": "Copiado",
     "channelName": "Canal {{index}}",
@@ -144,7 +145,11 @@
     "unfavorite": "★ Quitar favorito",
     "resetRoute": "Restablecer ruta",
     "share": "Compartir",
-    "comingSoon": "Próximamente",
+    "shareTitle": "Compartir contacto",
+    "shareScanHint": "Escanea para añadir este contacto",
+    "zeroHopAdvert": "Advert de cero saltos",
+    "zeroHopAdvertHint": "Retransmite el advert de este contacto a los nodos cercanos",
+    "zeroHopAdvertRepeater": "No disponible para repetidores",
     "name": "Nombre",
     "index": "Índice",
     "channelHash": "Hash del canal",
@@ -271,6 +276,9 @@
     "channelRemoved": "Canal eliminado",
     "removeChannelFailed": "Fallo al eliminar canal: {{error}}",
     "settingsSaved": "Ajustes de auto-añadir guardados",
-    "saveSettingsFailed": "Fallo al guardar ajustes: {{error}}"
+    "saveSettingsFailed": "Fallo al guardar ajustes: {{error}}",
+    "advertSent": "Advert enviado a los nodos cercanos",
+    "advertFailed": "Error al enviar el advert: {{error}}",
+    "advertNoRecent": "No se puede compartir: tu radio no ha recibido un advert reciente de este contacto"
   }
 }
