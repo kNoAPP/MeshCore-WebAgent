@@ -2,8 +2,6 @@
 
 <https://polyformproject.org/licenses/noncommercial/1.0.0>
 
-Required Notice: Copyright kNoAPP (https://github.com/kNoAPP)
-
 ## Acceptance
 
 In order to get any license under these terms, you must agree to them as both
@@ -32,7 +30,8 @@ also gets a copy of these terms or the URL for them above, as well as copies of
 any plain-text lines beginning with `Required Notice:` that the licensor
 provided with the software. For example:
 
-> Required Notice: Copyright kNoAPP (https://github.com/kNoAPP)
+> Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
+> (https://github.com/kNoAPP/MeshCore-WebAgent)
 
 ## Changes and New Works License
 
@@ -54,13 +53,13 @@ Any noncommercial purpose is a permitted purpose.
 Personal use for research, experiment, and testing for the benefit of public
 knowledge, personal study, private entertainment, hobby projects, amateur
 pursuits, or religious observance, without any anticipated commercial
-application, is use for a noncommercial purpose.
+application, is use for a permitted purpose.
 
 ## Noncommercial Organizations
 
 Use by any charitable organization, educational institution, public research
 organization, public safety or health organization, environmental protection
-organization, or government institution is use for a noncommercial purpose
+organization, or government institution is use for a permitted purpose
 regardless of the source of funding or obligations resulting from the funding.
 
 ## Fair Use
@@ -78,15 +77,16 @@ These terms do not imply any other licenses.
 
 If you make any written claim that the software infringes or contributes to
 infringement of any patent, your patent license for the software granted under
-these terms ends immediately. If your employer makes such a claim, your patent
-license ends immediately for work on behalf of your employer.
+these terms ends immediately. If your company makes such a claim, your patent
+license ends immediately for work on behalf of your company.
 
 ## Violations
 
 The first time you are notified in writing that you have violated any of these
 terms, or done anything with the software not covered by your licenses, your
-licenses can nonetheless continue if you come into compliance within 32 days of
-receiving notice. Otherwise, all your licenses end permanently.
+licenses can nonetheless continue if you come into full compliance with these
+terms, and take practical steps to correct past violations, within 32 days of
+receiving notice. Otherwise, all your licenses end immediately.
 
 ## No Liability
 
@@ -106,11 +106,10 @@ The **licensor** is the individual or entity offering these terms, and the
 organization that you work for, plus all organizations that have control over,
 are under the control of, or are under common control with that organization.
 **Control** means ownership of substantially all the assets of an entity, or the
-power to direct its management and legal affairs.
+power to direct its management and policies by vote, contract, or otherwise.
+Control can be direct or indirect.
 
 **Your licenses** are all the licenses granted to you for the software under
 these terms.
 
 **Use** means anything you do with the software requiring one of your licenses.
-
-**Trademark** means trademarks, service marks, and similar rights.
