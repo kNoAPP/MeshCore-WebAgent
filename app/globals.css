@@ -34,7 +34,14 @@
   }
 }
 
-:root {
+/*
+ * Semantic theme tokens. Every component consumes these by role (never a raw
+ * hex), so swapping the `data-theme` attribute on <html> re-skins the whole UI.
+ * Dark is the default and also answers to an explicit `data-theme='dark'`; a
+ * future whitelabel brand is just another `:root[data-theme='…']` block here.
+ */
+:root,
+:root[data-theme='dark'] {
   --bg: #0f1117;
   --surface: #1a1d27;
   --surface2: #252836;
@@ -50,6 +57,24 @@
   --red-dim-hover: #b86161;
   --yellow: #facc15;
   --amber: #f59e0b;
+}
+
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --surface: #f4f6f9;
+  --surface2: #e7ebf1;
+  --border: #d3d9e2;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --text: #1a1d27;
+  --text2: #5a6478;
+  --green: #15a34a;
+  --red: #dc2626;
+  --red-hover: #b91c1c;
+  --red-dim: #c75f5f;
+  --red-dim-hover: #b34a4a;
+  --yellow: #ca8a04;
+  --amber: #d97706;
 }
 
 html,

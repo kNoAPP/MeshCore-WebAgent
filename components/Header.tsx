@@ -15,12 +15,15 @@
 
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Moon, Sun } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { fmtVoltage } from '@/lib/utils';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 import type { SupportedLocale } from '@/lib/i18n/config';
+import { DEFAULT_THEME } from '@/lib/theme/config';
 
 /**
  * Top bar: connection status, device name, battery/storage, and
@@ -28,10 +31,30 @@ import type { SupportedLocale } from '@/lib/i18n/config';
  */
 export function Header() {
   const { t } = useTranslation();
-  const { status, deviceName, battery, locale, setStatsOpen, setLocale } =
-    useMeshStore();
+  const {
+    status,
+    deviceName,
+    battery,
+    locale,
+    theme,
+    setStatsOpen,
+    setLocale,
+    setTheme,
+  } = useMeshStore();
   const { disconnect } = useMeshCore();
   const connected = status === 'connected';
+
+  // The real theme resolves from localStorage/OS only in the browser, so the
+  // static export is built with DEFAULT_THEME. Render that same default until
+  // hydrated to keep the first client paint identical to the server HTML (no
+  // hydration mismatch on the toggle icon), then swap in the real theme. Page
+  // colors are already correct pre-paint via the layout script.
+  const hydrated = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const displayTheme = hydrated ? theme : DEFAULT_THEME;
 
   return (
     <header
@@ -99,6 +122,23 @@ export function Header() {
           ))}
         </select>
       )}
+
+      <button
+        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        aria-label={t('theme.toggle')}
+        title={t('theme.toggle')}
+        className={`flex items-center justify-center rounded-md border border-(--border) p-1.5 text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) ${
+          connected ? '' : 'ml-2'
+        }`}
+      >
+        {displayTheme === 'dark' ? (
+          // Sun — switches to the light theme.
+          <Sun size={15} />
+        ) : (
+          // Moon — switches to the dark theme.
+          <Moon size={15} />
+        )}
+      </button>
     </header>
   );
 }

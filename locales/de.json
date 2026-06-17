@@ -20,6 +20,9 @@
     "disconnect": "Trennen",
     "language": "Sprache"
   },
+  "theme": {
+    "toggle": "Helles/dunkles Design umschalten"
+  },
   "connect": {
     "title": "Mit MeshCore verbinden",
     "subtitle": "Verbinde dich per USB, Bluetooth oder WiFi mit deinem Companion-Funkgerät.",
