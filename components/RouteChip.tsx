@@ -15,10 +15,11 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useClickOutside } from '@/hooks/useClickOutside';
 import { NO_PATH } from '@/lib/meshcore/constants';
 import { toHex } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
@@ -41,14 +42,7 @@ export function RouteChip({ contact }: { contact: Contact }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const { resetContactPath } = useMeshCore();
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [open]);
+  useClickOutside(rootRef, open, () => setOpen(false));
 
   const hasRoute = contact.outPathLen !== NO_PATH;
   const hops = toHex(contact.path, ' → ');

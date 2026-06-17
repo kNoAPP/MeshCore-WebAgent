@@ -109,6 +109,10 @@ export const PAYLOAD_TYPE_GRP_TXT = 0x05;
 
 /** {@link Contact.advType} value for a repeater node. */
 export const ADV_TYPE_REPEATER = 2;
+/** {@link Contact.advType} value for a room-server node. */
+export const ADV_TYPE_ROOM = 3;
+/** {@link Contact.advType} value for a sensor node. */
+export const ADV_TYPE_SENSOR = 4;
 /**
  * {@link Contact.outPathLen} sentinel: no route known, so messages flood the
  * mesh.

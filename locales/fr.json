@@ -197,7 +197,20 @@
     "addContact": "Ajouter un contact",
     "repeaterCantMessage": "Impossible d'envoyer des messages aux répéteurs",
     "manage": "Gérer",
-    "dragResize": "Glisser pour redimensionner"
+    "dragResize": "Glisser pour redimensionner",
+    "filterContacts": "Filtrer et trier les contacts",
+    "filterHeading": "Filtrer",
+    "orderHeading": "Trier",
+    "filterAll": "Tous",
+    "filterFavorites": "Favoris",
+    "filterUsers": "Utilisateurs",
+    "filterRepeaters": "Répéteurs",
+    "filterRooms": "Serveurs de salon",
+    "filterSensors": "Capteurs",
+    "orderAz": "Trier A–Z",
+    "orderHeard": "Entendus récemment",
+    "orderLatest": "Messages récents",
+    "pinFavorites": "Favoris en haut"
   },
   "addChannel": {
     "title": "➕ Ajouter un canal",
@@ -239,7 +252,8 @@
     "contact": "Contact",
     "chat": "Chat",
     "repeater": "Répéteur",
-    "roomServer": "Serveur de salon"
+    "roomServer": "Serveur de salon",
+    "sensor": "Capteur"
   },
   "relative": {
     "justNow": "à l'instant",

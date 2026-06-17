@@ -197,7 +197,20 @@
     "addContact": "Kontakt hinzufügen",
     "repeaterCantMessage": "Repeatern können keine Nachrichten gesendet werden",
     "manage": "Verwalten",
-    "dragResize": "Zum Ändern der Größe ziehen"
+    "dragResize": "Zum Ändern der Größe ziehen",
+    "filterContacts": "Kontakte filtern & sortieren",
+    "filterHeading": "Filter",
+    "orderHeading": "Sortierung",
+    "filterAll": "Alle",
+    "filterFavorites": "Favoriten",
+    "filterUsers": "Benutzer",
+    "filterRepeaters": "Repeater",
+    "filterRooms": "Raum-Server",
+    "filterSensors": "Sensoren",
+    "orderAz": "Sortieren A–Z",
+    "orderHeard": "Zuletzt gehört",
+    "orderLatest": "Neueste Nachrichten",
+    "pinFavorites": "Favoriten oben"
   },
   "addChannel": {
     "title": "➕ Kanal hinzufügen",
@@ -239,7 +252,8 @@
     "contact": "Kontakt",
     "chat": "Chat",
     "repeater": "Repeater",
-    "roomServer": "Raumserver"
+    "roomServer": "Raumserver",
+    "sensor": "Sensor"
   },
   "relative": {
     "justNow": "gerade eben",

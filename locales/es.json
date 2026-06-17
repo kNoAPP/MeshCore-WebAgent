@@ -197,7 +197,20 @@
     "addContact": "Añadir contacto",
     "repeaterCantMessage": "No se puede enviar mensajes a los repetidores",
     "manage": "Gestionar",
-    "dragResize": "Arrastra para redimensionar"
+    "dragResize": "Arrastra para redimensionar",
+    "filterContacts": "Filtrar y ordenar contactos",
+    "filterHeading": "Filtrar",
+    "orderHeading": "Ordenar",
+    "filterAll": "Todos",
+    "filterFavorites": "Favoritos",
+    "filterUsers": "Usuarios",
+    "filterRepeaters": "Repetidores",
+    "filterRooms": "Servidores de sala",
+    "filterSensors": "Sensores",
+    "orderAz": "Ordenar A–Z",
+    "orderHeard": "Escuchados recientemente",
+    "orderLatest": "Mensajes recientes",
+    "pinFavorites": "Favoritos arriba"
   },
   "addChannel": {
     "title": "➕ Añadir canal",
@@ -239,7 +252,8 @@
     "contact": "Contacto",
     "chat": "Chat",
     "repeater": "Repetidor",
-    "roomServer": "Servidor de sala"
+    "roomServer": "Servidor de sala",
+    "sensor": "Sensor"
   },
   "relative": {
     "justNow": "ahora mismo",
