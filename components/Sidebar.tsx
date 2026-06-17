@@ -142,15 +142,15 @@ function compareBySort(
   a: Contact,
   b: Contact,
   sort: ContactSort,
-  msgHistory: Record<string, Message[]>,
+  latestTimes: Map<string, number>,
 ): number {
   switch (sort) {
     case 'heard':
       return (b.lastAdvert ?? 0) - (a.lastAdvert ?? 0);
     case 'latest':
       return (
-        lastMessageTime(msgHistory, b.pubkeyPrefix) -
-        lastMessageTime(msgHistory, a.pubkeyPrefix)
+        (latestTimes.get(b.pubkeyPrefix) ?? 0) -
+        (latestTimes.get(a.pubkeyPrefix) ?? 0)
       );
     case 'az':
     default:
@@ -217,9 +217,22 @@ export function Sidebar() {
       ),
     );
   }, [sortedChannels.length, measureChannelsFitHeight]);
-  const sortedContacts = Object.values(contacts)
-    .filter((c) => matchesFilter(c, contactFilter))
-    .sort((a, b) => {
+  const sortedContacts = (() => {
+    const filtered = Object.values(contacts).filter((c) =>
+      matchesFilter(c, contactFilter),
+    );
+    // Precompute each contact's latest-message timestamp once so the
+    // comparator doesn't recompute it on every comparison during sort.
+    const latestTimes = new Map<string, number>();
+    if (contactSort === 'latest') {
+      for (const c of filtered) {
+        latestTimes.set(
+          c.pubkeyPrefix,
+          lastMessageTime(msgHistory, c.pubkeyPrefix),
+        );
+      }
+    }
+    return filtered.sort((a, b) => {
       // When pinning, favorites float above non-favorites but are still
       // ordered among themselves by the selected order below.
       if (pinFavorites) {
@@ -227,8 +240,9 @@ export function Sidebar() {
         const bFav = (b.flags & FAVORITE_FLAG) !== 0;
         if (aFav !== bFav) return aFav ? -1 : 1;
       }
-      return compareBySort(a, b, contactSort, msgHistory);
+      return compareBySort(a, b, contactSort, latestTimes);
     });
+  })();
 
   const onDividerMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -471,7 +485,6 @@ function ContactsFilterMenu({
         onClick={() => setOpen((o) => !o)}
         title={t('sidebar.filterContacts')}
         aria-label={t('sidebar.filterContacts')}
-        aria-haspopup='menu'
         aria-expanded={open}
         className={`hover:text-(--accent) ${filtering ? 'text-(--accent)' : 'text-(--text2)'}`}
       >
@@ -479,7 +492,6 @@ function ContactsFilterMenu({
       </button>
       {open && (
         <div
-          role='menu'
           className='absolute top-full right-0 z-10 mt-1.5 w-44 rounded-[10px] border py-1.5 text-xs shadow-lg'
           style={{
             background: 'var(--surface2)',
@@ -575,8 +587,7 @@ function MenuRow({
 }) {
   return (
     <button
-      role='menuitemradio'
-      aria-checked={selected}
+      aria-pressed={selected}
       onClick={onClick}
       className={`flex w-full items-center justify-between px-3 py-1.5 text-left transition-colors hover:bg-(--surface) ${
         selected ? 'text-(--accent)' : 'text-(--text)'

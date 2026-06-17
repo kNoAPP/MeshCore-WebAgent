@@ -119,13 +119,15 @@ export function fmtVoltage(mv: number): string {
 }
 
 /**
- * Emoji icon for each {@link Contact.advType} (0/1 chat, 2 repeater, 3 room).
+ * Emoji icon for each {@link Contact.advType} (0/1 chat, 2 repeater, 3 room,
+ * 4 sensor).
  */
 export const ADV_ICON: Record<number, string> = {
   0: '👤',
   1: '👤',
   2: '📡',
   3: '🏠',
+  4: '🌡️',
 };
 
 /**
@@ -152,4 +154,5 @@ export const ADV_LABEL_KEY = {
   1: 'advType.chat',
   2: 'advType.repeater',
   3: 'advType.roomServer',
+  4: 'advType.sensor',
 } as const;
