@@ -17,6 +17,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Copy } from 'lucide-react';
 
 /**
  * Icon button that copies `value` to the clipboard, with a hover tooltip that
@@ -50,19 +51,7 @@ export function CopyButton({
         aria-label={tooltip}
         className='text-(--text2) transition-colors hover:text-(--text)'
       >
-        <svg
-          width='14'
-          height='14'
-          viewBox='0 0 24 24'
-          fill='none'
-          stroke='currentColor'
-          strokeWidth='2'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-        >
-          <rect x='9' y='9' width='13' height='13' rx='2' ry='2' />
-          <path d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1' />
-        </svg>
+        <Copy size={14} />
       </button>
       <span
         className='pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100'

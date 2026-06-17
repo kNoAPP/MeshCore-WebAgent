@@ -15,6 +15,7 @@
 
 import type { Metadata } from 'next';
 import { I18nProvider } from '@/components/I18nProvider';
+import { ThemeProvider } from '@/components/ThemeProvider';
 import { VersionCheck } from '@/components/VersionCheck';
 import './globals.css';
 
@@ -22,6 +23,26 @@ export const metadata: Metadata = {
   title: 'MeshCore Companion',
   description: 'Web interface for MeshCore companion radios',
 };
+
+/**
+ * Sets `data-theme` on <html> before first paint to avoid a flash of the wrong
+ * theme. Mirrors `resolveInitialTheme`: persisted choice → OS preference →
+ * dark. Inlined (not a module) so it runs synchronously ahead of hydration;
+ * the static export has no server to resolve the theme on.
+ */
+const themeInitScript = `
+(function () {
+  try {
+    var t = localStorage.getItem('meshcore.theme');
+    if (t !== 'dark' && t !== 'light') {
+      t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    document.documentElement.dataset.theme = t;
+  } catch (e) {
+    document.documentElement.dataset.theme = 'dark';
+  }
+})();
+`;
 
 /**
  * Next.js root layout. Sets no-cache headers (the static export is redeployed
@@ -34,7 +55,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang='en' className='h-full'>
+    // suppressHydrationWarning: the theme-init script sets `data-theme` on this
+    // element before hydration, so its attributes intentionally differ from the
+    // server-rendered HTML. Scoped to <html>; children still hydrate normally.
+    <html lang='en' className='h-full' suppressHydrationWarning>
       <head>
         <meta
           httpEquiv='Cache-Control'
@@ -42,12 +66,15 @@ export default function RootLayout({
         />
         <meta httpEquiv='Pragma' content='no-cache' />
         <meta httpEquiv='Expires' content='0' />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className='flex h-full flex-col overflow-hidden'>
-        <I18nProvider>
-          <VersionCheck />
-          {children}
-        </I18nProvider>
+        <ThemeProvider>
+          <I18nProvider>
+            <VersionCheck />
+            {children}
+          </I18nProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

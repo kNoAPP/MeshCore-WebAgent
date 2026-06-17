@@ -20,6 +20,9 @@
     "disconnect": "Disconnect",
     "language": "Language"
   },
+  "theme": {
+    "toggle": "Toggle light/dark theme"
+  },
   "connect": {
     "title": "Connect to MeshCore",
     "subtitle": "Connect via USB, Bluetooth, or WiFi to your Companion Radio.",

@@ -36,6 +36,11 @@ import {
   resolveInitialLocale,
   type SupportedLocale,
 } from '@/lib/i18n/config';
+import {
+  THEME_STORAGE_KEY,
+  resolveInitialTheme,
+  type Theme,
+} from '@/lib/theme/config';
 
 /** localStorage key for the persisted {@link AutoAddConfig}. */
 const AUTOADD_STORAGE_KEY = 'meshcore.autoAddConfig';
@@ -94,6 +99,7 @@ interface MeshState {
 
   // UI
   locale: SupportedLocale;
+  theme: Theme;
   toast: Toast | null;
   statsOpen: boolean;
   managePanel: { kind: 'contact' | 'channel'; id: string } | null;
@@ -113,6 +119,7 @@ interface MeshActions {
   setAdverts: (a: Record<string, Advert>) => void;
   setAutoAddConfig: (cfg: AutoAddConfig) => void;
   setLocale: (locale: SupportedLocale) => void;
+  setTheme: (theme: Theme) => void;
   addMessage: (id: string, msg: Message) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
@@ -143,6 +150,7 @@ const initialState: MeshState = {
   msgHistory: {},
   activeConvo: null,
   locale: resolveInitialLocale(),
+  theme: resolveInitialTheme(),
   toast: null,
   statsOpen: false,
   managePanel: null,
@@ -191,6 +199,16 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     }
     void i18n.changeLanguage(locale);
     set({ locale });
+  },
+
+  setTheme: (theme) => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+      } catch {}
+      document.documentElement.dataset.theme = theme;
+    }
+    set({ theme });
   },
 
   addMessage: (id, msg) =>
@@ -277,6 +295,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       autoAddConfig: get().autoAddConfig,
       // Locale is a persistent user preference, not session state
       locale: get().locale,
+      // Theme is a persistent user preference, not session state
+      theme: get().theme,
     }),
 }));
 

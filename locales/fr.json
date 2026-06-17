@@ -20,6 +20,9 @@
     "disconnect": "Déconnecter",
     "language": "Langue"
   },
+  "theme": {
+    "toggle": "Basculer le thème clair/sombre"
+  },
   "connect": {
     "title": "Se connecter à MeshCore",
     "subtitle": "Connecte-toi en USB, Bluetooth ou WiFi à ta radio Companion.",
