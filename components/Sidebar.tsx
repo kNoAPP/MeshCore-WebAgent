@@ -554,7 +554,7 @@ function MenuToggle({
         style={{ background: checked ? 'var(--accent)' : 'var(--border)' }}
       >
         <span
-          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
+          className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
             checked ? 'left-3.5' : 'left-0.5'
           }`}
         />

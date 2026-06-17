@@ -252,7 +252,8 @@
     "contact": "Kontakt",
     "chat": "Chat",
     "repeater": "Repeater",
-    "roomServer": "Raumserver"
+    "roomServer": "Raumserver",
+    "sensor": "Sensor"
   },
   "relative": {
     "justNow": "gerade eben",

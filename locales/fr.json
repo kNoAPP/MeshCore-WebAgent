@@ -252,7 +252,8 @@
     "contact": "Contact",
     "chat": "Chat",
     "repeater": "Répéteur",
-    "roomServer": "Serveur de salon"
+    "roomServer": "Serveur de salon",
+    "sensor": "Capteur"
   },
   "relative": {
     "justNow": "à l'instant",
