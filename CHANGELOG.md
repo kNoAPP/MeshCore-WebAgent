@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.1.1...v1.2.0) (2026-06-17)
+
+
+### Features
+
+* add controls for adding/removing channels/contacts ([#32](https://github.com/kNoAPP/MeshCore-WebAgent/issues/32)) ([c28b2ee](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c28b2eee9b6df620f0194e275e555190e4f9a6e4))
+* add i18next and de, en, es, fr locale support ([#36](https://github.com/kNoAPP/MeshCore-WebAgent/issues/36)) ([43ef812](https://github.com/kNoAPP/MeshCore-WebAgent/commit/43ef812a478d3f3da20c71e59c5ef04e190fbe8c))
+* add UI allowing users to share contacts ([#38](https://github.com/kNoAPP/MeshCore-WebAgent/issues/38)) ([f974c24](https://github.com/kNoAPP/MeshCore-WebAgent/commit/f974c2448b15bac94fec75682a1cad99553498da))
+* auto-populate new contacts to contacts list ([#29](https://github.com/kNoAPP/MeshCore-WebAgent/issues/29)) ([6ae1b15](https://github.com/kNoAPP/MeshCore-WebAgent/commit/6ae1b157cd46de49537b6711de5299a95c5bf639))
+* create light and dark themes ([#37](https://github.com/kNoAPP/MeshCore-WebAgent/issues/37)) ([3fb1103](https://github.com/kNoAPP/MeshCore-WebAgent/commit/3fb1103d7a44f8926416941775d60b67a4e15841))
+* display acks, hops, and offer retries ([#26](https://github.com/kNoAPP/MeshCore-WebAgent/issues/26)) ([443ed70](https://github.com/kNoAPP/MeshCore-WebAgent/commit/443ed702376882849e4408c9e4d8813da9c95ea0))
+
+
+### Bug Fixes
+
+* improve sent mentions color readability ([#30](https://github.com/kNoAPP/MeshCore-WebAgent/issues/30)) ([7f20206](https://github.com/kNoAPP/MeshCore-WebAgent/commit/7f2020678f24822b1b21a22a2030c71c208b3786))
+
 ## [1.1.1](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.1.0...v1.1.1) (2026-06-11)
 
 
