@@ -8,6 +8,8 @@ any internet or cellular infrastructure.
 
 Live at **[kn0.app](https://kn0.app)**
 
+<img width="1381" height="934" alt="Screenshot 2026-06-17 at 12 58 21 PM" src="https://github.com/user-attachments/assets/3062630b-89eb-4d88-aa0b-909c105e66a1" />
+
 ---
 
 ## Features
