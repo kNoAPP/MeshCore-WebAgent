@@ -15,29 +15,20 @@
 
 'use client';
 
-import {
-  useRef,
-  useState,
-  useCallback,
-  useLayoutEffect,
-  useEffect,
-} from 'react';
+import { useRef, useState, useCallback, useLayoutEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import {
   useMeshStore,
   openConvo,
   channelConvoId,
   directConvoId,
   unreadCount,
+  type ContactFilter,
+  type ContactSort,
 } from '@/store/meshStore';
-import { ADV_ICON } from '@/lib/utils';
-import {
-  ADV_TYPE_REPEATER,
-  ADV_TYPE_ROOM,
-  ADV_TYPE_SENSOR,
-  FAVORITE_FLAG,
-} from '@/lib/meshcore/constants';
+import { ADV_ICON, contactCategory } from '@/lib/utils';
+import { ADV_TYPE_REPEATER, FAVORITE_FLAG } from '@/lib/meshcore/constants';
+import { useClickOutside } from '@/hooks/useClickOutside';
 import type { Contact, Message } from '@/types/meshcore';
 
 /**
@@ -46,60 +37,25 @@ import type { Contact, Message } from '@/types/meshcore';
  */
 const MIN_SECTION_PX = 40;
 
-/** Which subset of contacts the sidebar shows. */
-type ContactFilter =
-  | 'all'
-  | 'favorites'
-  | 'users'
-  | 'repeaters'
-  | 'rooms'
-  | 'sensors';
+/**
+ * Filter options in menu order, each paired with its i18n label key. Driving
+ * both the menu and the label lookup from one table keeps them in sync.
+ */
+const FILTER_OPTIONS = [
+  { value: 'all', labelKey: 'sidebar.filterAll' },
+  { value: 'favorites', labelKey: 'sidebar.filterFavorites' },
+  { value: 'users', labelKey: 'sidebar.filterUsers' },
+  { value: 'repeaters', labelKey: 'sidebar.filterRepeaters' },
+  { value: 'rooms', labelKey: 'sidebar.filterRooms' },
+  { value: 'sensors', labelKey: 'sidebar.filterSensors' },
+] as const satisfies readonly { value: ContactFilter; labelKey: string }[];
 
-/** How the visible contacts are ordered. */
-type ContactSort = 'az' | 'heard' | 'latest';
-
-/** Filter options in the order they appear in the menu. */
-const FILTER_OPTIONS: ContactFilter[] = [
-  'all',
-  'favorites',
-  'users',
-  'repeaters',
-  'rooms',
-  'sensors',
-];
-
-/** Order options in the order they appear in the menu. */
-const SORT_OPTIONS: ContactSort[] = ['az', 'heard', 'latest'];
-
-/** Localized label for a contact filter. */
-function filterLabel(t: TFunction, filter: ContactFilter): string {
-  switch (filter) {
-    case 'all':
-      return t('sidebar.filterAll');
-    case 'favorites':
-      return t('sidebar.filterFavorites');
-    case 'users':
-      return t('sidebar.filterUsers');
-    case 'repeaters':
-      return t('sidebar.filterRepeaters');
-    case 'rooms':
-      return t('sidebar.filterRooms');
-    case 'sensors':
-      return t('sidebar.filterSensors');
-  }
-}
-
-/** Localized label for a contact sort order. */
-function sortLabel(t: TFunction, sort: ContactSort): string {
-  switch (sort) {
-    case 'az':
-      return t('sidebar.orderAz');
-    case 'heard':
-      return t('sidebar.orderHeard');
-    case 'latest':
-      return t('sidebar.orderLatest');
-  }
-}
+/** Order options in menu order, each paired with its i18n label key. */
+const SORT_OPTIONS = [
+  { value: 'az', labelKey: 'sidebar.orderAz' },
+  { value: 'heard', labelKey: 'sidebar.orderHeard' },
+  { value: 'latest', labelKey: 'sidebar.orderLatest' },
+] as const satisfies readonly { value: ContactSort; labelKey: string }[];
 
 /** Whether a contact belongs in the given filter subset. */
 function matchesFilter(c: Contact, filter: ContactFilter): boolean {
@@ -109,18 +65,13 @@ function matchesFilter(c: Contact, filter: ContactFilter): boolean {
     case 'favorites':
       return (c.flags & FAVORITE_FLAG) !== 0;
     case 'users':
-      // advType 0 ("none") and 1 ("chat") are both plain companion users.
-      return (
-        c.advType !== ADV_TYPE_REPEATER &&
-        c.advType !== ADV_TYPE_ROOM &&
-        c.advType !== ADV_TYPE_SENSOR
-      );
+      return contactCategory(c.advType) === 'user';
     case 'repeaters':
-      return c.advType === ADV_TYPE_REPEATER;
+      return contactCategory(c.advType) === 'repeater';
     case 'rooms':
-      return c.advType === ADV_TYPE_ROOM;
+      return contactCategory(c.advType) === 'room';
     case 'sensors':
-      return c.advType === ADV_TYPE_SENSOR;
+      return contactCategory(c.advType) === 'sensor';
   }
 }
 
@@ -145,13 +96,18 @@ function compareBySort(
   latestTimes: Map<string, number>,
 ): number {
   switch (sort) {
-    case 'heard':
-      return (b.lastAdvert ?? 0) - (a.lastAdvert ?? 0);
-    case 'latest':
-      return (
+    case 'heard': {
+      const diff = (b.lastAdvert ?? 0) - (a.lastAdvert ?? 0);
+      // Fall back to A–Z so contacts sharing a timestamp (e.g. never-heard
+      // contacts all at 0) keep a stable, alphabetical order.
+      return diff !== 0 ? diff : a.name.localeCompare(b.name);
+    }
+    case 'latest': {
+      const diff =
         (latestTimes.get(b.pubkeyPrefix) ?? 0) -
-        (latestTimes.get(a.pubkeyPrefix) ?? 0)
-      );
+        (latestTimes.get(a.pubkeyPrefix) ?? 0);
+      return diff !== 0 ? diff : a.name.localeCompare(b.name);
+    }
     case 'az':
     default:
       return a.name.localeCompare(b.name);
@@ -171,15 +127,19 @@ export function Sidebar() {
     contacts,
     msgHistory,
     activeConvo,
+    contactView,
+    setContactView,
     setManagePanel,
     setDiscoverOpen,
     setAutoAddOpen,
     setAddChannelOpen,
   } = useMeshStore();
+  const {
+    filter: contactFilter,
+    sort: contactSort,
+    pinFavorites,
+  } = contactView;
   const [channelsHeight, setChannelsHeight] = useState(160);
-  const [contactFilter, setContactFilter] = useState<ContactFilter>('all');
-  const [contactSort, setContactSort] = useState<ContactSort>('az');
-  const [pinFavorites, setPinFavorites] = useState(true);
   const dragStartY = useRef<number | null>(null);
   const dragStartH = useRef(160);
   const userResized = useRef(false);
@@ -217,7 +177,7 @@ export function Sidebar() {
       ),
     );
   }, [sortedChannels.length, measureChannelsFitHeight]);
-  const sortedContacts = (() => {
+  const sortedContacts = useMemo(() => {
     const filtered = Object.values(contacts).filter((c) =>
       matchesFilter(c, contactFilter),
     );
@@ -242,7 +202,7 @@ export function Sidebar() {
       }
       return compareBySort(a, b, contactSort, latestTimes);
     });
-  })();
+  }, [contacts, contactFilter, contactSort, pinFavorites, msgHistory]);
 
   const onDividerMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -359,9 +319,13 @@ export function Sidebar() {
               filter={contactFilter}
               sort={contactSort}
               pinFavorites={pinFavorites}
-              onFilterChange={setContactFilter}
-              onSortChange={setContactSort}
-              onPinFavoritesChange={setPinFavorites}
+              onFilterChange={(filter) =>
+                setContactView({ ...contactView, filter })
+              }
+              onSortChange={(sort) => setContactView({ ...contactView, sort })}
+              onPinFavoritesChange={(pinFavorites) =>
+                setContactView({ ...contactView, pinFavorites })
+              }
             />
             <button
               onClick={() => setAutoAddOpen(true)}
@@ -467,14 +431,7 @@ function ContactsFilterMenu({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [open]);
+  useClickOutside(rootRef, open, () => setOpen(false));
 
   // Highlight the trigger whenever a non-default filter is narrowing the list.
   const filtering = filter !== 'all';
@@ -501,10 +458,10 @@ function ContactsFilterMenu({
           <MenuHeading label={t('sidebar.filterHeading')} />
           {FILTER_OPTIONS.map((opt) => (
             <MenuRow
-              key={opt}
-              label={filterLabel(t, opt)}
-              selected={filter === opt}
-              onClick={() => onFilterChange(opt)}
+              key={opt.value}
+              label={t(opt.labelKey)}
+              selected={filter === opt.value}
+              onClick={() => onFilterChange(opt.value)}
             />
           ))}
           <div
@@ -512,17 +469,20 @@ function ContactsFilterMenu({
             style={{ borderColor: 'var(--border)' }}
           />
           <MenuHeading label={t('sidebar.orderHeading')} />
-          <MenuToggle
-            label={t('sidebar.pinFavorites')}
-            checked={pinFavorites}
-            onClick={() => onPinFavoritesChange(!pinFavorites)}
-          />
+          {/* Pinning does nothing when the list is already only favorites. */}
+          {filter !== 'favorites' && (
+            <MenuToggle
+              label={t('sidebar.pinFavorites')}
+              checked={pinFavorites}
+              onClick={() => onPinFavoritesChange(!pinFavorites)}
+            />
+          )}
           {SORT_OPTIONS.map((opt) => (
             <MenuRow
-              key={opt}
-              label={sortLabel(t, opt)}
-              selected={sort === opt}
-              onClick={() => onSortChange(opt)}
+              key={opt.value}
+              label={t(opt.labelKey)}
+              selected={sort === opt.value}
+              onClick={() => onSortChange(opt.value)}
             />
           ))}
         </div>

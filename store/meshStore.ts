@@ -69,6 +69,47 @@ function loadAutoAddConfig(): AutoAddConfig {
   return DEFAULT_AUTOADD_CONFIG;
 }
 
+/** Which subset of contacts the sidebar shows. */
+export type ContactFilter =
+  | 'all'
+  | 'favorites'
+  | 'users'
+  | 'repeaters'
+  | 'rooms'
+  | 'sensors';
+
+/** How the visible contacts are ordered. */
+export type ContactSort = 'az' | 'heard' | 'latest';
+
+/** Persisted contacts-list view: filter, order, and favorite pinning. */
+export interface ContactView {
+  filter: ContactFilter;
+  sort: ContactSort;
+  pinFavorites: boolean;
+}
+
+/** localStorage key for the persisted {@link ContactView}. */
+const CONTACT_VIEW_STORAGE_KEY = 'meshcore.contactView';
+
+const DEFAULT_CONTACT_VIEW: ContactView = {
+  filter: 'all',
+  sort: 'az',
+  pinFavorites: true,
+};
+
+/**
+ * Reads the persisted contacts-list view preferences from localStorage, falling
+ * back to defaults (and on SSR).
+ */
+function loadContactView(): ContactView {
+  if (typeof window === 'undefined') return DEFAULT_CONTACT_VIEW;
+  try {
+    const raw = window.localStorage.getItem(CONTACT_VIEW_STORAGE_KEY);
+    if (raw) return { ...DEFAULT_CONTACT_VIEW, ...JSON.parse(raw) };
+  } catch {}
+  return DEFAULT_CONTACT_VIEW;
+}
+
 /**
  * A transient notification banner. `id` lets a later toast supersede an earlier
  * auto-dismiss.
@@ -98,6 +139,7 @@ interface MeshState {
   activeConvo: ActiveConvo | null;
 
   // UI
+  contactView: ContactView;
   locale: SupportedLocale;
   theme: Theme;
   toast: Toast | null;
@@ -118,6 +160,7 @@ interface MeshActions {
   setChannels: (ch: Record<number, Channel>) => void;
   setAdverts: (a: Record<string, Advert>) => void;
   setAutoAddConfig: (cfg: AutoAddConfig) => void;
+  setContactView: (view: ContactView) => void;
   setLocale: (locale: SupportedLocale) => void;
   setTheme: (theme: Theme) => void;
   addMessage: (id: string, msg: Message) => void;
@@ -149,6 +192,7 @@ const initialState: MeshState = {
   autoAddConfig: loadAutoAddConfig(),
   msgHistory: {},
   activeConvo: null,
+  contactView: loadContactView(),
   locale: resolveInitialLocale(),
   theme: resolveInitialTheme(),
   toast: null,
@@ -188,6 +232,18 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       } catch {}
     }
     set({ autoAddConfig });
+  },
+
+  setContactView: (contactView) => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(
+          CONTACT_VIEW_STORAGE_KEY,
+          JSON.stringify(contactView),
+        );
+      } catch {}
+    }
+    set({ contactView });
   },
 
   setLocale: (locale) => {
@@ -293,6 +349,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       toast: get().toast,
       // Auto-add config is a persistent user preference, not session state
       autoAddConfig: get().autoAddConfig,
+      // Contacts-list view is a persistent user preference, not session state
+      contactView: get().contactView,
       // Locale is a persistent user preference, not session state
       locale: get().locale,
       // Theme is a persistent user preference, not session state

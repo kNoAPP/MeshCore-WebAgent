@@ -21,7 +21,7 @@ export interface Contact {
   pubkey: string;
   pubkeyPrefix: string;
   pubkeyBytes: Uint8Array;
-  advType: number; // 0=none 1=chat 2=repeater 3=room
+  advType: number; // 0=none 1=chat 2=repeater 3=room 4=sensor
   flags: number;
   outPathLen: number; // 255 = no route (flood), 0 = direct neighbor, 1-63 = hops
   path: Uint8Array; // one repeater hash byte per hop

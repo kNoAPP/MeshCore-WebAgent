@@ -13,6 +13,11 @@
 //
 // For inquiries, contact: alden@knoban.com
 
+import {
+  ADV_TYPE_REPEATER,
+  ADV_TYPE_ROOM,
+  ADV_TYPE_SENSOR,
+} from '@/lib/meshcore/constants';
 import type { Contact } from '@/types/meshcore';
 
 /**
@@ -156,3 +161,24 @@ export const ADV_LABEL_KEY = {
   3: 'advType.roomServer',
   4: 'advType.sensor',
 } as const;
+
+/** Coarse category a contact falls into, used to filter the contacts list. */
+export type ContactCategory = 'user' | 'repeater' | 'room' | 'sensor';
+
+/**
+ * Maps a {@link Contact.advType} to its category. Unknown/future advert types
+ * fall back to "user" so they stay reachable in the contacts list rather than
+ * disappearing from every filter.
+ */
+export function contactCategory(advType: number): ContactCategory {
+  switch (advType) {
+    case ADV_TYPE_REPEATER:
+      return 'repeater';
+    case ADV_TYPE_ROOM:
+      return 'room';
+    case ADV_TYPE_SENSOR:
+      return 'sensor';
+    default:
+      return 'user';
+  }
+}
