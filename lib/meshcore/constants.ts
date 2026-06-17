@@ -32,6 +32,7 @@ export const CMD = {
   SYNC_NEXT_MESSAGE: 0x0a,
   RESET_PATH: 0x0d,
   REMOVE_CONTACT: 0x0f,
+  SHARE_CONTACT: 0x10,
   EXPORT_CONTACT: 0x11,
   IMPORT_CONTACT: 0x12,
   REBOOT: 0x13,
@@ -75,6 +76,25 @@ export const RESP = {
   PUSH_MSG_WAITING: 0x83,
   PUSH_LOG_RX_DATA: 0x88,
   PUSH_NEW_ADVERT: 0x8a,
+} as const;
+
+/**
+ * Device error codes carried in the second byte of a {@link RESP.ERR} frame.
+ *
+ * @remarks
+ * `TABLE_FULL` is overloaded: `SHARE_CONTACT` returns it both when the packet
+ * pool is exhausted and — far more commonly — when the radio has no cached
+ * advert packet to rebroadcast (it never heard this contact advert over the
+ * air, e.g. a QR-imported contact). The firmware can't synthesize the signed
+ * advert, so the share simply isn't possible until the contact adverts again.
+ */
+export const ERR_CODE = {
+  UNSUPPORTED_CMD: 1,
+  NOT_FOUND: 2,
+  TABLE_FULL: 3,
+  BAD_STATE: 4,
+  FILE_IO_ERROR: 5,
+  ILLEGAL_ARG: 6,
 } as const;
 
 /**

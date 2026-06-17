@@ -176,6 +176,17 @@ export function buildAddOrUpdateContact(contact: Contact): Uint8Array {
   return p;
 }
 
+/**
+ * Shares a contact by asking the radio to zero-hop re-broadcast that contact's
+ * original advert packet, so direct neighbors can hear and add it.
+ */
+export function buildShareContact(pubkey: Uint8Array): Uint8Array {
+  const p = new Uint8Array(1 + 32);
+  p[0] = CMD.SHARE_CONTACT;
+  p.set(pubkey.slice(0, 32), 1);
+  return p;
+}
+
 /** Deletes a contact from the radio by full public key. */
 export function buildRemoveContact(pubkey: Uint8Array): Uint8Array {
   const p = new Uint8Array(1 + 32);
