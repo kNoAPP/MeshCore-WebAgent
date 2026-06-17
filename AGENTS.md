@@ -50,6 +50,9 @@ before working in that area:
 - **State changes go through Zustand actions** in `store/meshStore.ts`, not
   local component state, and never `useEffect` for state that belongs in
   Zustand.
+- **All UI strings are localized** with `react-i18next`. Add new strings to
+  `locales/en.json` and render them via `t('...')` (or `i18n.t('...')` outside
+  React) — never hardcode display text.
 - **Tailwind for layout/spacing**, CSS variables for theming
   (`app/globals.css`).
 - **Comments** — TSDoc on the public API surface, `//` inline only when the

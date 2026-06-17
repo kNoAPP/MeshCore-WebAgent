@@ -1,0 +1,273 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "remove": "Remove",
+    "close": "Close",
+    "add": "Add",
+    "manage": "Manage",
+    "copy": "Copy",
+    "copied": "Copied",
+    "channelName": "Channel {{index}}",
+    "unknown": "Unknown",
+    "device": "MeshCore Device"
+  },
+  "header": {
+    "connecting": "Connecting…",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "stats": "📊 Stats",
+    "disconnect": "Disconnect",
+    "language": "Language"
+  },
+  "connect": {
+    "title": "Connect to MeshCore",
+    "subtitle": "Connect via USB, Bluetooth, or WiFi to your Companion Radio.",
+    "tab": {
+      "usb": "🔌 USB",
+      "ble": "📡 BLE",
+      "wifi": "🌐 WiFi"
+    },
+    "baudRate": "Baud Rate",
+    "websocketUrl": "WebSocket URL",
+    "connecting": "Connecting…",
+    "scanning": "Scanning…",
+    "connectUsb": "Connect USB",
+    "scanConnectBle": "Scan & Connect BLE",
+    "connectWifi": "Connect WiFi",
+    "usb": {
+      "info": "Uses Web Serial API (Chrome / Edge). Connect your MeshCore Companion via USB cable.",
+      "unsupported": "USB is not supported in this browser. Use a supported browser like Chrome to connect over USB."
+    },
+    "ble": {
+      "info": "Uses Web Bluetooth API (Chrome). Scans for devices advertising the Nordic UART service.",
+      "infoExtra": "Don't see your companion? It may already be connected to another device, like your phone's MeshCore app. Disconnect it there first.",
+      "unsupported": "Bluetooth is not supported in this browser. Use a supported browser like Chrome to connect over BLE."
+    },
+    "wifi": {
+      "info": "Connects via WebSocket. Same frame protocol as USB serial.",
+      "infoExtra": "Can't reach your companion? It may already be connected to another device, like your phone's MeshCore app. Disconnect it there first."
+    },
+    "sync": {
+      "title": "Syncing with radio",
+      "loadingFrom": "Loading stored data from {{device}}.",
+      "loadingGeneric": "Loading stored data from your companion radio."
+    }
+  },
+  "sync": {
+    "device": "Reading device info",
+    "contacts": "Syncing contacts",
+    "channels": "Syncing channels",
+    "messages": "Syncing messages",
+    "received": "{{count}} received",
+    "progress": "{{current}} of {{total}}"
+  },
+  "stats": {
+    "title": "📊 Device Stats",
+    "refresh": "↻ Refresh",
+    "refreshing": "⟳ Refreshing…",
+    "card": {
+      "storageBattery": "💾 Storage & Battery",
+      "core": "🖥️ Core",
+      "radio": "📻 Radio",
+      "packets": "📦 Packets"
+    },
+    "voltage": "Voltage",
+    "used": "Used",
+    "total": "Total",
+    "free": "Free",
+    "usage": "Usage",
+    "uptime": "Uptime",
+    "battery": "Battery",
+    "errors": "Errors",
+    "queueLength": "Queue Length",
+    "noiseFloor": "Noise Floor",
+    "lastRssi": "Last RSSI",
+    "lastSnr": "Last SNR",
+    "txAirtime": "TX Airtime",
+    "rxAirtime": "RX Airtime",
+    "received": "Received",
+    "sent": "Sent",
+    "floodTx": "Flood TX",
+    "floodRx": "Flood RX",
+    "directTx": "Direct TX",
+    "directRx": "Direct RX",
+    "rxErrors": "RX Errors"
+  },
+  "autoAdd": {
+    "title": "⚙ Auto-add settings",
+    "all": {
+      "label": "Auto Add All",
+      "hint": "Save every node the radio hears"
+    },
+    "selected": {
+      "label": "Auto Add Selected",
+      "hint": "Only save the node types you choose"
+    },
+    "typesHeading": "Auto-add types",
+    "chat": "Chat users",
+    "repeaters": "Repeaters",
+    "rooms": "Room servers",
+    "sensors": "Sensors",
+    "overwriteOldest": "Overwrite oldest non-favorite when contacts are full",
+    "maxHops": "Auto-add max hops",
+    "noLimit": "No limit",
+    "maxHopsHint": "Only add nodes heard within this many hops (0 = direct only; far right = no limit).",
+    "showPublicKeys": "Show public keys in contact details"
+  },
+  "chat": {
+    "empty": "Select a channel or contact to start chatting",
+    "noMessages": "No messages yet",
+    "you": "You",
+    "noAck": "No acknowledgment",
+    "noAckTooltip": "The message may still have arrived — the acknowledgment can be lost in route",
+    "retry": "Retry?",
+    "resetRouteRetry": "Reset route & retry",
+    "resetRouteRetryTooltip": "Discard the saved route to this contact and resend via flood",
+    "repeaterCantMessage": "Repeaters can't be messaged",
+    "placeholder": "Type a message… (Enter to send, Shift+Enter for newline)"
+  },
+  "manage": {
+    "removeChannelConfirm": "Remove this channel from the radio?",
+    "publicChannelCantRemove": "The Public channel cannot be removed",
+    "removeChannel": "Remove channel",
+    "removeContactConfirm": "Remove this contact from the radio?",
+    "type": "Type",
+    "publicKey": "Public key",
+    "route": "Route",
+    "path": "Path",
+    "lastAdvert": "Last advert",
+    "favorite": "☆ Favorite",
+    "unfavorite": "★ Unfavorite",
+    "resetRoute": "Reset route",
+    "share": "Share",
+    "comingSoon": "Coming soon",
+    "name": "Name",
+    "index": "Index",
+    "channelHash": "Channel hash",
+    "messages": "Messages",
+    "secretKey": "Secret key",
+    "revealSecret": "Reveal secret key",
+    "hideSecret": "Hide secret key",
+    "channelType": {
+      "public": "Public",
+      "hashtag": "Hashtag",
+      "private": "Private"
+    }
+  },
+  "route": {
+    "noRouteFloods": "No route — floods",
+    "directHops": "Direct (0 hops)",
+    "hops_one": "{{count}} hop",
+    "hops_other": "{{count}} hops"
+  },
+  "routeChip": {
+    "flood": "Flood",
+    "direct": "Direct",
+    "tooltip": "Route to this contact",
+    "routeTo": "Route to {{name}}",
+    "noRoute": "No route known — messages flood the mesh until a reply establishes a path.",
+    "directNeighbor": "Direct neighbor — no repeaters in between.",
+    "viaRepeaters_one": "Via {{count}} repeater:",
+    "viaRepeaters_other": "Via {{count}} repeaters:",
+    "resetToFlood": "Reset to flood",
+    "resetting": "Resetting…",
+    "resetExplain": "Discards this route. Messages will flood the mesh until a new route is found."
+  },
+  "discover": {
+    "title": "📡 Discovered nodes",
+    "empty": "No adverts heard yet. Discovered nodes appear here as their adverts arrive.",
+    "node": "Node",
+    "added": "✓ Added",
+    "add": "Add"
+  },
+  "sidebar": {
+    "channels": "Channels",
+    "contacts": "Contacts",
+    "addChannel": "Add channel",
+    "autoAddSettings": "Auto-add settings",
+    "addContact": "Add contact",
+    "repeaterCantMessage": "Repeaters can't be messaged",
+    "manage": "Manage",
+    "dragResize": "Drag to resize"
+  },
+  "addChannel": {
+    "title": "➕ Add channel",
+    "name": "Name",
+    "secretGenerated": "Secret key (generated)",
+    "regenerate": "Regenerate",
+    "secretHex": "Secret key (hex, 16 bytes)",
+    "create": "Create",
+    "join": "Join",
+    "mode": {
+      "createLabel": "Create Private",
+      "createHint": "Generates a random secret key. Share it so others can join.",
+      "joinPrivateLabel": "Join Private",
+      "joinPrivateHint": "Enter the channel name and its 16-byte secret key (hex).",
+      "joinHashtagLabel": "Join Hashtag",
+      "joinHashtagHint": "Hashtag channels are public — anyone entering the same name joins. Use a–z, 0–9, and hyphens only."
+    },
+    "error": {
+      "hashtagChars": "Use only a–z, 0–9, and hyphens.",
+      "enterName": "Enter a channel name.",
+      "invalidSecret": "Secret key must be 32 hex characters (16 bytes)."
+    }
+  },
+  "message": {
+    "sending": "Sending…",
+    "broadcastSent": "Broadcast sent — channels have no delivery receipts",
+    "sentAwaiting": "Sent — awaiting delivery confirmation",
+    "sentFloodAwaiting": "Sent via flood — awaiting delivery confirmation",
+    "delivered": "Delivered",
+    "deliveredIn": "Delivered in {{seconds}}s",
+    "snr": "SNR: {{value}} dB",
+    "direct": "Direct",
+    "hops_one": "{{count}} hop",
+    "hops_other": "{{count}} hops",
+    "heardBy_one": "Heard by {{count}} repeater",
+    "heardBy_other": "Heard by {{count}} repeaters"
+  },
+  "advType": {
+    "contact": "Contact",
+    "chat": "Chat",
+    "repeater": "Repeater",
+    "roomServer": "Room Server"
+  },
+  "relative": {
+    "justNow": "just now",
+    "minutes": "{{count}}m ago",
+    "hours": "{{count}}h ago",
+    "days": "{{count}}d ago"
+  },
+  "toast": {
+    "newMessageIn": "New message in {{channel}}",
+    "newMessageFrom": "New message from {{sender}}",
+    "connected": "Connected — {{device}}",
+    "connectionFailed": "Connection failed: {{error}}",
+    "usbError": "USB error: {{error}}",
+    "bleError": "BLE error: {{error}}",
+    "wifiError": "WiFi error: {{error}}",
+    "disconnected": "Disconnected",
+    "contactNotFound": "Contact not found",
+    "repeaterCantMessage": "Repeaters can't be messaged",
+    "sendFailed": "Send failed: {{error}}",
+    "routeReset": "Route reset — next message will flood",
+    "routeResetFailed": "Route reset failed: {{error}}",
+    "addedToFavorites": "Added to favorites",
+    "removedFromFavorites": "Removed from favorites",
+    "favoriteUpdateFailed": "Failed to update favorite: {{error}}",
+    "invalidPublicKey": "Invalid public key",
+    "added": "Added {{name}}",
+    "addContactFailed": "Failed to add contact: {{error}}",
+    "contactRemoved": "Contact removed",
+    "removeContactFailed": "Failed to remove contact: {{error}}",
+    "alreadyJoined": "Already joined “{{name}}”",
+    "allSlotsFull": "All channel slots are full",
+    "channelAdded": "Channel “{{name}}” added",
+    "addChannelFailed": "Failed to add channel: {{error}}",
+    "channelRemoved": "Channel removed",
+    "removeChannelFailed": "Failed to remove channel: {{error}}",
+    "settingsSaved": "Auto-add settings saved",
+    "saveSettingsFailed": "Failed to save settings: {{error}}"
+  }
+}

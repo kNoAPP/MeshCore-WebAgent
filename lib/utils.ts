@@ -117,16 +117,6 @@ export function fmtVoltage(mv: number): string {
 }
 
 /**
- * Formats a Unix epoch-seconds timestamp as a locale wall-clock time (hh:mm).
- */
-export function formatTime(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-/**
  * Emoji icon for each {@link Contact.advType} (0/1 chat, 2 repeater, 3 room).
  */
 export const ADV_ICON: Record<number, string> = {
@@ -136,22 +126,10 @@ export const ADV_ICON: Record<number, string> = {
   3: '🏠',
 };
 
-/** Human label for each {@link Contact.advType}. */
-export const ADV_LABEL: Record<number, string> = {
-  0: 'Contact',
-  1: 'Chat',
-  2: 'Repeater',
-  3: 'Room Server',
-};
-
-/**
- * Formats a Unix epoch-seconds timestamp as a relative age (`just now`,
- * `5m ago`, `2h ago`, `3d ago`).
- */
-export function formatRelative(timestamp: number): string {
-  const secs = Math.floor(Date.now() / 1000) - timestamp;
-  if (secs < 60) return 'just now';
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-  return `${Math.floor(secs / 86400)}d ago`;
-}
+/** Translation key for each {@link Contact.advType}. */
+export const ADV_LABEL_KEY = {
+  0: 'advType.contact',
+  1: 'advType.chat',
+  2: 'advType.repeater',
+  3: 'advType.roomServer',
+} as const;

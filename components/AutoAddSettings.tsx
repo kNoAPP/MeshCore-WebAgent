@@ -16,6 +16,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
@@ -42,6 +43,7 @@ export function AutoAddSettings() {
  * radio and localStorage via `applyAutoAddConfig` on Save.
  */
 function AutoAddSettingsPanel() {
+  const { t } = useTranslation();
   const { setAutoAddOpen, autoAddConfig } = useMeshStore();
   const { applyAutoAddConfig } = useMeshCore();
   const [cfg, setCfg] = useState<AutoAddConfig>(autoAddConfig);
@@ -51,21 +53,21 @@ function AutoAddSettingsPanel() {
 
   return (
     <ModalShell
-      title='⚙ Auto-add settings'
+      title={t('autoAdd.title')}
       onClose={() => setAutoAddOpen(false)}
       widthClass='w-112'
     >
       <div className='space-y-5'>
         <div className='space-y-2'>
           <Radio
-            label='Auto Add All'
-            hint='Save every node the radio hears'
+            label={t('autoAdd.all.label')}
+            hint={t('autoAdd.all.hint')}
             checked={cfg.mode === 'all'}
             onChange={() => patch({ mode: 'all' })}
           />
           <Radio
-            label='Auto Add Selected'
-            hint='Only save the node types you choose'
+            label={t('autoAdd.selected.label')}
+            hint={t('autoAdd.selected.hint')}
             checked={selected}
             onChange={() => patch({ mode: 'selected' })}
           />
@@ -73,26 +75,26 @@ function AutoAddSettingsPanel() {
 
         <div className={selected ? '' : 'pointer-events-none opacity-40'}>
           <div className='mb-2 text-xs font-semibold tracking-wide text-(--text2) uppercase'>
-            Auto-add types
+            {t('autoAdd.typesHeading')}
           </div>
           <div className='grid grid-cols-2 gap-2'>
             <Check
-              label='Chat users'
+              label={t('autoAdd.chat')}
               checked={cfg.chat}
               onChange={(v) => patch({ chat: v })}
             />
             <Check
-              label='Repeaters'
+              label={t('autoAdd.repeaters')}
               checked={cfg.repeater}
               onChange={(v) => patch({ repeater: v })}
             />
             <Check
-              label='Room servers'
+              label={t('autoAdd.rooms')}
               checked={cfg.room}
               onChange={(v) => patch({ room: v })}
             />
             <Check
-              label='Sensors'
+              label={t('autoAdd.sensors')}
               checked={cfg.sensor}
               onChange={(v) => patch({ sensor: v })}
             />
@@ -100,16 +102,18 @@ function AutoAddSettingsPanel() {
         </div>
 
         <Check
-          label='Overwrite oldest non-favorite when contacts are full'
+          label={t('autoAdd.overwriteOldest')}
           checked={cfg.overwriteOldest}
           onChange={(v) => patch({ overwriteOldest: v })}
         />
 
         <label className='block'>
           <div className='mb-1 flex justify-between text-sm'>
-            <span>Auto-add max hops</span>
+            <span>{t('autoAdd.maxHops')}</span>
             <span className='text-(--text2)'>
-              {cfg.maxHops >= MAX_HOPS_NO_LIMIT ? 'No limit' : cfg.maxHops}
+              {cfg.maxHops >= MAX_HOPS_NO_LIMIT
+                ? t('autoAdd.noLimit')
+                : cfg.maxHops}
             </span>
           </div>
           <input
@@ -121,13 +125,12 @@ function AutoAddSettingsPanel() {
             className='w-full accent-(--accent)'
           />
           <p className='mt-1 text-xs text-(--text2)'>
-            Only add nodes heard within this many hops (0 = direct only; far
-            right = no limit).
+            {t('autoAdd.maxHopsHint')}
           </p>
         </label>
 
         <Check
-          label='Show public keys in contact details'
+          label={t('autoAdd.showPublicKeys')}
           checked={cfg.showPublicKeys}
           onChange={(v) => patch({ showPublicKeys: v })}
         />
@@ -138,7 +141,7 @@ function AutoAddSettingsPanel() {
           onClick={() => setAutoAddOpen(false)}
           className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           onClick={() => {
@@ -148,7 +151,7 @@ function AutoAddSettingsPanel() {
           className='rounded-md px-3 py-1.5 text-sm font-semibold text-white'
           style={{ background: 'var(--accent)' }}
         >
-          Save
+          {t('common.save')}
         </button>
       </div>
     </ModalShell>

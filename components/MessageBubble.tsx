@@ -15,8 +15,10 @@
 
 'use client';
 
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { Message } from '@/types/meshcore';
-import { formatTime } from '@/lib/utils';
+import { formatTime } from '@/lib/i18n/format';
 
 interface Props {
   msg: Message;
@@ -73,28 +75,33 @@ function renderText(
  * separately).
  */
 function statusTick(
+  t: TFunction,
   msg: Message,
 ): { glyph: string; title: string; color?: string } | null {
   if (!msg.own || !msg.status) return null;
   switch (msg.status) {
     case 'sending':
-      return { glyph: '⏳', title: 'Sending…' };
+      return { glyph: '⏳', title: t('message.sending') };
     case 'sent':
       return msg.kind === 'channel'
         ? {
             glyph: '✓',
-            title: 'Broadcast sent — channels have no delivery receipts',
+            title: t('message.broadcastSent'),
           }
         : {
             glyph: '✓',
-            title: `Sent${msg.routeFlood ? ' via flood' : ''} — awaiting delivery confirmation`,
+            title: msg.routeFlood
+              ? t('message.sentFloodAwaiting')
+              : t('message.sentAwaiting'),
           };
     case 'delivered':
       return {
         glyph: '✓✓',
         title: msg.roundTripMs
-          ? `Delivered in ${(msg.roundTripMs / 1000).toFixed(1)}s`
-          : 'Delivered',
+          ? t('message.deliveredIn', {
+              seconds: (msg.roundTripMs / 1000).toFixed(1),
+            })
+          : t('message.delivered'),
         color: 'var(--green)',
       };
     case 'failed':
@@ -116,8 +123,9 @@ export function MessageBubble({
   mentioned,
   statusActions,
 }: Props) {
+  const { t } = useTranslation();
   const time = msg.timestamp ? formatTime(msg.timestamp) : '';
-  const tick = statusTick(msg);
+  const tick = statusTick(t, msg);
 
   if (msg.system) {
     return (
@@ -155,15 +163,17 @@ export function MessageBubble({
         )}
         {[
           msg.snr != null
-            ? `SNR: ${msg.snr > 0 ? '+' : ''}${msg.snr.toFixed(2)} dB`
+            ? t('message.snr', {
+                value: `${msg.snr > 0 ? '+' : ''}${msg.snr.toFixed(2)}`,
+              })
             : null,
           !msg.own && msg.pathLen != null
             ? msg.pathLen === 0
-              ? 'Direct'
-              : `${msg.pathLen} hop${msg.pathLen === 1 ? '' : 's'}`
+              ? t('message.direct')
+              : t('message.hops', { count: msg.pathLen })
             : null,
           msg.own && msg.heardByRepeaters
-            ? `Heard by ${msg.heardByRepeaters} repeater${msg.heardByRepeaters === 1 ? '' : 's'}`
+            ? t('message.heardBy', { count: msg.heardByRepeaters })
             : null,
           time,
         ]

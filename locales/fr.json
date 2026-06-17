@@ -1,0 +1,273 @@
+{
+  "common": {
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "remove": "Supprimer",
+    "close": "Fermer",
+    "add": "Ajouter",
+    "manage": "Gérer",
+    "copy": "Copier",
+    "copied": "Copié",
+    "channelName": "Canal {{index}}",
+    "unknown": "Inconnu",
+    "device": "Appareil MeshCore"
+  },
+  "header": {
+    "connecting": "Connexion…",
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
+    "stats": "📊 Stats",
+    "disconnect": "Déconnecter",
+    "language": "Langue"
+  },
+  "connect": {
+    "title": "Se connecter à MeshCore",
+    "subtitle": "Connecte-toi en USB, Bluetooth ou WiFi à ta radio Companion.",
+    "tab": {
+      "usb": "🔌 USB",
+      "ble": "📡 BLE",
+      "wifi": "🌐 WiFi"
+    },
+    "baudRate": "Débit en bauds",
+    "websocketUrl": "URL WebSocket",
+    "connecting": "Connexion…",
+    "scanning": "Recherche…",
+    "connectUsb": "Connecter en USB",
+    "scanConnectBle": "Rechercher et connecter en BLE",
+    "connectWifi": "Connecter en WiFi",
+    "usb": {
+      "info": "Utilise l'API Web Serial (Chrome / Edge). Connecte ton MeshCore Companion avec un câble USB.",
+      "unsupported": "L'USB n'est pas pris en charge par ce navigateur. Utilise un navigateur compatible comme Chrome pour te connecter en USB."
+    },
+    "ble": {
+      "info": "Utilise l'API Web Bluetooth (Chrome). Recherche les appareils annonçant le service Nordic UART.",
+      "infoExtra": "Tu ne vois pas ton companion ? Il est peut-être déjà connecté à un autre appareil, comme l'app MeshCore de ton téléphone. Déconnecte-le là-bas d'abord.",
+      "unsupported": "Le Bluetooth n'est pas pris en charge par ce navigateur. Utilise un navigateur compatible comme Chrome pour te connecter en BLE."
+    },
+    "wifi": {
+      "info": "Se connecte via WebSocket. Même protocole de trame que le série USB.",
+      "infoExtra": "Tu ne peux pas joindre ton companion ? Il est peut-être déjà connecté à un autre appareil, comme l'app MeshCore de ton téléphone. Déconnecte-le là-bas d'abord."
+    },
+    "sync": {
+      "title": "Synchronisation avec la radio",
+      "loadingFrom": "Chargement des données stockées de {{device}}.",
+      "loadingGeneric": "Chargement des données stockées de ta radio companion."
+    }
+  },
+  "sync": {
+    "device": "Lecture des informations de l'appareil",
+    "contacts": "Synchronisation des contacts",
+    "channels": "Synchronisation des canaux",
+    "messages": "Synchronisation des messages",
+    "received": "{{count}} reçus",
+    "progress": "{{current}} sur {{total}}"
+  },
+  "stats": {
+    "title": "📊 Statistiques de l'appareil",
+    "refresh": "↻ Actualiser",
+    "refreshing": "⟳ Actualisation…",
+    "card": {
+      "storageBattery": "💾 Stockage et batterie",
+      "core": "🖥️ Cœur",
+      "radio": "📻 Radio",
+      "packets": "📦 Paquets"
+    },
+    "voltage": "Tension",
+    "used": "Utilisé",
+    "total": "Total",
+    "free": "Libre",
+    "usage": "Utilisation",
+    "uptime": "Temps de fonctionnement",
+    "battery": "Batterie",
+    "errors": "Erreurs",
+    "queueLength": "Longueur de file",
+    "noiseFloor": "Niveau de bruit",
+    "lastRssi": "Dernier RSSI",
+    "lastSnr": "Dernier SNR",
+    "txAirtime": "Temps d'antenne TX",
+    "rxAirtime": "Temps d'antenne RX",
+    "received": "Reçus",
+    "sent": "Envoyés",
+    "floodTx": "Flood TX",
+    "floodRx": "Flood RX",
+    "directTx": "Direct TX",
+    "directRx": "Direct RX",
+    "rxErrors": "Erreurs RX"
+  },
+  "autoAdd": {
+    "title": "⚙ Paramètres d'ajout automatique",
+    "all": {
+      "label": "Tout ajouter automatiquement",
+      "hint": "Enregistrer chaque nœud entendu par la radio"
+    },
+    "selected": {
+      "label": "Ajouter automatiquement la sélection",
+      "hint": "N'enregistrer que les types de nœud choisis"
+    },
+    "typesHeading": "Types à ajouter automatiquement",
+    "chat": "Utilisateurs de chat",
+    "repeaters": "Répéteurs",
+    "rooms": "Serveurs de salon",
+    "sensors": "Capteurs",
+    "overwriteOldest": "Écraser le plus ancien non-favori quand les contacts sont pleins",
+    "maxHops": "Sauts max pour l'ajout automatique",
+    "noLimit": "Sans limite",
+    "maxHopsHint": "N'ajouter que les nœuds entendus dans cette limite de sauts (0 = direct uniquement ; tout à droite = sans limite).",
+    "showPublicKeys": "Afficher les clés publiques dans les détails du contact"
+  },
+  "chat": {
+    "empty": "Sélectionne un canal ou un contact pour commencer à discuter",
+    "noMessages": "Aucun message pour l'instant",
+    "you": "Toi",
+    "noAck": "Aucun accusé de réception",
+    "noAckTooltip": "Le message a pu malgré tout arriver — l'accusé de réception peut se perdre en route",
+    "retry": "Réessayer ?",
+    "resetRouteRetry": "Réinitialiser la route et réessayer",
+    "resetRouteRetryTooltip": "Abandonner la route enregistrée vers ce contact et renvoyer par flood",
+    "repeaterCantMessage": "Impossible d'envoyer des messages aux répéteurs",
+    "placeholder": "Tape un message… (Entrée pour envoyer, Maj+Entrée pour un saut de ligne)"
+  },
+  "manage": {
+    "removeChannelConfirm": "Supprimer ce canal de la radio ?",
+    "publicChannelCantRemove": "Le canal Public ne peut pas être supprimé",
+    "removeChannel": "Supprimer le canal",
+    "removeContactConfirm": "Supprimer ce contact de la radio ?",
+    "type": "Type",
+    "publicKey": "Clé publique",
+    "route": "Route",
+    "path": "Chemin",
+    "lastAdvert": "Dernière annonce",
+    "favorite": "☆ Favori",
+    "unfavorite": "★ Retirer des favoris",
+    "resetRoute": "Réinitialiser la route",
+    "share": "Partager",
+    "comingSoon": "Bientôt disponible",
+    "name": "Nom",
+    "index": "Index",
+    "channelHash": "Hash du canal",
+    "messages": "Messages",
+    "secretKey": "Clé secrète",
+    "revealSecret": "Afficher la clé secrète",
+    "hideSecret": "Masquer la clé secrète",
+    "channelType": {
+      "public": "Public",
+      "hashtag": "Hashtag",
+      "private": "Privé"
+    }
+  },
+  "route": {
+    "noRouteFloods": "Aucune route — flood",
+    "directHops": "Direct (0 saut)",
+    "hops_one": "{{count}} saut",
+    "hops_other": "{{count}} sauts"
+  },
+  "routeChip": {
+    "flood": "Flood",
+    "direct": "Direct",
+    "tooltip": "Route vers ce contact",
+    "routeTo": "Route vers {{name}}",
+    "noRoute": "Aucune route connue — les messages inondent le maillage jusqu'à ce qu'une réponse établisse un chemin.",
+    "directNeighbor": "Voisin direct — aucun répéteur entre les deux.",
+    "viaRepeaters_one": "Via {{count}} répéteur :",
+    "viaRepeaters_other": "Via {{count}} répéteurs :",
+    "resetToFlood": "Réinitialiser en flood",
+    "resetting": "Réinitialisation…",
+    "resetExplain": "Abandonne cette route. Les messages inonderont le maillage jusqu'à ce qu'une nouvelle route soit trouvée."
+  },
+  "discover": {
+    "title": "📡 Nœuds découverts",
+    "empty": "Aucune annonce entendue pour l'instant. Les nœuds découverts apparaissent ici à mesure que leurs annonces arrivent.",
+    "node": "Nœud",
+    "added": "✓ Ajouté",
+    "add": "Ajouter"
+  },
+  "sidebar": {
+    "channels": "Canaux",
+    "contacts": "Contacts",
+    "addChannel": "Ajouter un canal",
+    "autoAddSettings": "Paramètres d'ajout automatique",
+    "addContact": "Ajouter un contact",
+    "repeaterCantMessage": "Impossible d'envoyer des messages aux répéteurs",
+    "manage": "Gérer",
+    "dragResize": "Glisser pour redimensionner"
+  },
+  "addChannel": {
+    "title": "➕ Ajouter un canal",
+    "name": "Nom",
+    "secretGenerated": "Clé secrète (générée)",
+    "regenerate": "Régénérer",
+    "secretHex": "Clé secrète (hex, 16 octets)",
+    "create": "Créer",
+    "join": "Rejoindre",
+    "mode": {
+      "createLabel": "Créer privé",
+      "createHint": "Génère une clé secrète aléatoire. Partage-la pour que d'autres puissent rejoindre.",
+      "joinPrivateLabel": "Rejoindre privé",
+      "joinPrivateHint": "Saisis le nom du canal et sa clé secrète de 16 octets (hex).",
+      "joinHashtagLabel": "Rejoindre hashtag",
+      "joinHashtagHint": "Les canaux hashtag sont publics — quiconque saisit le même nom rejoint. Utilise uniquement a–z, 0–9 et des tirets."
+    },
+    "error": {
+      "hashtagChars": "Utilise uniquement a–z, 0–9 et des tirets.",
+      "enterName": "Saisis un nom de canal.",
+      "invalidSecret": "La clé secrète doit comporter 32 caractères hex (16 octets)."
+    }
+  },
+  "message": {
+    "sending": "Envoi…",
+    "broadcastSent": "Diffusion envoyée — les canaux n'ont pas d'accusés de réception",
+    "sentAwaiting": "Envoyé — en attente de confirmation de livraison",
+    "sentFloodAwaiting": "Envoyé par flood — en attente de confirmation de livraison",
+    "delivered": "Livré",
+    "deliveredIn": "Livré en {{seconds}}s",
+    "snr": "SNR : {{value}} dB",
+    "direct": "Direct",
+    "hops_one": "{{count}} saut",
+    "hops_other": "{{count}} sauts",
+    "heardBy_one": "Entendu par {{count}} répéteur",
+    "heardBy_other": "Entendu par {{count}} répéteurs"
+  },
+  "advType": {
+    "contact": "Contact",
+    "chat": "Chat",
+    "repeater": "Répéteur",
+    "roomServer": "Serveur de salon"
+  },
+  "relative": {
+    "justNow": "à l'instant",
+    "minutes": "il y a {{count}}m",
+    "hours": "il y a {{count}}h",
+    "days": "il y a {{count}}j"
+  },
+  "toast": {
+    "newMessageIn": "Nouveau message dans {{channel}}",
+    "newMessageFrom": "Nouveau message de {{sender}}",
+    "connected": "Connecté — {{device}}",
+    "connectionFailed": "Échec de la connexion : {{error}}",
+    "usbError": "Erreur USB : {{error}}",
+    "bleError": "Erreur BLE : {{error}}",
+    "wifiError": "Erreur WiFi : {{error}}",
+    "disconnected": "Déconnecté",
+    "contactNotFound": "Contact introuvable",
+    "repeaterCantMessage": "Impossible d'envoyer des messages aux répéteurs",
+    "sendFailed": "Échec de l'envoi : {{error}}",
+    "routeReset": "Route réinitialisée — le prochain message fera un flood",
+    "routeResetFailed": "Échec de la réinitialisation de la route : {{error}}",
+    "addedToFavorites": "Ajouté aux favoris",
+    "removedFromFavorites": "Retiré des favoris",
+    "favoriteUpdateFailed": "Échec de la mise à jour du favori : {{error}}",
+    "invalidPublicKey": "Clé publique non valide",
+    "added": "{{name}} ajouté",
+    "addContactFailed": "Échec de l'ajout du contact : {{error}}",
+    "contactRemoved": "Contact supprimé",
+    "removeContactFailed": "Échec de la suppression du contact : {{error}}",
+    "alreadyJoined": "Déjà rejoint « {{name}} »",
+    "allSlotsFull": "Tous les emplacements de canal sont pleins",
+    "channelAdded": "Canal « {{name}} » ajouté",
+    "addChannelFailed": "Échec de l'ajout du canal : {{error}}",
+    "channelRemoved": "Canal supprimé",
+    "removeChannelFailed": "Échec de la suppression du canal : {{error}}",
+    "settingsSaved": "Paramètres d'ajout automatique enregistrés",
+    "saveSettingsFailed": "Échec de l'enregistrement des paramètres : {{error}}"
+  }
+}

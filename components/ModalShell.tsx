@@ -15,6 +15,8 @@
 
 'use client';
 
+import { useTranslation } from 'react-i18next';
+
 /**
  * Centered modal overlay with a title bar and close button. Clicking the
  * backdrop (outside the card) calls `onClose`.
@@ -32,6 +34,7 @@ export function ModalShell({
   children: React.ReactNode;
   widthClass?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className='fixed inset-0 z-50 flex items-center justify-center'
@@ -48,7 +51,7 @@ export function ModalShell({
           <h2 className='text-base font-bold'>{title}</h2>
           <button
             onClick={onClose}
-            aria-label='Close'
+            aria-label={t('common.close')}
             className='text-lg leading-none text-(--text2) hover:text-(--text)'
           >
             ✕

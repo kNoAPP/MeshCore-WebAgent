@@ -22,6 +22,8 @@ Live at **[kn0.app](https://kn0.app)**
   a glance
 - **Persistent history** — Messages stored in IndexedDB with AES-GCM encryption,
   restored on reconnect
+- **Multi-language UI** — English, Spanish, German, and French, auto-detected
+  from the browser and switchable on the connect screen
 - **Fully client-side** — No server, no account, no cloud; everything runs in
   your browser
 
@@ -77,6 +79,8 @@ hooks/            useMeshCore — device communication hook
 lib/
   meshcore/       Binary protocol implementation (client, transports, parsers)
   storage.ts      IndexedDB persistence with AES-GCM encryption
+  i18n/           react-i18next setup (config + instance)
+locales/          Per-language UI dictionaries (en, es, de, fr)
 store/            Zustand global state
 types/            TypeScript interfaces
 ```
