@@ -197,7 +197,20 @@
     "addContact": "Add contact",
     "repeaterCantMessage": "Repeaters can't be messaged",
     "manage": "Manage",
-    "dragResize": "Drag to resize"
+    "dragResize": "Drag to resize",
+    "filterContacts": "Filter & order contacts",
+    "filterHeading": "Filter",
+    "orderHeading": "Order",
+    "filterAll": "All",
+    "filterFavorites": "Favorites",
+    "filterUsers": "Users",
+    "filterRepeaters": "Repeaters",
+    "filterRooms": "Room Servers",
+    "filterSensors": "Sensors",
+    "orderAz": "Order A–Z",
+    "orderHeard": "Heard Recently",
+    "orderLatest": "Latest Messages",
+    "pinFavorites": "Favorites on top"
   },
   "addChannel": {
     "title": "➕ Add channel",

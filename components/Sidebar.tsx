@@ -15,8 +15,15 @@
 
 'use client';
 
-import { useRef, useState, useCallback, useLayoutEffect } from 'react';
+import {
+  useRef,
+  useState,
+  useCallback,
+  useLayoutEffect,
+  useEffect,
+} from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   useMeshStore,
   openConvo,
@@ -25,7 +32,13 @@ import {
   unreadCount,
 } from '@/store/meshStore';
 import { ADV_ICON } from '@/lib/utils';
-import { ADV_TYPE_REPEATER, FAVORITE_FLAG } from '@/lib/meshcore/constants';
+import {
+  ADV_TYPE_REPEATER,
+  ADV_TYPE_ROOM,
+  ADV_TYPE_SENSOR,
+  FAVORITE_FLAG,
+} from '@/lib/meshcore/constants';
+import type { Contact, Message } from '@/types/meshcore';
 
 /**
  * Minimum height (px) either sidebar section can be collapsed to via the
@@ -33,11 +46,123 @@ import { ADV_TYPE_REPEATER, FAVORITE_FLAG } from '@/lib/meshcore/constants';
  */
 const MIN_SECTION_PX = 40;
 
+/** Which subset of contacts the sidebar shows. */
+type ContactFilter =
+  | 'all'
+  | 'favorites'
+  | 'users'
+  | 'repeaters'
+  | 'rooms'
+  | 'sensors';
+
+/** How the visible contacts are ordered. */
+type ContactSort = 'az' | 'heard' | 'latest';
+
+/** Filter options in the order they appear in the menu. */
+const FILTER_OPTIONS: ContactFilter[] = [
+  'all',
+  'favorites',
+  'users',
+  'repeaters',
+  'rooms',
+  'sensors',
+];
+
+/** Order options in the order they appear in the menu. */
+const SORT_OPTIONS: ContactSort[] = ['az', 'heard', 'latest'];
+
+/** Localized label for a contact filter. */
+function filterLabel(t: TFunction, filter: ContactFilter): string {
+  switch (filter) {
+    case 'all':
+      return t('sidebar.filterAll');
+    case 'favorites':
+      return t('sidebar.filterFavorites');
+    case 'users':
+      return t('sidebar.filterUsers');
+    case 'repeaters':
+      return t('sidebar.filterRepeaters');
+    case 'rooms':
+      return t('sidebar.filterRooms');
+    case 'sensors':
+      return t('sidebar.filterSensors');
+  }
+}
+
+/** Localized label for a contact sort order. */
+function sortLabel(t: TFunction, sort: ContactSort): string {
+  switch (sort) {
+    case 'az':
+      return t('sidebar.orderAz');
+    case 'heard':
+      return t('sidebar.orderHeard');
+    case 'latest':
+      return t('sidebar.orderLatest');
+  }
+}
+
+/** Whether a contact belongs in the given filter subset. */
+function matchesFilter(c: Contact, filter: ContactFilter): boolean {
+  switch (filter) {
+    case 'all':
+      return true;
+    case 'favorites':
+      return (c.flags & FAVORITE_FLAG) !== 0;
+    case 'users':
+      // advType 0 ("none") and 1 ("chat") are both plain companion users.
+      return (
+        c.advType !== ADV_TYPE_REPEATER &&
+        c.advType !== ADV_TYPE_ROOM &&
+        c.advType !== ADV_TYPE_SENSOR
+      );
+    case 'repeaters':
+      return c.advType === ADV_TYPE_REPEATER;
+    case 'rooms':
+      return c.advType === ADV_TYPE_ROOM;
+    case 'sensors':
+      return c.advType === ADV_TYPE_SENSOR;
+  }
+}
+
+/**
+ * Timestamp (Unix secs) of the most recent message in a contact's
+ * conversation, or 0 if there are none. Messages are appended chronologically,
+ * so the last entry is newest.
+ */
+function lastMessageTime(
+  msgHistory: Record<string, Message[]>,
+  prefix: string,
+): number {
+  const msgs = msgHistory[directConvoId(prefix)];
+  return msgs?.length ? (msgs[msgs.length - 1].timestamp ?? 0) : 0;
+}
+
+/** Compares two contacts by the selected order (newest/most-recent first). */
+function compareBySort(
+  a: Contact,
+  b: Contact,
+  sort: ContactSort,
+  msgHistory: Record<string, Message[]>,
+): number {
+  switch (sort) {
+    case 'heard':
+      return (b.lastAdvert ?? 0) - (a.lastAdvert ?? 0);
+    case 'latest':
+      return (
+        lastMessageTime(msgHistory, b.pubkeyPrefix) -
+        lastMessageTime(msgHistory, a.pubkeyPrefix)
+      );
+    case 'az':
+    default:
+      return a.name.localeCompare(b.name);
+  }
+}
+
 /**
  * Left navigation: a Channels section over a Contacts section, split by a
  * draggable divider. Auto-sizes the channels section to fit (until the user
- * drags it), sorts contacts favorites-first, and exposes add/settings/manage
- * affordances. Selecting an item opens that conversation.
+ * drags it), lets contacts be filtered and ordered, and exposes
+ * add/settings/manage affordances. Selecting an item opens that conversation.
  */
 export function Sidebar() {
   const { t } = useTranslation();
@@ -52,6 +177,9 @@ export function Sidebar() {
     setAddChannelOpen,
   } = useMeshStore();
   const [channelsHeight, setChannelsHeight] = useState(160);
+  const [contactFilter, setContactFilter] = useState<ContactFilter>('all');
+  const [contactSort, setContactSort] = useState<ContactSort>('az');
+  const [pinFavorites, setPinFavorites] = useState(true);
   const dragStartY = useRef<number | null>(null);
   const dragStartH = useRef(160);
   const userResized = useRef(false);
@@ -89,12 +217,18 @@ export function Sidebar() {
       ),
     );
   }, [sortedChannels.length, measureChannelsFitHeight]);
-  const sortedContacts = Object.values(contacts).sort((a, b) => {
-    const aFav = a.flags & FAVORITE_FLAG ? 0 : 1;
-    const bFav = b.flags & FAVORITE_FLAG ? 0 : 1;
-    if (aFav !== bFav) return aFav - bFav;
-    return a.name.localeCompare(b.name);
-  });
+  const sortedContacts = Object.values(contacts)
+    .filter((c) => matchesFilter(c, contactFilter))
+    .sort((a, b) => {
+      // When pinning, favorites float above non-favorites but are still
+      // ordered among themselves by the selected order below.
+      if (pinFavorites) {
+        const aFav = (a.flags & FAVORITE_FLAG) !== 0;
+        const bFav = (b.flags & FAVORITE_FLAG) !== 0;
+        if (aFav !== bFav) return aFav ? -1 : 1;
+      }
+      return compareBySort(a, b, contactSort, msgHistory);
+    });
 
   const onDividerMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -207,6 +341,14 @@ export function Sidebar() {
             {t('sidebar.contacts')}
           </span>
           <div className='flex items-center gap-2'>
+            <ContactsFilterMenu
+              filter={contactFilter}
+              sort={contactSort}
+              pinFavorites={pinFavorites}
+              onFilterChange={setContactFilter}
+              onSortChange={setContactSort}
+              onPinFavoritesChange={setPinFavorites}
+            />
             <button
               onClick={() => setAutoAddOpen(true)}
               title={t('sidebar.autoAddSettings')}
@@ -260,6 +402,189 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Funnel glyph for the contacts filter button, sized to sit alongside the
+ * sibling emoji affordances and inheriting the current text color.
+ */
+function FunnelIcon() {
+  return (
+    <svg
+      viewBox='0 0 16 16'
+      className='h-3.5 w-3.5'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='1.6'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      aria-hidden='true'
+    >
+      <path d='M2 3h12l-4.5 5.5V13L6.5 11V8.5L2 3Z' />
+    </svg>
+  );
+}
+
+/**
+ * Filter-and-order popover for the contacts list. Lets the user narrow the
+ * list to a contact category and choose the sort order. State lives in the
+ * parent {@link Sidebar}; this component only renders the trigger and menu.
+ *
+ * @param onFilterChange - selects which contact subset is shown.
+ * @param onSortChange - selects the contact ordering.
+ */
+function ContactsFilterMenu({
+  filter,
+  sort,
+  pinFavorites,
+  onFilterChange,
+  onSortChange,
+  onPinFavoritesChange,
+}: {
+  filter: ContactFilter;
+  sort: ContactSort;
+  pinFavorites: boolean;
+  onFilterChange: (f: ContactFilter) => void;
+  onSortChange: (s: ContactSort) => void;
+  onPinFavoritesChange: (v: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  // Highlight the trigger whenever a non-default filter is narrowing the list.
+  const filtering = filter !== 'all';
+
+  return (
+    <div ref={rootRef} className='relative flex items-center'>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title={t('sidebar.filterContacts')}
+        aria-label={t('sidebar.filterContacts')}
+        aria-haspopup='menu'
+        aria-expanded={open}
+        className={`hover:text-(--accent) ${filtering ? 'text-(--accent)' : 'text-(--text2)'}`}
+      >
+        <FunnelIcon />
+      </button>
+      {open && (
+        <div
+          role='menu'
+          className='absolute top-full right-0 z-10 mt-1.5 w-44 rounded-[10px] border py-1.5 text-xs shadow-lg'
+          style={{
+            background: 'var(--surface2)',
+            borderColor: 'var(--border)',
+          }}
+        >
+          <MenuHeading label={t('sidebar.filterHeading')} />
+          {FILTER_OPTIONS.map((opt) => (
+            <MenuRow
+              key={opt}
+              label={filterLabel(t, opt)}
+              selected={filter === opt}
+              onClick={() => onFilterChange(opt)}
+            />
+          ))}
+          <div
+            className='my-1 border-t'
+            style={{ borderColor: 'var(--border)' }}
+          />
+          <MenuHeading label={t('sidebar.orderHeading')} />
+          <MenuToggle
+            label={t('sidebar.pinFavorites')}
+            checked={pinFavorites}
+            onClick={() => onPinFavoritesChange(!pinFavorites)}
+          />
+          {SORT_OPTIONS.map((opt) => (
+            <MenuRow
+              key={opt}
+              label={sortLabel(t, opt)}
+              selected={sort === opt}
+              onClick={() => onSortChange(opt)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A labeled sliding toggle switch row inside the contacts filter menu. */
+function MenuToggle({
+  label,
+  checked,
+  onClick,
+}: {
+  label: string;
+  checked: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      role='switch'
+      aria-checked={checked}
+      onClick={onClick}
+      className='flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-(--text) transition-colors hover:bg-(--surface)'
+    >
+      <span className='truncate'>{label}</span>
+      <span
+        className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+        style={{ background: checked ? 'var(--accent)' : 'var(--border)' }}
+      >
+        <span
+          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
+            checked ? 'left-3.5' : 'left-0.5'
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
+/** Section label inside the contacts filter menu. */
+function MenuHeading({ label }: { label: string }) {
+  return (
+    <div className='px-3 py-1 text-[10px] font-semibold tracking-widest text-(--text2) uppercase'>
+      {label}
+    </div>
+  );
+}
+
+/**
+ * One selectable option inside the contacts filter menu. The selected row is
+ * accented and marked with a check.
+ */
+function MenuRow({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      role='menuitemradio'
+      aria-checked={selected}
+      onClick={onClick}
+      className={`flex w-full items-center justify-between px-3 py-1.5 text-left transition-colors hover:bg-(--surface) ${
+        selected ? 'text-(--accent)' : 'text-(--text)'
+      }`}
+    >
+      <span className='truncate'>{label}</span>
+      {selected && <span className='shrink-0'>✓</span>}
+    </button>
   );
 }
 
