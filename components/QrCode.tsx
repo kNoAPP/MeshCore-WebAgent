@@ -40,12 +40,15 @@ export function QrCode({
       width: size,
       margin: 1,
       color: { dark: '#000000', light: '#ffffff' },
+    }).catch(() => {
+      // QR generation failing (e.g. unsupported canvas) is non-fatal; the
+      // public key text below remains available as a fallback.
     });
   }, [value, size]);
 
   return (
     <div className='rounded-lg bg-white p-3'>
-      <canvas ref={ref} width={size} height={size} />
+      <canvas ref={ref} width={size} height={size} aria-hidden='true' />
     </div>
   );
 }

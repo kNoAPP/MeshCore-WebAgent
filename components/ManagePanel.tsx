@@ -50,6 +50,15 @@ import type { Contact, Channel } from '@/types/meshcore';
  * inline. Renders nothing when no item is selected.
  */
 export function ManagePanel() {
+  const managePanel = useMeshStore((s) => s.managePanel);
+  if (!managePanel) return null;
+  // Remount the panel whenever the selection changes — including when the open
+  // item is evicted from the store and replaced — so the sub-view flags
+  // (`confirming`/`sharing`) reset instead of leaking into the next item.
+  return <ManagePanelView key={`${managePanel.kind}:${managePanel.id}`} />;
+}
+
+function ManagePanelView() {
   const { t } = useTranslation();
   const { managePanel, setManagePanel, contacts, channels, autoAddConfig } =
     useMeshStore();
@@ -63,18 +72,6 @@ export function ManagePanel() {
   const [confirming, setConfirming] = useState(false);
   // `sharing` selects the contact share sub-page in place of the detail view.
   const [sharing, setSharing] = useState(false);
-
-  // Reset the sub-views whenever the selection changes, including when the open
-  // item is evicted from the store and replaced — that path returns null below
-  // without going through `close()`, so the flags would otherwise leak into the
-  // next item opened.
-  const selectionKey = managePanel && `${managePanel.kind}:${managePanel.id}`;
-  const [prevKey, setPrevKey] = useState(selectionKey);
-  if (selectionKey !== prevKey) {
-    setPrevKey(selectionKey);
-    setConfirming(false);
-    setSharing(false);
-  }
 
   if (!managePanel) return null;
   const close = () => {
