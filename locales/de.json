@@ -24,6 +24,12 @@
   "theme": {
     "toggle": "Helles/dunkles Design umschalten"
   },
+  "desktopOnly": {
+    "title": "Desktop erforderlich",
+    "body": "MeshCore Companion verbindet sich über USB-Seriell und Bluetooth mit deinem Funkgerät – Browser-Funktionen, die auf Smartphones und Tablets nicht verfügbar sind. Bitte öffne diese Seite auf einem Desktop- oder Laptop-Computer.",
+    "appCta": "Auf einem Smartphone oder Tablet?",
+    "appButton": "Hol dir die offizielle MeshCore-App"
+  },
   "connect": {
     "title": "Mit MeshCore verbinden",
     "subtitle": "Verbinde dich per USB, Bluetooth oder WiFi mit deinem Companion-Funkgerät.",

@@ -9,6 +9,7 @@ import { Moon, Sun } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { fmtVoltage } from '@/lib/utils';
+import { Wordmark } from './Wordmark';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 import type { SupportedLocale } from '@/lib/i18n/config';
 import { DEFAULT_THEME } from '@/lib/theme/config';
@@ -59,7 +60,7 @@ export function Header() {
       />
 
       <h1 className='text-base font-bold tracking-tight'>
-        Mesh<span className='text-(--accent)'>Core</span> Companion
+        <Wordmark />
       </h1>
 
       <span className='text-xs text-(--text2)'>

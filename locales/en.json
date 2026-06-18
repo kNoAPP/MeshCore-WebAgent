@@ -24,6 +24,12 @@
   "theme": {
     "toggle": "Toggle light/dark theme"
   },
+  "desktopOnly": {
+    "title": "Desktop required",
+    "body": "MeshCore Companion connects to your radio over USB Serial and Bluetooth — browser features that aren't available on phones or tablets. Please open this site on a desktop or laptop computer.",
+    "appCta": "On a phone or tablet?",
+    "appButton": "Get the official MeshCore app"
+  },
   "connect": {
     "title": "Connect to MeshCore",
     "subtitle": "Connect via USB, Bluetooth, or WiFi to your Companion Radio.",
