@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.2.0...v1.3.0) (2026-06-18)
+
+
+### Features
+
+* add filter/ordering options to contacts sidebar ([#39](https://github.com/kNoAPP/MeshCore-WebAgent/issues/39)) ([b186598](https://github.com/kNoAPP/MeshCore-WebAgent/commit/b18659862339f0c30169ecdbe1a1ca4c363bcd7a))
+* disable mobile viewports ([#44](https://github.com/kNoAPP/MeshCore-WebAgent/issues/44)) ([55a36c2](https://github.com/kNoAPP/MeshCore-WebAgent/commit/55a36c21e615a0aba753e6a99972806b0eb65a2c))
+
+
+### Bug Fixes
+
+* jump to latest message when switching chats ([#41](https://github.com/kNoAPP/MeshCore-WebAgent/issues/41)) ([eacc5b3](https://github.com/kNoAPP/MeshCore-WebAgent/commit/eacc5b33eb61b704fbb073d38e9e549d9f2fe052))
+
 ## [1.2.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.1.1...v1.2.0) (2026-06-17)
 
 
