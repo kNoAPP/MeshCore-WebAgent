@@ -40,7 +40,6 @@ const getServerSupport = () => null;
 export function ConnectPanel() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('usb');
-  const [baud, setBaud] = useState(115200);
   const [wifiUrl, setWifiUrl] = useState('ws://192.168.1.100:5000');
   const [busy, setBusy] = useState(false);
   // null during the prerender — the static export has no `navigator`
@@ -123,20 +122,9 @@ export function ConnectPanel() {
             ) : (
               <WarningBox>{t('connect.usb.unsupported')}</WarningBox>
             )}
-            <label className='flex flex-col gap-1'>
-              <span className='text-xs text-(--text2)'>
-                {t('connect.baudRate')}
-              </span>
-              <input
-                type='number'
-                value={baud}
-                onChange={(e) => setBaud(Number(e.target.value))}
-                className='input-field'
-              />
-            </label>
             <PrimaryButton
               disabled={busy || !usbSupported}
-              onClick={() => run(() => connectUSB(baud))}
+              onClick={() => run(() => connectUSB())}
             >
               {busy ? t('connect.connecting') : t('connect.connectUsb')}
             </PrimaryButton>

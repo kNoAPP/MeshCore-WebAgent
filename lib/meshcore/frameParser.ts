@@ -9,15 +9,16 @@ type FrameCallback = (frame: Uint8Array) => void;
 type State = 'idle' | 'lenLow' | 'lenHigh' | 'data';
 
 /**
- * Reassembles the USB/WiFi inbound framing — `0x3C` + uint16 LE length +
- * payload — from an arbitrarily chunked byte stream, emitting one
- * {@link FrameCallback} per complete frame.
+ * Reassembles the USB/WiFi inbound (radio→host) framing — `0x3E` (`>`) + uint16
+ * LE length + payload — from an arbitrarily chunked byte stream, emitting one
+ * {@link FrameCallback} per complete frame. The radio tags its replies with
+ * `0x3E`; host→radio frames use `0x3C` instead (see {@link encodeUSBFrame}).
  *
  * @remarks
  * Stateful: bytes arrive in transport-sized chunks that may split or merge
  * frames, so it walks a small state machine across `feed` calls. Frames with a
  * zero or `> 512` length are treated as desync and dropped (resyncs on the next
- * `0x3C`). BLE does not use this — each GATT notification is already one frame.
+ * `0x3E`). BLE does not use this — each GATT notification is already one frame.
  */
 export class USBFrameParser {
   /**
@@ -43,7 +44,7 @@ export class USBFrameParser {
     for (const b of bytes) {
       switch (this.state) {
         case 'idle':
-          if (b === 0x3c) this.state = 'lenLow';
+          if (b === 0x3e) this.state = 'lenLow';
           break;
         case 'lenLow':
           this.lenLow = b;

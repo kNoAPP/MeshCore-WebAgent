@@ -525,21 +525,18 @@ export function useMeshCore() {
   );
 
   /** Prompts for a USB serial port and connects. */
-  const connectUSB = useCallback(
-    async (baud: number) => {
-      try {
-        const transport = await createUSBTransport(baud);
-        setReconnectSource(transport);
-        await connect(transport);
-      } catch (err) {
-        showToast(
-          i18n.t('toast.usbError', { error: (err as Error).message }),
-          'error',
-        );
-      }
-    },
-    [connect, showToast],
-  );
+  const connectUSB = useCallback(async () => {
+    try {
+      const transport = await createUSBTransport();
+      setReconnectSource(transport);
+      await connect(transport);
+    } catch (err) {
+      showToast(
+        i18n.t('toast.usbError', { error: (err as Error).message }),
+        'error',
+      );
+    }
+  }, [connect, showToast]);
 
   /** Prompts for a BLE companion and connects. */
   const connectBLE = useCallback(async () => {

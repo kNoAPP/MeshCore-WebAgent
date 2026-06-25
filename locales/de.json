@@ -39,7 +39,6 @@
       "ble": "📡 BLE",
       "wifi": "🌐 WiFi"
     },
-    "baudRate": "Baudrate",
     "websocketUrl": "WebSocket-URL",
     "connecting": "Verbinde…",
     "scanning": "Suche…",

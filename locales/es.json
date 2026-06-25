@@ -39,7 +39,6 @@
       "ble": "📡 BLE",
       "wifi": "🌐 WiFi"
     },
-    "baudRate": "Velocidad en baudios",
     "websocketUrl": "URL de WebSocket",
     "connecting": "Conectando…",
     "scanning": "Escaneando…",

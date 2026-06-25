@@ -43,6 +43,11 @@ abstract class BaseTransport {
 
 // ─── USB Serial ──────────────────────────────────────────────────────────────
 
+// Web Serial requires a baud rate, but MeshCore companions enumerate as native
+// USB where the rate is ignored. We always open at the conventional 115200
+// rather than exposing a setting that can't affect anything.
+const USB_BAUD_RATE = 115200;
+
 /**
  * Web Serial transport. Reads run in a background loop that feeds a
  * {@link USBFrameParser}; writes are length-framed via {@link encodeUSBFrame}.
@@ -250,8 +255,9 @@ export class BLETransport extends BaseTransport implements ITransport {
 // ─── WiFi / WebSocket ────────────────────────────────────────────────────────
 
 /**
- * WebSocket transport. Uses the same `0x3C`/length framing as USB (parsed by
- * {@link USBFrameParser}) over a binary WebSocket to the radio's WiFi bridge.
+ * WebSocket transport. Uses the same length framing as USB (`0x3C` host→radio,
+ * `0x3E` radio→host, parsed by {@link USBFrameParser}) over a binary WebSocket
+ * to the radio's WiFi bridge.
  */
 export class WiFiTransport extends BaseTransport implements ITransport {
   private ws: WebSocket | null = null;
@@ -314,14 +320,13 @@ export class WiFiTransport extends BaseTransport implements ITransport {
 /**
  * Prompts the user to pick a serial port and returns an opened transport.
  *
- * @param baud - serial baud rate.
  * @remarks Must be called from a user gesture (Web Serial permission
- * requirement).
+ * requirement). Opens at {@link USB_BAUD_RATE} — native USB ignores the rate.
  */
-export async function createUSBTransport(baud: number): Promise<USBTransport> {
+export async function createUSBTransport(): Promise<USBTransport> {
   const port = await navigator.serial.requestPort();
   const t = new USBTransport(port);
-  await t.open(baud);
+  await t.open(USB_BAUD_RATE);
   return t;
 }
 

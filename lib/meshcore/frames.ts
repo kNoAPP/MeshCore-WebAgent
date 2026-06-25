@@ -11,12 +11,15 @@ import type { Contact } from '@/types/meshcore';
 const enc = new TextEncoder();
 
 /**
- * Wraps a command payload in the USB/WiFi outbound frame: `0x3E` + uint16 LE
- * length + payload. BLE has no such delimiter and sends the payload directly.
+ * Wraps a command payload in the USB/WiFi outbound (host→radio) frame: `0x3C`
+ * (`<`) + uint16 LE length + payload, matching the firmware's serial receiver
+ * (`ArduinoSerialInterface::checkRecvFrame`, which keys on `<`). The radio's
+ * replies use `0x3E` (`>`) instead — see {@link USBFrameParser}. BLE has no
+ * such delimiter and sends the payload directly.
  */
 export function encodeUSBFrame(payload: Uint8Array): Uint8Array {
   const frame = new Uint8Array(3 + payload.length);
-  frame[0] = 0x3e;
+  frame[0] = 0x3c;
   frame[1] = payload.length & 0xff;
   frame[2] = (payload.length >> 8) & 0xff;
   frame.set(payload, 3);
