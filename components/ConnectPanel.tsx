@@ -5,44 +5,15 @@
 
 import { useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useMeshStore } from '@/store/meshStore';
-import type { SyncProgress } from '@/types/meshcore';
+import { SyncDialog } from './SyncDialog';
 
 type Tab = 'usb' | 'ble' | 'wifi';
 
 interface TransportSupport {
   usb: boolean;
   ble: boolean;
-}
-
-const SYNC_STAGES: SyncProgress['stage'][] = [
-  'device',
-  'contacts',
-  'channels',
-  'messages',
-];
-
-const SYNC_STAGE_KEY = {
-  device: 'sync.device',
-  contacts: 'sync.contacts',
-  channels: 'sync.channels',
-  messages: 'sync.messages',
-} as const satisfies Record<SyncProgress['stage'], string>;
-
-/**
- * Builds the parenthetical detail after a sync stage label (e.g. ` (3 of 8)`).
- */
-function syncDetail(
-  t: TFunction,
-  { stage, current, total }: SyncProgress,
-): string {
-  if (stage === 'messages')
-    return current ? ` (${t('sync.received', { count: current })})` : '';
-  if (current != null && total != null)
-    return ` (${t('sync.progress', { current, total })})`;
-  return '';
 }
 
 // Snapshot must be cached — useSyncExternalStore compares by reference
@@ -69,7 +40,6 @@ const getServerSupport = () => null;
 export function ConnectPanel() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('usb');
-  const [baud, setBaud] = useState(115200);
   const [wifiUrl, setWifiUrl] = useState('ws://192.168.1.100:5000');
   const [busy, setBusy] = useState(false);
   // null during the prerender — the static export has no `navigator`
@@ -96,61 +66,17 @@ export function ConnectPanel() {
   };
 
   if (status === 'connecting' && syncProgress) {
-    const { stage, percent } = syncProgress;
-    const stageIdx = SYNC_STAGES.indexOf(stage);
     return (
       <div className='flex flex-1 items-center justify-center'>
-        <div
-          className='w-105 max-w-[95vw] rounded-[10px] border p-8'
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-        >
-          <h2 className='mb-1 text-xl font-bold'>{t('connect.sync.title')}</h2>
-          <p className='mb-5 text-sm text-(--text2)'>
-            {deviceName
+        <SyncDialog
+          title={t('connect.sync.title')}
+          subtitle={
+            deviceName
               ? t('connect.sync.loadingFrom', { device: deviceName })
-              : t('connect.sync.loadingGeneric')}
-          </p>
-          <div className='mb-1.5 flex items-baseline justify-between gap-3'>
-            <span className='text-sm'>
-              {t(SYNC_STAGE_KEY[stage])}
-              {syncDetail(t, syncProgress)}…
-            </span>
-            <span className='text-xs text-(--text2)'>{percent}%</span>
-          </div>
-          <div
-            className='h-2 w-full overflow-hidden rounded-full'
-            style={{ background: 'var(--border)' }}
-          >
-            <div
-              className='h-full rounded-full bg-(--accent) transition-[width] duration-300'
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-          <ul className='mt-4 flex flex-col gap-1.5 text-xs'>
-            {SYNC_STAGES.map((s, i) => {
-              const done = i < stageIdx || percent === 100;
-              const active = i === stageIdx && percent < 100;
-              return (
-                <li
-                  key={s}
-                  className='flex items-center gap-2'
-                  style={{
-                    color: done
-                      ? 'var(--green)'
-                      : active
-                        ? 'var(--text)'
-                        : 'var(--text2)',
-                  }}
-                >
-                  <span className='w-3 text-center'>
-                    {done ? '✓' : active ? '●' : '○'}
-                  </span>
-                  {t(SYNC_STAGE_KEY[s])}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+              : t('connect.sync.loadingGeneric')
+          }
+          progress={syncProgress}
+        />
       </div>
     );
   }
@@ -196,20 +122,9 @@ export function ConnectPanel() {
             ) : (
               <WarningBox>{t('connect.usb.unsupported')}</WarningBox>
             )}
-            <label className='flex flex-col gap-1'>
-              <span className='text-xs text-(--text2)'>
-                {t('connect.baudRate')}
-              </span>
-              <input
-                type='number'
-                value={baud}
-                onChange={(e) => setBaud(Number(e.target.value))}
-                className='input-field'
-              />
-            </label>
             <PrimaryButton
               disabled={busy || !usbSupported}
-              onClick={() => run(() => connectUSB(baud))}
+              onClick={() => run(() => connectUSB())}
             >
               {busy ? t('connect.connecting') : t('connect.connectUsb')}
             </PrimaryButton>

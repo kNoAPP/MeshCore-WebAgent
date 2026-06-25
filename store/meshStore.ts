@@ -188,6 +188,7 @@ interface MeshActions {
   setDiscoverOpen: (open: boolean) => void;
   setAutoAddOpen: (open: boolean) => void;
   setAddChannelOpen: (open: boolean) => void;
+  closeConnectionOverlays: () => void;
   reset: () => void;
 }
 
@@ -315,14 +316,37 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         ...Object.keys(state.msgHistory),
       ]);
       for (const id of allKeys) {
-        const old = (persisted[id] ?? []).map((m) => ({
-          ...m,
-          id: m.id ?? crypto.randomUUID(),
-          // A send still in flight when the session ended can never confirm
-          status: m.status === 'sending' ? ('failed' as const) : m.status,
-          _unread: false,
-        }));
-        merged[id] = [...old, ...(state.msgHistory[id] ?? [])];
+        const current = state.msgHistory[id] ?? [];
+        // A single id set drives both jobs. Claim current's ids first so the
+        // live copy stays authoritative: a reconnect flushes the live history
+        // and then restores that same data back onto the still-in-memory list,
+        // and any id already present in `current` keeps the live copy.
+        // Deduping `current` first also heals duplicate ids an older build may
+        // have persisted within one list (first occurrence wins).
+        const seen = new Set<string>();
+        const keptCurrent = current.filter((m) => {
+          if (m.id !== undefined && seen.has(m.id)) return false;
+          if (m.id !== undefined) seen.add(m.id);
+          return true;
+        });
+        // Persisted messages, normalized: assign ids predating the field,
+        // downgrade a never-confirmed in-flight send, clear unread. Drop any id
+        // already claimed by `current` (or duplicated within the persisted
+        // list) so the persisted copy never collides with the live one.
+        const old = (persisted[id] ?? [])
+          .map((m) => ({
+            ...m,
+            id: m.id ?? crypto.randomUUID(),
+            status: m.status === 'sending' ? ('failed' as const) : m.status,
+            _unread: false,
+          }))
+          .filter((m) => {
+            if (seen.has(m.id)) return false;
+            seen.add(m.id);
+            return true;
+          });
+        // Old → new order: persisted history first, live messages after.
+        merged[id] = [...old, ...keptCurrent];
       }
       return { msgHistory: merged };
     }),
@@ -353,6 +377,17 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setDiscoverOpen: (discoverOpen) => set({ discoverOpen }),
   setAutoAddOpen: (autoAddOpen) => set({ autoAddOpen }),
   setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
+  // Closes every connection-scoped overlay/panel at once. Called when the link
+  // drops so a panel left open doesn't silently reappear once reconnect
+  // remounts the connected UI.
+  closeConnectionOverlays: () =>
+    set({
+      statsOpen: false,
+      managePanel: null,
+      discoverOpen: false,
+      autoAddOpen: false,
+      addChannelOpen: false,
+    }),
 
   reset: () =>
     set({
@@ -375,6 +410,15 @@ export function unreadCount(
   id: string,
 ): number {
   return (msgHistory[id] ?? []).filter((m) => m._unread).length;
+}
+
+/**
+ * Whether a session is active — a live link or one being auto-restored — and so
+ * the chat UI / device row stays mounted instead of the connect screen. Shared
+ * so the header and shell can't disagree about what counts as active.
+ */
+export function isActiveStatus(status: ConnectionStatus): boolean {
+  return status === 'connected' || status === 'reconnecting';
 }
 
 /** Opens a conversation and marks it read in one step. */

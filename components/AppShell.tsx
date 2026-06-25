@@ -3,13 +3,14 @@
 
 'use client';
 
-import { useMeshStore } from '@/store/meshStore';
+import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { DesktopOnly } from './DesktopOnly';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { ConnectPanel } from './ConnectPanel';
 import { ChatArea } from './ChatArea';
+import { ReconnectingOverlay } from './ReconnectingOverlay';
 import { StatsModal } from './StatsModal';
 import { ManagePanel } from './ManagePanel';
 import { DiscoverPanel } from './DiscoverPanel';
@@ -26,6 +27,10 @@ export function AppShell() {
   const isDesktop = useIsDesktop();
   const status = useMeshStore((s) => s.status);
   const connected = status === 'connected';
+  const reconnecting = status === 'reconnecting';
+  // A dropped link keeps the app mounted (chats stay visible) under a blocking
+  // reconnect overlay, rather than dumping the user back to the connect screen.
+  const active = isActiveStatus(status);
 
   // `null` until device detection runs on the client (the static export has no
   // navigator). Render a bare background so neither the app nor the
@@ -37,14 +42,20 @@ export function AppShell() {
     <div className='flex h-full flex-col'>
       {' '}
       <Header />
-      <div className='flex flex-1 overflow-hidden'>
+      <div className='relative flex flex-1 overflow-hidden'>
         {' '}
-        {connected && <Sidebar />}
-        {connected ? <ChatArea /> : <ConnectPanel />}{' '}
+        {/* `inert` makes the reconnect overlay truly modal: it not only captures
+            clicks but also blocks the keyboard focus/typing that would
+            otherwise reach the still-mounted composer underneath it. */}
+        <div className='flex flex-1 overflow-hidden' inert={reconnecting}>
+          {active && <Sidebar />}
+          {active ? <ChatArea /> : <ConnectPanel />}
+        </div>{' '}
+        {reconnecting && <ReconnectingOverlay />}
       </div>{' '}
-      <StatsModal />
       {connected && (
         <>
+          <StatsModal />
           <ManagePanel />
           <DiscoverPanel />
           <AutoAddSettings />

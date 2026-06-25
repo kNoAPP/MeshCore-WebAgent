@@ -201,7 +201,11 @@ export interface ActiveConvo {
 }
 
 /** Connection lifecycle state. */
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
+export type ConnectionStatus =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting';
 
 /** Progress of the initial connect sync, for the loading UI. */
 export interface SyncProgress {
@@ -226,9 +230,24 @@ export interface ITransport {
   send(payload: Uint8Array): Promise<void>;
   /**
    * Begins delivering inbound frames to `onFrame`; may be called again to swap
-   * the sink.
+   * the sink. May be async (BLE awaits its notification subscription) — callers
+   * should await it before sending so the first reply can't be missed.
    */
-  startReading(onFrame: (d: Uint8Array) => void): void;
+  startReading(onFrame: (d: Uint8Array) => void): void | Promise<void>;
+  /**
+   * Registers a listener fired when the underlying link drops unexpectedly
+   * (BLE out of range, USB unplug, WiFi socket close) — but not on a
+   * caller-initiated {@link close}. Guarantees at most one invocation per open
+   * session; the latest registration wins.
+   */
+  onClose(cb: () => void): void;
+  /**
+   * Re-opens the same underlying link after a drop, without a new user gesture
+   * (the granted port/device/URL stays valid for the page session). Re-arms
+   * drop detection; the caller must call {@link startReading} again to resume
+   * delivery. Drives auto-reconnect alongside {@link onClose}.
+   */
+  reopen(): Promise<void>;
   /** Closes the underlying connection and releases resources. */
   close(): Promise<void>;
 }

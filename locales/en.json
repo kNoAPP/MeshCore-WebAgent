@@ -16,6 +16,7 @@
   "header": {
     "connecting": "Connecting…",
     "connected": "Connected",
+    "reconnecting": "Reconnecting…",
     "disconnected": "Disconnected",
     "stats": "📊 Stats",
     "disconnect": "Disconnect",
@@ -38,7 +39,6 @@
       "ble": "📡 BLE",
       "wifi": "🌐 WiFi"
     },
-    "baudRate": "Baud Rate",
     "websocketUrl": "WebSocket URL",
     "connecting": "Connecting…",
     "scanning": "Scanning…",
@@ -62,6 +62,14 @@
       "title": "Syncing with radio",
       "loadingFrom": "Loading stored data from {{device}}.",
       "loadingGeneric": "Loading stored data from your companion radio."
+    },
+    "reconnecting": {
+      "title": "Reconnecting…",
+      "bodyFrom": "Lost the connection to {{device}}. Trying to restore it automatically — your chats will reappear as soon as it's back.",
+      "bodyGeneric": "Lost the connection to your companion radio. Trying to restore it automatically — your chats will reappear as soon as it's back.",
+      "hint": "A rebooting radio can take a moment to come back.",
+      "resyncFrom": "Reconnected to {{device}} — restoring your contacts and messages.",
+      "resyncGeneric": "Reconnected — restoring your contacts and messages."
     }
   },
   "sync": {
@@ -271,7 +279,11 @@
     "newMessageIn": "New message in {{channel}}",
     "newMessageFrom": "New message from {{sender}}",
     "connected": "Connected — {{device}}",
-    "connectionFailed": "Connection failed: {{error}}",
+    "connectionFailed": "Connection failed",
+    "radioNoResponse": "Radio did not respond — try reconnecting",
+    "connectionLost": "Connection lost — reconnecting…",
+    "reconnected": "Reconnected to {{device}}",
+    "reconnectFailed": "Could not reconnect to {{device}}",
     "usbError": "USB error: {{error}}",
     "bleError": "BLE error: {{error}}",
     "wifiError": "WiFi error: {{error}}",

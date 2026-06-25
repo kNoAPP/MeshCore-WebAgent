@@ -17,6 +17,7 @@ import type {
   RawRxPacket,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
+import { MeshConnectError } from './errors';
 import {
   RESP,
   FAVORITE_FLAG,
@@ -104,6 +105,12 @@ export interface MeshCoreCallbacks {
   onLogRx?: (pkt: RawRxPacket) => void;
   /** Progress updates during the initial connect sync. */
   onSyncProgress?: (progress: SyncProgress) => void;
+  /**
+   * The transport link dropped unexpectedly (not a caller-initiated
+   * disconnect). Fired after the client stops its own timers; the hook uses it
+   * to surface the `reconnecting` state and drive auto-reconnect.
+   */
+  onDisconnect?: () => void;
 }
 
 /**
@@ -136,6 +143,7 @@ export class MeshCoreClient {
   private contactsTotal = 0;
   private contactsSeen = 0;
   private initialSync = false;
+  private _closed = false;
 
   constructor(
     private transport: ITransport,
@@ -150,23 +158,64 @@ export class MeshCoreClient {
    * radio still finishes connecting.
    */
   async init(): Promise<void> {
-    this.transport.startReading((d) => this.handleFrame(d));
+    // Register the close handler before starting the read loop: a transport
+    // that drops immediately could otherwise fire close before the listener is
+    // installed, leaving the client stuck mid-sync.
+    this.transport.onClose(() => this.handleClose());
+    // Await in case the transport's read setup is async (BLE subscribes to GATT
+    // notifications) so the handshake below can't be sent before inbound frames
+    // can arrive.
+    await this.transport.startReading((d) => this.handleFrame(d));
     this.initialSync = true;
     this.reportSync('device', 0);
-    try {
-      await this.cmd(buildAppStart(), [RESP.SELF_INFO], 6000);
-    } catch {}
+    // The handshake commands are best-effort: a slow radio's timeout is
+    // swallowed so it still connects. The sync helpers below propagate their
+    // own errors. Either way syncStep aborts init() if the link closed under
+    // the step, so a mid-sync drop fails the connect instead of finishing
+    // partial.
+    await this.syncStep(
+      () => this.cmd(buildAppStart(), [RESP.SELF_INFO], 6000),
+      true,
+    );
+    // AppStart must yield SELF_INFO for a usable link. A radio that's powered
+    // but still rebooting can accept the transport (the USB/WiFi/GATT link
+    // reopens) yet answer nothing — without this the best-effort sync below
+    // would finish empty and we'd wrongly declare a mute link "connected",
+    // wiping the last-synced contacts. Fail instead so the connect retries.
+    if (!this.selfInfo) {
+      throw new MeshConnectError('radioNoResponse');
+    }
     this.reportSync('device', 5);
-    try {
-      await this.cmd(buildDeviceQuery(), [RESP.DEVICE_INFO], 5000);
-    } catch {}
+    await this.syncStep(
+      () => this.cmd(buildDeviceQuery(), [RESP.DEVICE_INFO], 5000),
+      true,
+    );
     this.reportSync('contacts', 10);
-    await this.syncContacts();
-    await this.syncChannels();
-    await this.pollMessages();
+    await this.syncStep(() => this.syncContacts());
+    await this.syncStep(() => this.syncChannels());
+    await this.syncStep(() => this.pollMessages());
     this.reportSync('messages', 100);
     this.initialSync = false;
     this.pollTimer = setInterval(() => this.pollMessages(), 5000);
+  }
+
+  /**
+   * Runs one initial-sync step then verifies the link survived it, so a
+   * mid-sync drop aborts {@link init} instead of letting a best-effort step
+   * finish partial — any step routed through here is close-safe by default.
+   * With `bestEffort`, the step's own error (a slow or unsupported radio) is
+   * swallowed; a transport close always aborts.
+   */
+  private async syncStep(
+    step: () => Promise<unknown>,
+    bestEffort = false,
+  ): Promise<void> {
+    try {
+      await step();
+    } catch (err) {
+      if (this._closed || !bestEffort) throw err;
+    }
+    this.throwIfClosed();
   }
 
   private reportSync(
@@ -671,13 +720,69 @@ export class MeshCoreClient {
     );
   }
 
+  /** Clears the poll and contact-resync timers. */
+  private stopTimers(): void {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+    if (this.pathSyncTimer) {
+      clearTimeout(this.pathSyncTimer);
+      this.pathSyncTimer = null;
+    }
+  }
+
+  /**
+   * Whether the link has closed — dropped unexpectedly or been torn down.
+   * {@link init} resolves even against a dead transport (steps are
+   * best-effort), so callers check this to avoid declaring a partial sync
+   * "connected".
+   */
+  get closed(): boolean {
+    return this._closed;
+  }
+
+  // Aborts the initial sync if the link closed underneath it, so a mid-sync
+  // drop fails the connect (and reconnects) instead of finishing partial.
+  private throwIfClosed(): void {
+    if (this._closed) throw new Error('Transport closed during sync');
+  }
+
+  // Rejects every in-flight command so awaiting callers (notably init's sync
+  // steps) unwind immediately instead of waiting out their own timeouts.
+  private rejectPending(err: Error): void {
+    const pending = this.handlers.splice(0);
+    for (const h of pending) {
+      clearTimeout(h.timer);
+      h.reject(err);
+    }
+  }
+
+  // Shared teardown for both an unexpected drop and a deliberate destroy: mark
+  // closed, fail in-flight commands, and unblock the contact collector.
+  private teardown(err: Error): void {
+    this._closed = true;
+    this.stopTimers();
+    this.rejectPending(err);
+    this.collectingContacts = false;
+    this.contactsResolve?.();
+  }
+
+  // Fired by the transport when the link drops unexpectedly: tear down and
+  // notify the hook. Idempotent.
+  private handleClose(): void {
+    if (this._closed) return;
+    this.teardown(new Error('Transport closed'));
+    // The link is already gone — do NOT close the transport here.
+    this.callbacks.onDisconnect?.();
+  }
+
   /**
    * Stops the poll/resync timers and closes the transport. Call once when
    * disconnecting.
    */
   destroy(): void {
-    if (this.pollTimer) clearInterval(this.pollTimer);
-    if (this.pathSyncTimer) clearTimeout(this.pathSyncTimer);
+    this.teardown(new Error('Disconnected'));
     this.transport.close();
   }
 }

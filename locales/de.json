@@ -16,6 +16,7 @@
   "header": {
     "connecting": "Verbinde…",
     "connected": "Verbunden",
+    "reconnecting": "Verbinde neu…",
     "disconnected": "Getrennt",
     "stats": "📊 Statistik",
     "disconnect": "Trennen",
@@ -38,7 +39,6 @@
       "ble": "📡 BLE",
       "wifi": "🌐 WiFi"
     },
-    "baudRate": "Baudrate",
     "websocketUrl": "WebSocket-URL",
     "connecting": "Verbinde…",
     "scanning": "Suche…",
@@ -62,6 +62,14 @@
       "title": "Synchronisiere mit Funkgerät",
       "loadingFrom": "Lade gespeicherte Daten von {{device}}.",
       "loadingGeneric": "Lade gespeicherte Daten von deinem Companion-Funkgerät."
+    },
+    "reconnecting": {
+      "title": "Verbinde neu…",
+      "bodyFrom": "Verbindung zu {{device}} verloren. Versuche automatisch, sie wiederherzustellen — deine Chats erscheinen wieder, sobald sie zurück ist.",
+      "bodyGeneric": "Verbindung zu deinem Companion-Funkgerät verloren. Versuche automatisch, sie wiederherzustellen — deine Chats erscheinen wieder, sobald sie zurück ist.",
+      "hint": "Ein neu startendes Funkgerät kann einen Moment brauchen, um zurückzukommen.",
+      "resyncFrom": "Wieder verbunden mit {{device}} — stelle deine Kontakte und Nachrichten wieder her.",
+      "resyncGeneric": "Wieder verbunden — stelle deine Kontakte und Nachrichten wieder her."
     }
   },
   "sync": {
@@ -271,7 +279,11 @@
     "newMessageIn": "Neue Nachricht in {{channel}}",
     "newMessageFrom": "Neue Nachricht von {{sender}}",
     "connected": "Verbunden — {{device}}",
-    "connectionFailed": "Verbindung fehlgeschlagen: {{error}}",
+    "connectionFailed": "Verbindung fehlgeschlagen",
+    "radioNoResponse": "Funkgerät hat nicht geantwortet — bitte erneut verbinden",
+    "connectionLost": "Verbindung verloren — verbinde neu…",
+    "reconnected": "Wieder verbunden mit {{device}}",
+    "reconnectFailed": "Verbindung zu {{device}} konnte nicht wiederhergestellt werden",
     "usbError": "USB-Fehler: {{error}}",
     "bleError": "BLE-Fehler: {{error}}",
     "wifiError": "WiFi-Fehler: {{error}}",

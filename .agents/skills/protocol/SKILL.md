@@ -30,9 +30,9 @@ Same structure both directions, but the delimiter differs:
 [delimiter] [length: 2 bytes LE] [payload: N bytes]
 ```
 
-- Inbound (radio → app): delimiter `0x3C`, parsed in
+- Inbound (radio → app): delimiter `0x3E`, parsed in
   `lib/meshcore/frameParser.ts`. Frames with length 0 or > 512 are discarded.
-- Outbound (app → radio): delimiter `0x3E`, built in `lib/meshcore/frames.ts`.
+- Outbound (app → radio): delimiter `0x3C`, built in `lib/meshcore/frames.ts`.
 
 ## Frame Format (BLE)
 
