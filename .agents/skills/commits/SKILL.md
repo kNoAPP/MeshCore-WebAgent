@@ -9,7 +9,7 @@ description: >
 license: Proprietary. See LICENSE for complete terms.
 metadata:
   author: kNoAPP
-  version: '1.1.0'
+  version: '1.2.0'
 ---
 
 # Commit Conventions
@@ -55,8 +55,15 @@ Breaking changes append `!` to the type: `feat!: drop support for v1 frames`.
 
 ## Branch Naming
 
+Per [`CONTRIBUTING.md`](../../../CONTRIBUTING.md), branches follow:
+
 ```
-<type>/<short-description>
+<handle>/<issue#>-<type>-<short-description>
 ```
 
-Examples: `feat/wifi-reconnect`, `fix/ble-mtu-negotiation`, `docs/readme-update`
+`<handle>` is your GitHub handle. When there is no linked issue, use `none` for
+`<issue#>`. Types match the commit types above (`feat`, `fix`, `docs`,
+`refactor`, `test`, `ci`, `chore`).
+
+Examples: `kNoAPP/41-feat-wifi-reconnect`, `mario/none-chore-modify-eslint`,
+`docs/readme-update`
