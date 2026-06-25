@@ -125,11 +125,29 @@ export interface SendReceipt {
   suggestedTimeoutMs: number;
 }
 
-/** This radio's own identity and config, from the `APP_START` handshake. */
+/**
+ * This radio's own identity and config, from the `APP_START` handshake.
+ *
+ * @remarks All fields past {@link SelfInfo.pubkey} are optional: they are read
+ * only when the `SELF_INFO` frame is long enough, so shorter frames from older
+ * firmware still yield a usable name + pubkey.
+ */
 export interface SelfInfo {
   name: string;
   pubkey: string;
-  manualAdd?: number; // 0 = auto-add all, 1 = selective (from APP_START offset 47)
+  advType?: number;
+  txPower?: number; // current TX power (dBm)
+  maxTxPower?: number; // max TX power the radio supports (dBm)
+  advLat?: number; // degrees (already ÷1e6)
+  advLon?: number; // degrees (already ÷1e6)
+  multiAcks?: number;
+  advLocPolicy?: number;
+  telemetryMode?: number; // raw bitfield; decode in a follow-up if needed
+  manualAdd?: number; // 0 = auto-add all, 1 = selective (SELF_INFO offset 47)
+  radioFreq?: number; // MHz
+  radioBw?: number; // kHz
+  radioSf?: number;
+  radioCr?: number;
 }
 
 /** Hardware/firmware info from `DEVICE_QUERY`. */
