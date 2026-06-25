@@ -194,6 +194,12 @@ export class BLETransport extends BaseTransport implements ITransport {
     this.onFrame = onFrame;
     if (this.started) return;
     this.started = true;
+    // Detach first in case a reopen() reused the same characteristic object —
+    // adding the same listener twice would deliver duplicate frames.
+    this.txChar!.removeEventListener(
+      'characteristicvaluechanged',
+      this.handleNotification,
+    );
     this.txChar!.addEventListener(
       'characteristicvaluechanged',
       this.handleNotification,
