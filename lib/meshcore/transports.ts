@@ -19,25 +19,40 @@ import {
 abstract class BaseTransport {
   private closeListener: (() => void) | null = null;
   private fired = false;
+  // Buffers a drop that fired before any onClose() listener was registered, so
+  // an early close can be flushed to the listener instead of being lost.
+  private pendingClose = false;
   // Set when the caller initiates teardown, so the resulting close isn't
   // mistaken for a dropped link.
   protected planned = false;
 
   onClose(cb: () => void): void {
     this.closeListener = cb;
+    // Flush a close that fired before this listener existed so an early drop
+    // (a transport dropping before init finishes wiring up) isn't missed.
+    if (this.pendingClose) {
+      this.pendingClose = false;
+      cb();
+    }
   }
 
   /** Notifies the listener of an unexpected drop, once per open session. */
   protected fireClose(): void {
     if (this.fired || this.planned) return;
     this.fired = true;
-    this.closeListener?.();
+    if (this.closeListener) {
+      this.closeListener();
+    } else {
+      // No listener yet — buffer it for the next onClose() registration.
+      this.pendingClose = true;
+    }
   }
 
   /** Re-arms drop detection for a reopened session. */
   protected armForReopen(): void {
     this.fired = false;
     this.planned = false;
+    this.pendingClose = false;
   }
 }
 
@@ -57,6 +72,9 @@ export class USBTransport extends BaseTransport implements ITransport {
   private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
   private parser: USBFrameParser | null = null;
   private started = false;
+  // Tracks the running read loop so reopen() can await its full unwind (and
+  // suppressed fireClose) before re-arming drop detection.
+  private readTask: Promise<void> | null = null;
   // Remembered from open() so reopen() can re-open at the same rate without the
   // caller having to thread the baud back through the reconnect path.
   private baud = 0;
@@ -83,7 +101,7 @@ export class USBTransport extends BaseTransport implements ITransport {
     }
     this.started = true;
     this.parser = new USBFrameParser(onFrame);
-    this.readLoop();
+    this.readTask = this.readLoop();
   }
 
   private async readLoop(): Promise<void> {
@@ -119,6 +137,13 @@ export class USBTransport extends BaseTransport implements ITransport {
     try {
       await this.reader?.cancel();
     } catch {}
+    // Wait for the previous read loop to fully unwind before clearing planned:
+    // its trailing fireClose() is suppressed while planned is set, so a late
+    // unwind can't report a spurious drop against the new session.
+    try {
+      await this.readTask;
+    } catch {}
+    this.readTask = null;
     try {
       this.writer?.releaseLock();
     } catch {}
