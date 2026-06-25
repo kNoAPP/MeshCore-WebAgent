@@ -17,6 +17,7 @@ import type {
   RawRxPacket,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
+import { MeshConnectError } from './errors';
 import {
   RESP,
   FAVORITE_FLAG,
@@ -157,8 +158,11 @@ export class MeshCoreClient {
    * radio still finishes connecting.
    */
   async init(): Promise<void> {
-    this.transport.startReading((d) => this.handleFrame(d));
+    // Register the close handler before starting the read loop: a transport
+    // that drops immediately could otherwise fire close before the listener is
+    // installed, leaving the client stuck mid-sync.
     this.transport.onClose(() => this.handleClose());
+    this.transport.startReading((d) => this.handleFrame(d));
     this.initialSync = true;
     this.reportSync('device', 0);
     try {
@@ -171,7 +175,7 @@ export class MeshCoreClient {
     // would finish empty and we'd wrongly declare a mute link "connected",
     // wiping the last-synced contacts. Fail instead so the connect retries.
     if (!this.selfInfo) {
-      throw new Error('Radio did not respond — try reconnecting');
+      throw new MeshConnectError('radioNoResponse');
     }
     this.reportSync('device', 5);
     try {

@@ -343,7 +343,15 @@ export async function createBLETransport(): Promise<BLETransport> {
     optionalServices: [BLE_SERVICE_UUID],
   });
   const t = new BLETransport(device);
-  await t.open();
+  // open() can throw (GATT connect failure); detach the constructor's
+  // gattserverdisconnected listener via close() so the abandoned transport
+  // isn't kept reachable by the device for the page session.
+  try {
+    await t.open();
+  } catch (err) {
+    await t.close();
+    throw err;
+  }
   return t;
 }
 

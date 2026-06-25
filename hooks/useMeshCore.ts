@@ -5,6 +5,7 @@
 
 import { useCallback } from 'react';
 import { MeshCoreClient } from '@/lib/meshcore/client';
+import { MeshConnectError } from '@/lib/meshcore/errors';
 import {
   createUSBTransport,
   createBLETransport,
@@ -137,6 +138,19 @@ function flushHistory(client: MeshCoreClient | null): void {
   }
 }
 
+// Maps a connect/sync failure to a localized toast message: typed errors carry
+// a code that resolves to a specific string; anything else falls back to a
+// generic localized message so a raw English error never reaches the user.
+function connectErrorMessage(err: unknown): string {
+  if (err instanceof MeshConnectError) {
+    switch (err.code) {
+      case 'radioNoResponse':
+        return i18n.t('toast.radioNoResponse');
+    }
+  }
+  return i18n.t('toast.connectionFailed');
+}
+
 function clearPendingAcks(): void {
   for (const p of pendingAcks.values()) clearTimeout(p.timer);
   pendingAcks.clear();
@@ -239,7 +253,8 @@ function scheduleReconnect(
     // Capture the name before teardownSession()'s reset() clears it. The drop
     // already flushed history (via onDisconnect) and the link's been down
     // since, so there's nothing new to persist here.
-    const device = useMeshStore.getState().deviceName;
+    const device =
+      useMeshStore.getState().deviceName ?? i18n.t('common.device');
     teardownSession();
     useMeshStore
       .getState()
@@ -502,12 +517,11 @@ export function useMeshCore() {
           beginReconnect(c, connectImpl);
           return false;
         }
-        // A genuine connect failure (bad handshake, etc.).
-        setStatus('disconnected');
-        showToast(
-          i18n.t('toast.connectionFailed', { error: (err as Error).message }),
-          'error',
-        );
+        // A genuine connect failure (bad handshake, etc.). Tear down the
+        // half-built session so the created client/transport can't leak while
+        // the UI returns to the connect screen.
+        teardownSession();
+        showToast(connectErrorMessage(err), 'error');
         return false;
       }
     },
