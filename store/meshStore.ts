@@ -315,14 +315,30 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         ...Object.keys(state.msgHistory),
       ]);
       for (const id of allKeys) {
-        const old = (persisted[id] ?? []).map((m) => ({
-          ...m,
-          id: m.id ?? crypto.randomUUID(),
-          // A send still in flight when the session ended can never confirm
-          status: m.status === 'sending' ? ('failed' as const) : m.status,
-          _unread: false,
-        }));
-        merged[id] = [...old, ...(state.msgHistory[id] ?? [])];
+        const current = state.msgHistory[id] ?? [];
+        // A reconnect flushes the live history and then runs the normal connect
+        // path, which restores that same data back onto the still-in-memory
+        // history. Skip any persisted message already present (by id) so it
+        // isn't duplicated — which would also collide React keys.
+        const currentIds = new Set(current.map((m) => m.id));
+        const old = (persisted[id] ?? [])
+          .map((m) => ({
+            ...m,
+            id: m.id ?? crypto.randomUUID(),
+            // A send still in flight when the session ended can never confirm
+            status: m.status === 'sending' ? ('failed' as const) : m.status,
+            _unread: false,
+          }))
+          .filter((m) => !currentIds.has(m.id));
+        // Drop any duplicate ids that an earlier build may have persisted, so
+        // already-corrupted storage self-heals on load instead of colliding
+        // React keys forever. First occurrence wins (old → new order).
+        const seen = new Set<string>();
+        merged[id] = [...old, ...current].filter((m) => {
+          if (m.id !== undefined && seen.has(m.id)) return false;
+          if (m.id !== undefined) seen.add(m.id);
+          return true;
+        });
       }
       return { msgHistory: merged };
     }),
@@ -375,6 +391,15 @@ export function unreadCount(
   id: string,
 ): number {
   return (msgHistory[id] ?? []).filter((m) => m._unread).length;
+}
+
+/**
+ * Whether a session is active — a live link or one being auto-restored — and so
+ * the chat UI / device row stays mounted instead of the connect screen. Shared
+ * so the header and shell can't disagree about what counts as active.
+ */
+export function isActiveStatus(status: ConnectionStatus): boolean {
+  return status === 'connected' || status === 'reconnecting';
 }
 
 /** Opens a conversation and marks it read in one step. */

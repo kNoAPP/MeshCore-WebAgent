@@ -55,6 +55,11 @@ const DEFAULT_ACK_TIMEOUT_MS = 30000;
 const ECHO_WINDOW_MS = 15000;
 const SAVE_DEBOUNCE_MS = 1000;
 
+// Auto-reconnect backoff (ms), capped at the last entry. Tuned for LoRa radios
+// that reboot slowly; we give up after MAX_RECONNECT_ATTEMPTS tries.
+const RECONNECT_BACKOFF_MS = [1000, 2000, 5000, 10000, 15000];
+const MAX_RECONNECT_ATTEMPTS = 8;
+
 // Module scope, not per-instance refs: useMeshCore is mounted by several
 // components but the client callbacks are wired once, so send-tracking state
 // must be shared across all hook instances.
@@ -68,6 +73,56 @@ let saveUnsub: (() => void) | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let storageKey: CryptoKey | null = null;
 let syntheticAckSeq = 0;
+
+// Auto-reconnect state. Reopens the last device without a new user gesture
+// (the granted handle stays valid for the page session).
+// userInitiatedDisconnect distinguishes a deliberate Disconnect from a dropped
+// link so only the latter triggers the loop.
+let lastTransportFactory: (() => Promise<ITransport>) | null = null;
+let userInitiatedDisconnect = false;
+let reconnectAttempt = 0;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearReconnect(): void {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+  reconnectAttempt = 0;
+}
+
+// Records the active transport as the source the reconnect loop reopens after a
+// drop. The granted port/device/URL stays valid for the page session, so no new
+// user gesture is needed.
+function setReconnectSource(transport: ITransport): void {
+  lastTransportFactory = async () => {
+    await transport.reopen();
+    return transport;
+  };
+}
+
+// Tears down the active session: stops the reconnect loop, releases the client
+// and its transport, clears session state, and resets the store. Shared by a
+// deliberate disconnect() and the reconnect loop's give-up path so the teardown
+// order lives in one place. Callers persist history (flushHistory) first.
+function teardownSession(): void {
+  clearReconnect();
+  lastTransportFactory = null;
+  const store = useMeshStore.getState();
+  store.client?.destroy();
+  clearSessionState();
+  store.setClient(null);
+  store.reset();
+}
+
+// Encrypts and writes the current history immediately (bypassing the debounce)
+// so a drop or disconnect can't lose the last messages.
+function flushHistory(client: MeshCoreClient | null): void {
+  const pubkey = client?.selfInfo?.pubkey;
+  if (pubkey && storageKey) {
+    saveRadioData(pubkey, storageKey, {
+      msgHistory: useMeshStore.getState().msgHistory,
+    });
+  }
+}
 
 function clearPendingAcks(): void {
   for (const p of pendingAcks.values()) clearTimeout(p.timer);
@@ -159,6 +214,47 @@ function handleAck(ackCode: number, roundTripMs: number): void {
   });
 }
 
+// Drives the reconnect loop after an unexpected drop: waits out the backoff,
+// reopens the same device, and rebuilds the client through the normal connect
+// path (so sync/hydration/persistence wiring is identical to a first connect).
+// Recurses on failure until MAX_RECONNECT_ATTEMPTS, then gives up cleanly.
+function scheduleReconnect(
+  connect: (transport: ITransport, isReconnect: boolean) => Promise<boolean>,
+): void {
+  if (!lastTransportFactory) return;
+  if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+    // Capture the name before teardownSession()'s reset() clears it. The drop
+    // already flushed history (via onDisconnect) and the link's been down
+    // since, so there's nothing new to persist here.
+    const device = useMeshStore.getState().deviceName;
+    teardownSession();
+    useMeshStore
+      .getState()
+      .showToast(i18n.t('toast.reconnectFailed', { device }), 'error');
+    return;
+  }
+  const delay =
+    RECONNECT_BACKOFF_MS[
+      Math.min(reconnectAttempt, RECONNECT_BACKOFF_MS.length - 1)
+    ];
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
+    reconnectAttempt++;
+    if (userInitiatedDisconnect) return;
+    let ok = false;
+    try {
+      const transport = await lastTransportFactory!();
+      // Reopening can take seconds (GATT/serial); re-check intent in case the
+      // user hit Disconnect while we were awaiting it.
+      if (userInitiatedDisconnect) return;
+      ok = await connect(transport, true);
+    } catch {
+      ok = false;
+    }
+    if (!ok && !userInitiatedDisconnect) scheduleReconnect(connect);
+  }, delay);
+}
+
 /**
  * The bridge between {@link MeshCoreClient} and the Zustand store.
  *
@@ -187,7 +283,6 @@ export function useMeshCore() {
     updateMessage,
     restoreHistory,
     showToast,
-    reset,
   } = useMeshStore();
 
   // Installs the client callbacks that funnel radio events into the store and
@@ -243,27 +338,64 @@ export function useMeshCore() {
   // Shared connect path for all transports: build + wire the client, run the
   // initial sync, hydrate settings/history, then subscribe history to be saved.
   const connect = useCallback(
-    async (transport: ITransport) => {
-      setStatus('connecting');
+    async function connectImpl(
+      transport: ITransport,
+      isReconnect = false,
+    ): Promise<boolean> {
+      // A deliberate Disconnect during the backoff/reopen window sets the
+      // intent flag; bail before touching the UI so a late reconnect attempt
+      // can't resurrect the session the user just tore down.
+      if (isReconnect && userInitiatedDisconnect) return false;
+      setStatus(isReconnect ? 'reconnecting' : 'connecting');
+      // A fresh connect starts a clean session — reset intent and drop any
+      // reconnect loop still pending from a previous session.
+      if (!isReconnect) {
+        userInitiatedDisconnect = false;
+        clearReconnect();
+      }
       clearSessionState();
+      const c = new MeshCoreClient(transport);
+      // True while this session is still worth finishing: the link is up and
+      // the user hasn't asked to disconnect. A drop or Disconnect during any of
+      // the post-connect awaits makes it false, so the steps below bail
+      // instead of wiring persistence or toasting against a torn-down session.
+      const sessionAlive = () => !c.closed && !userInitiatedDisconnect;
       try {
-        const c = new MeshCoreClient(transport);
         wireClient(c);
+        // A drop only triggers the reconnect loop once we're fully connected; a
+        // drop mid-sync (status still 'connecting'/'reconnecting') is handled
+        // by this connect's own success/failure path instead. The
+        // user-initiated flag suppresses the loop on a deliberate Disconnect.
+        c.callbacks.onDisconnect = () => {
+          if (
+            userInitiatedDisconnect ||
+            useMeshStore.getState().status !== 'connected'
+          ) {
+            return;
+          }
+          flushHistory(c);
+          setStatus('reconnecting');
+          showToast(i18n.t('toast.connectionLost'));
+          scheduleReconnect(connectImpl);
+        };
         setClient(c);
         await c.init();
+        // init() resolves even on a dead transport (its steps are
+        // best-effort), so a drop or a user Disconnect during the sync would
+        // otherwise flip us to 'connected' with only partial contacts and
+        // messages. Bail here instead; the catch routes a drop into the
+        // reconnect loop for a full re-sync.
+        if (!sessionAlive()) {
+          throw new Error('Closed during sync');
+        }
         setSyncProgress(null);
         setStatus('connected');
+        clearReconnect();
         const deviceName =
           c.selfInfo?.name ?? c.deviceInfo?.model ?? i18n.t('common.device');
         setDeviceName(deviceName);
         const batt = await c.getBattery();
         if (batt) setBattery(batt);
-        showToast(
-          i18n.t('toast.connected', {
-            device: deviceName,
-          }),
-          'success',
-        );
 
         // Hydrate auto-add settings FROM the radio so the app reflects the
         // device's persisted state (shared with any other companion client)
@@ -281,8 +413,11 @@ export function useMeshCore() {
           });
         }
 
+        // Skip history wiring if the link dropped or the user disconnected
+        // during the post-sync hydrate, so we don't leave a save subscription
+        // bound to a torn-down session.
         const pubkey = c.selfInfo?.pubkey;
-        if (pubkey) {
+        if (pubkey && sessionAlive()) {
           const secrets = Object.values(c.channels)
             .map((ch) => ch.secret)
             .filter((s): s is Uint8Array => s != null && s.length > 0);
@@ -305,13 +440,43 @@ export function useMeshCore() {
             }, SAVE_DEBOUNCE_MS);
           });
         }
+
+        // Announce success only after the hydrate survived: a drop during it
+        // already flipped us back to 'reconnecting' (with its own "connection
+        // lost" toast), so a stale "connected" toast here would just confuse.
+        if (sessionAlive()) {
+          showToast(
+            i18n.t(isReconnect ? 'toast.reconnected' : 'toast.connected', {
+              device: deviceName,
+            }),
+            'success',
+          );
+        }
+        return true;
       } catch (err) {
         setSyncProgress(null);
+        // A failed reconnect attempt: stay on 'reconnecting' and let the loop
+        // reschedule or give up with its own messaging.
+        if (isReconnect) return false;
+        // User cancelled mid-sync — disconnect() already reset the UI; stay
+        // quiet so this in-flight connect doesn't undo it.
+        if (userInitiatedDisconnect) return false;
+        // The link dropped mid-sync. If the same device can be reopened,
+        // recover it via the reconnect loop (a full re-sync) rather than
+        // dead-ending at the connect screen with partial data.
+        if (c.closed && lastTransportFactory) {
+          setStatus('reconnecting');
+          showToast(i18n.t('toast.connectionLost'));
+          scheduleReconnect(connectImpl);
+          return false;
+        }
+        // A genuine connect failure (bad handshake, etc.).
         setStatus('disconnected');
         showToast(
           i18n.t('toast.connectionFailed', { error: (err as Error).message }),
           'error',
         );
+        return false;
       }
     },
     [
@@ -332,6 +497,7 @@ export function useMeshCore() {
     async (baud: number) => {
       try {
         const transport = await createUSBTransport(baud);
+        setReconnectSource(transport);
         await connect(transport);
       } catch (err) {
         showToast(
@@ -347,6 +513,7 @@ export function useMeshCore() {
   const connectBLE = useCallback(async () => {
     try {
       const transport = await createBLETransport();
+      setReconnectSource(transport);
       await connect(transport);
     } catch (err) {
       showToast(
@@ -361,6 +528,7 @@ export function useMeshCore() {
     async (url: string) => {
       try {
         const transport = await createWiFiTransport(url);
+        setReconnectSource(transport);
         await connect(transport);
       } catch (err) {
         showToast(
@@ -377,18 +545,13 @@ export function useMeshCore() {
    * store.
    */
   const disconnect = useCallback(() => {
-    const pubkey = client?.selfInfo?.pubkey;
-    if (pubkey && storageKey) {
-      saveRadioData(pubkey, storageKey, {
-        msgHistory: useMeshStore.getState().msgHistory,
-      });
-    }
-    clearSessionState();
-    client?.destroy();
-    setClient(null);
-    reset();
+    // Mark intent first so an in-flight or pending reconnect can't bounce the
+    // session back up; also cancels a drop's GATT/close event from looping.
+    userInitiatedDisconnect = true;
+    flushHistory(client);
+    teardownSession();
     showToast(i18n.t('toast.disconnected'));
-  }, [client, setClient, reset, showToast]);
+  }, [client, showToast]);
 
   // Core send routine for an existing message bubble: transmits to a channel or
   // contact, then tracks delivery — opens a repeater-echo window for channels,
@@ -471,7 +634,16 @@ export function useMeshCore() {
    */
   const sendMessage = useCallback(
     async (text: string, activeConvo: ActiveConvo | null) => {
-      if (!client || !activeConvo || !text.trim()) return;
+      // Defense in depth behind the reconnect overlay's `inert`: never transmit
+      // (or add an optimistic bubble) into a link that isn't fully connected.
+      if (
+        !client ||
+        useMeshStore.getState().status !== 'connected' ||
+        !activeConvo ||
+        !text.trim()
+      ) {
+        return;
+      }
       const trimmed = text.trim();
       const msgId = crypto.randomUUID();
       addMessage(activeConvo.id, {
@@ -495,7 +667,15 @@ export function useMeshCore() {
    */
   const retryMessage = useCallback(
     async (msg: Message, convo: ActiveConvo | null, resetRoute = false) => {
-      if (!client || !convo || !msg.id || msg.status !== 'failed') return;
+      if (
+        !client ||
+        useMeshStore.getState().status !== 'connected' ||
+        !convo ||
+        !msg.id ||
+        msg.status !== 'failed'
+      ) {
+        return;
+      }
       await transmit(
         convo,
         msg.id,

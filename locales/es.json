@@ -16,6 +16,7 @@
   "header": {
     "connecting": "Conectando…",
     "connected": "Conectado",
+    "reconnecting": "Reconectando…",
     "disconnected": "Desconectado",
     "stats": "📊 Estadísticas",
     "disconnect": "Desconectar",
@@ -62,6 +63,14 @@
       "title": "Sincronizando con la radio",
       "loadingFrom": "Cargando datos almacenados de {{device}}.",
       "loadingGeneric": "Cargando datos almacenados de tu radio companion."
+    },
+    "reconnecting": {
+      "title": "Reconectando…",
+      "bodyFrom": "Se perdió la conexión con {{device}}. Intentando restaurarla automáticamente — tus chats reaparecerán en cuanto vuelva.",
+      "bodyGeneric": "Se perdió la conexión con tu radio companion. Intentando restaurarla automáticamente — tus chats reaparecerán en cuanto vuelva.",
+      "hint": "Una radio que se está reiniciando puede tardar un momento en volver.",
+      "resyncFrom": "Reconectado a {{device}} — restaurando tus contactos y mensajes.",
+      "resyncGeneric": "Reconectado — restaurando tus contactos y mensajes."
     }
   },
   "sync": {
@@ -272,6 +281,9 @@
     "newMessageFrom": "Nuevo mensaje de {{sender}}",
     "connected": "Conectado — {{device}}",
     "connectionFailed": "Conexión fallida: {{error}}",
+    "connectionLost": "Conexión perdida — reconectando…",
+    "reconnected": "Reconectado a {{device}}",
+    "reconnectFailed": "No se pudo reconectar a {{device}}",
     "usbError": "Error de USB: {{error}}",
     "bleError": "Error de BLE: {{error}}",
     "wifiError": "Error de WiFi: {{error}}",

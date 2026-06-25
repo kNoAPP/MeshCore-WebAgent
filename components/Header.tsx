@@ -6,7 +6,7 @@
 import { useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Moon, Sun } from 'lucide-react';
-import { useMeshStore } from '@/store/meshStore';
+import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { fmtVoltage } from '@/lib/utils';
 import { Wordmark } from './Wordmark';
@@ -32,6 +32,10 @@ export function Header() {
   } = useMeshStore();
   const { disconnect } = useMeshCore();
   const connected = status === 'connected';
+  const reconnecting = status === 'reconnecting';
+  // Both states show the device row (name + Disconnect); reconnecting just dims
+  // the link-dependent controls.
+  const active = isActiveStatus(status);
 
   // The real theme resolves from localStorage/OS only in the browser, so the
   // static export is built with DEFAULT_THEME. Render that same default until
@@ -55,7 +59,9 @@ export function Header() {
         className={`h-2 w-2 shrink-0 rounded-full ${
           connected
             ? 'bg-(--green) shadow-[0_0_6px_var(--green)]'
-            : 'bg-(--red) shadow-[0_0_6px_var(--red)]'
+            : reconnecting
+              ? 'bg-(--amber) shadow-[0_0_6px_var(--amber)]'
+              : 'bg-(--red) shadow-[0_0_6px_var(--red)]'
         }`}
       />
 
@@ -68,15 +74,17 @@ export function Header() {
           ? t('header.connecting')
           : status === 'connected'
             ? t('header.connected')
-            : t('header.disconnected')}
+            : status === 'reconnecting'
+              ? t('header.reconnecting')
+              : t('header.disconnected')}
       </span>
 
-      {connected && (
+      {active && (
         <>
           <span className='ml-auto text-sm font-semibold text-(--accent)'>
             {deviceName}
           </span>
-          {battery && (
+          {connected && battery && (
             <span className='text-xs text-(--text2)'>
               {fmtVoltage(battery.voltage)} 💾 {battery.usedKB}/
               {battery.totalKB}KB
@@ -84,7 +92,8 @@ export function Header() {
           )}
           <button
             onClick={() => setStatsOpen(true)}
-            className='rounded-md border border-(--border) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent)'
+            disabled={reconnecting}
+            className='rounded-md border border-(--border) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-(--border) disabled:hover:text-(--text2)'
           >
             {t('header.stats')}
           </button>
@@ -97,7 +106,7 @@ export function Header() {
         </>
       )}
 
-      {!connected && (
+      {!active && (
         <select
           value={locale}
           onChange={(e) => setLocale(e.target.value as SupportedLocale)}
@@ -117,7 +126,7 @@ export function Header() {
         aria-label={t('theme.toggle')}
         title={t('theme.toggle')}
         className={`flex items-center justify-center rounded-md border border-(--border) p-1.5 text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) ${
-          connected ? '' : 'ml-2'
+          active ? '' : 'ml-2'
         }`}
       >
         {displayTheme === 'dark' ? (
