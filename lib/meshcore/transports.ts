@@ -283,11 +283,14 @@ export class WiFiTransport extends BaseTransport implements ITransport {
   async reopen(): Promise<void> {
     // A reopen can follow a non-drop failure (a rebooting radio that accepted
     // the socket but never answered the handshake), where the prior socket is
-    // still open. Detach its close handler and close it before opening a new
-    // one — otherwise the abandoned socket leaks for the page session and its
-    // onclose can later fire a spurious drop against the next session.
+    // still open. Detach its handlers and close it before opening a new one —
+    // otherwise the abandoned socket leaks for the page session, its onclose
+    // can later fire a spurious drop against the next session, and a late frame
+    // on its onmessage would feed the new session's parser (onmessage closes
+    // over the instance `this.parser`, which the next startReading() replaces).
     if (this.ws) {
       this.ws.onclose = null;
+      this.ws.onmessage = null;
       this.ws.close();
     }
     this.armForReopen();

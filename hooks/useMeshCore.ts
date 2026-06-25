@@ -102,8 +102,12 @@ function setReconnectSource(transport: ITransport): void {
 // Tears down the active session: stops the reconnect loop, releases the client
 // and its transport, clears session state, and resets the store. Shared by a
 // deliberate disconnect() and the reconnect loop's give-up path so the teardown
-// order lives in one place. Callers persist history (flushHistory) first.
-function teardownSession(): void {
+// order lives in one place. `flush` persists the last messages first (a
+// deliberate disconnect); the give-up path skips it — the drop already flushed
+// and the link's been down since. Folding the flush in keeps it from being a
+// step every caller has to remember.
+function teardownSession(flush = false): void {
+  if (flush) flushHistory(useMeshStore.getState().client);
   clearReconnect();
   lastTransportFactory = null;
   const store = useMeshStore.getState();
@@ -111,6 +115,15 @@ function teardownSession(): void {
   clearSessionState();
   store.setClient(null);
   store.reset();
+}
+
+// The single source of truth for "can the link carry a transmit right now": a
+// live client AND a fully connected session (not connecting/reconnecting behind
+// the overlay). transmit() enforces it so no send path can bypass it; the
+// optimistic-bubble caller (sendMessage) also checks it up front so a blocked
+// send never leaves an orphan 'sending' bubble.
+function canTransmit(client: MeshCoreClient | null): client is MeshCoreClient {
+  return !!client && useMeshStore.getState().status === 'connected';
 }
 
 // Encrypts and writes the current history immediately (bypassing the debounce)
@@ -255,6 +268,22 @@ function scheduleReconnect(
   }, delay);
 }
 
+// Shared drop-recovery: persist the last messages, flip the UI into the
+// reconnecting state, warn the user, and start the backoff loop. Used by both a
+// post-connect drop (the client's onDisconnect) and a mid-sync drop (connect's
+// catch) so the two paths can't drift. flushHistory is a no-op before the sync
+// wired storageKey, so the mid-sync caller pays nothing for it.
+function beginReconnect(
+  client: MeshCoreClient,
+  connect: (transport: ITransport, isReconnect: boolean) => Promise<boolean>,
+): void {
+  flushHistory(client);
+  const store = useMeshStore.getState();
+  store.setStatus('reconnecting');
+  store.showToast(i18n.t('toast.connectionLost'));
+  scheduleReconnect(connect);
+}
+
 /**
  * The bridge between {@link MeshCoreClient} and the Zustand store.
  *
@@ -286,9 +315,17 @@ export function useMeshCore() {
   } = useMeshStore();
 
   // Installs the client callbacks that funnel radio events into the store and
-  // route incoming messages to the right conversation with a toast.
+  // route incoming messages to the right conversation with a toast. `connect`
+  // is threaded in so onDisconnect lives in this single assignment — keeping it
+  // out (a later mutation) would let any re-wire silently wipe auto-reconnect.
   const wireClient = useCallback(
-    (c: MeshCoreClient) => {
+    (
+      c: MeshCoreClient,
+      connect: (
+        transport: ITransport,
+        isReconnect: boolean,
+      ) => Promise<boolean>,
+    ) => {
       c.callbacks = {
         onSelfInfo: (info) => setDeviceName(info.name),
         onDeviceInfo: () => {},
@@ -320,6 +357,19 @@ export function useMeshCore() {
               }),
             );
           }
+        },
+        // A drop only triggers the reconnect loop once we're fully connected; a
+        // drop mid-sync (status still 'connecting'/'reconnecting') is handled
+        // by connect's own success/failure path instead. The user-initiated
+        // flag suppresses the loop on a deliberate Disconnect.
+        onDisconnect: () => {
+          if (
+            userInitiatedDisconnect ||
+            useMeshStore.getState().status !== 'connected'
+          ) {
+            return;
+          }
+          beginReconnect(c, connect);
         },
       };
     },
@@ -361,23 +411,7 @@ export function useMeshCore() {
       // instead of wiring persistence or toasting against a torn-down session.
       const sessionAlive = () => !c.closed && !userInitiatedDisconnect;
       try {
-        wireClient(c);
-        // A drop only triggers the reconnect loop once we're fully connected; a
-        // drop mid-sync (status still 'connecting'/'reconnecting') is handled
-        // by this connect's own success/failure path instead. The
-        // user-initiated flag suppresses the loop on a deliberate Disconnect.
-        c.callbacks.onDisconnect = () => {
-          if (
-            userInitiatedDisconnect ||
-            useMeshStore.getState().status !== 'connected'
-          ) {
-            return;
-          }
-          flushHistory(c);
-          setStatus('reconnecting');
-          showToast(i18n.t('toast.connectionLost'));
-          scheduleReconnect(connectImpl);
-        };
+        wireClient(c, connectImpl);
         setClient(c);
         await c.init();
         // init() resolves even on a dead transport (its steps are
@@ -465,9 +499,7 @@ export function useMeshCore() {
         // recover it via the reconnect loop (a full re-sync) rather than
         // dead-ending at the connect screen with partial data.
         if (c.closed && lastTransportFactory) {
-          setStatus('reconnecting');
-          showToast(i18n.t('toast.connectionLost'));
-          scheduleReconnect(connectImpl);
+          beginReconnect(c, connectImpl);
           return false;
         }
         // A genuine connect failure (bad handshake, etc.).
@@ -548,10 +580,9 @@ export function useMeshCore() {
     // Mark intent first so an in-flight or pending reconnect can't bounce the
     // session back up; also cancels a drop's GATT/close event from looping.
     userInitiatedDisconnect = true;
-    flushHistory(client);
-    teardownSession();
+    teardownSession(true);
     showToast(i18n.t('toast.disconnected'));
-  }, [client, showToast]);
+  }, [showToast]);
 
   // Core send routine for an existing message bubble: transmits to a channel or
   // contact, then tracks delivery — opens a repeater-echo window for channels,
@@ -565,7 +596,10 @@ export function useMeshCore() {
       attempt: number,
       resetRoute = false,
     ) => {
-      if (!client) return;
+      // The single gate every send funnels through: never transmit into a link
+      // that isn't fully connected (defense in depth behind the overlay's
+      // `inert`).
+      if (!canTransmit(client)) return;
       updateMessage(convo.id, msgId, { status: 'sending', attempt });
       try {
         if (convo.kind === 'channel') {
@@ -634,16 +668,9 @@ export function useMeshCore() {
    */
   const sendMessage = useCallback(
     async (text: string, activeConvo: ActiveConvo | null) => {
-      // Defense in depth behind the reconnect overlay's `inert`: never transmit
-      // (or add an optimistic bubble) into a link that isn't fully connected.
-      if (
-        !client ||
-        useMeshStore.getState().status !== 'connected' ||
-        !activeConvo ||
-        !text.trim()
-      ) {
-        return;
-      }
+      // Check before the optimistic bubble so a blocked send leaves no orphan
+      // 'sending' message; transmit() re-checks too as the authoritative gate.
+      if (!canTransmit(client) || !activeConvo || !text.trim()) return;
       const trimmed = text.trim();
       const msgId = crypto.randomUUID();
       addMessage(activeConvo.id, {
@@ -668,8 +695,7 @@ export function useMeshCore() {
   const retryMessage = useCallback(
     async (msg: Message, convo: ActiveConvo | null, resetRoute = false) => {
       if (
-        !client ||
-        useMeshStore.getState().status !== 'connected' ||
+        !canTransmit(client) ||
         !convo ||
         !msg.id ||
         msg.status !== 'failed'

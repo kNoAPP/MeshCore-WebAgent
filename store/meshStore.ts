@@ -316,10 +316,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       ]);
       for (const id of allKeys) {
         const current = state.msgHistory[id] ?? [];
-        // A reconnect flushes the live history and then runs the normal connect
-        // path, which restores that same data back onto the still-in-memory
-        // history. Skip any persisted message already present (by id) so it
-        // isn't duplicated — which would also collide React keys.
+        // Pass 1 — priority overlap-removal (current wins): a reconnect flushes
+        // the live history and then runs the normal connect path, which
+        // restores that same data back onto the still-in-memory history. Drop
+        // the persisted copy of any message already present so `old` carries
+        // only messages NOT in `current`, leaving the live copy authoritative.
         const currentIds = new Set(current.map((m) => m.id));
         const old = (persisted[id] ?? [])
           .map((m) => ({
@@ -330,9 +331,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
             _unread: false,
           }))
           .filter((m) => !currentIds.has(m.id));
-        // Drop any duplicate ids that an earlier build may have persisted, so
-        // already-corrupted storage self-heals on load instead of colliding
-        // React keys forever. First occurrence wins (old → new order).
+        // Pass 2 — internal corruption-healing (distinct from pass 1): drop any
+        // duplicate ids that an earlier build may have persisted WITHIN a
+        // single list, so already-corrupted storage self-heals on load instead
+        // of colliding React keys forever. First occurrence wins
+        // (old → new order).
         const seen = new Set<string>();
         merged[id] = [...old, ...current].filter((m) => {
           if (m.id !== undefined && seen.has(m.id)) return false;
