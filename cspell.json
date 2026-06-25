@@ -15,7 +15,7 @@
     "public",
     "locales",
     "AUTHORS",
-    "tasks"
+    "docs"
   ],
   "words": [
     "acked",
@@ -29,6 +29,7 @@
     "autoadd",
     "AUTOADD",
     "autoclose",
+    "bitfield",
     "BLE",
     "characteristicvaluechanged",
     "correlator",

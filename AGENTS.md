@@ -69,3 +69,6 @@ before working in that area:
 - Do not import from `node:` built-ins — this runs in the browser.
 - Do not add error handling for scenarios that can't happen in the browser
   environment.
+- Do not add backwards-compatibility shims, data migrations, or legacy fallbacks
+  for code you are changing — always prefer a clean codebase over preserving an
+  older broken version.

@@ -56,23 +56,59 @@ function decodeMsgPathLen(b: number): number | undefined {
 }
 
 /**
- * Parses the `SELF_INFO` handshake reply: this radio's name, public key, and
- * auto-add mode.
+ * Parses the `SELF_INFO` handshake reply (`RESP_CODE_SELF_INFO`, `0x05`): this
+ * radio's identity (public key, name), advertised location, and radio
+ * parameters.
  *
  * @remarks
- * `manual_add_contacts` sits at offset 47 (after the pubkey, GPS lat/lon,
- * `multi_acks`, `advert_loc_policy`, and telemetry modes); it is absent on
- * older firmware frames, hence the optional {@link SelfInfo.manualAdd}.
+ * Wire layout, confirmed against the firmware
+ * (`examples/companion_radio/MyMesh.cpp`, the `RESP_CODE_SELF_INFO` reply to
+ * `CMD_APP_START`). Byte 0 is the response code:
+ *
+ * | Offset | Field                              |
+ * | ------ | ---------------------------------- |
+ * | 1      | adv_type                           |
+ * | 2      | tx_power (int8 dBm)                |
+ * | 3      | max_tx_power (int8 dBm)            |
+ * | 4–35   | public_key (32 bytes)              |
+ * | 36–39  | adv_lat (int32 LE, ÷1e6)           |
+ * | 40–43  | adv_lon (int32 LE, ÷1e6)           |
+ * | 44     | multi_acks                         |
+ * | 45     | adv_loc_policy                     |
+ * | 46     | telemetry_mode (bitfield)          |
+ * | 47     | manual_add_contacts                |
+ * | 48–51  | radio_freq (uint32 LE, ÷1000 → MHz)|
+ * | 52–55  | radio_bw (uint32 LE, ÷1000 → kHz)  |
+ * | 56     | radio_sf                           |
+ * | 57     | radio_cr                           |
+ * | 58+    | name (UTF-8, no null terminator)   |
+ *
+ * Every field past the pubkey is read only when the frame covers it, so
+ * shorter frames from older firmware still yield a usable name + pubkey.
  */
 export function parseSelfInfo(d: Uint8Array): SelfInfo {
   try {
-    const pubkey = d.length >= 33 ? hexBytes(d, 1, 33) : '';
+    const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
     const name =
       d.length > 58 ? dec.decode(d.slice(58)).replace(/\0.*$/, '') : '';
-    // manual_add_contacts sits at offset 47 (after pubkey, lat/lon, multi_acks,
-    // advert_loc_policy, telemetry modes); absent on older firmware frames
-    const manualAdd = d.length >= 48 ? d[47] : undefined;
-    return { name: name || 'MeshCore Device', pubkey, manualAdd };
+    const info: SelfInfo = {
+      name: name || 'MeshCore Device',
+      pubkey: d.length >= 36 ? hexBytes(d, 4, 36) : '',
+    };
+    if (d.length >= 2) info.advType = d[1];
+    if (d.length >= 3) info.txPower = v.getInt8(2);
+    if (d.length >= 4) info.maxTxPower = v.getInt8(3);
+    if (d.length >= 40) info.advLat = v.getInt32(36, true) / 1e6;
+    if (d.length >= 44) info.advLon = v.getInt32(40, true) / 1e6;
+    if (d.length >= 45) info.multiAcks = d[44];
+    if (d.length >= 46) info.advLocPolicy = d[45];
+    if (d.length >= 47) info.telemetryMode = d[46];
+    if (d.length >= 48) info.manualAdd = d[47];
+    if (d.length >= 52) info.radioFreq = v.getUint32(48, true) / 1000;
+    if (d.length >= 56) info.radioBw = v.getUint32(52, true) / 1000;
+    if (d.length >= 57) info.radioSf = d[56];
+    if (d.length >= 58) info.radioCr = d[57];
+    return info;
   } catch {
     return { name: 'MeshCore Device', pubkey: '' };
   }
