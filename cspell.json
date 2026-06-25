@@ -14,7 +14,8 @@
     "*.tsbuildinfo",
     "public",
     "locales",
-    "AUTHORS"
+    "AUTHORS",
+    "tasks"
   ],
   "words": [
     "acked",
@@ -24,6 +25,7 @@
     "amannn",
     "appshell",
     "AppShell",
+    "armable",
     "autoadd",
     "AUTOADD",
     "autoclose",
