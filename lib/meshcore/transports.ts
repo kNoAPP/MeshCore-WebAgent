@@ -75,18 +75,14 @@ export class USBTransport extends BaseTransport implements ITransport {
   // Tracks the running read loop so reopen() can await its full unwind (and
   // suppressed fireClose) before re-arming drop detection.
   private readTask: Promise<void> | null = null;
-  // Remembered from open() so reopen() can re-open at the same rate without the
-  // caller having to thread the baud back through the reconnect path.
-  private baud = 0;
 
   constructor(private port: SerialPort) {
     super();
   }
 
-  /** Opens the serial port at the given baud rate and acquires the writer. */
-  async open(baud: number): Promise<void> {
-    this.baud = baud;
-    await this.port.open({ baudRate: baud });
+  /** Opens the serial port at {@link USB_BAUD_RATE} and acquires the writer. */
+  async open(): Promise<void> {
+    await this.port.open({ baudRate: USB_BAUD_RATE });
     this.writer = this.port.writable!.getWriter();
   }
 
@@ -155,7 +151,7 @@ export class USBTransport extends BaseTransport implements ITransport {
     this.parser = null;
     this.started = false;
     this.armForReopen();
-    await this.open(this.baud);
+    await this.open();
   }
 
   async close(): Promise<void> {
@@ -250,8 +246,22 @@ export class BLETransport extends BaseTransport implements ITransport {
    */
   async reopen(): Promise<void> {
     this.started = false;
-    this.armForReopen();
+    // Detach the old notification listener before reconnecting: open() can hand
+    // back a fresh characteristic object, which would leave the previous one
+    // bound and leaking stale frames into the new session.
+    this.txChar?.removeEventListener(
+      'characteristicvaluechanged',
+      this.handleNotification,
+    );
+    // Re-arm only AFTER the GATT handshake settles, not before. The
+    // device-level gattserverdisconnected listener stays attached across
+    // reopen, so a transient disconnect during connect() would otherwise flip
+    // `fired` for the freshly reopened session and permanently suppress its own
+    // drop detection. Leaving the prior session's `fired` set during open()
+    // swallows that in-handshake event; a real failure rejects open() and
+    // drives the retry.
     await this.open();
+    this.armForReopen();
   }
 
   async close(): Promise<void> {
@@ -351,7 +361,7 @@ export class WiFiTransport extends BaseTransport implements ITransport {
 export async function createUSBTransport(): Promise<USBTransport> {
   const port = await navigator.serial.requestPort();
   const t = new USBTransport(port);
-  await t.open(USB_BAUD_RATE);
+  await t.open();
   return t;
 }
 

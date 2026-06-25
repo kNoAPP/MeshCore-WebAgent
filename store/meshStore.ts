@@ -316,32 +316,36 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       ]);
       for (const id of allKeys) {
         const current = state.msgHistory[id] ?? [];
-        // Pass 1 — priority overlap-removal (current wins): a reconnect flushes
-        // the live history and then runs the normal connect path, which
-        // restores that same data back onto the still-in-memory history. Drop
-        // the persisted copy of any message already present so `old` carries
-        // only messages NOT in `current`, leaving the live copy authoritative.
-        const currentIds = new Set(current.map((m) => m.id));
-        const old = (persisted[id] ?? [])
-          .map((m) => ({
-            ...m,
-            id: m.id ?? crypto.randomUUID(),
-            // A send still in flight when the session ended can never confirm
-            status: m.status === 'sending' ? ('failed' as const) : m.status,
-            _unread: false,
-          }))
-          .filter((m) => !currentIds.has(m.id));
-        // Pass 2 — internal corruption-healing (distinct from pass 1): drop any
-        // duplicate ids that an earlier build may have persisted WITHIN a
-        // single list, so already-corrupted storage self-heals on load instead
-        // of colliding React keys forever. First occurrence wins
-        // (old → new order).
+        // A single id set drives both jobs. Claim current's ids first so the
+        // live copy stays authoritative: a reconnect flushes the live history
+        // and then restores that same data back onto the still-in-memory list,
+        // and any id already present in `current` keeps the live copy.
+        // Deduping `current` first also heals duplicate ids an older build may
+        // have persisted within one list (first occurrence wins).
         const seen = new Set<string>();
-        merged[id] = [...old, ...current].filter((m) => {
+        const keptCurrent = current.filter((m) => {
           if (m.id !== undefined && seen.has(m.id)) return false;
           if (m.id !== undefined) seen.add(m.id);
           return true;
         });
+        // Persisted messages, normalized: assign ids predating the field,
+        // downgrade a never-confirmed in-flight send, clear unread. Drop any id
+        // already claimed by `current` (or duplicated within the persisted
+        // list) so the persisted copy never collides with the live one.
+        const old = (persisted[id] ?? [])
+          .map((m) => ({
+            ...m,
+            id: m.id ?? crypto.randomUUID(),
+            status: m.status === 'sending' ? ('failed' as const) : m.status,
+            _unread: false,
+          }))
+          .filter((m) => {
+            if (seen.has(m.id)) return false;
+            seen.add(m.id);
+            return true;
+          });
+        // Old → new order: persisted history first, live messages after.
+        merged[id] = [...old, ...keptCurrent];
       }
       return { msgHistory: merged };
     }),

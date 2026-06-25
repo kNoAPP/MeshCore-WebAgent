@@ -165,10 +165,15 @@ export class MeshCoreClient {
     this.transport.startReading((d) => this.handleFrame(d));
     this.initialSync = true;
     this.reportSync('device', 0);
-    try {
-      await this.cmd(buildAppStart(), [RESP.SELF_INFO], 6000);
-    } catch {}
-    this.throwIfClosed();
+    // The handshake commands are best-effort: a slow radio's timeout is
+    // swallowed so it still connects. The sync helpers below propagate their
+    // own errors. Either way syncStep aborts init() if the link closed under
+    // the step, so a mid-sync drop fails the connect instead of finishing
+    // partial.
+    await this.syncStep(
+      () => this.cmd(buildAppStart(), [RESP.SELF_INFO], 6000),
+      true,
+    );
     // AppStart must yield SELF_INFO for a usable link. A radio that's powered
     // but still rebooting can accept the transport (the USB/WiFi/GATT link
     // reopens) yet answer nothing — without this the best-effort sync below
@@ -178,20 +183,36 @@ export class MeshCoreClient {
       throw new MeshConnectError('radioNoResponse');
     }
     this.reportSync('device', 5);
-    try {
-      await this.cmd(buildDeviceQuery(), [RESP.DEVICE_INFO], 5000);
-    } catch {}
-    this.throwIfClosed();
+    await this.syncStep(
+      () => this.cmd(buildDeviceQuery(), [RESP.DEVICE_INFO], 5000),
+      true,
+    );
     this.reportSync('contacts', 10);
-    await this.syncContacts();
-    this.throwIfClosed();
-    await this.syncChannels();
-    this.throwIfClosed();
-    await this.pollMessages();
-    this.throwIfClosed();
+    await this.syncStep(() => this.syncContacts());
+    await this.syncStep(() => this.syncChannels());
+    await this.syncStep(() => this.pollMessages());
     this.reportSync('messages', 100);
     this.initialSync = false;
     this.pollTimer = setInterval(() => this.pollMessages(), 5000);
+  }
+
+  /**
+   * Runs one initial-sync step then verifies the link survived it, so a
+   * mid-sync drop aborts {@link init} instead of letting a best-effort step
+   * finish partial — any step routed through here is close-safe by default.
+   * With `bestEffort`, the step's own error (a slow or unsupported radio) is
+   * swallowed; a transport close always aborts.
+   */
+  private async syncStep(
+    step: () => Promise<unknown>,
+    bestEffort = false,
+  ): Promise<void> {
+    try {
+      await step();
+    } catch (err) {
+      if (this._closed || !bestEffort) throw err;
+    }
+    this.throwIfClosed();
   }
 
   private reportSync(

@@ -60,6 +60,10 @@ const SAVE_DEBOUNCE_MS = 1000;
 // that reboot slowly; we give up after MAX_RECONNECT_ATTEMPTS tries.
 const RECONNECT_BACKOFF_MS = [1000, 2000, 5000, 10000, 15000];
 const MAX_RECONNECT_ATTEMPTS = 8;
+// Upper bound on a single reopen+resync attempt. A transport reopen that hangs
+// (e.g. a serial read loop that never unwinds) must not stall the backoff loop
+// forever behind the reconnecting overlay — time it out so the loop can retry.
+const RECONNECT_ATTEMPT_TIMEOUT_MS = 20000;
 
 // Module scope, not per-instance refs: useMeshCore is mounted by several
 // components but the client callbacks are wired once, so send-tracking state
@@ -88,6 +92,25 @@ function clearReconnect(): void {
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectTimer = null;
   reconnectAttempt = 0;
+}
+
+// Rejects if `p` doesn't settle within `ms`. The underlying promise is left to
+// dangle — the caller has already moved on — so this only bounds the wait, not
+// the work.
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timed out')), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
 }
 
 // Records the active transport as the source the reconnect loop reopens after a
@@ -119,12 +142,18 @@ function teardownSession(flush = false): void {
 }
 
 // The single source of truth for "can the link carry a transmit right now": a
-// live client AND a fully connected session (not connecting/reconnecting behind
-// the overlay). transmit() enforces it so no send path can bypass it; the
-// optimistic-bubble caller (sendMessage) also checks it up front so a blocked
-// send never leaves an orphan 'sending' bubble.
+// live client whose transport is still open AND a fully connected session (not
+// connecting/reconnecting behind the overlay). `!client.closed` is the
+// transport-level guard: status flips to 'connected' before the post-init
+// hydrate awaits finish, so a drop in that window leaves status 'connected' for
+// an instant while the transport is already dead — `closed` catches it.
+// transmit() enforces this so no send path can bypass it; the optimistic-bubble
+// caller (sendMessage) also checks it up front so a blocked send never leaves
+// an orphan 'sending' bubble.
 function canTransmit(client: MeshCoreClient | null): client is MeshCoreClient {
-  return !!client && useMeshStore.getState().status === 'connected';
+  return (
+    !!client && !client.closed && useMeshStore.getState().status === 'connected'
+  );
 }
 
 // Encrypts and writes the current history immediately (bypassing the debounce)
@@ -271,7 +300,13 @@ function scheduleReconnect(
     if (userInitiatedDisconnect) return;
     let ok = false;
     try {
-      const transport = await lastTransportFactory!();
+      // Bound the reopen so a hung transport (a read loop that never unwinds)
+      // can't freeze the loop here forever — on timeout we fall through to a
+      // reschedule like any other failed attempt.
+      const transport = await withTimeout(
+        lastTransportFactory!(),
+        RECONNECT_ATTEMPT_TIMEOUT_MS,
+      );
       // Reopening can take seconds (GATT/serial); re-check intent in case the
       // user hit Disconnect while we were awaiting it.
       if (userInitiatedDisconnect) return;
@@ -479,13 +514,12 @@ export function useMeshCore() {
           saveUnsub = useMeshStore.subscribe((state, prev) => {
             if (state.msgHistory === prev.msgHistory) return;
             // Status flickers arrive in bursts — debounce the full-history
-            // encrypt-and-write
+            // encrypt-and-write (flushHistory reads the live storageKey set
+            // above, so the debounced and immediate writes stay in lock-step).
             if (saveTimer) clearTimeout(saveTimer);
             saveTimer = setTimeout(() => {
               saveTimer = null;
-              saveRadioData(pubkey, key, {
-                msgHistory: useMeshStore.getState().msgHistory,
-              });
+              flushHistory(c);
             }, SAVE_DEBOUNCE_MS);
           });
         }
