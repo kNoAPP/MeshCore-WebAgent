@@ -232,6 +232,12 @@ export class BLETransport extends BaseTransport implements ITransport {
       'gattserverdisconnected',
       this.onGattDisconnect,
     );
+    // Detach the notification listener too: it's a stable method reference, so
+    // leaving it bound to a characteristic keeps this transport reachable.
+    this.txChar?.removeEventListener(
+      'characteristicvaluechanged',
+      this.handleNotification,
+    );
     try {
       await this.txChar?.stopNotifications();
     } catch {}

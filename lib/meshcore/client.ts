@@ -171,7 +171,7 @@ export class MeshCoreClient {
     // would finish empty and we'd wrongly declare a mute link "connected",
     // wiping the last-synced contacts. Fail instead so the connect retries.
     if (!this.selfInfo) {
-      throw new Error('No SELF_INFO — radio did not complete the handshake');
+      throw new Error('Radio did not respond — try reconnecting');
     }
     this.reportSync('device', 5);
     try {

@@ -53,9 +53,9 @@ export function AppShell() {
         </div>{' '}
         {reconnecting && <ReconnectingOverlay />}
       </div>{' '}
-      <StatsModal />
       {connected && (
         <>
+          <StatsModal />
           <ManagePanel />
           <DiscoverPanel />
           <AutoAddSettings />
