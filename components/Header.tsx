@@ -70,13 +70,8 @@ export function Header() {
       </h1>
 
       <span className='text-xs text-(--text2)'>
-        {status === 'connecting'
-          ? t('header.connecting')
-          : status === 'connected'
-            ? t('header.connected')
-            : status === 'reconnecting'
-              ? t('header.reconnecting')
-              : t('header.disconnected')}
+        {/* Each ConnectionStatus maps 1:1 to a header.* key. */}
+        {t(`header.${status}`)}
       </span>
 
       {active && (

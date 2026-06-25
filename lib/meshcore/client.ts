@@ -162,7 +162,10 @@ export class MeshCoreClient {
     // that drops immediately could otherwise fire close before the listener is
     // installed, leaving the client stuck mid-sync.
     this.transport.onClose(() => this.handleClose());
-    this.transport.startReading((d) => this.handleFrame(d));
+    // Await in case the transport's read setup is async (BLE subscribes to GATT
+    // notifications) so the handshake below can't be sent before inbound frames
+    // can arrive.
+    await this.transport.startReading((d) => this.handleFrame(d));
     this.initialSync = true;
     this.reportSync('device', 0);
     // The handshake commands are best-effort: a slow radio's timeout is

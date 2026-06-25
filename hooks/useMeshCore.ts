@@ -282,8 +282,10 @@ function scheduleReconnect(
     // Capture the name before teardownSession()'s reset() clears it. The drop
     // already flushed history (via onDisconnect) and the link's been down
     // since, so there's nothing new to persist here.
+    // deviceName defaults to '' (empty until SELF_INFO), so fall back on any
+    // falsy value, not just null/undefined.
     const device =
-      useMeshStore.getState().deviceName ?? i18n.t('common.device');
+      useMeshStore.getState().deviceName || i18n.t('common.device');
     teardownSession();
     useMeshStore
       .getState()
@@ -330,6 +332,8 @@ function beginReconnect(
   flushHistory(client);
   const store = useMeshStore.getState();
   store.setStatus('reconnecting');
+  // Close any connection-scoped panel so it doesn't reappear on reconnect.
+  store.closeConnectionOverlays();
   store.showToast(i18n.t('toast.connectionLost'));
   scheduleReconnect(connect);
 }
@@ -478,28 +482,13 @@ export function useMeshCore() {
         const deviceName =
           c.selfInfo?.name ?? c.deviceInfo?.model ?? i18n.t('common.device');
         setDeviceName(deviceName);
-        const batt = await c.getBattery();
-        if (batt) setBattery(batt);
 
-        // Hydrate auto-add settings FROM the radio so the app reflects the
-        // device's persisted state (shared with any other companion client)
-        // instead of overwriting it. The mode always comes from the handshake;
-        // the per-type bitmask needs CMD_GET_AUTOADD_CONFIG, which older
-        // firmware lacks — when it's absent we keep the existing local values
-        // rather than wiping them. showPublicKeys is app-only, always local.
-        const mode = c.manualAddMode;
-        const bits = await c.readAutoAddBits();
-        if (mode || bits) {
-          setAutoAddConfig({
-            ...useMeshStore.getState().autoAddConfig,
-            ...(mode ? { mode } : {}),
-            ...(bits ?? {}),
-          });
-        }
-
-        // Skip history wiring if the link dropped or the user disconnected
-        // during the post-sync hydrate, so we don't leave a save subscription
-        // bound to a torn-down session.
+        // Wire history persistence FIRST — before the best-effort hydrate
+        // round-trips below — so the now-'connected' link can't accept a send
+        // that lands before storageKey/saveUnsub exist and so goes unpersisted.
+        // Skip it if the link dropped or the user disconnected during the
+        // post-sync hydrate, so we don't bind a save subscription to a
+        // torn-down session.
         const pubkey = c.selfInfo?.pubkey;
         if (pubkey && sessionAlive()) {
           const secrets = Object.values(c.channels)
@@ -521,6 +510,25 @@ export function useMeshCore() {
               saveTimer = null;
               flushHistory(c);
             }, SAVE_DEBOUNCE_MS);
+          });
+        }
+
+        const batt = await c.getBattery();
+        if (batt) setBattery(batt);
+
+        // Hydrate auto-add settings FROM the radio so the app reflects the
+        // device's persisted state (shared with any other companion client)
+        // instead of overwriting it. The mode always comes from the handshake;
+        // the per-type bitmask needs CMD_GET_AUTOADD_CONFIG, which older
+        // firmware lacks — when it's absent we keep the existing local values
+        // rather than wiping them. showPublicKeys is app-only, always local.
+        const mode = c.manualAddMode;
+        const bits = await c.readAutoAddBits();
+        if (mode || bits) {
+          setAutoAddConfig({
+            ...useMeshStore.getState().autoAddConfig,
+            ...(mode ? { mode } : {}),
+            ...(bits ?? {}),
           });
         }
 
@@ -764,7 +772,7 @@ export function useMeshCore() {
    */
   const resetContactPath = useCallback(
     async (contact: Contact) => {
-      if (!client) return;
+      if (!canTransmit(client)) return;
       try {
         await client.resetPath(contact);
         showToast(i18n.t('toast.routeReset'), 'success');
@@ -781,7 +789,7 @@ export function useMeshCore() {
   /** Flips a contact's favorite flag on the radio. */
   const toggleFavorite = useCallback(
     async (contact: Contact) => {
-      if (!client) return;
+      if (!canTransmit(client)) return;
       const fav = (contact.flags & FAVORITE_FLAG) === 0;
       try {
         await client.setFavorite(contact, fav);
@@ -805,7 +813,7 @@ export function useMeshCore() {
   /** Saves a heard advert as a contact on the radio. */
   const addDiscoveredContact = useCallback(
     async (advert: Advert) => {
-      if (!client) return;
+      if (!canTransmit(client)) return;
       const pubkeyBytes = fromHex(advert.pubkey, 32);
       if (!pubkeyBytes) {
         showToast(i18n.t('toast.invalidPublicKey'), 'error');
@@ -848,7 +856,7 @@ export function useMeshCore() {
    */
   const shareContact = useCallback(
     async (contact: Contact) => {
-      if (!client) return;
+      if (!canTransmit(client)) return;
       try {
         await client.shareContact(contact);
         showToast(i18n.t('toast.advertSent'), 'success');
@@ -872,7 +880,7 @@ export function useMeshCore() {
   /** Deletes a contact from the radio. */
   const removeContact = useCallback(
     async (contact: Contact) => {
-      if (!client) return;
+      if (!canTransmit(client)) return;
       try {
         await client.removeContact(contact);
         showToast(i18n.t('toast.contactRemoved'));
@@ -896,7 +904,7 @@ export function useMeshCore() {
    */
   const addChannel = useCallback(
     async (name: string, secret: Uint8Array) => {
-      if (!client) return;
+      if (!canTransmit(client)) return;
       // A channel is identified by its secret — don't create a duplicate slot
       const existing = Object.values(client.channels).find(
         (ch) => ch.secret && bytesEqual(ch.secret, secret),
@@ -935,7 +943,7 @@ export function useMeshCore() {
   /** Removes a channel slot (rejected by the client for the Public channel). */
   const removeChannel = useCallback(
     async (idx: number) => {
-      if (!client) return;
+      if (!canTransmit(client)) return;
       try {
         await client.removeChannel(idx);
         showToast(i18n.t('toast.channelRemoved'));
@@ -955,8 +963,10 @@ export function useMeshCore() {
   const applyAutoAddConfig = useCallback(
     async (cfg: AutoAddConfig) => {
       // Persist locally only after the radio write succeeds, so a failed write
-      // doesn't leave the app showing settings the radio never accepted.
-      if (!client) {
+      // doesn't leave the app showing settings the radio never accepted. With
+      // no transmittable link (disconnected or mid-reconnect), just remember
+      // the preference locally.
+      if (!canTransmit(client)) {
         setAutoAddConfig(cfg);
         return;
       }

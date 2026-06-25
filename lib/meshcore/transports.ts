@@ -54,6 +54,22 @@ abstract class BaseTransport {
     this.planned = false;
     this.pendingClose = false;
   }
+
+  // Serializes reopen() so concurrent calls join one in-flight attempt. A
+  // reconnect attempt that times out at the caller leaves its reopen running;
+  // without this, the next attempt would start a second reopen on the same
+  // port/socket and race the first over shared reader/writer/handle state.
+  private reopening: Promise<void> | null = null;
+
+  reopen(): Promise<void> {
+    this.reopening ??= this.performReopen().finally(() => {
+      this.reopening = null;
+    });
+    return this.reopening;
+  }
+
+  /** Transport-specific reopen body; serialized by {@link reopen}. */
+  protected abstract performReopen(): Promise<void>;
 }
 
 // ─── USB Serial ──────────────────────────────────────────────────────────────
@@ -125,7 +141,7 @@ export class USBTransport extends BaseTransport implements ITransport {
    * after the cable is unplugged and reconnected, so no new chooser prompt is
    * needed.
    */
-  async reopen(): Promise<void> {
+  protected async performReopen(): Promise<void> {
     // Suppress the old read loop's close signal and cancel its pending read so
     // it releases the stream's reader lock before we re-open the port —
     // otherwise the next startReading() can hit a still-locked readable.
@@ -216,10 +232,9 @@ export class BLETransport extends BaseTransport implements ITransport {
     }
   }
 
-  startReading(onFrame: (d: Uint8Array) => void): void {
+  async startReading(onFrame: (d: Uint8Array) => void): Promise<void> {
     this.onFrame = onFrame;
     if (this.started) return;
-    this.started = true;
     // Detach first in case a reopen() reused the same characteristic object —
     // adding the same listener twice would deliver duplicate frames.
     this.txChar!.removeEventListener(
@@ -230,7 +245,12 @@ export class BLETransport extends BaseTransport implements ITransport {
       'characteristicvaluechanged',
       this.handleNotification,
     );
-    this.txChar!.startNotifications();
+    // Await the subscription before returning: init() sends APP_START right
+    // after this, and the radio's SELF_INFO reply only arrives as a
+    // notification — sending before the subscription is active would drop it.
+    // Mark started only on success so a failed subscribe is retried on reopen.
+    await this.txChar!.startNotifications();
+    this.started = true;
   }
 
   private handleNotification = (e: Event): void => {
@@ -244,7 +264,7 @@ export class BLETransport extends BaseTransport implements ITransport {
    * Reconnects GATT to the same device after a drop and re-attaches
    * notifications on the next {@link startReading}.
    */
-  async reopen(): Promise<void> {
+  protected async performReopen(): Promise<void> {
     this.started = false;
     // Detach the old notification listener before reconnecting: open() can hand
     // back a fresh characteristic object, which would leave the previous one
@@ -307,10 +327,18 @@ export class WiFiTransport extends BaseTransport implements ITransport {
    */
   async open(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(this.url);
-      this.ws.binaryType = 'arraybuffer';
-      this.ws.onopen = () => resolve();
-      this.ws.onerror = () => reject(new Error('WebSocket connection failed'));
+      const ws = new WebSocket(this.url);
+      this.ws = ws;
+      ws.binaryType = 'arraybuffer';
+      ws.onopen = () => {
+        // Surface any drop from here on — even in the gap before startReading()
+        // wires the message handler — so a close/error in that window enters
+        // the reconnect loop instead of being missed.
+        ws.onclose = () => this.fireClose();
+        ws.onerror = () => this.fireClose();
+        resolve();
+      };
+      ws.onerror = () => reject(new Error('WebSocket connection failed'));
     });
   }
 
@@ -320,14 +348,14 @@ export class WiFiTransport extends BaseTransport implements ITransport {
 
   startReading(onFrame: (d: Uint8Array) => void): void {
     this.parser = new USBFrameParser(onFrame);
+    // onclose/onerror are wired to fireClose() in open(); only the message sink
+    // is set here.
     this.ws!.onmessage = (e) =>
       this.parser!.feed(new Uint8Array(e.data as ArrayBuffer));
-    // Once open, an unexpected socket close is the bridge or radio dropping.
-    this.ws!.onclose = () => this.fireClose();
   }
 
   /** Reopens the WebSocket to the same bridge URL after a drop. */
-  async reopen(): Promise<void> {
+  protected async performReopen(): Promise<void> {
     // A reopen can follow a non-drop failure (a rebooting radio that accepted
     // the socket but never answered the handshake), where the prior socket is
     // still open. Detach its handlers and close it before opening a new one —
@@ -338,6 +366,7 @@ export class WiFiTransport extends BaseTransport implements ITransport {
     if (this.ws) {
       this.ws.onclose = null;
       this.ws.onmessage = null;
+      this.ws.onerror = null;
       this.ws.close();
     }
     this.armForReopen();

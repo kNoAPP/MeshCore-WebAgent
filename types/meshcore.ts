@@ -230,9 +230,10 @@ export interface ITransport {
   send(payload: Uint8Array): Promise<void>;
   /**
    * Begins delivering inbound frames to `onFrame`; may be called again to swap
-   * the sink.
+   * the sink. May be async (BLE awaits its notification subscription) — callers
+   * should await it before sending so the first reply can't be missed.
    */
-  startReading(onFrame: (d: Uint8Array) => void): void;
+  startReading(onFrame: (d: Uint8Array) => void): void | Promise<void>;
   /**
    * Registers a listener fired when the underlying link drops unexpectedly
    * (BLE out of range, USB unplug, WiFi socket close) — but not on a

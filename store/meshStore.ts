@@ -188,6 +188,7 @@ interface MeshActions {
   setDiscoverOpen: (open: boolean) => void;
   setAutoAddOpen: (open: boolean) => void;
   setAddChannelOpen: (open: boolean) => void;
+  closeConnectionOverlays: () => void;
   reset: () => void;
 }
 
@@ -376,6 +377,17 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setDiscoverOpen: (discoverOpen) => set({ discoverOpen }),
   setAutoAddOpen: (autoAddOpen) => set({ autoAddOpen }),
   setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
+  // Closes every connection-scoped overlay/panel at once. Called when the link
+  // drops so a panel left open doesn't silently reappear once reconnect
+  // remounts the connected UI.
+  closeConnectionOverlays: () =>
+    set({
+      statsOpen: false,
+      managePanel: null,
+      discoverOpen: false,
+      autoAddOpen: false,
+      addChannelOpen: false,
+    }),
 
   reset: () =>
     set({
