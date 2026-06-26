@@ -161,8 +161,9 @@ export class MeshCoreClient {
 
   /**
    * Runs the connect handshake and initial sync: `APP_START`, `DEVICE_QUERY`,
-   * full contact + channel sync, and a first message drain, reporting progress
-   * via {@link MeshCoreCallbacks.onSyncProgress}. Then starts the 5s message
+   * a best-effort clock sync, full contact + channel sync, and a first message
+   * drain, reporting progress via {@link MeshCoreCallbacks.onSyncProgress}.
+   * Then starts the 5s message
    * poll. Individual steps are best-effort — a timeout is swallowed so a slow
    * radio still finishes connecting.
    */
@@ -199,17 +200,17 @@ export class MeshCoreClient {
       () => this.cmd(buildDeviceQuery(), [RESP.DEVICE_INFO], 5000),
       true,
     );
+    // Best-effort clock sync runs right after DEVICE_QUERY, per the companion
+    // protocol, so the radio's clock is corrected before the message drain —
+    // inbound messages then get the right device timestamp instead of a stale
+    // one. Older firmware that lacks GET_DEVICE_TIME is skipped silently.
+    this.reportSync('clock', 7);
+    await this.syncStep(() => this.syncClock(), true);
     this.reportSync('contacts', 10);
     await this.syncStep(() => this.syncContacts());
     await this.syncStep(() => this.syncChannels());
     await this.syncStep(() => this.pollMessages());
-    // Best-effort clock sync runs last so contacts/channels/messages — the data
-    // the user is waiting on — hydrate first; correcting the clock only affects
-    // future inbound timestamps, so it needn't precede them. Older firmware
-    // that lacks GET_DEVICE_TIME is skipped silently.
-    this.reportSync('clock', 99);
-    await this.syncStep(() => this.syncClock(), true);
-    this.reportSync('clock', 100);
+    this.reportSync('messages', 100);
     this.initialSync = false;
     this.pollTimer = setInterval(() => this.pollMessages(), 5000);
   }
