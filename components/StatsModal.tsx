@@ -73,6 +73,10 @@ export function StatsModal() {
       const dt = await client.getDeviceTime();
       setDeviceTime(dt);
       setSkew(dt === null ? null : dt - Math.floor(Date.now() / 1000));
+    } catch {
+      // Best-effort: a timed-out or dropped resync just leaves the displayed
+      // skew unchanged. Swallow so the onClick handler can't surface an
+      // unhandled rejection.
     } finally {
       setResyncing(false);
     }
