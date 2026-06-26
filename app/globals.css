@@ -47,6 +47,15 @@
   --amber: #f59e0b;
 }
 
+/*
+ * Light mode's pale yellow self-mention tint leaves `text-yellow-300` unreadable,
+ * so darken just the text (not the bubble) to the readable `--yellow` token here.
+ * Dark mode keeps `text-yellow-300`.
+ */
+:root[data-theme='light'] .mention-self {
+  color: var(--yellow);
+}
+
 :root[data-theme='light'] {
   --bg: #ffffff;
   --surface: #f4f6f9;

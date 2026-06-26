@@ -45,7 +45,7 @@ function renderText(
         key={i}
         className={
           isSelf
-            ? 'font-semibold text-yellow-300'
+            ? 'mention-self font-semibold text-yellow-300'
             : own
               ? 'font-semibold text-lime-300'
               : 'font-semibold text-(--accent)'
