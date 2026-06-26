@@ -123,13 +123,10 @@ function setReconnectSource(transport: ITransport): void {
   };
 }
 
-// Tears down the active session: stops the reconnect loop, releases the client
-// and its transport, clears session state, and resets the store. Shared by a
-// deliberate disconnect() and the reconnect loop's give-up path so the teardown
-// order lives in one place. `flush` persists the last messages first (a
-// deliberate disconnect); the give-up path skips it — the drop already flushed
-// and the link's been down since. Folding the flush in keeps it from being a
-// step every caller has to remember.
+// Shared by a deliberate disconnect() and the reconnect loop's give-up path so
+// the teardown order lives in one place. `flush` persists the last messages
+// first (a deliberate disconnect); the give-up path skips it — the drop already
+// flushed and the link's been down since.
 function teardownSession(flush = false): void {
   if (flush) flushHistory(useMeshStore.getState().client);
   clearReconnect();
@@ -141,15 +138,11 @@ function teardownSession(flush = false): void {
   store.reset();
 }
 
-// The single source of truth for "can the link carry a transmit right now": a
-// live client whose transport is still open AND a fully connected session (not
-// connecting/reconnecting behind the overlay). `!client.closed` is the
-// transport-level guard: status flips to 'connected' before the post-init
-// hydrate awaits finish, so a drop in that window leaves status 'connected' for
-// an instant while the transport is already dead — `closed` catches it.
-// transmit() enforces this so no send path can bypass it; the optimistic-bubble
-// caller (sendMessage) also checks it up front so a blocked send never leaves
-// an orphan 'sending' bubble.
+// The single gate every send funnels through: a live client whose transport is
+// still open AND a fully connected session (not connecting/reconnecting behind
+// the overlay). The `!client.closed` check matters because status flips to
+// 'connected' before the post-init hydrate awaits finish, so a drop in that
+// window leaves status 'connected' while the transport is already dead.
 function canTransmit(client: MeshCoreClient | null): client is MeshCoreClient {
   return (
     !!client && !client.closed && useMeshStore.getState().status === 'connected'

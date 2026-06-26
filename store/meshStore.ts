@@ -309,7 +309,6 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set((state) => {
       // Prepend persisted messages before any newly-polled messages (old → new
       // order).
-      // Assign IDs to any persisted messages that predate the id field.
       const merged: Record<string, Message[]> = {};
       const allKeys = new Set([
         ...Object.keys(persisted),
@@ -345,7 +344,6 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
             seen.add(m.id);
             return true;
           });
-        // Old → new order: persisted history first, live messages after.
         merged[id] = [...old, ...keptCurrent];
       }
       return { msgHistory: merged };

@@ -124,13 +124,7 @@ export function Header() {
           active ? '' : 'ml-2'
         }`}
       >
-        {displayTheme === 'dark' ? (
-          // Sun — switches to the light theme.
-          <Sun size={15} />
-        ) : (
-          // Moon — switches to the dark theme.
-          <Moon size={15} />
-        )}
+        {displayTheme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
       </button>
     </header>
   );
