@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.3.0...v1.4.0) (2026-06-26)
+
+
+### Features
+
+* add graceful reconnect to radio UI ([#47](https://github.com/kNoAPP/MeshCore-WebAgent/issues/47)) ([f74d644](https://github.com/kNoAPP/MeshCore-WebAgent/commit/f74d64467b85819142593b60b618808e56435d96))
+* sync device clock on connect with stats resync control ([#84](https://github.com/kNoAPP/MeshCore-WebAgent/issues/84)) ([fac2ee0](https://github.com/kNoAPP/MeshCore-WebAgent/commit/fac2ee0f9746ac2bcd9828b5d344b7f59b838c08))
+
+
+### Bug Fixes
+
+* **parser:** correct SELF_INFO pubkey offset and expose radio params ([#81](https://github.com/kNoAPP/MeshCore-WebAgent/issues/81)) ([a117f62](https://github.com/kNoAPP/MeshCore-WebAgent/commit/a117f622ae27217b83db209114345f029ab5837b))
+
 ## [1.3.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.2.0...v1.3.0) (2026-06-18)
 
 
