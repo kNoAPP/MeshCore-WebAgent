@@ -20,6 +20,7 @@ import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import { MeshConnectError } from './errors';
 import {
   RESP,
+  ERR_CODE,
   FAVORITE_FLAG,
   AUTOADD,
   MANUAL_ADD_OFF,
@@ -28,6 +29,8 @@ import {
 import {
   buildAppStart,
   buildDeviceQuery,
+  buildGetDeviceTime,
+  buildSetDeviceTime,
   buildGetContacts,
   buildGetChannelInfo,
   buildSyncNextMessage,
@@ -61,12 +64,22 @@ import {
   parseStatsRadio,
   parseStatsPackets,
   parseAutoAddConfig,
+  parseCurrentTime,
 } from './parsers';
 import { toHex } from '@/lib/utils';
 
 // Cap the heard-adverts log so a long session on a busy mesh can't grow
 // unbounded
 const ADVERTS_LIMIT = 200;
+
+/**
+ * Maximum tolerated drift, in seconds, between the device clock and the
+ * browser clock. On connect, the radio's clock is only corrected once it
+ * drifts past this — small enough that inbound timestamps stay trustworthy,
+ * large enough to ignore normal transport/parse latency. The stats UI reuses
+ * the same threshold to decide when to show the clock as "in sync".
+ */
+export const CLOCK_SKEW_THRESHOLD_SECS = 30;
 
 type RespCode = number;
 
@@ -152,8 +165,9 @@ export class MeshCoreClient {
 
   /**
    * Runs the connect handshake and initial sync: `APP_START`, `DEVICE_QUERY`,
-   * full contact + channel sync, and a first message drain, reporting progress
-   * via {@link MeshCoreCallbacks.onSyncProgress}. Then starts the 5s message
+   * a best-effort clock sync, full contact + channel sync, and a first message
+   * drain, reporting progress via {@link MeshCoreCallbacks.onSyncProgress}.
+   * Then starts the 5s message
    * poll. Individual steps are best-effort — a timeout is swallowed so a slow
    * radio still finishes connecting.
    */
@@ -190,6 +204,12 @@ export class MeshCoreClient {
       () => this.cmd(buildDeviceQuery(), [RESP.DEVICE_INFO], 5000),
       true,
     );
+    // Best-effort clock sync runs right after DEVICE_QUERY, per the companion
+    // protocol, so the radio's clock is corrected before the message drain —
+    // inbound messages then get the right device timestamp instead of a stale
+    // one. Older firmware that lacks GET_DEVICE_TIME is skipped silently.
+    this.reportSync('clock', 7);
+    await this.syncStep(() => this.syncClock(), true);
     this.reportSync('contacts', 10);
     await this.syncStep(() => this.syncContacts());
     await this.syncStep(() => this.syncChannels());
@@ -461,6 +481,19 @@ export class MeshCoreClient {
     this.callbacks.onChannelsUpdated?.(this.channels);
   }
 
+  // Best-effort device clock sync: read the radio's clock and, if it has
+  // drifted past CLOCK_SKEW_THRESHOLD_SECS from the browser, correct it. A
+  // radio that rejects GET_DEVICE_TIME (older firmware) returns null and is
+  // left untouched; a transient read failure throws and is swallowed upstream.
+  private async syncClock(): Promise<void> {
+    const deviceSecs = await this.getDeviceTime();
+    if (deviceSecs === null) return;
+    const nowSecs = Math.floor(Date.now() / 1000);
+    if (Math.abs(deviceSecs - nowSecs) > CLOCK_SKEW_THRESHOLD_SECS) {
+      await this.setDeviceTime(nowSecs);
+    }
+  }
+
   private async pollMessages(): Promise<void> {
     if (this.polling) return;
     this.polling = true;
@@ -674,6 +707,48 @@ export class MeshCoreClient {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Reads the radio's clock as Unix epoch seconds, or null if the device
+   * rejects the request (older firmware lacks `GET_DEVICE_TIME`). A transient
+   * timeout or transport drop is rethrown so callers can tell it apart from
+   * genuinely-unsupported firmware; a short/malformed `CURR_TIME` frame is
+   * likewise treated as an error rather than silently reported as unsupported.
+   */
+  async getDeviceTime(): Promise<number | null> {
+    let secs: number | null;
+    try {
+      secs = parseCurrentTime(
+        await this.cmd(buildGetDeviceTime(), [RESP.CURR_TIME], 3000),
+      );
+    } catch (err) {
+      // Only an ERR frame from `resolveHandler` carrying the explicit
+      // `UNSUPPORTED_CMD` code means the firmware rejected the command — report
+      // that as unsupported. Match its specific error shape (the `Device error
+      // code` message it builds) so transport-layer failures (e.g. a
+      // `DOMException` that also carries a numeric `code`) and timeouts
+      // propagate as transient. Other ERR codes (e.g. `BAD_STATE`,
+      // `ILLEGAL_ARG`) are device-state failures, also rethrown so they aren't
+      // silently masked as "unsupported".
+      if (
+        err instanceof Error &&
+        err.message.startsWith('Device error code ') &&
+        (err as { code?: number }).code === ERR_CODE.UNSUPPORTED_CMD
+      ) {
+        return null;
+      }
+      throw err;
+    }
+    // A well-formed reply that fails to parse is a bad/transient response, not
+    // an unsupported command — surface it so it can be retried/handled.
+    if (secs === null) throw new Error('Malformed CURR_TIME frame');
+    return secs;
+  }
+
+  /** Sets the radio's clock to the given Unix epoch seconds (UTC). */
+  async setDeviceTime(epochSecs: number): Promise<void> {
+    await this.cmd(buildSetDeviceTime(epochSecs), [RESP.OK], 5000);
   }
 
   /** Fetches battery and storage stats, or null if the request times out. */

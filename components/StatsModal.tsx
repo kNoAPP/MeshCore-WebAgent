@@ -3,11 +3,12 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import type { StatsResult } from '@/types/meshcore';
-import { fmtUptime, fmtAirtime, fmtVoltage } from '@/lib/utils';
+import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
+import { fmtUptime, fmtAirtime, fmtVoltage, fmtSkew } from '@/lib/utils';
 
 /**
  * Device stats overlay. Fetches battery + all stats pages when opened (and on
@@ -18,30 +19,92 @@ export function StatsModal() {
   const { client, statsOpen, setStatsOpen, battery } = useMeshStore();
   const [stats, setStats] = useState<StatsResult | null>(null);
   const [loading, setLoading] = useState(false);
+  // The device clock (epoch seconds) and its skew from this computer at the
+  // moment it was read, or null when there's no readable time — the radio
+  // lacks GET_DEVICE_TIME (older firmware) or its clock is unset. The clock
+  // card is hidden while null.
+  const [clock, setClock] = useState<{ time: number; skew: number } | null>(
+    null,
+  );
+  const [resyncing, setResyncing] = useState(false);
 
-  // Auto-fetch when modal opens; only setState inside the .then callback (not
-  // synchronously)
+  // Bumped on every modal open so an async read whose modal has since reopened
+  // drops its late setState instead of clobbering the current session's values.
+  const session = useRef(0);
+
+  // Reads the device clock and stores it with a fresh skew snapshot, unless
+  // `gen` is no longer the current session. A null (unsupported firmware) or
+  // unset (epoch 0) clock blanks the card; a transient read error leaves the
+  // current display untouched.
+  const readClock = useCallback(
+    async (gen: number) => {
+      if (!client) return;
+      let dt: number | null;
+      try {
+        dt = await client.getDeviceTime();
+      } catch {
+        return;
+      }
+      if (gen !== session.current) return;
+      setClock(
+        dt !== null && dt > 0
+          ? { time: dt, skew: dt - Math.floor(Date.now() / 1000) }
+          : null,
+      );
+    },
+    [client],
+  );
+
+  // Auto-fetch when modal opens; only setState after an await (never
+  // synchronously in the effect body).
   useEffect(() => {
     if (!statsOpen || !client) return;
-    let active = true;
-    Promise.all([client.getStats(), client.getBattery()]).then(([s, b]) => {
-      if (!active) return;
+    const gen = ++session.current;
+    void (async () => {
+      const [s, b] = await Promise.all([
+        client.getStats(),
+        client.getBattery(),
+      ]);
+      if (gen !== session.current) return;
       setStats(s);
       if (b) useMeshStore.getState().setBattery(b);
-    });
-    return () => {
-      active = false;
-    };
-  }, [statsOpen, client]);
+      // Read the clock on its own: the firmware answers GET_DEVICE_TIME
+      // reliably only one command at a time, so it can't be pipelined into the
+      // stats batch above.
+      await readClock(gen);
+    })();
+  }, [statsOpen, client, readClock]);
 
   const refresh = useCallback(async () => {
     if (!client) return;
+    const gen = session.current;
     setLoading(true);
     const [s, b] = await Promise.all([client.getStats(), client.getBattery()]);
-    setStats(s);
-    if (b) useMeshStore.getState().setBattery(b);
+    if (gen === session.current) {
+      setStats(s);
+      if (b) useMeshStore.getState().setBattery(b);
+      await readClock(gen);
+    }
     setLoading(false);
-  }, [client]);
+  }, [client, readClock]);
+
+  // Push this computer's time to the radio, then re-read to show the corrected
+  // skew (a few seconds at most, from the round trip).
+  const resyncClock = useCallback(async () => {
+    if (!client) return;
+    const gen = session.current;
+    setResyncing(true);
+    try {
+      await client.setDeviceTime(Math.floor(Date.now() / 1000));
+      await readClock(gen);
+    } catch {
+      // Best-effort: a timed-out or dropped resync just leaves the displayed
+      // skew unchanged. Swallow so the onClick handler can't surface an
+      // unhandled rejection.
+    } finally {
+      setResyncing(false);
+    }
+  }, [client, readClock]);
 
   if (!statsOpen) return null;
 
@@ -101,6 +164,33 @@ export function StatsModal() {
                 [t('stats.battery'), fmtVoltage(stats.core.battMv)],
                 [t('stats.errors'), String(stats.core.errors)],
                 [t('stats.queueLength'), String(stats.core.queueLen)],
+              ]}
+            />
+          )}
+          {clock !== null && (
+            <StatCard
+              title={t('stats.card.clock')}
+              rows={[
+                [
+                  t('stats.deviceTime'),
+                  new Date(clock.time * 1000).toLocaleString(i18n.language),
+                ],
+                [
+                  t('stats.clockSkew'),
+                  Math.abs(clock.skew) <= CLOCK_SKEW_THRESHOLD_SECS
+                    ? t('stats.clockInSync')
+                    : fmtSkew(clock.skew),
+                  <button
+                    key='resync'
+                    onClick={resyncClock}
+                    disabled={resyncing}
+                    title={t('stats.resyncClock')}
+                    aria-label={t('stats.resyncClock')}
+                    className='leading-none text-(--text2) transition-colors hover:text-(--accent) disabled:opacity-50'
+                  >
+                    {resyncing ? '⟳' : '↻'}
+                  </button>,
+                ],
               ]}
             />
           )}
@@ -174,27 +264,38 @@ export function StatsModal() {
   );
 }
 
-/** A titled card rendering `[label, value]` rows for one stats group. */
+/**
+ * A titled card rendering `[label, value]` rows for one stats group. A row may
+ * carry an optional third element — an action node (e.g. a button) shown after
+ * the value.
+ */
 function StatCard({
   title,
   rows,
 }: {
   title: string;
-  rows: [string, string][];
+  rows: [string, string, React.ReactNode?][];
 }) {
   return (
     <div className='rounded-lg p-3.5' style={{ background: 'var(--surface2)' }}>
       <div className='mb-2.5 text-[11px] font-bold tracking-widest text-(--accent) uppercase'>
         {title}
       </div>
-      {rows.map(([label, val]) => (
+      {rows.map(([label, val, action]) => (
         <div
           key={label}
           className='flex justify-between border-b py-1.5 text-xs last:border-0'
           style={{ borderColor: 'var(--border)' }}
         >
           <span className='text-(--text2)'>{label}</span>
-          <span className='font-semibold'>{val}</span>
+          {action ? (
+            <span className='flex items-center gap-1.5'>
+              <span className='font-semibold'>{val}</span>
+              {action}
+            </span>
+          ) : (
+            <span className='font-semibold'>{val}</span>
+          )}
         </div>
       ))}
     </div>

@@ -74,6 +74,7 @@
   },
   "sync": {
     "device": "Lecture des informations de l'appareil",
+    "clock": "Synchronisation de l'horloge",
     "contacts": "Synchronisation des contacts",
     "channels": "Synchronisation des canaux",
     "messages": "Synchronisation des messages",
@@ -87,9 +88,14 @@
     "card": {
       "storageBattery": "💾 Stockage et batterie",
       "core": "🖥️ Cœur",
+      "clock": "🕐 Horloge de l'appareil",
       "radio": "📻 Radio",
       "packets": "📦 Paquets"
     },
+    "deviceTime": "Heure de l'appareil",
+    "clockSkew": "Décalage de l'horloge",
+    "clockInSync": "Synchronisé",
+    "resyncClock": "Resynchroniser l'horloge sur cet ordinateur",
     "voltage": "Tension",
     "used": "Utilisé",
     "total": "Total",

@@ -131,6 +131,17 @@ export function parseAutoAddConfig(d: Uint8Array): {
 }
 
 /**
+ * Parses the `CURR_TIME` reply (`RESP_CODE_CURR_TIME`, `0x09`): the radio's
+ * clock as Unix epoch seconds (uint32 LE at offset 1).
+ *
+ * @returns the epoch seconds, or null if the frame is too short.
+ */
+export function parseCurrentTime(d: Uint8Array): number | null {
+  if (d.length < 5) return null;
+  return new DataView(d.buffer, d.byteOffset, d.byteLength).getUint32(1, true);
+}
+
+/**
  * Parses the `DEVICE_INFO` reply: firmware version, capacities, BLE pin, model.
  *
  * @remarks `maxContacts` is sent halved, so it is doubled back here.

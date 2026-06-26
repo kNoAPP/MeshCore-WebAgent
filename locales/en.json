@@ -74,6 +74,7 @@
   },
   "sync": {
     "device": "Reading device info",
+    "clock": "Syncing clock",
     "contacts": "Syncing contacts",
     "channels": "Syncing channels",
     "messages": "Syncing messages",
@@ -87,9 +88,14 @@
     "card": {
       "storageBattery": "💾 Storage & Battery",
       "core": "🖥️ Core",
+      "clock": "🕐 Device Clock",
       "radio": "📻 Radio",
       "packets": "📦 Packets"
     },
+    "deviceTime": "Device Time",
+    "clockSkew": "Clock Skew",
+    "clockInSync": "In sync",
+    "resyncClock": "Resync clock to this computer",
     "voltage": "Voltage",
     "used": "Used",
     "total": "Total",

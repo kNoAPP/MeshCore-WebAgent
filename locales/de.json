@@ -74,6 +74,7 @@
   },
   "sync": {
     "device": "Lese Geräteinformationen",
+    "clock": "Synchronisiere Uhr",
     "contacts": "Synchronisiere Kontakte",
     "channels": "Synchronisiere Kanäle",
     "messages": "Synchronisiere Nachrichten",
@@ -87,9 +88,14 @@
     "card": {
       "storageBattery": "💾 Speicher & Akku",
       "core": "🖥️ Kern",
+      "clock": "🕐 Geräteuhr",
       "radio": "📻 Funk",
       "packets": "📦 Pakete"
     },
+    "deviceTime": "Gerätezeit",
+    "clockSkew": "Zeitabweichung",
+    "clockInSync": "Synchron",
+    "resyncClock": "Uhr mit diesem Computer synchronisieren",
     "voltage": "Spannung",
     "used": "Belegt",
     "total": "Gesamt",
