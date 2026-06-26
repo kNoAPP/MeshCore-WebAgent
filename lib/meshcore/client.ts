@@ -722,11 +722,19 @@ export class MeshCoreClient {
         await this.cmd(buildGetDeviceTime(), [RESP.CURR_TIME], 3000),
       );
     } catch (err) {
-      // An ERR frame carries a numeric device code and means the firmware
-      // rejected the command — report that as unsupported. A timeout or
-      // transport drop has no code and is transient, so it propagates rather
-      // than masquerading as "unsupported".
-      if (typeof (err as { code?: number }).code === 'number') return null;
+      // Only an ERR frame from `resolveHandler` means the firmware rejected
+      // the command — report that as unsupported. Match its specific error
+      // shape (the `Device error code` message it builds) so transport-layer
+      // failures (e.g. a `DOMException` that also carries a numeric `code`)
+      // and timeouts propagate as transient rather than masquerading as
+      // "unsupported".
+      if (
+        err instanceof Error &&
+        err.message.startsWith('Device error code ') &&
+        typeof (err as { code?: number }).code === 'number'
+      ) {
+        return null;
+      }
       throw err;
     }
     // A well-formed reply that fails to parse is a bad/transient response, not
