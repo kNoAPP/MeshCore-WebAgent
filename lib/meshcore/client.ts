@@ -81,6 +81,16 @@ const ADVERTS_LIMIT = 200;
  */
 export const CLOCK_SKEW_THRESHOLD_SECS = 30;
 
+/**
+ * How long contact collection waits for the *next* `CONTACT` frame before
+ * giving up. This is an inactivity timeout, re-armed on every frame — not an
+ * overall budget — so an arbitrarily large contact table syncs in full as long
+ * as the radio keeps streaming, while a silent or stalled radio still aborts
+ * promptly. A fixed overall budget truncated large tables (a 164-contact dump
+ * over BLE outran an 8s cap, dropping the tail).
+ */
+export const CONTACTS_IDLE_TIMEOUT_MS = 8000;
+
 type RespCode = number;
 
 interface PendingCmd {
@@ -153,6 +163,7 @@ export class MeshCoreClient {
   private collectingContacts = false;
   private contactsStarted = false;
   private contactsResolve: (() => void) | null = null;
+  private rearmContactsIdle: (() => void) | null = null;
   private contactsTotal = 0;
   private contactsSeen = 0;
   private initialSync = false;
@@ -347,6 +358,7 @@ export class MeshCoreClient {
     if (this.collectingContacts) {
       if (type === RESP.CONTACTS_START) {
         this.contactsStarted = true;
+        this.rearmContactsIdle?.();
         // Bytes 1-4: uint32 LE total contact count
         this.contactsTotal =
           d.length >= 5
@@ -356,6 +368,7 @@ export class MeshCoreClient {
         return;
       }
       if (type === RESP.CONTACT && this.contactsStarted) {
+        this.rearmContactsIdle?.();
         const c = parseContact(d);
         if (c) this.contacts[c.pubkeyPrefix] = c;
         this.contactsSeen++;
@@ -457,14 +470,22 @@ export class MeshCoreClient {
     this.collectingContacts = true;
     this.contactsStarted = false;
     await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
-        this.collectingContacts = false;
-        resolve();
-      }, 8000);
-      this.contactsResolve = () => {
+      let timer: ReturnType<typeof setTimeout>;
+      const finish = () => {
         clearTimeout(timer);
+        this.collectingContacts = false;
+        this.rearmContactsIdle = null;
+        this.contactsResolve = null;
         resolve();
       };
+      // Re-armed on every CONTACTS_START/CONTACT frame (see handleFrame), so
+      // the whole table streams in regardless of size; only a stall aborts.
+      this.rearmContactsIdle = () => {
+        clearTimeout(timer);
+        timer = setTimeout(finish, CONTACTS_IDLE_TIMEOUT_MS);
+      };
+      this.contactsResolve = finish;
+      this.rearmContactsIdle();
       this.transport.send(buildGetContacts(0));
     });
     this.callbacks.onContactsUpdated?.(this.contacts);
