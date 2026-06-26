@@ -94,6 +94,7 @@
     },
     "deviceTime": "Hora del dispositivo",
     "clockSkew": "Desfase del reloj",
+    "clockInSync": "Sincronizado",
     "resyncClock": "Sincronizar el reloj con este equipo",
     "voltage": "Voltaje",
     "used": "Usado",

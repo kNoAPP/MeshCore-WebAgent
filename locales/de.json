@@ -94,6 +94,7 @@
     },
     "deviceTime": "Gerätezeit",
     "clockSkew": "Zeitabweichung",
+    "clockInSync": "Synchron",
     "resyncClock": "Uhr mit diesem Computer synchronisieren",
     "voltage": "Spannung",
     "used": "Belegt",

@@ -3,10 +3,11 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import type { StatsResult } from '@/types/meshcore';
+import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
 import { fmtUptime, fmtAirtime, fmtVoltage, fmtSkew } from '@/lib/utils';
 
 /**
@@ -19,60 +20,83 @@ export function StatsModal() {
   const [stats, setStats] = useState<StatsResult | null>(null);
   const [loading, setLoading] = useState(false);
   // The device clock (epoch seconds) and its skew from this computer at the
-  // moment it was read. null when the radio doesn't support GET_DEVICE_TIME
-  // (older firmware) — the clock card is hidden in that case.
-  const [deviceTime, setDeviceTime] = useState<number | null>(null);
-  const [skew, setSkew] = useState<number | null>(null);
+  // moment it was read, or null when there's no readable time — the radio
+  // lacks GET_DEVICE_TIME (older firmware) or its clock is unset. The clock
+  // card is hidden while null.
+  const [clock, setClock] = useState<{ time: number; skew: number } | null>(
+    null,
+  );
   const [resyncing, setResyncing] = useState(false);
+
+  // Bumped on every modal open so an async read whose modal has since reopened
+  // drops its late setState instead of clobbering the current session's values.
+  const session = useRef(0);
+
+  // Reads the device clock and stores it with a fresh skew snapshot, unless
+  // `gen` is no longer the current session. A null (unsupported firmware) or
+  // unset (epoch 0) clock blanks the card; a transient read error leaves the
+  // current display untouched.
+  const readClock = useCallback(
+    async (gen: number) => {
+      if (!client) return;
+      let dt: number | null;
+      try {
+        dt = await client.getDeviceTime();
+      } catch {
+        return;
+      }
+      if (gen !== session.current) return;
+      setClock(
+        dt !== null && dt > 0
+          ? { time: dt, skew: dt - Math.floor(Date.now() / 1000) }
+          : null,
+      );
+    },
+    [client],
+  );
 
   // Auto-fetch when modal opens; only setState after an await (never
   // synchronously in the effect body).
   useEffect(() => {
     if (!statsOpen || !client) return;
-    let active = true;
+    const gen = ++session.current;
     void (async () => {
       const [s, b] = await Promise.all([
         client.getStats(),
         client.getBattery(),
       ]);
-      if (!active) return;
+      if (gen !== session.current) return;
       setStats(s);
       if (b) useMeshStore.getState().setBattery(b);
       // Read the clock on its own: the firmware answers GET_DEVICE_TIME
       // reliably only one command at a time, so it can't be pipelined into the
       // stats batch above.
-      const dt = await client.getDeviceTime();
-      if (!active) return;
-      setDeviceTime(dt);
-      setSkew(dt === null ? null : dt - Math.floor(Date.now() / 1000));
+      await readClock(gen);
     })();
-    return () => {
-      active = false;
-    };
-  }, [statsOpen, client]);
+  }, [statsOpen, client, readClock]);
 
   const refresh = useCallback(async () => {
     if (!client) return;
+    const gen = session.current;
     setLoading(true);
     const [s, b] = await Promise.all([client.getStats(), client.getBattery()]);
-    setStats(s);
-    if (b) useMeshStore.getState().setBattery(b);
-    const dt = await client.getDeviceTime();
-    setDeviceTime(dt);
-    setSkew(dt === null ? null : dt - Math.floor(Date.now() / 1000));
+    if (gen === session.current) {
+      setStats(s);
+      if (b) useMeshStore.getState().setBattery(b);
+      await readClock(gen);
+    }
     setLoading(false);
-  }, [client]);
+  }, [client, readClock]);
 
   // Push this computer's time to the radio, then re-read to show the corrected
   // skew (a few seconds at most, from the round trip).
   const resyncClock = useCallback(async () => {
     if (!client) return;
+    const gen = session.current;
     setResyncing(true);
     try {
       await client.setDeviceTime(Math.floor(Date.now() / 1000));
-      const dt = await client.getDeviceTime();
-      setDeviceTime(dt);
-      setSkew(dt === null ? null : dt - Math.floor(Date.now() / 1000));
+      await readClock(gen);
     } catch {
       // Best-effort: a timed-out or dropped resync just leaves the displayed
       // skew unchanged. Swallow so the onClick handler can't surface an
@@ -80,7 +104,7 @@ export function StatsModal() {
     } finally {
       setResyncing(false);
     }
-  }, [client]);
+  }, [client, readClock]);
 
   if (!statsOpen) return null;
 
@@ -143,17 +167,19 @@ export function StatsModal() {
               ]}
             />
           )}
-          {deviceTime !== null && skew !== null && (
+          {clock !== null && (
             <StatCard
               title={t('stats.card.clock')}
               rows={[
                 [
                   t('stats.deviceTime'),
-                  new Date(deviceTime * 1000).toLocaleString(i18n.language),
+                  new Date(clock.time * 1000).toLocaleString(i18n.language),
                 ],
                 [
                   t('stats.clockSkew'),
-                  fmtSkew(skew),
+                  Math.abs(clock.skew) <= CLOCK_SKEW_THRESHOLD_SECS
+                    ? t('stats.clockInSync')
+                    : fmtSkew(clock.skew),
                   <button
                     key='resync'
                     onClick={resyncClock}
@@ -262,10 +288,14 @@ function StatCard({
           style={{ borderColor: 'var(--border)' }}
         >
           <span className='text-(--text2)'>{label}</span>
-          <span className='flex items-center gap-1.5'>
+          {action ? (
+            <span className='flex items-center gap-1.5'>
+              <span className='font-semibold'>{val}</span>
+              {action}
+            </span>
+          ) : (
             <span className='font-semibold'>{val}</span>
-            {action}
-          </span>
+          )}
         </div>
       ))}
     </div>

@@ -73,8 +73,9 @@ const ADVERTS_LIMIT = 200;
 
 // On connect, the device clock is only corrected if it drifts past this from
 // the browser clock — small enough that inbound timestamps stay trustworthy,
-// large enough to ignore normal transport/parse latency.
-const CLOCK_SKEW_THRESHOLD_SECS = 30;
+// large enough to ignore normal transport/parse latency. The stats UI uses the
+// same threshold to decide when to show the clock as "in sync".
+export const CLOCK_SKEW_THRESHOLD_SECS = 30;
 
 type RespCode = number;
 
@@ -198,16 +199,17 @@ export class MeshCoreClient {
       () => this.cmd(buildDeviceQuery(), [RESP.DEVICE_INFO], 5000),
       true,
     );
-    // Best-effort clock sync: align the radio's clock with the browser so
-    // inbound message timestamps stay correct. Older firmware that lacks
-    // GET_DEVICE_TIME is skipped silently.
-    this.reportSync('clock', 7);
-    await this.syncStep(() => this.syncClock(), true);
     this.reportSync('contacts', 10);
     await this.syncStep(() => this.syncContacts());
     await this.syncStep(() => this.syncChannels());
     await this.syncStep(() => this.pollMessages());
-    this.reportSync('messages', 100);
+    // Best-effort clock sync runs last so contacts/channels/messages — the data
+    // the user is waiting on — hydrate first; correcting the clock only affects
+    // future inbound timestamps, so it needn't precede them. Older firmware
+    // that lacks GET_DEVICE_TIME is skipped silently.
+    this.reportSync('clock', 99);
+    await this.syncStep(() => this.syncClock(), true);
+    this.reportSync('clock', 100);
     this.initialSync = false;
     this.pollTimer = setInterval(() => this.pollMessages(), 5000);
   }
@@ -476,8 +478,8 @@ export class MeshCoreClient {
 
   // Best-effort device clock sync: read the radio's clock and, if it has
   // drifted past CLOCK_SKEW_THRESHOLD_SECS from the browser, correct it. A
-  // radio that doesn't answer GET_DEVICE_TIME (older firmware) returns null and
-  // is left untouched.
+  // radio that rejects GET_DEVICE_TIME (older firmware) returns null and is
+  // left untouched; a transient read failure throws and is swallowed upstream.
   private async syncClock(): Promise<void> {
     const deviceSecs = await this.getDeviceTime();
     if (deviceSecs === null) return;
@@ -704,15 +706,22 @@ export class MeshCoreClient {
 
   /**
    * Reads the radio's clock as Unix epoch seconds, or null if the device
-   * doesn't answer (older firmware lacks `GET_DEVICE_TIME`).
+   * rejects the request (older firmware lacks `GET_DEVICE_TIME`). A transient
+   * timeout or transport drop is rethrown so callers can tell it apart from
+   * genuinely-unsupported firmware.
    */
   async getDeviceTime(): Promise<number | null> {
     try {
       return parseCurrentTime(
         await this.cmd(buildGetDeviceTime(), [RESP.CURR_TIME], 3000),
       );
-    } catch {
-      return null;
+    } catch (err) {
+      // An ERR frame carries a numeric device code and means the firmware
+      // rejected the command — report that as unsupported. A timeout or
+      // transport drop has no code and is transient, so it propagates rather
+      // than masquerading as "unsupported".
+      if (typeof (err as { code?: number }).code === 'number') return null;
+      throw err;
     }
   }
 

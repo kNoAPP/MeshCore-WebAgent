@@ -94,6 +94,7 @@
     },
     "deviceTime": "Device Time",
     "clockSkew": "Clock Skew",
+    "clockInSync": "In sync",
     "resyncClock": "Resync clock to this computer",
     "voltage": "Voltage",
     "used": "Used",

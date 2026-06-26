@@ -94,6 +94,7 @@
     },
     "deviceTime": "Heure de l'appareil",
     "clockSkew": "Décalage de l'horloge",
+    "clockInSync": "Synchronisé",
     "resyncClock": "Resynchroniser l'horloge sur cet ordinateur",
     "voltage": "Tension",
     "used": "Utilisé",

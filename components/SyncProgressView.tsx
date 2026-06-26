@@ -9,10 +9,10 @@ import type { SyncProgress } from '@/types/meshcore';
 
 const SYNC_STAGES: SyncProgress['stage'][] = [
   'device',
-  'clock',
   'contacts',
   'channels',
   'messages',
+  'clock',
 ];
 
 const SYNC_STAGE_KEY = {
