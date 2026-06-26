@@ -112,6 +112,16 @@ export function fmtVoltage(mv: number): string {
 }
 
 /**
+ * Formats a clock skew (device time minus real time, in seconds) as a signed
+ * compact duration: `+5s`, `-2h 1m 3s`, or `0s` when in sync. A negative value
+ * means the device clock is running behind.
+ */
+export function fmtSkew(secs: number): string {
+  if (secs === 0) return '0s';
+  return `${secs > 0 ? '+' : '-'}${fmtUptime(Math.abs(secs))}`;
+}
+
+/**
  * Emoji icon for each {@link Contact.advType} (0/1 chat, 2 repeater, 3 room,
  * 4 sensor).
  */

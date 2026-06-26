@@ -28,6 +28,8 @@ import {
 import {
   buildAppStart,
   buildDeviceQuery,
+  buildGetDeviceTime,
+  buildSetDeviceTime,
   buildGetContacts,
   buildGetChannelInfo,
   buildSyncNextMessage,
@@ -61,12 +63,18 @@ import {
   parseStatsRadio,
   parseStatsPackets,
   parseAutoAddConfig,
+  parseCurrentTime,
 } from './parsers';
 import { toHex } from '@/lib/utils';
 
 // Cap the heard-adverts log so a long session on a busy mesh can't grow
 // unbounded
 const ADVERTS_LIMIT = 200;
+
+// On connect, the device clock is only corrected if it drifts past this from
+// the browser clock — small enough that inbound timestamps stay trustworthy,
+// large enough to ignore normal transport/parse latency.
+const CLOCK_SKEW_THRESHOLD_SECS = 30;
 
 type RespCode = number;
 
@@ -190,6 +198,11 @@ export class MeshCoreClient {
       () => this.cmd(buildDeviceQuery(), [RESP.DEVICE_INFO], 5000),
       true,
     );
+    // Best-effort clock sync: align the radio's clock with the browser so
+    // inbound message timestamps stay correct. Older firmware that lacks
+    // GET_DEVICE_TIME is skipped silently.
+    this.reportSync('clock', 7);
+    await this.syncStep(() => this.syncClock(), true);
     this.reportSync('contacts', 10);
     await this.syncStep(() => this.syncContacts());
     await this.syncStep(() => this.syncChannels());
@@ -461,6 +474,19 @@ export class MeshCoreClient {
     this.callbacks.onChannelsUpdated?.(this.channels);
   }
 
+  // Best-effort device clock sync: read the radio's clock and, if it has
+  // drifted past CLOCK_SKEW_THRESHOLD_SECS from the browser, correct it. A
+  // radio that doesn't answer GET_DEVICE_TIME (older firmware) returns null and
+  // is left untouched.
+  private async syncClock(): Promise<void> {
+    const deviceSecs = await this.getDeviceTime();
+    if (deviceSecs === null) return;
+    const nowSecs = Math.floor(Date.now() / 1000);
+    if (Math.abs(deviceSecs - nowSecs) > CLOCK_SKEW_THRESHOLD_SECS) {
+      await this.setDeviceTime(nowSecs);
+    }
+  }
+
   private async pollMessages(): Promise<void> {
     if (this.polling) return;
     this.polling = true;
@@ -674,6 +700,25 @@ export class MeshCoreClient {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Reads the radio's clock as Unix epoch seconds, or null if the device
+   * doesn't answer (older firmware lacks `GET_DEVICE_TIME`).
+   */
+  async getDeviceTime(): Promise<number | null> {
+    try {
+      return parseCurrentTime(
+        await this.cmd(buildGetDeviceTime(), [RESP.CURR_TIME], 3000),
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /** Sets the radio's clock to the given Unix epoch seconds (UTC). */
+  async setDeviceTime(epochSecs: number): Promise<void> {
+    await this.cmd(buildSetDeviceTime(epochSecs), [RESP.OK], 5000);
   }
 
   /** Fetches battery and storage stats, or null if the request times out. */

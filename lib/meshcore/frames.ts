@@ -40,6 +40,24 @@ export function buildDeviceQuery(): Uint8Array {
   return new Uint8Array([CMD.DEVICE_QUERY, 0x03]);
 }
 
+/** Requests the radio's clock (`CURR_TIME`, a uint32 LE epoch-seconds). */
+export function buildGetDeviceTime(): Uint8Array {
+  return new Uint8Array([CMD.GET_DEVICE_TIME]);
+}
+
+/**
+ * Sets the radio's clock.
+ *
+ * @param epochSecs - Unix epoch seconds (UTC), encoded as a uint32 LE — the
+ * timezone-agnostic value the firmware stores.
+ */
+export function buildSetDeviceTime(epochSecs: number): Uint8Array {
+  const p = new Uint8Array(5);
+  p[0] = CMD.SET_DEVICE_TIME;
+  new DataView(p.buffer).setUint32(1, epochSecs, true);
+  return p;
+}
+
 /**
  * Pops the next queued inbound message; the radio replies with a message frame
  * or `NO_MORE_MESSAGES`.
