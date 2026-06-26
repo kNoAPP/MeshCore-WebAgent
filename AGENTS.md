@@ -59,6 +59,8 @@ before working in that area:
   _why_ is non-obvious. Full policy lives in the `code-style` skill.
 - **No new abstractions** beyond what the immediate task requires.
 - **Prettier formats on save** — run `npm run format` if needed.
+- **No AI self-attribution** in commits, PRs, issues, or discussions — do not
+  add `Co-Authored-By` model trailers, "Generated with …" footers, or similar.
 
 ## What to Avoid
 
