@@ -71,10 +71,13 @@ import { toHex } from '@/lib/utils';
 // unbounded
 const ADVERTS_LIMIT = 200;
 
-// On connect, the device clock is only corrected if it drifts past this from
-// the browser clock — small enough that inbound timestamps stay trustworthy,
-// large enough to ignore normal transport/parse latency. The stats UI uses the
-// same threshold to decide when to show the clock as "in sync".
+/**
+ * Maximum tolerated drift, in seconds, between the device clock and the
+ * browser clock. On connect, the radio's clock is only corrected once it
+ * drifts past this — small enough that inbound timestamps stay trustworthy,
+ * large enough to ignore normal transport/parse latency. The stats UI reuses
+ * the same threshold to decide when to show the clock as "in sync".
+ */
 export const CLOCK_SKEW_THRESHOLD_SECS = 30;
 
 type RespCode = number;
@@ -709,11 +712,13 @@ export class MeshCoreClient {
    * Reads the radio's clock as Unix epoch seconds, or null if the device
    * rejects the request (older firmware lacks `GET_DEVICE_TIME`). A transient
    * timeout or transport drop is rethrown so callers can tell it apart from
-   * genuinely-unsupported firmware.
+   * genuinely-unsupported firmware; a short/malformed `CURR_TIME` frame is
+   * likewise treated as an error rather than silently reported as unsupported.
    */
   async getDeviceTime(): Promise<number | null> {
+    let secs: number | null;
     try {
-      return parseCurrentTime(
+      secs = parseCurrentTime(
         await this.cmd(buildGetDeviceTime(), [RESP.CURR_TIME], 3000),
       );
     } catch (err) {
@@ -724,6 +729,10 @@ export class MeshCoreClient {
       if (typeof (err as { code?: number }).code === 'number') return null;
       throw err;
     }
+    // A well-formed reply that fails to parse is a bad/transient response, not
+    // an unsupported command — surface it so it can be retried/handled.
+    if (secs === null) throw new Error('Malformed CURR_TIME frame');
+    return secs;
   }
 
   /** Sets the radio's clock to the given Unix epoch seconds (UTC). */
