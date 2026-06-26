@@ -20,6 +20,7 @@ import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import { MeshConnectError } from './errors';
 import {
   RESP,
+  ERR_CODE,
   FAVORITE_FLAG,
   AUTOADD,
   MANUAL_ADD_OFF,
@@ -722,16 +723,18 @@ export class MeshCoreClient {
         await this.cmd(buildGetDeviceTime(), [RESP.CURR_TIME], 3000),
       );
     } catch (err) {
-      // Only an ERR frame from `resolveHandler` means the firmware rejected
-      // the command — report that as unsupported. Match its specific error
-      // shape (the `Device error code` message it builds) so transport-layer
-      // failures (e.g. a `DOMException` that also carries a numeric `code`)
-      // and timeouts propagate as transient rather than masquerading as
-      // "unsupported".
+      // Only an ERR frame from `resolveHandler` carrying the explicit
+      // `UNSUPPORTED_CMD` code means the firmware rejected the command — report
+      // that as unsupported. Match its specific error shape (the `Device error
+      // code` message it builds) so transport-layer failures (e.g. a
+      // `DOMException` that also carries a numeric `code`) and timeouts
+      // propagate as transient. Other ERR codes (e.g. `BAD_STATE`,
+      // `ILLEGAL_ARG`) are device-state failures, also rethrown so they aren't
+      // silently masked as "unsupported".
       if (
         err instanceof Error &&
         err.message.startsWith('Device error code ') &&
-        typeof (err as { code?: number }).code === 'number'
+        (err as { code?: number }).code === ERR_CODE.UNSUPPORTED_CMD
       ) {
         return null;
       }
