@@ -7,13 +7,14 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { ADV_ICON } from '@/lib/utils';
+import { ADV_ICON, utf8ByteLength } from '@/lib/utils';
 import { MessageBubble } from './MessageBubble';
 import { RouteChip } from './RouteChip';
 import {
   NO_PATH,
   ADV_TYPE_REPEATER,
   FAVORITE_FLAG,
+  MAX_MSG_BYTES,
 } from '@/lib/meshcore/constants';
 
 /** Max at-mention autocomplete suggestions shown at once. */
@@ -120,6 +121,7 @@ export function ChatArea() {
 
   const handleSend = useCallback(async () => {
     if (!text.trim() || sending || !activeConvo) return;
+    if (utf8ByteLength(text) > MAX_MSG_BYTES) return;
     setSending(true);
     await sendMessage(text, activeConvo);
     setText('');
@@ -144,7 +146,12 @@ export function ChatArea() {
     }
   };
 
-  const charCount = text.length;
+  // The composer caps the firmware's text limit by UTF-8 bytes, not UTF-16
+  // code units, so multi-byte characters (emoji, accents) count correctly.
+  // The `maxLength` attribute can only count code units, so we soft-block
+  // over-length sends instead: disable Send and warn via the byte counter.
+  const byteCount = utf8ByteLength(text);
+  const overLimit = byteCount > MAX_MSG_BYTES;
 
   if (!activeConvo) {
     return (
@@ -314,7 +321,6 @@ export function ChatArea() {
                 handleKeyUp as unknown as React.MouseEventHandler<HTMLTextAreaElement>
               }
               rows={1}
-              maxLength={160}
               placeholder={t('chat.placeholder')}
               className='flex-1 resize-none overflow-y-hidden rounded-[10px] border border-(--border) bg-(--surface2) px-3 py-2
               text-sm text-(--text) outline-none
@@ -322,13 +328,20 @@ export function ChatArea() {
               style={{ maxHeight: 120 }}
             />
             <span
-              className={`self-center text-[11px] ${charCount > 140 ? 'text-(--yellow)' : 'text-(--text2)'}`}
+              title={overLimit ? t('chat.tooLong') : undefined}
+              className={`self-center text-[11px] ${
+                overLimit
+                  ? 'text-(--amber)'
+                  : byteCount > MAX_MSG_BYTES - 20
+                    ? 'text-(--yellow)'
+                    : 'text-(--text2)'
+              }`}
             >
-              {charCount}/160
+              {byteCount}/{MAX_MSG_BYTES}
             </span>
             <button
               onClick={handleSend}
-              disabled={!text.trim() || sending}
+              disabled={!text.trim() || sending || overLimit}
               className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent)
               text-base text-white transition-opacity
               hover:opacity-85 disabled:opacity-40'

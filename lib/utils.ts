@@ -56,6 +56,30 @@ export function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
+const utf8Encoder = new TextEncoder();
+
+/** Length of `text` once UTF-8 encoded, in bytes (not UTF-16 code units). */
+export function utf8ByteLength(text: string): number {
+  return utf8Encoder.encode(text).length;
+}
+
+/**
+ * Truncates `text` to at most `maxBytes` UTF-8 bytes without splitting a
+ * multi-byte code point, so emoji and accented characters are never corrupted.
+ *
+ * @remarks
+ * Cuts on a code-point boundary by backing off past any trailing UTF-8
+ * continuation bytes (`0b10xxxxxx`) at the cut position. Used for both the
+ * outbound frame builders and the composer counter so they can't disagree.
+ */
+export function truncateUtf8(text: string, maxBytes: number): string {
+  const bytes = utf8Encoder.encode(text);
+  if (bytes.length <= maxBytes) return text;
+  let end = maxBytes;
+  while (end > 0 && (bytes[end] & 0xc0) === 0x80) end--;
+  return new TextDecoder().decode(bytes.subarray(0, end));
+}
+
 /**
  * Decodes a hex string to bytes, tolerating whitespace.
  *

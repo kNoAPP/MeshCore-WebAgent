@@ -114,6 +114,16 @@ export const NO_PATH = 255;
 export const FAVORITE_FLAG = 0x01;
 
 /**
+ * Maximum outgoing text message size, in **UTF-8 bytes** (not characters). The
+ * firmware caps a message body at `MAX_TEXT_LEN` (`10 * CIPHER_BLOCK_SIZE`) and
+ * rejects anything longer — `BaseChatMesh::composeMsgPacket` returns `NULL`
+ * when `strlen(text) > MAX_TEXT_LEN`. Multi-byte characters (emoji, accents)
+ * therefore count by their encoded byte length, so truncate/measure with
+ * {@link truncateUtf8} / {@link utf8ByteLength}, never `String.length`.
+ */
+export const MAX_MSG_BYTES = 160;
+
+/**
  * `autoadd_config` bitmask sent with {@link CMD.SET_AUTOADD_CONFIG}.
  * `OVERWRITE_OLDEST`
  * applies in every mode; the type bits filter which node types are auto-added
