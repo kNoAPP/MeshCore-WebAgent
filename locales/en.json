@@ -116,7 +116,9 @@
     "floodRx": "Flood RX",
     "directTx": "Direct TX",
     "directRx": "Direct RX",
-    "rxErrors": "RX Errors"
+    "rxErrors": "RX Errors",
+    "notReported": "Not reported by this device",
+    "allUnavailable": "This firmware doesn't expose detailed stats."
   },
   "autoAdd": {
     "title": "⚙ Auto-add settings",
