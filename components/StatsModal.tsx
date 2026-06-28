@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
-import type { StatsResult } from '@/types/meshcore';
+import type { StatsResult, BatteryInfo } from '@/types/meshcore';
 import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
 import { fmtUptime, fmtAirtime, fmtVoltage, fmtSkew } from '@/lib/utils';
 
@@ -16,8 +16,13 @@ import { fmtUptime, fmtAirtime, fmtVoltage, fmtSkew } from '@/lib/utils';
  */
 export function StatsModal() {
   const { t, i18n } = useTranslation();
-  const { client, statsOpen, setStatsOpen, battery } = useMeshStore();
+  const { client, statsOpen, setStatsOpen } = useMeshStore();
   const [stats, setStats] = useState<StatsResult | null>(null);
+  // This session's battery/storage snapshot — the exact result of the last
+  // fetch, including null when the device didn't report it. Kept local (rather
+  // than reading the shared store) so a timed-out fetch surfaces the card's
+  // "unavailable" state here without clearing the header's last-known reading.
+  const [battery, setBatteryLocal] = useState<BatteryInfo | null>(null);
   const [loading, setLoading] = useState(false);
   // True once a fetch has completed at least once this session. Distinct from
   // `loading`: it gates the "unavailable" cards so they appear only after a
@@ -72,6 +77,7 @@ export function StatsModal() {
       if (gen !== session.current) return;
       setStats(s);
       setFetched(true);
+      setBatteryLocal(b);
       if (b) useMeshStore.getState().setBattery(b);
       // Read the clock on its own: the firmware answers GET_DEVICE_TIME
       // reliably only one command at a time, so it can't be pipelined into the
@@ -88,6 +94,7 @@ export function StatsModal() {
     if (gen === session.current) {
       setStats(s);
       setFetched(true);
+      setBatteryLocal(b);
       if (b) useMeshStore.getState().setBattery(b);
       await readClock(gen);
     }
@@ -324,26 +331,27 @@ function StatCard({
       <div className='mb-2.5 text-[11px] font-bold tracking-widest text-(--accent) uppercase'>
         {title}
       </div>
-      {note !== undefined && (
+      {note !== undefined ? (
         <div className='py-1.5 text-xs text-(--text2)'>{note}</div>
-      )}
-      {rows.map(([label, val, action]) => (
-        <div
-          key={label}
-          className='flex justify-between border-b py-1.5 text-xs last:border-0'
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <span className='text-(--text2)'>{label}</span>
-          {action ? (
-            <span className='flex items-center gap-1.5'>
+      ) : (
+        rows.map(([label, val, action]) => (
+          <div
+            key={label}
+            className='flex justify-between border-b py-1.5 text-xs last:border-0'
+            style={{ borderColor: 'var(--border)' }}
+          >
+            <span className='text-(--text2)'>{label}</span>
+            {action ? (
+              <span className='flex items-center gap-1.5'>
+                <span className='font-semibold'>{val}</span>
+                {action}
+              </span>
+            ) : (
               <span className='font-semibold'>{val}</span>
-              {action}
-            </span>
-          ) : (
-            <span className='font-semibold'>{val}</span>
-          )}
-        </div>
-      ))}
+            )}
+          </div>
+        ))
+      )}
     </div>
   );
 }
