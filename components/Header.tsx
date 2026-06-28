@@ -26,7 +26,8 @@ export function Header() {
     battery,
     locale,
     theme,
-    setStatsOpen,
+    view,
+    setView,
     setLocale,
     setTheme,
   } = useMeshStore();
@@ -75,6 +76,28 @@ export function Header() {
       </span>
 
       {active && (
+        /* Chat/Stats page switch. Disabled while reconnecting since the stats
+           page can't fetch over a dropped link. */
+        <nav className='flex overflow-hidden rounded-md border border-(--border-control)'>
+          {(['chat', 'stats'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              disabled={reconnecting}
+              aria-current={view === v ? 'page' : undefined}
+              className={`px-2.5 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                view === v
+                  ? 'bg-(--accent) text-white'
+                  : 'text-(--text2) hover:text-(--accent)'
+              }`}
+            >
+              {t(`header.${v}`)}
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {active && (
         <>
           <span className='ml-auto text-sm font-semibold text-(--accent)'>
             {deviceName}
@@ -86,15 +109,8 @@ export function Header() {
             </span>
           )}
           <button
-            onClick={() => setStatsOpen(true)}
-            disabled={reconnecting}
-            className='rounded-md border border-(--border) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-(--border) disabled:hover:text-(--text2)'
-          >
-            {t('header.stats')}
-          </button>
-          <button
             onClick={disconnect}
-            className='rounded-md border border-(--border) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--red) hover:text-(--red)'
+            className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--red) hover:text-(--red)'
           >
             {t('header.disconnect')}
           </button>
@@ -106,7 +122,7 @@ export function Header() {
           value={locale}
           onChange={(e) => setLocale(e.target.value as SupportedLocale)}
           aria-label={t('header.language')}
-          className='ml-auto cursor-pointer rounded-md border border-(--border) bg-(--surface) px-2 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent)'
+          className='ml-auto cursor-pointer rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent)'
         >
           {SUPPORTED_LOCALES.map((l) => (
             <option key={l} value={l}>
@@ -120,7 +136,7 @@ export function Header() {
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         aria-label={t('theme.toggle')}
         title={t('theme.toggle')}
-        className={`flex items-center justify-center rounded-md border border-(--border) p-1.5 text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) ${
+        className={`flex items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) ${
           active ? '' : 'ml-2'
         }`}
       >

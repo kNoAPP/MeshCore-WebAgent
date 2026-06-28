@@ -18,8 +18,9 @@
     "connected": "Verbunden",
     "reconnecting": "Verbinde neu…",
     "disconnected": "Getrennt",
+    "chat": "💬 Chat",
     "stats": "📊 Statistik",
-    "disconnect": "Trennen",
+    "disconnect": "⏻ Trennen",
     "language": "Sprache"
   },
   "theme": {

@@ -34,6 +34,9 @@
   --surface: #1a1d27;
   --surface2: #252836;
   --border: #2e3245;
+  /* A brighter border for interactive controls (header buttons), which the
+     dim `--border` leaves nearly invisible against `--surface` in dark mode. */
+  --border-control: #424a63;
   --accent: #4f8ef7;
   --accent-hover: #6ba0f9;
   --text: #e2e8f0;
@@ -61,6 +64,8 @@
   --surface: #f4f6f9;
   --surface2: #e7ebf1;
   --border: #d3d9e2;
+  /* Light mode's border already reads fine on controls, so this matches it. */
+  --border-control: #d3d9e2;
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
   --text: #1a1d27;
