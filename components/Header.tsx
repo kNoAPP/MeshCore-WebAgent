@@ -76,10 +76,10 @@ export function Header() {
       </span>
 
       {active && (
-        /* Chat/Stats page switch. Disabled while reconnecting since the stats
-           page can't fetch over a dropped link. */
+        /* Chat/Stats/Settings page switch. Disabled while reconnecting since
+           those pages can't fetch over a dropped link. */
         <nav className='flex overflow-hidden rounded-md border border-(--border-control)'>
-          {(['chat', 'stats'] as const).map((v) => (
+          {(['chat', 'stats', 'settings'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}

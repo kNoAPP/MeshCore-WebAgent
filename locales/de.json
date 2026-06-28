@@ -20,6 +20,7 @@
     "disconnected": "Getrennt",
     "chat": "💬 Chat",
     "stats": "📊 Statistik",
+    "settings": "⚙ Einstellungen",
     "disconnect": "⏻ Trennen",
     "language": "Sprache"
   },
@@ -141,6 +142,39 @@
     "noLimit": "Kein Limit",
     "maxHopsHint": "Nur Knoten hinzufügen, die innerhalb dieser Anzahl an Hops gehört wurden (0 = nur direkt; ganz rechts = kein Limit).",
     "showPublicKeys": "Öffentliche Schlüssel in Kontaktdetails anzeigen"
+  },
+  "settings": {
+    "title": "⚙ Einstellungen",
+    "section": {
+      "device": "Gerät",
+      "identity": "Identität",
+      "radio": "Funk",
+      "storage": "Speicher & Akku"
+    },
+    "model": "Modell",
+    "firmware": "Firmware-Version",
+    "build": "Build",
+    "maxContacts": "Max. Kontakte",
+    "maxChannels": "Max. Kanäle",
+    "blePin": "BLE-PIN",
+    "nodeName": "Knotenname",
+    "publicKey": "Öffentlicher Schlüssel",
+    "frequency": "Frequenz",
+    "bandwidth": "Bandbreite",
+    "spreadingFactor": "Spreizfaktor",
+    "codingRate": "Coderate",
+    "txPower": "Sendeleistung",
+    "maxTxPower": "Max. Sendeleistung",
+    "mhz": "{{value}} MHz",
+    "khz": "{{value}} kHz",
+    "dbm": "{{value}} dBm",
+    "edit": "Bearbeiten",
+    "editComingSoon": "Das Bearbeiten der Funkeinstellungen folgt in Kürze",
+    "voltage": "Spannung",
+    "storageUsed": "Speicher",
+    "kbUsage": "{{used}} / {{total}} KB",
+    "noBattery": "Speicher und Akku werden von diesem Gerät nicht gemeldet.",
+    "viewStats": "Vollständige Statistiken anzeigen →"
   },
   "chat": {
     "empty": "Wähle einen Kanal oder Kontakt, um zu chatten",

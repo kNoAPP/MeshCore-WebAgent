@@ -20,6 +20,7 @@
     "disconnected": "Déconnecté",
     "chat": "💬 Discussion",
     "stats": "📊 Stats",
+    "settings": "⚙ Paramètres",
     "disconnect": "⏻ Déconnecter",
     "language": "Langue"
   },
@@ -141,6 +142,39 @@
     "noLimit": "Sans limite",
     "maxHopsHint": "N'ajouter que les nœuds entendus dans cette limite de sauts (0 = direct uniquement ; tout à droite = sans limite).",
     "showPublicKeys": "Afficher les clés publiques dans les détails du contact"
+  },
+  "settings": {
+    "title": "⚙ Paramètres",
+    "section": {
+      "device": "Appareil",
+      "identity": "Identité",
+      "radio": "Radio",
+      "storage": "Stockage et batterie"
+    },
+    "model": "Modèle",
+    "firmware": "Version du firmware",
+    "build": "Build",
+    "maxContacts": "Contacts max",
+    "maxChannels": "Canaux max",
+    "blePin": "PIN BLE",
+    "nodeName": "Nom du nœud",
+    "publicKey": "Clé publique",
+    "frequency": "Fréquence",
+    "bandwidth": "Bande passante",
+    "spreadingFactor": "Facteur d'étalement",
+    "codingRate": "Taux de codage",
+    "txPower": "Puissance d'émission",
+    "maxTxPower": "Puissance d'émission max",
+    "mhz": "{{value}} MHz",
+    "khz": "{{value}} kHz",
+    "dbm": "{{value}} dBm",
+    "edit": "Modifier",
+    "editComingSoon": "La modification des paramètres radio arrive bientôt",
+    "voltage": "Tension",
+    "storageUsed": "Stockage",
+    "kbUsage": "{{used}} / {{total}} KB",
+    "noBattery": "Le stockage et la batterie ne sont pas signalés par cet appareil.",
+    "viewStats": "Voir toutes les statistiques →"
   },
   "chat": {
     "empty": "Sélectionne un canal ou un contact pour commencer à discuter",

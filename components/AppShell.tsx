@@ -12,6 +12,7 @@ import { ConnectPanel } from './ConnectPanel';
 import { ChatArea } from './ChatArea';
 import { ReconnectingOverlay } from './ReconnectingOverlay';
 import { StatsPage } from './StatsPage';
+import { SettingsPage } from './SettingsPage';
 import { ManagePanel } from './ManagePanel';
 import { DiscoverPanel } from './DiscoverPanel';
 import { AutoAddSettings } from './AutoAddSettings';
@@ -52,6 +53,8 @@ export function AppShell() {
           {active ? (
             view === 'stats' ? (
               <StatsPage />
+            ) : view === 'settings' ? (
+              <SettingsPage />
             ) : (
               <>
                 <Sidebar />
