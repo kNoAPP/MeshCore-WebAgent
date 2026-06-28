@@ -35,21 +35,23 @@ export function utf8ByteLength(text: string): number {
 
 /**
  * Truncates `text` to at most `maxBytes` UTF-8 bytes without splitting a
- * multi-byte code point. Iterating by code point (rather than slicing the
- * encoded bytes) keeps emoji and accents intact, so the result is always valid
+ * multi-byte code point. Counts each code point's encoded length in a single
+ * pass and stops at the first one that would overflow, so a huge paste is only
+ * scanned up to the cut point and the original string is sliced once. Iterating
+ * by code point keeps emoji and accents intact, so the result is always valid
  * UTF-8 the radio can decode.
  */
 export function truncateUtf8(text: string, maxBytes: number): string {
-  if (utf8ByteLength(text) <= maxBytes) return text;
   let bytes = 0;
-  let result = '';
+  let end = 0; // UTF-16 index just past the last code point that fits
   for (const ch of text) {
-    const chBytes = utf8.encode(ch).length;
-    if (bytes + chBytes > maxBytes) break;
+    const cp = ch.codePointAt(0)!;
+    const chBytes = cp <= 0x7f ? 1 : cp <= 0x7ff ? 2 : cp <= 0xffff ? 3 : 4;
+    if (bytes + chBytes > maxBytes) return text.slice(0, end);
     bytes += chBytes;
-    result += ch;
+    end += ch.length;
   }
-  return result;
+  return text;
 }
 
 /**

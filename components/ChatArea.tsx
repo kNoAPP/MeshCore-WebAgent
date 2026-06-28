@@ -120,10 +120,11 @@ export function ChatArea() {
   };
 
   // The radio caps text by UTF-8 byte length, not character count, so measure
-  // the same way it does. Channel sends also carry a "<sender>: " prefix that
-  // counts toward the firmware limit; the cap here ignores it, so a channel
-  // message right at the limit can still be trimmed by the radio.
-  const byteCount = utf8ByteLength(text);
+  // the same way it does — against the trimmed value, since that's what gets
+  // transmitted. Channel sends also carry a "<sender>: " prefix that counts
+  // toward the firmware limit; the cap here ignores it, so a channel message
+  // right at the limit can still be trimmed by the radio.
+  const byteCount = utf8ByteLength(text.trim());
   const overLimit = byteCount > MAX_MSG_BYTES;
 
   const handleSend = useCallback(async () => {
@@ -327,6 +328,7 @@ export function ChatArea() {
               style={{ maxHeight: 120 }}
             />
             <span
+              title={overLimit ? t('chat.overByteLimit') : undefined}
               className={`self-center text-[11px] ${
                 overLimit
                   ? 'text-(--red)'
@@ -340,7 +342,6 @@ export function ChatArea() {
             <button
               onClick={handleSend}
               disabled={!text.trim() || sending || overLimit}
-              title={overLimit ? t('chat.overByteLimit') : undefined}
               className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent)
               text-base text-white transition-opacity
               hover:opacity-85 disabled:opacity-40'
