@@ -17,10 +17,9 @@ import { CopyButton } from './CopyButton';
  */
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
-  const { client, selfInfo, battery, setView } = useMeshStore();
+  const { selfInfo, deviceInfo: device, battery, setView } = useMeshStore();
 
   const unknown = t('common.unknown');
-  const device = client?.deviceInfo;
   const num = (n: number) => n.toLocaleString(i18n.language);
 
   return (
@@ -70,7 +69,7 @@ export function SettingsPage() {
               label={t('settings.frequency')}
               value={
                 selfInfo?.radioFreq != null
-                  ? t('settings.mhz', { value: selfInfo.radioFreq })
+                  ? t('settings.mhz', { value: num(selfInfo.radioFreq) })
                   : unknown
               }
             />
@@ -78,27 +77,27 @@ export function SettingsPage() {
               label={t('settings.bandwidth')}
               value={
                 selfInfo?.radioBw != null
-                  ? t('settings.khz', { value: selfInfo.radioBw })
+                  ? t('settings.khz', { value: num(selfInfo.radioBw) })
                   : unknown
               }
             />
             <Row
               label={t('settings.spreadingFactor')}
               value={
-                selfInfo?.radioSf != null ? String(selfInfo.radioSf) : unknown
+                selfInfo?.radioSf != null ? num(selfInfo.radioSf) : unknown
               }
             />
             <Row
               label={t('settings.codingRate')}
               value={
-                selfInfo?.radioCr != null ? String(selfInfo.radioCr) : unknown
+                selfInfo?.radioCr != null ? num(selfInfo.radioCr) : unknown
               }
             />
             <Row
               label={t('settings.txPower')}
               value={
                 selfInfo?.txPower != null
-                  ? t('settings.dbm', { value: selfInfo.txPower })
+                  ? t('settings.dbm', { value: num(selfInfo.txPower) })
                   : unknown
               }
             />
@@ -106,7 +105,7 @@ export function SettingsPage() {
               label={t('settings.maxTxPower')}
               value={
                 selfInfo?.maxTxPower != null
-                  ? t('settings.dbm', { value: selfInfo.maxTxPower })
+                  ? t('settings.dbm', { value: num(selfInfo.maxTxPower) })
                   : unknown
               }
             />

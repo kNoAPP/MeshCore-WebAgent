@@ -350,6 +350,7 @@ export function useMeshCore() {
     setStatus,
     setDeviceName,
     setSelfInfo,
+    setDeviceInfo,
     setBattery,
     setSyncProgress,
     setContacts,
@@ -379,7 +380,7 @@ export function useMeshCore() {
           setDeviceName(info.name);
           setSelfInfo(info);
         },
-        onDeviceInfo: () => {},
+        onDeviceInfo: (info) => setDeviceInfo(info),
         onBattery: (b) => setBattery(b),
         onSyncProgress: (p) => setSyncProgress(p),
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
@@ -427,6 +428,7 @@ export function useMeshCore() {
     [
       setDeviceName,
       setSelfInfo,
+      setDeviceInfo,
       setBattery,
       setSyncProgress,
       setContacts,

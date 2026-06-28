@@ -14,6 +14,7 @@ import type {
   ConnectionStatus,
   BatteryInfo,
   SelfInfo,
+  DeviceInfo,
   SyncProgress,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
@@ -141,6 +142,7 @@ interface MeshState {
   status: ConnectionStatus;
   deviceName: string;
   selfInfo: SelfInfo | null;
+  deviceInfo: DeviceInfo | null;
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
 
@@ -171,6 +173,7 @@ interface MeshActions {
   setStatus: (s: ConnectionStatus) => void;
   setDeviceName: (name: string) => void;
   setSelfInfo: (info: SelfInfo | null) => void;
+  setDeviceInfo: (info: DeviceInfo | null) => void;
   setBattery: (b: BatteryInfo | null) => void;
   setSyncProgress: (p: SyncProgress | null) => void;
   setContacts: (c: Record<string, Contact>) => void;
@@ -203,6 +206,7 @@ const initialState: MeshState = {
   status: 'disconnected',
   deviceName: '',
   selfInfo: null,
+  deviceInfo: null,
   battery: null,
   syncProgress: null,
   contacts: {},
@@ -236,6 +240,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setStatus: (status) => set({ status }),
   setDeviceName: (deviceName) => set({ deviceName }),
   setSelfInfo: (selfInfo) => set({ selfInfo }),
+  setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
   setBattery: (battery) => set({ battery }),
   setSyncProgress: (syncProgress) => set({ syncProgress }),
   setContacts: (contacts) => set({ contacts }),
