@@ -158,6 +158,7 @@
     "maxChannels": "Canaux max",
     "blePin": "PIN BLE",
     "nodeName": "Nom du nœud",
+    "editName": "Modifier le nom du nœud",
     "publicKey": "Clé publique",
     "frequency": "Fréquence",
     "bandwidth": "Bande passante",
@@ -353,6 +354,8 @@
     "removeChannelFailed": "Échec de la suppression du canal : {{error}}",
     "settingsSaved": "Paramètres d'ajout automatique enregistrés",
     "saveSettingsFailed": "Échec de l'enregistrement des paramètres : {{error}}",
+    "nodeNameSaved": "Nom du nœud mis à jour",
+    "nodeNameSaveFailed": "Échec de la mise à jour du nom du nœud : {{error}}",
     "advertSent": "Annonce envoyée aux nœuds à proximité",
     "advertFailed": "Échec de l'envoi de l'annonce : {{error}}",
     "advertNoRecent": "Partage impossible : votre radio n'a pas reçu d'annonce récente de ce contact"

@@ -158,6 +158,7 @@
     "maxChannels": "Max channels",
     "blePin": "BLE PIN",
     "nodeName": "Node name",
+    "editName": "Edit node name",
     "publicKey": "Public key",
     "frequency": "Frequency",
     "bandwidth": "Bandwidth",
@@ -353,6 +354,8 @@
     "removeChannelFailed": "Failed to remove channel: {{error}}",
     "settingsSaved": "Auto-add settings saved",
     "saveSettingsFailed": "Failed to save settings: {{error}}",
+    "nodeNameSaved": "Node name updated",
+    "nodeNameSaveFailed": "Failed to update node name: {{error}}",
     "advertSent": "Advert sent to nearby nodes",
     "advertFailed": "Failed to send advert: {{error}}",
     "advertNoRecent": "Can't share: your radio hasn't heard a recent advert from this contact"

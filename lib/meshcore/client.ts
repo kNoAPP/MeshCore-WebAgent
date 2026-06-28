@@ -43,6 +43,7 @@ import {
   buildRemoveContact,
   buildShareContact,
   buildSetChannel,
+  buildSetAdvertName,
   buildSetOtherParams,
   buildSetAutoAddConfig,
   buildGetAutoAddConfig,
@@ -654,6 +655,20 @@ export class MeshCoreClient {
     );
     delete this.channels[idx];
     this.callbacks.onChannelsUpdated?.(this.channels);
+  }
+
+  /**
+   * Renames this radio (`SET_ADVERT_NAME`). On success, updates the local
+   * `selfInfo` mirror and fires {@link MeshCoreCallbacks.onSelfInfo} so the
+   * header and Settings reflect the new name immediately; peers learn it on the
+   * radio's next advert.
+   */
+  async setNodeName(name: string): Promise<void> {
+    await this.cmd(buildSetAdvertName(name), [RESP.OK], 5000);
+    if (this.selfInfo) {
+      this.selfInfo = { ...this.selfInfo, name };
+      this.callbacks.onSelfInfo?.(this.selfInfo);
+    }
   }
 
   /**
