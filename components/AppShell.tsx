@@ -11,7 +11,7 @@ import { Sidebar } from './Sidebar';
 import { ConnectPanel } from './ConnectPanel';
 import { ChatArea } from './ChatArea';
 import { ReconnectingOverlay } from './ReconnectingOverlay';
-import { StatsModal } from './StatsModal';
+import { StatsPage } from './StatsPage';
 import { ManagePanel } from './ManagePanel';
 import { DiscoverPanel } from './DiscoverPanel';
 import { AutoAddSettings } from './AutoAddSettings';
@@ -26,6 +26,7 @@ import { Toast } from './Toast';
 export function AppShell() {
   const isDesktop = useIsDesktop();
   const status = useMeshStore((s) => s.status);
+  const view = useMeshStore((s) => s.view);
   const connected = status === 'connected';
   const reconnecting = status === 'reconnecting';
   // A dropped link keeps the app mounted (chats stay visible) under a blocking
@@ -48,14 +49,23 @@ export function AppShell() {
             clicks but also blocks the keyboard focus/typing that would
             otherwise reach the still-mounted composer underneath it. */}
         <div className='flex flex-1 overflow-hidden' inert={reconnecting}>
-          {active && <Sidebar />}
-          {active ? <ChatArea /> : <ConnectPanel />}
+          {active ? (
+            view === 'stats' ? (
+              <StatsPage />
+            ) : (
+              <>
+                <Sidebar />
+                <ChatArea />
+              </>
+            )
+          ) : (
+            <ConnectPanel />
+          )}
         </div>{' '}
         {reconnecting && <ReconnectingOverlay />}
       </div>{' '}
       {connected && (
         <>
-          <StatsModal />
           <ManagePanel />
           <DiscoverPanel />
           <AutoAddSettings />

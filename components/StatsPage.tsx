@@ -11,12 +11,13 @@ import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
 import { fmtUptime, fmtAirtime, fmtVoltage, fmtSkew } from '@/lib/utils';
 
 /**
- * Device stats overlay. Fetches battery + all stats pages when opened (and on
- * Refresh), laid out as cards. Renders nothing while `statsOpen` is false.
+ * Device stats page. Fetches battery + all stats pages when the stats view
+ * becomes active (and on Refresh), laid out as cards. Rendered by
+ * {@link AppShell} in place of the chat pane while `view` is `'stats'`.
  */
-export function StatsModal() {
+export function StatsPage() {
   const { t, i18n } = useTranslation();
-  const { client, statsOpen, setStatsOpen } = useMeshStore();
+  const { client, view } = useMeshStore();
   const [stats, setStats] = useState<StatsResult | null>(null);
   // This session's battery/storage snapshot — the exact result of the last
   // fetch, including null when the device didn't report it. Kept local (rather
@@ -37,8 +38,9 @@ export function StatsModal() {
   );
   const [resyncing, setResyncing] = useState(false);
 
-  // Bumped on every modal open so an async read whose modal has since reopened
-  // drops its late setState instead of clobbering the current session's values.
+  // Bumped on every entry to the stats view so an async read whose view has
+  // since reopened drops its late setState instead of clobbering the current
+  // session's values.
   const session = useRef(0);
 
   // Reads the device clock and stores it with a fresh skew snapshot, unless
@@ -64,10 +66,10 @@ export function StatsModal() {
     [client],
   );
 
-  // Auto-fetch when modal opens; only setState after an await (never
+  // Auto-fetch when the stats view opens; only setState after an await (never
   // synchronously in the effect body).
   useEffect(() => {
-    if (!statsOpen || !client) return;
+    if (view !== 'stats' || !client) return;
     const gen = ++session.current;
     void (async () => {
       const [s, b] = await Promise.all([
@@ -84,7 +86,7 @@ export function StatsModal() {
       // stats batch above.
       await readClock(gen);
     })();
-  }, [statsOpen, client, readClock]);
+  }, [view, client, readClock]);
 
   const refresh = useCallback(async () => {
     if (!client) return;
@@ -119,28 +121,18 @@ export function StatsModal() {
     }
   }, [client, readClock]);
 
-  if (!statsOpen) return null;
-
   return (
-    <div
-      className='fixed inset-0 z-50 flex items-center justify-center'
-      style={{ background: 'rgba(0,0,0,0.6)' }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) setStatsOpen(false);
-      }}
-    >
-      <div
-        className='max-h-[85vh] w-135 max-w-[95vw] overflow-y-auto rounded-[10px] border p-7'
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
+    <div className='flex flex-1 flex-col overflow-y-auto p-7'>
+      <div className='mx-auto w-full max-w-3xl'>
         {/* Header */}
         <div className='mb-5 flex items-center justify-between'>
           <h2 className='text-base font-bold'>{t('stats.title')}</h2>
           <button
-            onClick={() => setStatsOpen(false)}
-            className='text-lg leading-none text-(--text2) hover:text-(--text)'
+            onClick={refresh}
+            disabled={loading}
+            className='rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50'
           >
-            ✕
+            {loading ? t('stats.refreshing') : t('stats.refresh')}
           </button>
         </div>
 
@@ -296,16 +288,6 @@ export function StatsModal() {
             {t('stats.allUnavailable')}
           </p>
         )}
-
-        <div className='mt-4 flex justify-end'>
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className='rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50'
-          >
-            {loading ? t('stats.refreshing') : t('stats.refresh')}
-          </button>
-        </div>
       </div>
     </div>
   );

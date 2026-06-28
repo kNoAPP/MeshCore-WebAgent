@@ -76,6 +76,9 @@ export const CONTACT_SORTS = ['az', 'heard', 'latest'] as const;
 /** How the visible contacts are ordered. */
 export type ContactSort = (typeof CONTACT_SORTS)[number];
 
+/** Which top-level page the connected app is showing. */
+export type AppView = 'chat' | 'stats';
+
 /** Persisted contacts-list view: filter, order, and favorite pinning. */
 export interface ContactView {
   filter: ContactFilter;
@@ -154,7 +157,7 @@ interface MeshState {
   locale: SupportedLocale;
   theme: Theme;
   toast: Toast | null;
-  statsOpen: boolean;
+  view: AppView;
   managePanel: { kind: 'contact' | 'channel'; id: string } | null;
   discoverOpen: boolean;
   autoAddOpen: boolean;
@@ -181,7 +184,7 @@ interface MeshActions {
   restoreHistory: (persisted: Record<string, Message[]>) => void;
   showToast: (text: string, variant?: Toast['variant']) => void;
   dismissToast: () => void;
-  setStatsOpen: (open: boolean) => void;
+  setView: (view: AppView) => void;
   setManagePanel: (
     panel: { kind: 'contact' | 'channel'; id: string } | null,
   ) => void;
@@ -208,7 +211,7 @@ const initialState: MeshState = {
   locale: resolveInitialLocale(),
   theme: resolveInitialTheme(),
   toast: null,
-  statsOpen: false,
+  view: 'chat',
   managePanel: null,
   discoverOpen: false,
   autoAddOpen: false,
@@ -370,7 +373,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   },
 
   dismissToast: () => set({ toast: null }),
-  setStatsOpen: (statsOpen) => set({ statsOpen }),
+  setView: (view) => set({ view }),
   setManagePanel: (managePanel) => set({ managePanel }),
   setDiscoverOpen: (discoverOpen) => set({ discoverOpen }),
   setAutoAddOpen: (autoAddOpen) => set({ autoAddOpen }),
@@ -380,7 +383,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   // remounts the connected UI.
   closeConnectionOverlays: () =>
     set({
-      statsOpen: false,
+      view: 'chat',
       managePanel: null,
       discoverOpen: false,
       autoAddOpen: false,
