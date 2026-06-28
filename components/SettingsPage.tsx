@@ -17,7 +17,17 @@ import { CopyButton } from './CopyButton';
  */
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
-  const { selfInfo, deviceInfo: device, battery, setView } = useMeshStore();
+  const {
+    status,
+    selfInfo,
+    deviceInfo: device,
+    battery,
+    setView,
+  } = useMeshStore();
+
+  // Stats auto-fetches over the link on activation, so the shortcut to it is
+  // gated while reconnecting — matching the header's Stats tab.
+  const reconnecting = status === 'reconnecting';
 
   const unknown = t('common.unknown');
   const num = (n: number) => n.toLocaleString(i18n.language);
@@ -146,7 +156,8 @@ export function SettingsPage() {
             )}
             <button
               onClick={() => setView('stats')}
-              className='mt-2 text-xs text-(--accent) hover:underline'
+              disabled={reconnecting}
+              className='mt-2 text-xs text-(--accent) hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50'
             >
               {t('settings.viewStats')}
             </button>
