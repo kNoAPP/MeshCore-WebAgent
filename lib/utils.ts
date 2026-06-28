@@ -28,7 +28,7 @@ export function randomSecret(): Uint8Array {
 
 const utf8 = new TextEncoder();
 
-/** UTF-8 byte length of a string — the unit the radio measures text against. */
+/** UTF-8 byte length of a string — what the radio measures text against. */
 export function utf8ByteLength(text: string): number {
   return utf8.encode(text).length;
 }
