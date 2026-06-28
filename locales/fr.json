@@ -116,7 +116,9 @@
     "floodRx": "Flood RX",
     "directTx": "Direct TX",
     "directRx": "Direct RX",
-    "rxErrors": "Erreurs RX"
+    "rxErrors": "Erreurs RX",
+    "notReported": "Non rapporté par cet appareil",
+    "allUnavailable": "Ce firmware n'expose pas de statistiques détaillées."
   },
   "autoAdd": {
     "title": "⚙ Paramètres d'ajout automatique",

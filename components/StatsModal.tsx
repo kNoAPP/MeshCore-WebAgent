@@ -19,6 +19,10 @@ export function StatsModal() {
   const { client, statsOpen, setStatsOpen, battery } = useMeshStore();
   const [stats, setStats] = useState<StatsResult | null>(null);
   const [loading, setLoading] = useState(false);
+  // True once a fetch has completed at least once this session. Distinct from
+  // `loading`: it gates the "unavailable" cards so they appear only after a
+  // real attempt, not during the initial blank render.
+  const [fetched, setFetched] = useState(false);
   // The device clock (epoch seconds) and its skew from this computer at the
   // moment it was read, or null when there's no readable time — the radio
   // lacks GET_DEVICE_TIME (older firmware) or its clock is unset. The clock
@@ -67,6 +71,7 @@ export function StatsModal() {
       ]);
       if (gen !== session.current) return;
       setStats(s);
+      setFetched(true);
       if (b) useMeshStore.getState().setBattery(b);
       // Read the clock on its own: the firmware answers GET_DEVICE_TIME
       // reliably only one command at a time, so it can't be pipelined into the
@@ -82,6 +87,7 @@ export function StatsModal() {
     const [s, b] = await Promise.all([client.getStats(), client.getBattery()]);
     if (gen === session.current) {
       setStats(s);
+      setFetched(true);
       if (b) useMeshStore.getState().setBattery(b);
       await readClock(gen);
     }
@@ -132,7 +138,7 @@ export function StatsModal() {
         </div>
 
         <div className='grid grid-cols-2 gap-4'>
-          {battery && (
+          {battery ? (
             <StatCard
               title={t('stats.card.storageBattery')}
               rows={[
@@ -155,8 +161,15 @@ export function StatsModal() {
                 ],
               ]}
             />
+          ) : (
+            fetched && (
+              <StatCard
+                title={t('stats.card.storageBattery')}
+                note={t('stats.notReported')}
+              />
+            )
           )}
-          {stats?.core && (
+          {stats?.core ? (
             <StatCard
               title={t('stats.card.core')}
               rows={[
@@ -166,6 +179,13 @@ export function StatsModal() {
                 [t('stats.queueLength'), String(stats.core.queueLen)],
               ]}
             />
+          ) : (
+            fetched && (
+              <StatCard
+                title={t('stats.card.core')}
+                note={t('stats.notReported')}
+              />
+            )
           )}
           {clock !== null && (
             <StatCard
@@ -194,7 +214,7 @@ export function StatsModal() {
               ]}
             />
           )}
-          {stats?.radio && (
+          {stats?.radio ? (
             <StatCard
               title={t('stats.card.radio')}
               rows={[
@@ -208,8 +228,15 @@ export function StatsModal() {
                 [t('stats.rxAirtime'), fmtAirtime(stats.radio.rxAirSecs)],
               ]}
             />
+          ) : (
+            fetched && (
+              <StatCard
+                title={t('stats.card.radio')}
+                note={t('stats.notReported')}
+              />
+            )
           )}
-          {stats?.packets && (
+          {stats?.packets ? (
             <StatCard
               title={t('stats.card.packets')}
               rows={[
@@ -247,8 +274,21 @@ export function StatsModal() {
                   : []),
               ]}
             />
+          ) : (
+            fetched && (
+              <StatCard
+                title={t('stats.card.packets')}
+                note={t('stats.notReported')}
+              />
+            )
           )}
         </div>
+
+        {fetched && !stats?.core && !stats?.radio && !stats?.packets && (
+          <p className='mt-4 text-xs text-(--text2)'>
+            {t('stats.allUnavailable')}
+          </p>
+        )}
 
         <div className='mt-4 flex justify-end'>
           <button
@@ -267,20 +307,26 @@ export function StatsModal() {
 /**
  * A titled card rendering `[label, value]` rows for one stats group. A row may
  * carry an optional third element — an action node (e.g. a button) shown after
- * the value.
+ * the value. When `note` is set, the card shows that muted line instead of rows
+ * — used to render a section the device didn't report.
  */
 function StatCard({
   title,
-  rows,
+  rows = [],
+  note,
 }: {
   title: string;
-  rows: [string, string, React.ReactNode?][];
+  rows?: [string, string, React.ReactNode?][];
+  note?: string;
 }) {
   return (
     <div className='rounded-lg p-3.5' style={{ background: 'var(--surface2)' }}>
       <div className='mb-2.5 text-[11px] font-bold tracking-widest text-(--accent) uppercase'>
         {title}
       </div>
+      {note !== undefined && (
+        <div className='py-1.5 text-xs text-(--text2)'>{note}</div>
+      )}
       {rows.map(([label, val, action]) => (
         <div
           key={label}

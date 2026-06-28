@@ -116,7 +116,9 @@
     "floodRx": "Flood RX",
     "directTx": "Direkt TX",
     "directRx": "Direkt RX",
-    "rxErrors": "RX-Fehler"
+    "rxErrors": "RX-Fehler",
+    "notReported": "Von diesem Gerät nicht gemeldet",
+    "allUnavailable": "Diese Firmware stellt keine detaillierten Statistiken bereit."
   },
   "autoAdd": {
     "title": "⚙ Auto-Hinzufügen-Einstellungen",
