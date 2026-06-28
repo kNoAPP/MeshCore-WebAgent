@@ -95,6 +95,19 @@ export const ROUTE_TYPE_FLOOD = 0x01;
  */
 export const PAYLOAD_TYPE_GRP_TXT = 0x05;
 
+/**
+ * Maximum outgoing text message length in **UTF-8 bytes**, matching the
+ * firmware's `MAX_TEXT_LEN` (`10 * CIPHER_BLOCK_SIZE` = `10 * 16`). The radio
+ * measures this in bytes, not characters: a direct message over the limit is
+ * rejected outright (`MSG_SEND_FAILED`), and a channel message is silently
+ * truncated — so the send path and composer must cap by encoded byte length.
+ *
+ * @see `BaseChatMesh::sendMessage` / `sendGroupMessage` and `MAX_TEXT_LEN` in
+ * `BaseChatMesh.h`. Note: channel messages also carry a `"<sender>: "` prefix
+ * that counts toward this limit on the radio.
+ */
+export const MAX_MSG_BYTES = 160;
+
 /** {@link Contact.advType} value for a repeater node. */
 export const ADV_TYPE_REPEATER = 2;
 /** {@link Contact.advType} value for a room-server node. */

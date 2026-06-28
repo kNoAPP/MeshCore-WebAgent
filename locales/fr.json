@@ -149,7 +149,8 @@
     "resetRouteRetry": "Réinitialiser la route et réessayer",
     "resetRouteRetryTooltip": "Abandonner la route enregistrée vers ce contact et renvoyer par flood",
     "repeaterCantMessage": "Impossible d'envoyer des messages aux répéteurs",
-    "placeholder": "Tape un message… (Entrée pour envoyer, Maj+Entrée pour un saut de ligne)"
+    "placeholder": "Tape un message… (Entrée pour envoyer, Maj+Entrée pour un saut de ligne)",
+    "overByteLimit": "Le message est trop long — raccourcis-le pour l'envoyer"
   },
   "manage": {
     "removeChannelConfirm": "Supprimer ce canal de la radio ?",

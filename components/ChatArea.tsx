@@ -7,13 +7,14 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { ADV_ICON } from '@/lib/utils';
+import { ADV_ICON, utf8ByteLength } from '@/lib/utils';
 import { MessageBubble } from './MessageBubble';
 import { RouteChip } from './RouteChip';
 import {
   NO_PATH,
   ADV_TYPE_REPEATER,
   FAVORITE_FLAG,
+  MAX_MSG_BYTES,
 } from '@/lib/meshcore/constants';
 
 /** Max at-mention autocomplete suggestions shown at once. */
@@ -118,14 +119,22 @@ export function ChatArea() {
     });
   };
 
+  // The radio caps text by UTF-8 byte length, not character count, so measure
+  // the same way it does — against the trimmed value, since that's what gets
+  // transmitted. Channel sends also carry a "<sender>: " prefix that counts
+  // toward the firmware limit; the cap here ignores it, so a channel message
+  // right at the limit can still be trimmed by the radio.
+  const byteCount = utf8ByteLength(text.trim());
+  const overLimit = byteCount > MAX_MSG_BYTES;
+
   const handleSend = useCallback(async () => {
-    if (!text.trim() || sending || !activeConvo) return;
+    if (!text.trim() || sending || !activeConvo || overLimit) return;
     setSending(true);
     await sendMessage(text, activeConvo);
     setText('');
     setSending(false);
     setMentionQuery(null);
-  }, [text, sending, activeConvo, sendMessage]);
+  }, [text, sending, activeConvo, overLimit, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Tab' && suggestions.length > 0) {
@@ -143,8 +152,6 @@ export function ChatArea() {
       handleSend();
     }
   };
-
-  const charCount = text.length;
 
   if (!activeConvo) {
     return (
@@ -314,7 +321,6 @@ export function ChatArea() {
                 handleKeyUp as unknown as React.MouseEventHandler<HTMLTextAreaElement>
               }
               rows={1}
-              maxLength={160}
               placeholder={t('chat.placeholder')}
               className='flex-1 resize-none overflow-y-hidden rounded-[10px] border border-(--border) bg-(--surface2) px-3 py-2
               text-sm text-(--text) outline-none
@@ -322,13 +328,20 @@ export function ChatArea() {
               style={{ maxHeight: 120 }}
             />
             <span
-              className={`self-center text-[11px] ${charCount > 140 ? 'text-(--yellow)' : 'text-(--text2)'}`}
+              title={overLimit ? t('chat.overByteLimit') : undefined}
+              className={`self-center text-[11px] ${
+                overLimit
+                  ? 'text-(--red)'
+                  : byteCount > MAX_MSG_BYTES - 20
+                    ? 'text-(--yellow)'
+                    : 'text-(--text2)'
+              }`}
             >
-              {charCount}/160
+              {byteCount}/{MAX_MSG_BYTES}
             </span>
             <button
               onClick={handleSend}
-              disabled={!text.trim() || sending}
+              disabled={!text.trim() || sending || overLimit}
               className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent)
               text-base text-white transition-opacity
               hover:opacity-85 disabled:opacity-40'
