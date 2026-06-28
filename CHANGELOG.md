@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.4.0...v1.5.0) (2026-06-28)
+
+
+### Features
+
+* add settings page with read-only device info ([#93](https://github.com/kNoAPP/MeshCore-WebAgent/issues/93)) ([192bdd8](https://github.com/kNoAPP/MeshCore-WebAgent/commit/192bdd850838f223ef5b62441959727a0ef3a5c9))
+* edit node name from settings (SET_ADVERT_NAME) ([#94](https://github.com/kNoAPP/MeshCore-WebAgent/issues/94)) ([df5f724](https://github.com/kNoAPP/MeshCore-WebAgent/commit/df5f724a81fe0fbdbe2e98bf17ef6482841b9b14))
+* include history senders in mention suggestions ([#92](https://github.com/kNoAPP/MeshCore-WebAgent/issues/92)) ([5c3f5d8](https://github.com/kNoAPP/MeshCore-WebAgent/commit/5c3f5d8de172bfae1d9965c09fcffce10b983cd7))
+* replace stats modal with full-page stats view ([#91](https://github.com/kNoAPP/MeshCore-WebAgent/issues/91)) ([101a017](https://github.com/kNoAPP/MeshCore-WebAgent/commit/101a0179b1ecb61f6f6da8789d70ac9f4aac3ecd))
+* surface unavailable device stats sections ([#90](https://github.com/kNoAPP/MeshCore-WebAgent/issues/90)) ([e6c71b2](https://github.com/kNoAPP/MeshCore-WebAgent/commit/e6c71b22c497a74186a4943594a331372e4d0ba6))
+
+
+### Bug Fixes
+
+* cap outgoing messages by UTF-8 bytes to match firmware ([#89](https://github.com/kNoAPP/MeshCore-WebAgent/issues/89)) ([13715fb](https://github.com/kNoAPP/MeshCore-WebAgent/commit/13715fbda82511ac40441dd81a737245e572066d))
+* darken light-mode self-mention text for readability ([#86](https://github.com/kNoAPP/MeshCore-WebAgent/issues/86)) ([b6193a9](https://github.com/kNoAPP/MeshCore-WebAgent/commit/b6193a9f5a704aee8601fb2637e288417d0ac1ba))
+* sync full contact table via idle timeout ([#85](https://github.com/kNoAPP/MeshCore-WebAgent/issues/85)) ([8a03c09](https://github.com/kNoAPP/MeshCore-WebAgent/commit/8a03c09946621fe8e0fe94f09650e3e3eed4d65c))
+
 ## [1.4.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.3.0...v1.4.0) (2026-06-26)
 
 
