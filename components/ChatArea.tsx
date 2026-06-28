@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
@@ -55,13 +55,40 @@ export function ChatArea() {
 
   const messages = activeConvo ? (msgHistory[activeConvo.id] ?? []) : [];
 
-  const contactNames = Object.values(contacts)
-    .map((c) => c.name)
-    .filter(Boolean);
+  // Mentionable names span both saved contacts and anyone seen posting in
+  // history, so channel participants who were never added as a contact can
+  // still be mentioned. Contacts come first (most relevant), then history
+  // senders, de-duplicated case-insensitively while keeping first-seen casing.
+  const mentionCandidates = useMemo(() => {
+    const seen = new Set<string>();
+    const names: string[] = [];
+    const add = (name: string | undefined) => {
+      const trimmed = name?.trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      names.push(trimmed);
+    };
+    for (const contact of Object.values(contacts)) add(contact.name);
+    for (const msgs of Object.values(msgHistory)) {
+      for (const msg of msgs) {
+        if (msg.own || msg.system) continue;
+        if (msg.kind === 'channel') {
+          // Channel senders are embedded as a "<sender>: <body>" prefix.
+          const colonIdx = msg.text.indexOf(': ');
+          if (colonIdx !== -1) add(msg.text.slice(0, colonIdx));
+        } else {
+          add(msg.senderName);
+        }
+      }
+    }
+    return names;
+  }, [contacts, msgHistory]);
 
   const suggestions =
     mentionQuery !== null
-      ? contactNames
+      ? mentionCandidates
           .filter((name) =>
             name.toLowerCase().startsWith(mentionQuery.toLowerCase()),
           )
