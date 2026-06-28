@@ -196,7 +196,9 @@ function NodeNameRow() {
   const trimmed = value.trim();
   const byteCount = utf8ByteLength(trimmed);
   const overLimit = byteCount > MAX_ADVERT_NAME_BYTES;
-  const canSave = trimmed.length > 0 && !overLimit && !saving;
+  // Gate Save on `editable` too: if the link drops mid-edit the write would be
+  // silently swallowed by the hook's connected-link check, with no toast.
+  const canSave = editable && trimmed.length > 0 && !overLimit && !saving;
 
   const start = () => {
     setValue(currentName);
