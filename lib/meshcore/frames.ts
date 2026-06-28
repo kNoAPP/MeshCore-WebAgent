@@ -1,7 +1,8 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-import { CMD } from './constants';
+import { CMD, MAX_MSG_BYTES } from './constants';
+import { truncateUtf8 } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
 
 // Builders that encode outbound command payloads. Each returns the raw command
@@ -106,13 +107,13 @@ export function buildGetStats(subtype: number): Uint8Array {
  * Builds a channel (group) text message.
  *
  * @param channelIdx - target channel slot 0–7.
- * @param text - message body; truncated to 160 bytes.
+ * @param text - message body; truncated to {@link MAX_MSG_BYTES} UTF-8 bytes.
  */
 export function buildSendChannelMsg(
   channelIdx: number,
   text: string,
 ): Uint8Array {
-  const textBytes = enc.encode(text.slice(0, 160));
+  const textBytes = enc.encode(truncateUtf8(text, MAX_MSG_BYTES));
   const p = new Uint8Array(7 + textBytes.length);
   p[0] = CMD.SEND_CHANNEL_TXT_MSG;
   p[1] = 0x00; // txt_type = plain
@@ -126,7 +127,7 @@ export function buildSendChannelMsg(
  * Builds a direct (1:1) text message addressed by public-key prefix.
  *
  * @param pubkeyPrefix6 - first 6 bytes of the recipient's public key.
- * @param text - message body; truncated to 160 bytes.
+ * @param text - message body; truncated to {@link MAX_MSG_BYTES} UTF-8 bytes.
  * @param attempt - retry counter; lets the radio vary routing on resends.
  */
 export function buildSendDirectMsg(
@@ -134,7 +135,7 @@ export function buildSendDirectMsg(
   text: string,
   attempt = 0,
 ): Uint8Array {
-  const textBytes = enc.encode(text.slice(0, 160));
+  const textBytes = enc.encode(truncateUtf8(text, MAX_MSG_BYTES));
   const p = new Uint8Array(13 + textBytes.length);
   p[0] = CMD.SEND_TXT_MSG;
   p[1] = 0x00; // txt_type = plain

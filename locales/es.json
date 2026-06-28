@@ -149,7 +149,8 @@
     "resetRouteRetry": "Restablecer ruta y reintentar",
     "resetRouteRetryTooltip": "Descartar la ruta guardada a este contacto y reenviar por flood",
     "repeaterCantMessage": "No se puede enviar mensajes a los repetidores",
-    "placeholder": "Escribe un mensaje… (Enter para enviar, Mayús+Enter para salto de línea)"
+    "placeholder": "Escribe un mensaje… (Enter para enviar, Mayús+Enter para salto de línea)",
+    "overByteLimit": "El mensaje es demasiado largo — acórtalo para enviarlo"
   },
   "manage": {
     "removeChannelConfirm": "¿Eliminar este canal de la radio?",

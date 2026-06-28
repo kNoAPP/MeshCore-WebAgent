@@ -26,6 +26,32 @@ export function randomSecret(): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(16));
 }
 
+const utf8 = new TextEncoder();
+
+/** UTF-8 byte length of a string — the unit the radio measures text against. */
+export function utf8ByteLength(text: string): number {
+  return utf8.encode(text).length;
+}
+
+/**
+ * Truncates `text` to at most `maxBytes` UTF-8 bytes without splitting a
+ * multi-byte code point. Iterating by code point (rather than slicing the
+ * encoded bytes) keeps emoji and accents intact, so the result is always valid
+ * UTF-8 the radio can decode.
+ */
+export function truncateUtf8(text: string, maxBytes: number): string {
+  if (utf8ByteLength(text) <= maxBytes) return text;
+  let bytes = 0;
+  let result = '';
+  for (const ch of text) {
+    const chBytes = utf8.encode(ch).length;
+    if (bytes + chBytes > maxBytes) break;
+    bytes += chBytes;
+    result += ch;
+  }
+  return result;
+}
+
 /**
  * Derives a hashtag channel's shared secret from its name.
  *
