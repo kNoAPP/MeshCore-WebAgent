@@ -38,6 +38,20 @@ function getMentionQuery(value: string, cursor: number): string | null {
 }
 
 /**
+ * Splits a channel message — whose text the firmware formats as
+ * `<sender>: <body>` — into its sender label and body. The sender is null when
+ * no prefix is present.
+ */
+function splitChannelMessage(text: string): {
+  sender: string | null;
+  body: string;
+} {
+  const colonIdx = text.indexOf(': ');
+  if (colonIdx === -1) return { sender: null, body: text };
+  return { sender: text.slice(0, colonIdx), body: text.slice(colonIdx + 2) };
+}
+
+/**
  * The main conversation pane for the active channel or contact: header with
  * route info, the scrolling message list, and the composer with at-mention
  * autocomplete, retry actions, and a repeater-can't-message guard.
@@ -59,7 +73,11 @@ export function ChatArea() {
   // history, so channel participants who were never added as a contact can
   // still be mentioned. Contacts come first (most relevant), then history
   // senders, de-duplicated case-insensitively while keeping first-seen casing.
+  // Only built while a mention is in progress so the full-history scan stays
+  // out of the message-receive hot path.
+  const mentionActive = mentionQuery !== null;
   const mentionCandidates = useMemo(() => {
+    if (!mentionActive) return [];
     const seen = new Set<string>();
     const names: string[] = [];
     const add = (name: string | undefined) => {
@@ -75,16 +93,16 @@ export function ChatArea() {
       for (const msg of msgs) {
         if (msg.own || msg.system) continue;
         if (msg.kind === 'channel') {
-          // Channel senders are embedded as a "<sender>: <body>" prefix.
-          const colonIdx = msg.text.indexOf(': ');
-          if (colonIdx !== -1) add(msg.text.slice(0, colonIdx));
-        } else {
+          add(splitChannelMessage(msg.text).sender ?? undefined);
+        } else if (msg.senderName !== msg.pubkeyPrefix?.slice(0, 8)) {
+          // Skip the hex-prefix fallback used for unsaved senders — it's an
+          // identifier, not a mentionable name.
           add(msg.senderName);
         }
       }
     }
     return names;
-  }, [contacts, msgHistory]);
+  }, [mentionActive, contacts, msgHistory]);
 
   const suggestions =
     mentionQuery !== null
@@ -232,13 +250,9 @@ export function ChatArea() {
           if (msg.own) {
             senderLabel = t('chat.you');
           } else if (msg.kind === 'channel') {
-            const colonIdx = msg.text.indexOf(': ');
-            if (colonIdx !== -1) {
-              senderLabel = msg.text.slice(0, colonIdx);
-              bodyText = msg.text.slice(colonIdx + 2);
-            } else {
-              senderLabel = '?';
-            }
+            const { sender, body } = splitChannelMessage(msg.text);
+            senderLabel = sender ?? '?';
+            bodyText = body;
           } else {
             const contact = msg.pubkeyPrefix
               ? contacts[msg.pubkeyPrefix]
