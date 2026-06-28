@@ -108,6 +108,17 @@ export const PAYLOAD_TYPE_GRP_TXT = 0x05;
  */
 export const MAX_MSG_BYTES = 160;
 
+/**
+ * Maximum node (advert) name length in **UTF-8 bytes**, matching the firmware's
+ * `node_name[32]` buffer with one byte reserved for the null terminator. A
+ * `SET_ADVERT_NAME` payload longer than this is truncated by the firmware, so
+ * the app caps it client-side to keep the live counter honest.
+ *
+ * @see `CMD_SET_ADVERT_NAME` in the companion radio's `MyMesh.cpp` and
+ * `node_name` in `NodePrefs.h`.
+ */
+export const MAX_ADVERT_NAME_BYTES = 31;
+
 /** {@link Contact.advType} value for a repeater node. */
 export const ADV_TYPE_REPEATER = 2;
 /** {@link Contact.advType} value for a room-server node. */

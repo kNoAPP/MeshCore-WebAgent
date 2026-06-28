@@ -158,6 +158,7 @@
     "maxChannels": "Canales máximos",
     "blePin": "PIN de BLE",
     "nodeName": "Nombre del nodo",
+    "editName": "Editar nombre del nodo",
     "publicKey": "Clave pública",
     "frequency": "Frecuencia",
     "bandwidth": "Ancho de banda",
@@ -353,6 +354,8 @@
     "removeChannelFailed": "Fallo al eliminar canal: {{error}}",
     "settingsSaved": "Ajustes de auto-añadir guardados",
     "saveSettingsFailed": "Fallo al guardar ajustes: {{error}}",
+    "nodeNameSaved": "Nombre del nodo actualizado",
+    "nodeNameSaveFailed": "Fallo al actualizar el nombre del nodo: {{error}}",
     "advertSent": "Advert enviado a los nodos cercanos",
     "advertFailed": "Error al enviar el advert: {{error}}",
     "advertNoRecent": "No se puede compartir: tu radio no ha recibido un advert reciente de este contacto"

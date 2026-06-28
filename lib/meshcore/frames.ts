@@ -1,7 +1,7 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-import { CMD, MAX_MSG_BYTES } from './constants';
+import { CMD, MAX_MSG_BYTES, MAX_ADVERT_NAME_BYTES } from './constants';
 import { truncateUtf8 } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
 
@@ -224,6 +224,22 @@ export function buildSetChannel(
   p[1] = idx;
   p.set(nameBytes, 2);
   p.set(secret.slice(0, 16), 34);
+  return p;
+}
+
+/**
+ * Sets the radio's advertised node name — what other mesh users see in their
+ * contact list and in channel messages.
+ *
+ * @param name - the new name; truncated to {@link MAX_ADVERT_NAME_BYTES} UTF-8
+ * bytes (the firmware's `node_name` buffer) so it isn't silently clipped on the
+ * radio. The change takes effect on the radio's next advert.
+ */
+export function buildSetAdvertName(name: string): Uint8Array {
+  const nameBytes = enc.encode(truncateUtf8(name, MAX_ADVERT_NAME_BYTES));
+  const p = new Uint8Array(1 + nameBytes.length);
+  p[0] = CMD.SET_ADVERT_NAME;
+  p.set(nameBytes, 1);
   return p;
 }
 

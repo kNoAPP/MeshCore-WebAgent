@@ -959,6 +959,30 @@ export function useMeshCore() {
     [client, showToast],
   );
 
+  /**
+   * Renames the radio on the device; the store updates via `onSelfInfo`.
+   *
+   * @returns whether the write succeeded, so the caller can keep its editor
+   * open (preserving the typed name) on failure.
+   */
+  const setNodeName = useCallback(
+    async (name: string): Promise<boolean> => {
+      if (!canTransmit(client)) return false;
+      try {
+        await client.setNodeName(name);
+        showToast(i18n.t('toast.nodeNameSaved'), 'success');
+        return true;
+      } catch (err) {
+        showToast(
+          i18n.t('toast.nodeNameSaveFailed', { error: (err as Error).message }),
+          'error',
+        );
+        return false;
+      }
+    },
+    [client, showToast],
+  );
+
   /** Persists auto-add settings locally and writes them to the radio. */
   const applyAutoAddConfig = useCallback(
     async (cfg: AutoAddConfig) => {
@@ -1000,6 +1024,7 @@ export function useMeshCore() {
     removeContact,
     addChannel,
     removeChannel,
+    setNodeName,
     applyAutoAddConfig,
   };
 }
