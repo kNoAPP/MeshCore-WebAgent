@@ -20,6 +20,7 @@
     "disconnected": "Disconnected",
     "chat": "💬 Chat",
     "stats": "📊 Stats",
+    "settings": "⚙ Settings",
     "disconnect": "⏻ Disconnect",
     "language": "Language"
   },
@@ -141,6 +142,39 @@
     "noLimit": "No limit",
     "maxHopsHint": "Only add nodes heard within this many hops (0 = direct only; far right = no limit).",
     "showPublicKeys": "Show public keys in contact details"
+  },
+  "settings": {
+    "title": "⚙ Settings",
+    "section": {
+      "device": "Device",
+      "identity": "Identity",
+      "radio": "Radio",
+      "storage": "Storage & Battery"
+    },
+    "model": "Model",
+    "firmware": "Firmware version",
+    "build": "Build",
+    "maxContacts": "Max contacts",
+    "maxChannels": "Max channels",
+    "blePin": "BLE PIN",
+    "nodeName": "Node name",
+    "publicKey": "Public key",
+    "frequency": "Frequency",
+    "bandwidth": "Bandwidth",
+    "spreadingFactor": "Spreading factor",
+    "codingRate": "Coding rate",
+    "txPower": "TX power",
+    "maxTxPower": "Max TX power",
+    "mhz": "{{value}} MHz",
+    "khz": "{{value}} kHz",
+    "dbm": "{{value}} dBm",
+    "edit": "Edit",
+    "editComingSoon": "Editing radio settings is coming soon",
+    "voltage": "Voltage",
+    "storageUsed": "Storage",
+    "kbUsage": "{{used}} / {{total}} KB",
+    "noBattery": "Storage and battery not reported by this device.",
+    "viewStats": "View full stats →"
   },
   "chat": {
     "empty": "Select a channel or contact to start chatting",

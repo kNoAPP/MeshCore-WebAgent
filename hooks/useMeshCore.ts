@@ -349,6 +349,8 @@ export function useMeshCore() {
     setClient,
     setStatus,
     setDeviceName,
+    setSelfInfo,
+    setDeviceInfo,
     setBattery,
     setSyncProgress,
     setContacts,
@@ -374,8 +376,11 @@ export function useMeshCore() {
       ) => Promise<boolean>,
     ) => {
       c.callbacks = {
-        onSelfInfo: (info) => setDeviceName(info.name),
-        onDeviceInfo: () => {},
+        onSelfInfo: (info) => {
+          setDeviceName(info.name);
+          setSelfInfo(info);
+        },
+        onDeviceInfo: (info) => setDeviceInfo(info),
         onBattery: (b) => setBattery(b),
         onSyncProgress: (p) => setSyncProgress(p),
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
@@ -422,6 +427,8 @@ export function useMeshCore() {
     },
     [
       setDeviceName,
+      setSelfInfo,
+      setDeviceInfo,
       setBattery,
       setSyncProgress,
       setContacts,

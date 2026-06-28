@@ -13,6 +13,8 @@ import type {
   ActiveConvo,
   ConnectionStatus,
   BatteryInfo,
+  SelfInfo,
+  DeviceInfo,
   SyncProgress,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
@@ -77,7 +79,7 @@ export const CONTACT_SORTS = ['az', 'heard', 'latest'] as const;
 export type ContactSort = (typeof CONTACT_SORTS)[number];
 
 /** Which top-level page the connected app is showing. */
-export type AppView = 'chat' | 'stats';
+export type AppView = 'chat' | 'stats' | 'settings';
 
 /** Persisted contacts-list view: filter, order, and favorite pinning. */
 export interface ContactView {
@@ -139,6 +141,8 @@ interface MeshState {
   client: MeshCoreClient | null;
   status: ConnectionStatus;
   deviceName: string;
+  selfInfo: SelfInfo | null;
+  deviceInfo: DeviceInfo | null;
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
 
@@ -168,6 +172,8 @@ interface MeshActions {
   setClient: (c: MeshCoreClient | null) => void;
   setStatus: (s: ConnectionStatus) => void;
   setDeviceName: (name: string) => void;
+  setSelfInfo: (info: SelfInfo | null) => void;
+  setDeviceInfo: (info: DeviceInfo | null) => void;
   setBattery: (b: BatteryInfo | null) => void;
   setSyncProgress: (p: SyncProgress | null) => void;
   setContacts: (c: Record<string, Contact>) => void;
@@ -199,6 +205,8 @@ const initialState: MeshState = {
   client: null,
   status: 'disconnected',
   deviceName: '',
+  selfInfo: null,
+  deviceInfo: null,
   battery: null,
   syncProgress: null,
   contacts: {},
@@ -231,6 +239,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setClient: (client) => set({ client }),
   setStatus: (status) => set({ status }),
   setDeviceName: (deviceName) => set({ deviceName }),
+  setSelfInfo: (selfInfo) => set({ selfInfo }),
+  setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
   setBattery: (battery) => set({ battery }),
   setSyncProgress: (syncProgress) => set({ syncProgress }),
   setContacts: (contacts) => set({ contacts }),
@@ -380,7 +390,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
   // Closes every connection-scoped overlay/panel at once. Called when the link
   // drops so a panel left open doesn't silently reappear once reconnect
-  // remounts the connected UI.
+  // remounts the connected UI. Resetting `view` to 'chat' also drops the Stats
+  // and Settings pages.
   closeConnectionOverlays: () =>
     set({
       view: 'chat',

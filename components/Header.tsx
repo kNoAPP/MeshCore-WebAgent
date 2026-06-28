@@ -76,14 +76,15 @@ export function Header() {
       </span>
 
       {active && (
-        /* Chat/Stats page switch. Disabled while reconnecting since the stats
-           page can't fetch over a dropped link. */
+        /* Chat/Stats/Settings page switch. Only Stats is disabled while
+           reconnecting since it's the one that fetches over the link; Chat and
+           Settings render from already-cached store state. */
         <nav className='flex overflow-hidden rounded-md border border-(--border-control)'>
-          {(['chat', 'stats'] as const).map((v) => (
+          {(['chat', 'stats', 'settings'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
-              disabled={reconnecting}
+              disabled={reconnecting && v === 'stats'}
               aria-current={view === v ? 'page' : undefined}
               className={`px-2.5 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 view === v
