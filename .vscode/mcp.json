@@ -1,0 +1,10 @@
+{
+  // See https://aka.ms/vscode-mcp for information about configuring MCP servers.
+  "servers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"]
+    }
+  }
+}
