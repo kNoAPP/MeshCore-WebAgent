@@ -115,13 +115,11 @@ export class USBTransport extends BaseTransport implements ITransport {
   }
 
   /**
-   * Serial ports the device may now live behind after a reboot or replug. The
-   * original handle comes first: it's still valid for a transient drop (or
-   * when Chrome reuses the same object across re-enumeration) and uniquely
-   * identifies the device, so trying it first won't rebind to a second radio.
-   * Only when it no longer opens do we fall back to other ports matching the
-   * captured USB vendor/product id — the returning device after a true
-   * re-enumeration, which permission persists for (no new chooser prompt).
+   * Serial ports the device may live behind after a reboot or replug. The
+   * original handle comes first — it uniquely identifies the device, so it
+   * can't rebind to a different radio. A VID/PID match (the re-enumerated
+   * device) is added only when exactly one exists; shared bridge-chip VID/PIDs
+   * make two or more matches ambiguous, so we fail reopen rather than guess.
    */
   private async candidatePorts(): Promise<SerialPort[]> {
     let ports: SerialPort[] = [];
@@ -138,9 +136,10 @@ export class USBTransport extends BaseTransport implements ITransport {
             );
           })
         : [];
-    // Original handle first, then the VID/PID matches with it filtered out so
-    // it isn't retried twice.
-    return [this.port, ...matches.filter((p) => p !== this.port)];
+    // Original handle first; add a VID/PID match only when it's unambiguous
+    // (exactly one, with the original filtered out so it isn't retried twice).
+    const fallback = matches.filter((p) => p !== this.port);
+    return fallback.length === 1 ? [this.port, fallback[0]] : [this.port];
   }
 
   /**
