@@ -149,6 +149,7 @@
       "device": "Appareil",
       "identity": "Identité",
       "radio": "Radio",
+      "advertise": "Annoncer",
       "storage": "Stockage et batterie"
     },
     "model": "Modèle",
@@ -183,6 +184,9 @@
       "confirmTitle": "Appliquer les modifications radio ?",
       "warning": "De mauvais paramètres radio peuvent isoler silencieusement ce nœud du maillage. Les pairs doivent partager la même fréquence, bande passante, facteur d'étalement et taux de codage pour s'entendre. Vérifiez les valeurs ci-dessous avant d'appliquer."
     },
+    "advertiseHint": "Annoncez ce nœud pour que d'autres puissent l'entendre et l'ajouter. Le zéro saut n'atteint que les voisins directs ; l'inondation atteint tout le réseau mais consomme plus de temps d'antenne, alors utilisez-la avec parcimonie.",
+    "advertiseZeroHop": "Annoncer aux voisins (zéro saut)",
+    "advertiseFlood": "Annoncer (inondation)",
     "voltage": "Tension",
     "storageUsed": "Stockage",
     "kbUsage": "{{used}} / {{total}} KB",
@@ -372,6 +376,9 @@
     "radioParamsSaveFailed": "Échec de la mise à jour des paramètres radio : {{error}}",
     "advertSent": "Annonce envoyée aux nœuds à proximité",
     "advertFailed": "Échec de l'envoi de l'annonce : {{error}}",
-    "advertNoRecent": "Partage impossible : votre radio n'a pas reçu d'annonce récente de ce contact"
+    "advertNoRecent": "Partage impossible : votre radio n'a pas reçu d'annonce récente de ce contact",
+    "selfAdvertZeroHopSent": "Annoncé aux nœuds à proximité",
+    "selfAdvertFloodSent": "Annonce diffusée au réseau",
+    "selfAdvertFailed": "Échec de l'annonce : {{error}}"
   }
 }

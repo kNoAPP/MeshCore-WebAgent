@@ -42,6 +42,7 @@ import {
   buildAddOrUpdateContact,
   buildRemoveContact,
   buildShareContact,
+  buildSendSelfAdvert,
   buildSetChannel,
   buildSetAdvertName,
   buildSetRadioParams,
@@ -618,6 +619,16 @@ export class MeshCoreClient {
    */
   async shareContact(contact: Contact): Promise<void> {
     await this.cmd(buildShareContact(contact.pubkeyBytes), [RESP.OK], 5000);
+  }
+
+  /**
+   * Broadcasts this radio's own advert so other nodes can hear and add it.
+   *
+   * @param flood - `true` floods across the whole mesh (more airtime); `false`
+   * sends a zero-hop advert heard only by direct neighbors.
+   */
+  async sendSelfAdvert(flood: boolean): Promise<void> {
+    await this.cmd(buildSendSelfAdvert(flood), [RESP.OK], 5000);
   }
 
   /** Deletes a contact from the radio and the local mirror. */

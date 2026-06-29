@@ -149,6 +149,7 @@
       "device": "Gerät",
       "identity": "Identität",
       "radio": "Funk",
+      "advertise": "Ankündigen",
       "storage": "Speicher & Akku"
     },
     "model": "Modell",
@@ -183,6 +184,9 @@
       "confirmTitle": "Funkänderungen anwenden?",
       "warning": "Falsche Funkeinstellungen können diesen Knoten unbemerkt vom Mesh trennen. Gegenstellen müssen dieselbe Frequenz, Bandbreite, denselben Spreizfaktor und dieselbe Coderate verwenden, um sich zu hören. Prüfe die folgenden Werte vor dem Anwenden."
     },
+    "advertiseHint": "Mache diesen Knoten bekannt, damit andere ihn hören und hinzufügen können. Zero-Hop erreicht nur direkte Nachbarn; Flood erreicht das gesamte Mesh, verbraucht aber mehr Sendezeit – setze es daher sparsam ein.",
+    "advertiseZeroHop": "An Nachbarn ankündigen (Zero-Hop)",
+    "advertiseFlood": "Ankündigen (Flood)",
     "voltage": "Spannung",
     "storageUsed": "Speicher",
     "kbUsage": "{{used}} / {{total}} KB",
@@ -372,6 +376,9 @@
     "radioParamsSaveFailed": "Aktualisieren der Funkeinstellungen fehlgeschlagen: {{error}}",
     "advertSent": "Advert an Nodes in der Nähe gesendet",
     "advertFailed": "Senden des Adverts fehlgeschlagen: {{error}}",
-    "advertNoRecent": "Teilen nicht möglich: Dein Funkgerät hat kürzlich kein Advert von diesem Kontakt empfangen"
+    "advertNoRecent": "Teilen nicht möglich: Dein Funkgerät hat kürzlich kein Advert von diesem Kontakt empfangen",
+    "selfAdvertZeroHopSent": "An Nodes in der Nähe angekündigt",
+    "selfAdvertFloodSent": "Ankündigung ins Mesh geflutet",
+    "selfAdvertFailed": "Ankündigung fehlgeschlagen: {{error}}"
   }
 }

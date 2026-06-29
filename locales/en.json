@@ -149,6 +149,7 @@
       "device": "Device",
       "identity": "Identity",
       "radio": "Radio",
+      "advertise": "Advertise",
       "storage": "Storage & Battery"
     },
     "model": "Model",
@@ -183,6 +184,9 @@
       "confirmTitle": "Apply radio changes?",
       "warning": "Wrong radio settings can silently cut this node off from the mesh. Peers must share the same frequency, bandwidth, spreading factor, and coding rate to hear each other. Double-check the values below before applying."
     },
+    "advertiseHint": "Announce this node so others can hear and add it. Zero-hop reaches direct neighbors only; flood reaches the whole mesh but uses more airtime, so send it sparingly.",
+    "advertiseZeroHop": "Advertise to neighbors (zero-hop)",
+    "advertiseFlood": "Advertise (flood)",
     "voltage": "Voltage",
     "storageUsed": "Storage",
     "kbUsage": "{{used}} / {{total}} KB",
@@ -372,6 +376,9 @@
     "radioParamsSaveFailed": "Failed to update radio settings: {{error}}",
     "advertSent": "Advert sent to nearby nodes",
     "advertFailed": "Failed to send advert: {{error}}",
-    "advertNoRecent": "Can't share: your radio hasn't heard a recent advert from this contact"
+    "advertNoRecent": "Can't share: your radio hasn't heard a recent advert from this contact",
+    "selfAdvertZeroHopSent": "Advertised to nearby nodes",
+    "selfAdvertFloodSent": "Advert flooded to the mesh",
+    "selfAdvertFailed": "Failed to advertise: {{error}}"
   }
 }
