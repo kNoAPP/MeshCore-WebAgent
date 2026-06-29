@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { Moon, Sun, Radio } from 'lucide-react';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useAdvertise } from '@/hooks/useAdvertise';
+import { useClickOutside } from '@/hooks/useClickOutside';
 import { fmtVoltage } from '@/lib/utils';
 import { Wordmark } from './Wordmark';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
@@ -158,35 +160,25 @@ export function Header() {
 function AdvertMenu() {
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);
-  const { advertiseSelf } = useMeshCore();
+  const { advertise, sending } = useAdvertise();
   const [open, setOpen] = useState(false);
-  const [sending, setSending] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Dismiss the open menu on an outside click or Escape.
+  // Dismiss the open menu on an outside click (shared with the app's other
+  // popovers) or Escape.
+  useClickOutside(ref, open, () => setOpen(false));
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
-    document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
-  const advertise = async (flood: boolean) => {
+  const onSelect = (flood: boolean) => {
     setOpen(false);
-    setSending(true);
-    await advertiseSelf(flood);
-    setSending(false);
+    void advertise(flood);
   };
 
   const itemClass =
@@ -213,14 +205,14 @@ function AdvertMenu() {
         >
           <button
             role='menuitem'
-            onClick={() => void advertise(false)}
+            onClick={() => onSelect(false)}
             className={itemClass}
           >
             {t('settings.advertiseZeroHop')}
           </button>
           <button
             role='menuitem'
-            onClick={() => void advertise(true)}
+            onClick={() => onSelect(true)}
             className={itemClass}
           >
             {t('settings.advertiseFlood')}

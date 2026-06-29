@@ -140,6 +140,15 @@ export function fmtVoltage(mv: number): string {
 }
 
 /**
+ * Formats a number with the active locale's digit grouping (e.g. `1,024`).
+ *
+ * @param lang - the active `i18n.language` (a BCP-47 tag).
+ */
+export function fmtNum(n: number, lang: string): string {
+  return n.toLocaleString(lang);
+}
+
+/**
  * Formats a clock skew (device time minus real time, in seconds) as a signed
  * compact duration: `+5s`, `-2h 1m 3s`, or `0s` when in sync. A negative value
  * means the device clock is running behind.

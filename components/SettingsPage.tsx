@@ -8,7 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { Pencil } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { fmtVoltage, utf8ByteLength } from '@/lib/utils';
+import { useAdvertise } from '@/hooks/useAdvertise';
+import { fmtVoltage, fmtNum, utf8ByteLength } from '@/lib/utils';
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
 import { CopyButton } from './CopyButton';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
@@ -43,7 +44,7 @@ export function SettingsPage() {
   const canEditRadio = status === 'connected' && fields != null;
 
   const unknown = t('common.unknown');
-  const num = (n: number) => n.toLocaleString(i18n.language);
+  const num = (n: number) => fmtNum(n, i18n.language);
 
   return (
     <div className='flex flex-1 flex-col overflow-y-auto p-7'>
@@ -323,17 +324,9 @@ function NodeNameRow() {
 function AdvertiseCard() {
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);
-  const { advertiseSelf } = useMeshCore();
-  const [sending, setSending] = useState(false);
+  const { advertise, sending } = useAdvertise();
 
   const enabled = status === 'connected' && !sending;
-
-  const advertise = async (flood: boolean) => {
-    if (!enabled) return;
-    setSending(true);
-    await advertiseSelf(flood);
-    setSending(false);
-  };
 
   return (
     <Card title={t('settings.section.advertise')} className='col-span-2'>
