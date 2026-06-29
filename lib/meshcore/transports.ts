@@ -115,11 +115,13 @@ export class USBTransport extends BaseTransport implements ITransport {
   }
 
   /**
-   * Serial ports the device may now live behind after a reboot or replug,
-   * freshest first. Permission persists across re-enumeration, so the returning
-   * device appears in `getPorts()` without a new chooser prompt; we match it on
-   * the captured USB vendor/product id and keep the original handle as a
-   * last-resort fallback (it's still valid when Chrome reuses the same object).
+   * Serial ports the device may now live behind after a reboot or replug. The
+   * original handle comes first: it's still valid for a transient drop (or
+   * when Chrome reuses the same object across re-enumeration) and uniquely
+   * identifies the device, so trying it first won't rebind to a second radio.
+   * Only when it no longer opens do we fall back to other ports matching the
+   * captured USB vendor/product id — the returning device after a true
+   * re-enumeration, which permission persists for (no new chooser prompt).
    */
   private async candidatePorts(): Promise<SerialPort[]> {
     let ports: SerialPort[] = [];
@@ -136,8 +138,8 @@ export class USBTransport extends BaseTransport implements ITransport {
             );
           })
         : [];
-    // Re-enumerated ports first, original handle last, de-duplicated.
-    return [...matches.filter((p) => p !== this.port), this.port];
+    // Original handle first, re-enumerated matches as fallback, de-duplicated.
+    return [this.port, ...matches.filter((p) => p !== this.port)];
   }
 
   /**
