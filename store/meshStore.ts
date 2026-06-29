@@ -166,6 +166,7 @@ interface MeshState {
   discoverOpen: boolean;
   autoAddOpen: boolean;
   addChannelOpen: boolean;
+  advertising: boolean;
 }
 
 interface MeshActions {
@@ -197,6 +198,7 @@ interface MeshActions {
   setDiscoverOpen: (open: boolean) => void;
   setAutoAddOpen: (open: boolean) => void;
   setAddChannelOpen: (open: boolean) => void;
+  setAdvertising: (advertising: boolean) => void;
   closeConnectionOverlays: () => void;
   reset: () => void;
 }
@@ -224,6 +226,7 @@ const initialState: MeshState = {
   discoverOpen: false,
   autoAddOpen: false,
   addChannelOpen: false,
+  advertising: false,
 };
 
 let toastSeq = 0;
@@ -388,6 +391,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setDiscoverOpen: (discoverOpen) => set({ discoverOpen }),
   setAutoAddOpen: (autoAddOpen) => set({ autoAddOpen }),
   setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
+  setAdvertising: (advertising) => set({ advertising }),
   // Closes every connection-scoped overlay/panel at once. Called when the link
   // drops so a panel left open doesn't silently reappear once reconnect
   // remounts the connected UI. Resetting `view` to 'chat' also drops the Stats
