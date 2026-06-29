@@ -10,6 +10,7 @@ import { ModalShell } from './ModalShell';
 import {
   RADIO_FREQ_MIN_MHZ,
   RADIO_FREQ_MAX_MHZ,
+  RADIO_PARAM_SCALE,
   TX_POWER_MIN_DBM,
   RADIO_SF_VALUES,
   RADIO_CR_VALUES,
@@ -59,6 +60,12 @@ function withCurrent(values: readonly number[], current: number): number[] {
   return [...values, current].sort((a, b) => a - b);
 }
 
+/** Frequency/bandwidth at the integer wire scale, so float rounding in the
+ * parsed values can't desync an otherwise-equal comparison. */
+function scaled(mhzOrKhz: number): number {
+  return Math.round(mhzOrKhz * RADIO_PARAM_SCALE);
+}
+
 /**
  * Two-step editor for the radio's LoRa parameters, launched from the Settings
  * Radio card. The first step edits a draft seeded from `fields`; the second
@@ -94,14 +101,6 @@ export function RadioSettingsModal({
     Number.isFinite(freqNum) &&
     freqNum >= RADIO_FREQ_MIN_MHZ &&
     freqNum <= RADIO_FREQ_MAX_MHZ;
-
-  const proposed: RadioParams = {
-    radioFreq: freqNum,
-    radioBw: bw,
-    radioSf: sf,
-    radioCr: cr,
-    txPower,
-  };
   const dirty =
     freqNum !== fields.radioFreq ||
     bw !== fields.radioBw ||
@@ -113,10 +112,14 @@ export function RadioSettingsModal({
   // ("Custom") once any field is edited away from it. TX power is preset-
   // agnostic, so it doesn't affect the match.
   const presetIdx = RADIO_PRESETS.findIndex(
-    (p) => p.freq === freqNum && p.bw === bw && p.sf === sf && p.cr === cr,
+    (p) =>
+      scaled(p.freq) === scaled(freqNum) &&
+      scaled(p.bw) === scaled(bw) &&
+      p.sf === sf &&
+      p.cr === cr,
   );
 
-  const applyPreset = (idx: number) => {
+  const onPreset = (idx: number) => {
     const p = RADIO_PRESETS[idx];
     if (!p) return;
     setFreq(String(p.freq));
@@ -126,13 +129,20 @@ export function RadioSettingsModal({
   };
 
   const apply = async () => {
+    const proposed: RadioParams = {
+      radioFreq: freqNum,
+      radioBw: bw,
+      radioSf: sf,
+      radioCr: cr,
+      txPower,
+    };
     setSaving(true);
     const ok = await applyRadioParams(proposed);
     setSaving(false);
     if (ok) onClose();
   };
 
-  const diffRows: { label: string; cur: string; next: string }[] = [
+  const diffRows = [
     {
       label: t('settings.frequency'),
       cur: t('settings.mhz', { value: num(fields.radioFreq) }),
@@ -172,186 +182,264 @@ export function RadioSettingsModal({
       widthClass='w-120'
     >
       {confirming ? (
-        <div className='space-y-4'>
-          <p
-            className='rounded-md border border-(--red) p-3 text-xs leading-relaxed text-(--text)'
-            style={{
-              background: 'color-mix(in srgb, var(--red) 10%, transparent)',
-            }}
-          >
-            {t('settings.radioEdit.warning')}
-          </p>
-          <div>
-            {diffRows.map((r) => {
-              const changed = r.cur !== r.next;
-              return (
-                <div
-                  key={r.label}
-                  className='flex items-center justify-between gap-3 border-b py-1.5 text-xs last:border-0'
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  <span className='shrink-0 text-(--text2)'>{r.label}</span>
-                  <span className='flex min-w-0 items-center gap-1.5 text-right'>
-                    <span
-                      className={changed ? 'text-(--text2) line-through' : ''}
-                    >
-                      {r.cur}
-                    </span>
-                    {changed && (
-                      <>
-                        <span className='text-(--text2)'>→</span>
-                        <span className='font-semibold text-(--accent)'>
-                          {r.next}
-                        </span>
-                      </>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <div className='flex justify-end gap-2'>
-            <button
-              onClick={() => setConfirming(false)}
-              disabled={saving}
-              className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2) disabled:opacity-50'
-            >
-              {t('common.back')}
-            </button>
-            <button
-              onClick={() => void apply()}
-              disabled={saving}
-              className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
-            >
-              {t('settings.radioEdit.apply')}
-            </button>
-          </div>
-        </div>
+        <RadioConfirmStep
+          rows={diffRows}
+          saving={saving}
+          onBack={() => setConfirming(false)}
+          onApply={() => void apply()}
+        />
       ) : (
-        <div className='space-y-4'>
-          <label className='block'>
-            <span className='mb-1 block text-xs text-(--text2)'>
-              {t('settings.radioEdit.preset')}
-            </span>
-            <select
-              value={presetIdx}
-              onChange={(e) => applyPreset(Number(e.target.value))}
-              className='w-full rounded-md border border-(--border-control) bg-(--surface) px-2 py-1.5 text-sm text-(--text) outline-none focus:border-(--accent)'
-            >
-              <option value={-1}>{t('settings.radioEdit.presetCustom')}</option>
-              {RADIO_PRESETS.map((p, i) => (
-                <option key={p.title} value={i}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className='block'>
-            <span className='mb-1 block text-xs text-(--text2)'>
-              {t('settings.frequency')}{' '}
-              <span className='text-(--text2)'>
-                ({num(RADIO_FREQ_MIN_MHZ)}–{num(RADIO_FREQ_MAX_MHZ)} MHz)
-              </span>
-            </span>
-            <input
-              type='number'
-              inputMode='decimal'
-              step='0.001'
-              min={RADIO_FREQ_MIN_MHZ}
-              max={RADIO_FREQ_MAX_MHZ}
-              value={freq}
-              onChange={(e) => setFreq(e.target.value)}
-              className={`w-full rounded-md border bg-(--surface) px-2 py-1.5 text-sm text-(--text) outline-none focus:border-(--accent) ${
-                freqValid ? 'border-(--border-control)' : 'border-(--red)'
-              }`}
-            />
-            {!freqValid && (
-              <span className='mt-1 block text-[11px] text-(--red)'>
-                {t('settings.radioEdit.invalidFreq', {
-                  min: num(RADIO_FREQ_MIN_MHZ),
-                  max: num(RADIO_FREQ_MAX_MHZ),
-                })}
-              </span>
-            )}
-          </label>
-
-          <Select
-            label={t('settings.bandwidth')}
-            value={bw}
-            onChange={setBw}
-            options={withCurrent(RADIO_BW_VALUES_KHZ, fields.radioBw).map(
-              (v) => ({
-                value: v,
-                label: t('settings.khz', { value: num(v) }),
-              }),
-            )}
-          />
-
-          <div className='grid grid-cols-2 gap-3'>
-            <Select
-              label={t('settings.spreadingFactor')}
-              value={sf}
-              onChange={setSf}
-              options={withCurrent(RADIO_SF_VALUES, fields.radioSf).map(
-                (v) => ({
-                  value: v,
-                  label: num(v),
-                }),
-              )}
-            />
-            <Select
-              label={t('settings.codingRate')}
-              value={cr}
-              onChange={setCr}
-              options={withCurrent(RADIO_CR_VALUES, fields.radioCr).map(
-                (v) => ({
-                  value: v,
-                  label: crLabel(v),
-                }),
-              )}
-            />
-          </div>
-
-          <label className='block'>
-            <span className='mb-1 flex justify-between text-xs text-(--text2)'>
-              <span>{t('settings.txPower')}</span>
-              <span>{t('settings.dbm', { value: num(txPower) })}</span>
-            </span>
-            <input
-              type='range'
-              min={TX_POWER_MIN_DBM}
-              max={fields.maxTxPower}
-              step={1}
-              value={txPower}
-              onChange={(e) => setTxPower(Number(e.target.value))}
-              className='w-full accent-(--accent)'
-            />
-            <span className='mt-1 block text-[11px] text-(--text2)'>
-              {t('settings.radioEdit.maxTxHint', {
-                value: num(fields.maxTxPower),
-              })}
-            </span>
-          </label>
-
-          <div className='flex justify-end gap-2'>
-            <button
-              onClick={onClose}
-              className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              onClick={() => setConfirming(true)}
-              disabled={!freqValid || !dirty}
-              className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
-            >
-              {t('settings.radioEdit.review')}
-            </button>
-          </div>
-        </div>
+        <RadioEditStep
+          fields={fields}
+          freq={freq}
+          setFreq={setFreq}
+          freqValid={freqValid}
+          bw={bw}
+          setBw={setBw}
+          sf={sf}
+          setSf={setSf}
+          cr={cr}
+          setCr={setCr}
+          txPower={txPower}
+          setTxPower={setTxPower}
+          presetIdx={presetIdx}
+          onPreset={onPreset}
+          canReview={freqValid && dirty}
+          onCancel={onClose}
+          onReview={() => setConfirming(true)}
+        />
       )}
     </ModalShell>
+  );
+}
+
+/** The edit form: region preset picker plus each editable LoRa parameter. */
+function RadioEditStep({
+  fields,
+  freq,
+  setFreq,
+  freqValid,
+  bw,
+  setBw,
+  sf,
+  setSf,
+  cr,
+  setCr,
+  txPower,
+  setTxPower,
+  presetIdx,
+  onPreset,
+  canReview,
+  onCancel,
+  onReview,
+}: {
+  fields: RadioFields;
+  freq: string;
+  setFreq: (v: string) => void;
+  freqValid: boolean;
+  bw: number;
+  setBw: (v: number) => void;
+  sf: number;
+  setSf: (v: number) => void;
+  cr: number;
+  setCr: (v: number) => void;
+  txPower: number;
+  setTxPower: (v: number) => void;
+  presetIdx: number;
+  onPreset: (idx: number) => void;
+  canReview: boolean;
+  onCancel: () => void;
+  onReview: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const num = (n: number) => n.toLocaleString(i18n.language);
+  const crLabel = (n: number) => t('settings.radioEdit.crLabel', { value: n });
+
+  return (
+    <div className='space-y-4'>
+      <label className='block'>
+        <span className='mb-1 block text-xs text-(--text2)'>
+          {t('settings.radioEdit.preset')}
+        </span>
+        <select
+          value={presetIdx}
+          onChange={(e) => onPreset(Number(e.target.value))}
+          className='w-full rounded-md border border-(--border-control) bg-(--surface) px-2 py-1.5 text-sm text-(--text) outline-none focus:border-(--accent)'
+        >
+          <option value={-1}>{t('settings.radioEdit.presetCustom')}</option>
+          {RADIO_PRESETS.map((p, i) => (
+            <option key={p.title} value={i}>
+              {p.title}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className='block'>
+        <span className='mb-1 block text-xs text-(--text2)'>
+          {t('settings.frequency')}{' '}
+          <span className='text-(--text2)'>
+            ({num(RADIO_FREQ_MIN_MHZ)}–{num(RADIO_FREQ_MAX_MHZ)} MHz)
+          </span>
+        </span>
+        <input
+          type='number'
+          inputMode='decimal'
+          step='0.001'
+          min={RADIO_FREQ_MIN_MHZ}
+          max={RADIO_FREQ_MAX_MHZ}
+          value={freq}
+          onChange={(e) => setFreq(e.target.value)}
+          className={`w-full rounded-md border bg-(--surface) px-2 py-1.5 text-sm text-(--text) outline-none focus:border-(--accent) ${
+            freqValid ? 'border-(--border-control)' : 'border-(--red)'
+          }`}
+        />
+        {!freqValid && (
+          <span className='mt-1 block text-[11px] text-(--red)'>
+            {t('settings.radioEdit.invalidFreq', {
+              min: num(RADIO_FREQ_MIN_MHZ),
+              max: num(RADIO_FREQ_MAX_MHZ),
+            })}
+          </span>
+        )}
+      </label>
+
+      <Select
+        label={t('settings.bandwidth')}
+        value={bw}
+        onChange={setBw}
+        options={withCurrent(RADIO_BW_VALUES_KHZ, fields.radioBw).map((v) => ({
+          value: v,
+          label: t('settings.khz', { value: num(v) }),
+        }))}
+      />
+
+      <div className='grid grid-cols-2 gap-3'>
+        <Select
+          label={t('settings.spreadingFactor')}
+          value={sf}
+          onChange={setSf}
+          options={withCurrent(RADIO_SF_VALUES, fields.radioSf).map((v) => ({
+            value: v,
+            label: num(v),
+          }))}
+        />
+        <Select
+          label={t('settings.codingRate')}
+          value={cr}
+          onChange={setCr}
+          options={withCurrent(RADIO_CR_VALUES, fields.radioCr).map((v) => ({
+            value: v,
+            label: crLabel(v),
+          }))}
+        />
+      </div>
+
+      <label className='block'>
+        <span className='mb-1 flex justify-between text-xs text-(--text2)'>
+          <span>{t('settings.txPower')}</span>
+          <span>{t('settings.dbm', { value: num(txPower) })}</span>
+        </span>
+        <input
+          type='range'
+          min={TX_POWER_MIN_DBM}
+          max={fields.maxTxPower}
+          step={1}
+          value={txPower}
+          onChange={(e) => setTxPower(Number(e.target.value))}
+          className='w-full accent-(--accent)'
+        />
+        <span className='mt-1 block text-[11px] text-(--text2)'>
+          {t('settings.radioEdit.maxTxHint', { value: num(fields.maxTxPower) })}
+        </span>
+      </label>
+
+      <div className='flex justify-end gap-2'>
+        <button
+          onClick={onCancel}
+          className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+        >
+          {t('common.cancel')}
+        </button>
+        <button
+          onClick={onReview}
+          disabled={!canReview}
+          className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
+        >
+          {t('settings.radioEdit.review')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** The confirmation step: mesh-isolation warning, a current→new diff, Apply. */
+function RadioConfirmStep({
+  rows,
+  saving,
+  onBack,
+  onApply,
+}: {
+  rows: { label: string; cur: string; next: string }[];
+  saving: boolean;
+  onBack: () => void;
+  onApply: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className='space-y-4'>
+      <p
+        className='rounded-md border border-(--red) p-3 text-xs leading-relaxed text-(--text)'
+        style={{
+          background: 'color-mix(in srgb, var(--red) 10%, transparent)',
+        }}
+      >
+        {t('settings.radioEdit.warning')}
+      </p>
+      <div>
+        {rows.map((r) => {
+          const changed = r.cur !== r.next;
+          return (
+            <div
+              key={r.label}
+              className='flex items-center justify-between gap-3 border-b py-1.5 text-xs last:border-0'
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <span className='shrink-0 text-(--text2)'>{r.label}</span>
+              <span className='flex min-w-0 items-center gap-1.5 text-right'>
+                <span className={changed ? 'text-(--text2) line-through' : ''}>
+                  {r.cur}
+                </span>
+                {changed && (
+                  <>
+                    <span className='text-(--text2)'>→</span>
+                    <span className='font-semibold text-(--accent)'>
+                      {r.next}
+                    </span>
+                  </>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className='flex justify-end gap-2'>
+        <button
+          onClick={onBack}
+          disabled={saving}
+          className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2) disabled:opacity-50'
+        >
+          {t('common.back')}
+        </button>
+        <button
+          onClick={onApply}
+          disabled={saving}
+          className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
+        >
+          {t('settings.radioEdit.apply')}
+        </button>
+      </div>
+    </div>
   );
 }
 

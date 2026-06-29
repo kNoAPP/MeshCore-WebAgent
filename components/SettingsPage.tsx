@@ -17,9 +17,9 @@ import { RadioSettingsModal, radioFields } from './RadioSettings';
  * Settings page: device identity, firmware, radio configuration, and a
  * storage/battery summary. Rendered by {@link AppShell} in place of the chat
  * pane while `view` is `'settings'`. The Identity section's node name is
- * editable inline ({@link NodeNameRow}); editing radio settings and actions
- * (advertise, reboot, share) land in later Phase 2 tasks, so the Radio section
- * still shows a disabled Edit affordance those tasks wire up.
+ * editable inline ({@link NodeNameRow}) and the Radio section opens the
+ * {@link RadioSettingsModal} editor; remaining device actions (advertise,
+ * reboot, share) land in later Phase 2 tasks.
  */
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
