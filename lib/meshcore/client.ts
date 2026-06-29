@@ -286,7 +286,11 @@ export class MeshCoreClient {
         timer: setTimeout(() => {
           const i = this.handlers.indexOf(h);
           if (i !== -1) this.handlers.splice(i, 1);
-          reject(new Error(`Timeout waiting for 0x${types[0].toString(16)}`));
+          const err: Error & { timeout?: true } = new Error(
+            `Timeout waiting for 0x${types[0].toString(16)}`,
+          );
+          err.timeout = true;
+          reject(err);
         }, timeout),
       };
       this.handlers.push(h);
@@ -767,8 +771,9 @@ export class MeshCoreClient {
   /**
    * Reboots the radio (`REBOOT`). The radio usually restarts before it can
    * reply, dropping the transport link as part of the command, so a missing
-   * `OK` within the short timeout is treated as success — only a device `ERR`
-   * (e.g. the firmware doesn't support the command) is surfaced as a failure.
+   * `OK` within the short timeout is treated as success — a device `ERR`
+   * (e.g. the firmware doesn't support the command) or a transport/send
+   * failure is surfaced as a failure.
    * The dropped link then flows through {@link MeshCoreCallbacks.onDisconnect}
    * into the hook's auto-reconnect loop, which recovers the session once the
    * device comes back.
@@ -777,9 +782,11 @@ export class MeshCoreClient {
     try {
       await this.cmd(buildReboot(), [RESP.OK], 1000);
     } catch (err) {
-      // A device ERR carries a numeric code; rethrow it. A bare timeout (no
-      // code) is expected — the radio rebooted before replying — so swallow it.
-      if ((err as { code?: number }).code !== undefined) throw err;
+      // Only a bare response timeout is expected — the radio rebooted before
+      // replying, dropping the link. Surface everything else: a device ERR
+      // (numeric `code`) or a transport/send failure means the reboot never
+      // took effect.
+      if (!(err as { timeout?: true }).timeout) throw err;
     }
   }
 
