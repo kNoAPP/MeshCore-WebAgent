@@ -138,7 +138,8 @@ export class USBTransport extends BaseTransport implements ITransport {
             );
           })
         : [];
-    // Original handle first, re-enumerated matches as fallback, de-duplicated.
+    // Original handle first, then the VID/PID matches with it filtered out so
+    // it isn't retried twice.
     return [this.port, ...matches.filter((p) => p !== this.port)];
   }
 
