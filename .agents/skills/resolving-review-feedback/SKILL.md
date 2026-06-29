@@ -30,13 +30,17 @@ Work through every unresolved review thread one at a time:
    - If partially valid, apply what's correct and explain the rest.
 3. **Reply on the thread.** Always post a comment on the thread stating what you
    did and why — whether you accepted it ("Done — …"), declined it ("Leaving as
-   is because …"), or partially addressed it. Be specific and reference the code.
+   is because …"), or partially addressed it. Be specific and reference the
+   code.
 4. **Resolve the thread.** Mark the conversation resolved so GitHub shows it the
    same as clicking "Resolve conversation." This requires the GraphQL
    `resolveReviewThread` mutation — `gh pr` has no direct command for it:
 
    ```bash
-   # List unresolved threads (ids + comments) for PR <N>
+   PR=102          # the PR number
+   THREAD_ID=...   # a reviewThread node id from the query below
+
+   # List review threads (the isResolved field tells you which are still open)
    gh api graphql -f query='
      query($owner:String!,$repo:String!,$pr:Int!){
        repository(owner:$owner,name:$repo){
@@ -46,22 +50,23 @@ Work through every unresolved review thread one at a time:
            }
          }
        }
-     }' -f owner=kNoAPP -f repo=MeshCore-WebAgent -F pr=<N>
+     }' -f owner=kNoAPP -f repo=MeshCore-WebAgent -F pr="$PR"
 
    # Reply to a thread, then resolve it
    gh api graphql -f query='
      mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ isResolved } } }' \
-     -f id=<threadId>
+     -f id="$THREAD_ID"
    ```
 
    Use the comment's reply endpoint (or `addPullRequestReviewThreadReply`) to
    post the reply before resolving.
-5. **Commit and push any code changes.** If a thread led to a code change, stage,
-   commit, and push to the PR branch automatically — no need to ask. Follow the
-   `commits` skill (Conventional Commits, imperative mood). Group related fixes
-   into sensible commits; one commit per thread is fine when they're unrelated.
-   Re-run the five checks (`spell-check`, `format:check`, `lint`, `type-check`,
-   `build`) before pushing if code changed.
+
+5. **Commit and push any code changes.** If a thread led to a code change,
+   stage, commit, and push to the PR branch automatically — no need to ask.
+   Follow the `commits` skill (Conventional Commits, imperative mood). Group
+   related fixes into sensible commits; one commit per thread is fine when
+   they're unrelated. Re-run the five checks (`spell-check`, `format:check`,
+   `lint`, `type-check`, `build`) before pushing if code changed.
 
 Do not resolve a thread you disagree with silently — leave the reply explaining
 why, then resolve it. Only leave a thread unresolved if it needs a decision from
