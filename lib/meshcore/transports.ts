@@ -91,15 +91,73 @@ export class USBTransport extends BaseTransport implements ITransport {
   // Tracks the running read loop so reopen() can await its full unwind (and
   // suppressed fireClose) before re-arming drop detection.
   private readTask: Promise<void> | null = null;
+  // The device's USB identity, captured at construction. A reboot or cable
+  // replug makes the radio re-enumerate; Chrome can invalidate the original
+  // SerialPort handle and expose the returning device as a new object, so
+  // reopen() re-acquires the live port by matching on this.
+  private readonly info: SerialPortInfo;
 
   constructor(private port: SerialPort) {
     super();
+    this.info = port.getInfo();
+  }
+
+  /** Opens `port` at {@link USB_BAUD_RATE}, adopts it, and takes the writer. */
+  private async openPort(port: SerialPort): Promise<void> {
+    await port.open({ baudRate: USB_BAUD_RATE });
+    this.port = port;
+    this.writer = port.writable!.getWriter();
   }
 
   /** Opens the serial port at {@link USB_BAUD_RATE} and acquires the writer. */
   async open(): Promise<void> {
-    await this.port.open({ baudRate: USB_BAUD_RATE });
-    this.writer = this.port.writable!.getWriter();
+    await this.openPort(this.port);
+  }
+
+  /**
+   * Serial ports the device may live behind after a reboot or replug. The
+   * original handle comes first — it uniquely identifies the device, so it
+   * can't rebind to a different radio. A VID/PID match (the re-enumerated
+   * device) is added only when exactly one exists; shared bridge-chip VID/PIDs
+   * make two or more matches ambiguous, so we fail reopen rather than guess.
+   */
+  private async candidatePorts(): Promise<SerialPort[]> {
+    let ports: SerialPort[] = [];
+    try {
+      ports = await navigator.serial.getPorts();
+    } catch {}
+    const { usbVendorId, usbProductId } = this.info;
+    const matches =
+      usbVendorId != null
+        ? ports.filter((p) => {
+            const i = p.getInfo();
+            return (
+              i.usbVendorId === usbVendorId && i.usbProductId === usbProductId
+            );
+          })
+        : [];
+    // Original handle first; add a VID/PID match only when it's unambiguous
+    // (exactly one, with the original filtered out so it isn't retried twice).
+    const fallback = matches.filter((p) => p !== this.port);
+    return fallback.length === 1 ? [this.port, fallback[0]] : [this.port];
+  }
+
+  /**
+   * Opens the first candidate port that accepts a connection, adopting it as
+   * the live port. Throws if none open (device not back yet), so the caller's
+   * backoff loop retries until the radio re-enumerates.
+   */
+  private async reopenPort(): Promise<void> {
+    let lastErr: unknown = new Error('No serial port available');
+    for (const port of await this.candidatePorts()) {
+      try {
+        await this.openPort(port);
+        return;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr;
   }
 
   async send(payload: Uint8Array): Promise<void> {
@@ -136,10 +194,11 @@ export class USBTransport extends BaseTransport implements ITransport {
   }
 
   /**
-   * Reopens the same serial port after a drop and re-attaches the read loop on
-   * the next {@link startReading}. The granted `SerialPort` stays valid even
-   * after the cable is unplugged and reconnected, so no new chooser prompt is
-   * needed.
+   * Reopens the radio's serial port after a drop and re-attaches the read loop
+   * on the next {@link startReading}. A reboot or replug can re-enumerate the
+   * device under a fresh `SerialPort` object, so {@link reopenPort} re-acquires
+   * the live port rather than reusing the (possibly invalidated) original
+   * handle — permission persists, so no new chooser prompt is needed.
    */
   protected async performReopen(): Promise<void> {
     // Suppress the old read loop's close signal and cancel its pending read so
@@ -167,7 +226,7 @@ export class USBTransport extends BaseTransport implements ITransport {
     this.parser = null;
     this.started = false;
     this.armForReopen();
-    await this.open();
+    await this.reopenPort();
   }
 
   async close(): Promise<void> {
