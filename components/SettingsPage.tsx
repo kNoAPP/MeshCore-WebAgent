@@ -8,7 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { Pencil } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { fmtVoltage, utf8ByteLength } from '@/lib/utils';
+import { useAdvertise } from '@/hooks/useAdvertise';
+import { fmtVoltage, fmtNum, utf8ByteLength } from '@/lib/utils';
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
 import { CopyButton } from './CopyButton';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
@@ -17,9 +18,10 @@ import { RadioSettingsModal, radioFields } from './RadioSettings';
  * Settings page: device identity, firmware, radio configuration, and a
  * storage/battery summary. Rendered by {@link AppShell} in place of the chat
  * pane while `view` is `'settings'`. The Identity section's node name is
- * editable inline ({@link NodeNameRow}) and the Radio section opens the
- * {@link RadioSettingsModal} editor; remaining device actions (advertise,
- * reboot, share) land in later Phase 2 tasks.
+ * editable inline ({@link NodeNameRow}), the Radio section opens the
+ * {@link RadioSettingsModal} editor, and the Advertise section
+ * ({@link AdvertiseCard}) announces this node to the mesh; remaining device
+ * actions (reboot, share) land in later Phase 2 tasks.
  */
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -42,7 +44,7 @@ export function SettingsPage() {
   const canEditRadio = status === 'connected' && fields != null;
 
   const unknown = t('common.unknown');
-  const num = (n: number) => n.toLocaleString(i18n.language);
+  const num = (n: number) => fmtNum(n, i18n.language);
 
   return (
     <div className='flex flex-1 flex-col overflow-y-auto p-7'>
@@ -143,6 +145,8 @@ export function SettingsPage() {
               copy={selfInfo?.pubkey || undefined}
             />
           </Card>
+
+          <AdvertiseCard />
 
           <Card title={t('settings.section.storage')} className='col-span-2'>
             {battery ? (
@@ -305,6 +309,47 @@ function NodeNameRow() {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * The Advertise section: two actions that broadcast this node to the mesh.
+ * Zero-hop (the prominent, accent button) reaches only direct neighbors; flood
+ * (the quieter, secondary button) propagates across the whole mesh at the cost
+ * of more airtime, so it's deliberately the less prominent option. Both gate on
+ * a fully connected link, matching every other radio write; advertising is
+ * low-risk and not a persistent change, so there's no confirmation — just a
+ * toast on completion via {@link useMeshCore.advertiseSelf}.
+ */
+function AdvertiseCard() {
+  const { t } = useTranslation();
+  const status = useMeshStore((s) => s.status);
+  const { advertise, sending } = useAdvertise();
+
+  const enabled = status === 'connected' && !sending;
+
+  return (
+    <Card title={t('settings.section.advertise')} className='col-span-2'>
+      <p className='mb-3 text-xs text-(--text2)'>
+        {t('settings.advertiseHint')}
+      </p>
+      <div className='flex flex-wrap gap-2'>
+        <button
+          onClick={() => void advertise(false)}
+          disabled={!enabled}
+          className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
+        >
+          {t('settings.advertiseZeroHop')}
+        </button>
+        <button
+          onClick={() => void advertise(true)}
+          disabled={!enabled}
+          className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+        >
+          {t('settings.advertiseFlood')}
+        </button>
+      </div>
+    </Card>
   );
 }
 

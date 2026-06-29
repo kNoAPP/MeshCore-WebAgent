@@ -22,7 +22,8 @@
     "stats": "📊 Estadísticas",
     "settings": "⚙ Configuración",
     "disconnect": "⏻ Desconectar",
-    "language": "Idioma"
+    "language": "Idioma",
+    "advertise": "Anunciar este nodo"
   },
   "theme": {
     "toggle": "Cambiar tema claro/oscuro"
@@ -149,6 +150,7 @@
       "device": "Dispositivo",
       "identity": "Identidad",
       "radio": "Radio",
+      "advertise": "Anunciar",
       "storage": "Almacenamiento y batería"
     },
     "model": "Modelo",
@@ -183,6 +185,9 @@
       "confirmTitle": "¿Aplicar los cambios de radio?",
       "warning": "Una configuración de radio incorrecta puede aislar silenciosamente este nodo de la malla. Los pares deben compartir la misma frecuencia, ancho de banda, factor de dispersión y tasa de codificación para oírse entre sí. Revisa los valores siguientes antes de aplicar."
     },
+    "advertiseHint": "Anuncia este nodo para que otros puedan oírlo y añadirlo. El de cero saltos llega solo a los vecinos directos; el de inundación llega a toda la malla pero usa más tiempo de aire, así que úsalo con moderación.",
+    "advertiseZeroHop": "Anunciar a vecinos (cero saltos)",
+    "advertiseFlood": "Anunciar (inundación)",
     "voltage": "Voltaje",
     "storageUsed": "Almacenamiento",
     "kbUsage": "{{used}} / {{total}} KB",
@@ -372,6 +377,9 @@
     "radioParamsSaveFailed": "Fallo al actualizar la configuración de radio: {{error}}",
     "advertSent": "Advert enviado a los nodos cercanos",
     "advertFailed": "Error al enviar el advert: {{error}}",
-    "advertNoRecent": "No se puede compartir: tu radio no ha recibido un advert reciente de este contacto"
+    "advertNoRecent": "No se puede compartir: tu radio no ha recibido un advert reciente de este contacto",
+    "selfAdvertZeroHopSent": "Anunciado a los nodos cercanos",
+    "selfAdvertFloodSent": "Anuncio difundido a la malla",
+    "selfAdvertFailed": "Error al anunciar: {{error}}"
   }
 }

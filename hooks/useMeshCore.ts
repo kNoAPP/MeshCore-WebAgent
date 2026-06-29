@@ -878,6 +878,32 @@ export function useMeshCore() {
     [client, showToast],
   );
 
+  /**
+   * Advertises this node to the mesh, choosing flood (whole mesh) or zero-hop
+   * (direct neighbors only). Low-risk and not a persistent device change, so it
+   * just toasts the outcome.
+   */
+  const advertiseSelf = useCallback(
+    async (flood: boolean) => {
+      if (!canTransmit(client)) return;
+      try {
+        await client.sendSelfAdvert(flood);
+        showToast(
+          flood
+            ? i18n.t('toast.selfAdvertFloodSent')
+            : i18n.t('toast.selfAdvertZeroHopSent'),
+          'success',
+        );
+      } catch (err) {
+        showToast(
+          i18n.t('toast.selfAdvertFailed', { error: (err as Error).message }),
+          'error',
+        );
+      }
+    },
+    [client, showToast],
+  );
+
   /** Deletes a contact from the radio. */
   const removeContact = useCallback(
     async (contact: Contact) => {
@@ -1067,6 +1093,7 @@ export function useMeshCore() {
     toggleFavorite,
     addDiscoveredContact,
     shareContact,
+    advertiseSelf,
     removeContact,
     addChannel,
     removeChannel,

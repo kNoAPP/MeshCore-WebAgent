@@ -202,6 +202,18 @@ export function buildShareContact(pubkey: Uint8Array): Uint8Array {
   return p;
 }
 
+/**
+ * Broadcasts this node's own advert so other nodes can hear and add it.
+ *
+ * @param flood - `true` floods the advert across the whole mesh (more airtime);
+ * `false` sends a zero-hop advert heard only by direct neighbors. The type byte
+ * matches `meshcore.js`'s `SelfAdvertTypes` (zero-hop = 0, flood = 1).
+ * @see `CMD_SEND_SELF_ADVERT` in the companion radio's `MyMesh.cpp`.
+ */
+export function buildSendSelfAdvert(flood: boolean): Uint8Array {
+  return new Uint8Array([CMD.SEND_SELF_ADVERT, flood ? 1 : 0]);
+}
+
 /** Deletes a contact from the radio by full public key. */
 export function buildRemoveContact(pubkey: Uint8Array): Uint8Array {
   const p = new Uint8Array(1 + 32);

@@ -3,11 +3,13 @@
 
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, Radio } from 'lucide-react';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useAdvertise } from '@/hooks/useAdvertise';
+import { useClickOutside } from '@/hooks/useClickOutside';
 import { fmtVoltage } from '@/lib/utils';
 import { Wordmark } from './Wordmark';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
@@ -103,6 +105,7 @@ export function Header() {
           <span className='ml-auto text-sm font-semibold text-(--accent)'>
             {deviceName}
           </span>
+          <AdvertMenu />
           {connected && battery && (
             <span className='text-xs text-(--text2)'>
               {fmtVoltage(battery.voltage)} 💾 {battery.usedKB}/
@@ -144,5 +147,78 @@ export function Header() {
         {displayTheme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
       </button>
     </header>
+  );
+}
+
+/**
+ * The advert icon button beside the device name: opens a small dropdown to
+ * advertise this node to the mesh, choosing zero-hop (direct neighbors) or
+ * flood (whole mesh). Advertising needs a fully connected link, so the button
+ * is disabled while reconnecting — matching the Stats tab — and each action
+ * routes through {@link useMeshCore.advertiseSelf}, which toasts the outcome.
+ */
+function AdvertMenu() {
+  const { t } = useTranslation();
+  const status = useMeshStore((s) => s.status);
+  const { advertise, sending } = useAdvertise();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Dismiss the open menu on an outside click (shared with the app's other
+  // popovers) or Escape.
+  useClickOutside(ref, open, () => setOpen(false));
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+
+  const onSelect = (flood: boolean) => {
+    setOpen(false);
+    void advertise(flood);
+  };
+
+  const itemClass =
+    'block w-full px-3 py-2 text-left text-xs text-(--text) hover:bg-(--surface) hover:text-(--accent)';
+
+  return (
+    <div className='relative' ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        disabled={status !== 'connected' || sending}
+        aria-label={t('header.advertise')}
+        title={t('header.advertise')}
+        aria-haspopup='menu'
+        aria-expanded={open}
+        className='flex items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-(--border-control) disabled:hover:text-(--text2)'
+      >
+        <Radio size={15} />
+      </button>
+      {open && (
+        <div
+          role='menu'
+          className='absolute top-full right-0 z-20 mt-1 min-w-max overflow-hidden rounded-md border border-(--border) shadow-lg'
+          style={{ background: 'var(--surface2)' }}
+        >
+          <button
+            role='menuitem'
+            onClick={() => onSelect(false)}
+            className={itemClass}
+          >
+            {t('settings.advertiseZeroHop')}
+          </button>
+          <button
+            role='menuitem'
+            onClick={() => onSelect(true)}
+            className={itemClass}
+          >
+            {t('settings.advertiseFlood')}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

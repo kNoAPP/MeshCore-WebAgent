@@ -17,6 +17,7 @@ import {
   RADIO_BW_VALUES_KHZ,
 } from '@/lib/meshcore/constants';
 import { RADIO_PRESETS } from '@/lib/meshcore/radioPresets';
+import { fmtNum } from '@/lib/utils';
 import type { RadioParams, SelfInfo } from '@/types/meshcore';
 
 /** The radio fields the editor needs; gates editing when any is missing. */
@@ -75,10 +76,22 @@ function useRadioFormat() {
   const { t, i18n } = useTranslation();
   return {
     t,
-    num: (n: number) => n.toLocaleString(i18n.language),
+    num: (n: number) => fmtNum(n, i18n.language),
     crLabel: (n: number) => t('settings.radioEdit.crLabel', { value: n }),
   };
 }
+
+/**
+ * The editor's in-progress draft: frequency as the raw `<input>` string (parsed
+ * and validated on the fly), the rest as their wire values.
+ */
+type RadioDraft = {
+  freq: string;
+  bw: number;
+  sf: number;
+  cr: number;
+  txPower: number;
+};
 
 /**
  * Two-step editor for the radio's LoRa parameters, launched from the Settings
@@ -98,56 +111,58 @@ export function RadioSettingsModal({
   const { t, num, crLabel } = useRadioFormat();
   const { applyRadioParams } = useMeshCore();
 
-  const [freq, setFreq] = useState(String(fields.radioFreq));
-  const [bw, setBw] = useState(fields.radioBw);
-  const [sf, setSf] = useState(fields.radioSf);
-  const [cr, setCr] = useState(fields.radioCr);
-  const [txPower, setTxPower] = useState(fields.txPower);
+  const [draft, setDraft] = useState<RadioDraft>(() => ({
+    freq: String(fields.radioFreq),
+    bw: fields.radioBw,
+    sf: fields.radioSf,
+    cr: fields.radioCr,
+    txPower: fields.txPower,
+  }));
+  const patch = (p: Partial<RadioDraft>) => setDraft((d) => ({ ...d, ...p }));
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Normalize to the wire's kHz resolution so the value we validate, show in
-  // the diff, and send can't drift from what the device actually stores.
-  const freqNum = scaled(Number(freq)) / RADIO_PARAM_SCALE;
+  // Work at the wire's integer kHz scale so validation, the preset match, the
+  // diff, and the value we send all agree and float rounding can't desync an
+  // otherwise-equal comparison. `freqMhz` is only the display/send conversion.
+  const freqScaled = scaled(Number(draft.freq));
+  const freqMhz = freqScaled / RADIO_PARAM_SCALE;
   const freqValid =
-    freq.trim() !== '' &&
-    Number.isFinite(freqNum) &&
-    freqNum >= RADIO_FREQ_MIN_MHZ &&
-    freqNum <= RADIO_FREQ_MAX_MHZ;
+    draft.freq.trim() !== '' &&
+    Number.isFinite(freqScaled) &&
+    freqMhz >= RADIO_FREQ_MIN_MHZ &&
+    freqMhz <= RADIO_FREQ_MAX_MHZ;
   const dirty =
-    freqNum !== fields.radioFreq ||
-    bw !== fields.radioBw ||
-    sf !== fields.radioSf ||
-    cr !== fields.radioCr ||
-    txPower !== fields.txPower;
+    freqScaled !== scaled(fields.radioFreq) ||
+    draft.bw !== fields.radioBw ||
+    draft.sf !== fields.radioSf ||
+    draft.cr !== fields.radioCr ||
+    draft.txPower !== fields.txPower;
 
   // The region preset whose four parameters match the current draft, or -1
   // ("Custom") once any field is edited away from it. TX power is preset-
   // agnostic, so it doesn't affect the match.
   const presetIdx = RADIO_PRESETS.findIndex(
     (p) =>
-      scaled(p.freq) === scaled(freqNum) &&
-      scaled(p.bw) === scaled(bw) &&
-      p.sf === sf &&
-      p.cr === cr,
+      scaled(p.freq) === freqScaled &&
+      p.bw === draft.bw &&
+      p.sf === draft.sf &&
+      p.cr === draft.cr,
   );
 
   const onPreset = (idx: number) => {
     const p = RADIO_PRESETS[idx];
     if (!p) return;
-    setFreq(String(p.freq));
-    setBw(p.bw);
-    setSf(p.sf);
-    setCr(p.cr);
+    patch({ freq: String(p.freq), bw: p.bw, sf: p.sf, cr: p.cr });
   };
 
   const apply = async () => {
     const proposed: RadioParams = {
-      radioFreq: freqNum,
-      radioBw: bw,
-      radioSf: sf,
-      radioCr: cr,
-      txPower,
+      radioFreq: freqMhz,
+      radioBw: draft.bw,
+      radioSf: draft.sf,
+      radioCr: draft.cr,
+      txPower: draft.txPower,
     };
     setSaving(true);
     const ok = await applyRadioParams(proposed);
@@ -159,27 +174,27 @@ export function RadioSettingsModal({
     {
       label: t('settings.frequency'),
       cur: t('settings.mhz', { value: num(fields.radioFreq) }),
-      next: t('settings.mhz', { value: num(freqNum) }),
+      next: t('settings.mhz', { value: num(freqMhz) }),
     },
     {
       label: t('settings.bandwidth'),
       cur: t('settings.khz', { value: num(fields.radioBw) }),
-      next: t('settings.khz', { value: num(bw) }),
+      next: t('settings.khz', { value: num(draft.bw) }),
     },
     {
       label: t('settings.spreadingFactor'),
       cur: num(fields.radioSf),
-      next: num(sf),
+      next: num(draft.sf),
     },
     {
       label: t('settings.codingRate'),
       cur: crLabel(fields.radioCr),
-      next: crLabel(cr),
+      next: crLabel(draft.cr),
     },
     {
       label: t('settings.txPower'),
       cur: t('settings.dbm', { value: num(fields.txPower) }),
-      next: t('settings.dbm', { value: num(txPower) }),
+      next: t('settings.dbm', { value: num(draft.txPower) }),
     },
   ];
 
@@ -203,17 +218,9 @@ export function RadioSettingsModal({
       ) : (
         <RadioEditStep
           fields={fields}
-          freq={freq}
-          setFreq={setFreq}
+          draft={draft}
+          patch={patch}
           freqValid={freqValid}
-          bw={bw}
-          setBw={setBw}
-          sf={sf}
-          setSf={setSf}
-          cr={cr}
-          setCr={setCr}
-          txPower={txPower}
-          setTxPower={setTxPower}
           presetIdx={presetIdx}
           onPreset={onPreset}
           canReview={freqValid && dirty}
@@ -228,17 +235,9 @@ export function RadioSettingsModal({
 /** The edit form: region preset picker plus each editable LoRa parameter. */
 function RadioEditStep({
   fields,
-  freq,
-  setFreq,
+  draft,
+  patch,
   freqValid,
-  bw,
-  setBw,
-  sf,
-  setSf,
-  cr,
-  setCr,
-  txPower,
-  setTxPower,
   presetIdx,
   onPreset,
   canReview,
@@ -246,17 +245,9 @@ function RadioEditStep({
   onReview,
 }: {
   fields: RadioFields;
-  freq: string;
-  setFreq: (v: string) => void;
+  draft: RadioDraft;
+  patch: (p: Partial<RadioDraft>) => void;
   freqValid: boolean;
-  bw: number;
-  setBw: (v: number) => void;
-  sf: number;
-  setSf: (v: number) => void;
-  cr: number;
-  setCr: (v: number) => void;
-  txPower: number;
-  setTxPower: (v: number) => void;
   presetIdx: number;
   onPreset: (idx: number) => void;
   canReview: boolean;
@@ -298,8 +289,8 @@ function RadioEditStep({
           step='0.001'
           min={RADIO_FREQ_MIN_MHZ}
           max={RADIO_FREQ_MAX_MHZ}
-          value={freq}
-          onChange={(e) => setFreq(e.target.value)}
+          value={draft.freq}
+          onChange={(e) => patch({ freq: e.target.value })}
           className={`w-full rounded-md border bg-(--surface) px-2 py-1.5 text-sm text-(--text) outline-none focus:border-(--accent) ${
             freqValid ? 'border-(--border-control)' : 'border-(--red)'
           }`}
@@ -316,8 +307,8 @@ function RadioEditStep({
 
       <Select
         label={t('settings.bandwidth')}
-        value={bw}
-        onChange={setBw}
+        value={draft.bw}
+        onChange={(v) => patch({ bw: v })}
         options={withCurrent(RADIO_BW_VALUES_KHZ, fields.radioBw).map((v) => ({
           value: v,
           label: t('settings.khz', { value: num(v) }),
@@ -327,8 +318,8 @@ function RadioEditStep({
       <div className='grid grid-cols-2 gap-3'>
         <Select
           label={t('settings.spreadingFactor')}
-          value={sf}
-          onChange={setSf}
+          value={draft.sf}
+          onChange={(v) => patch({ sf: v })}
           options={withCurrent(RADIO_SF_VALUES, fields.radioSf).map((v) => ({
             value: v,
             label: num(v),
@@ -336,8 +327,8 @@ function RadioEditStep({
         />
         <Select
           label={t('settings.codingRate')}
-          value={cr}
-          onChange={setCr}
+          value={draft.cr}
+          onChange={(v) => patch({ cr: v })}
           options={withCurrent(RADIO_CR_VALUES, fields.radioCr).map((v) => ({
             value: v,
             label: crLabel(v),
@@ -348,15 +339,15 @@ function RadioEditStep({
       <label className='block'>
         <span className='mb-1 flex justify-between text-xs text-(--text2)'>
           <span>{t('settings.txPower')}</span>
-          <span>{t('settings.dbm', { value: num(txPower) })}</span>
+          <span>{t('settings.dbm', { value: num(draft.txPower) })}</span>
         </span>
         <input
           type='range'
           min={TX_POWER_MIN_DBM}
           max={fields.maxTxPower}
           step={1}
-          value={txPower}
-          onChange={(e) => setTxPower(Number(e.target.value))}
+          value={draft.txPower}
+          onChange={(e) => patch({ txPower: Number(e.target.value) })}
           className='w-full accent-(--accent)'
         />
         <span className='mt-1 block text-[11px] text-(--text2)'>
