@@ -14,7 +14,7 @@ import type {
   SendReceipt,
   RawRxPacket,
 } from '@/types/meshcore';
-import { ROUTE_TYPE_FLOOD } from './constants';
+import { ROUTE_TYPE_FLOOD, RADIO_PARAM_SCALE } from './constants';
 import { toHex } from '@/lib/utils';
 
 // Decoders for inbound frame payloads → typed objects. Each takes the full
@@ -104,8 +104,10 @@ export function parseSelfInfo(d: Uint8Array): SelfInfo {
     if (d.length >= 46) info.advLocPolicy = d[45];
     if (d.length >= 47) info.telemetryMode = d[46];
     if (d.length >= 48) info.manualAdd = d[47];
-    if (d.length >= 52) info.radioFreq = v.getUint32(48, true) / 1000;
-    if (d.length >= 56) info.radioBw = v.getUint32(52, true) / 1000;
+    if (d.length >= 52)
+      info.radioFreq = v.getUint32(48, true) / RADIO_PARAM_SCALE;
+    if (d.length >= 56)
+      info.radioBw = v.getUint32(52, true) / RADIO_PARAM_SCALE;
     if (d.length >= 57) info.radioSf = d[56];
     if (d.length >= 58) info.radioCr = d[57];
     return info;

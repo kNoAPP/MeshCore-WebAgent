@@ -11,6 +11,7 @@ import { useMeshCore } from '@/hooks/useMeshCore';
 import { fmtVoltage, utf8ByteLength } from '@/lib/utils';
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
 import { CopyButton } from './CopyButton';
+import { RadioSettingsModal, radioFields } from './RadioSettings';
 
 /**
  * Settings page: device identity, firmware, radio configuration, and a
@@ -33,6 +34,12 @@ export function SettingsPage() {
   // Stats auto-fetches over the link on activation, so the shortcut to it is
   // gated while reconnecting — matching the header's Stats tab.
   const reconnecting = status === 'reconnecting';
+
+  const [radioEditOpen, setRadioEditOpen] = useState(false);
+  // Editing needs a fully connected link and a firmware that reports every
+  // radio field; older firmware that omits any leaves the affordance disabled.
+  const fields = radioFields(selfInfo);
+  const canEditRadio = status === 'connected' && fields != null;
 
   const unknown = t('common.unknown');
   const num = (n: number) => n.toLocaleString(i18n.language);
@@ -72,9 +79,10 @@ export function SettingsPage() {
             title={t('settings.section.radio')}
             action={
               <button
-                disabled
-                title={t('settings.editComingSoon')}
-                className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) disabled:cursor-not-allowed disabled:opacity-50'
+                onClick={() => setRadioEditOpen(true)}
+                disabled={!canEditRadio}
+                title={t('settings.editRadio')}
+                className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
               >
                 {t('settings.edit')}
               </button>
@@ -166,6 +174,13 @@ export function SettingsPage() {
           </Card>
         </div>
       </div>
+
+      {radioEditOpen && fields && (
+        <RadioSettingsModal
+          fields={fields}
+          onClose={() => setRadioEditOpen(false)}
+        />
+      )}
     </div>
   );
 }

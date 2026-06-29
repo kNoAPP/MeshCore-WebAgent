@@ -150,6 +150,19 @@ export interface SelfInfo {
   radioCr?: number;
 }
 
+/**
+ * The editable LoRa parameters, applied together by the radio settings editor.
+ * Units match {@link SelfInfo}: `radioFreq` in MHz, `radioBw` in kHz, `txPower`
+ * in dBm.
+ */
+export interface RadioParams {
+  radioFreq: number;
+  radioBw: number;
+  radioSf: number;
+  radioCr: number;
+  txPower: number;
+}
+
 /** Hardware/firmware info from `DEVICE_QUERY`. */
 export interface DeviceInfo {
   fwVersion: number;

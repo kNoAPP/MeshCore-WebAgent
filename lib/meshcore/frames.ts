@@ -1,7 +1,12 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-import { CMD, MAX_MSG_BYTES, MAX_ADVERT_NAME_BYTES } from './constants';
+import {
+  CMD,
+  MAX_MSG_BYTES,
+  MAX_ADVERT_NAME_BYTES,
+  RADIO_PARAM_SCALE,
+} from './constants';
 import { truncateUtf8 } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
 
@@ -240,6 +245,50 @@ export function buildSetAdvertName(name: string): Uint8Array {
   const p = new Uint8Array(1 + nameBytes.length);
   p[0] = CMD.SET_ADVERT_NAME;
   p.set(nameBytes, 1);
+  return p;
+}
+
+/**
+ * Sets the core LoRa parameters in one command (`SET_RADIO_PARAMS`): frequency,
+ * bandwidth, spreading factor, and coding rate.
+ *
+ * @param freqMhz - carrier frequency in MHz; sent as a uint32 LE of
+ * `freqMhz * 1000` ({@link RADIO_PARAM_SCALE}), mirroring the parse side.
+ * @param bwKhz - bandwidth in kHz; sent as a uint32 LE of `bwKhz * 1000`.
+ * @param sf - spreading factor (the firmware accepts 5–12).
+ * @param cr - coding rate denominator `n` of `4/n` (the firmware accepts 5–8).
+ * @remarks
+ * The firmware also reads an optional trailing `client_repeat` byte; it is
+ * omitted here so the radio keeps its existing repeat setting. Layout confirmed
+ * against `CMD_SET_RADIO_PARAMS` in the companion radio's `MyMesh.cpp`.
+ */
+export function buildSetRadioParams(
+  freqMhz: number,
+  bwKhz: number,
+  sf: number,
+  cr: number,
+): Uint8Array {
+  const p = new Uint8Array(11);
+  const v = new DataView(p.buffer);
+  p[0] = CMD.SET_RADIO_PARAMS;
+  v.setUint32(1, Math.round(freqMhz * RADIO_PARAM_SCALE), true);
+  v.setUint32(5, Math.round(bwKhz * RADIO_PARAM_SCALE), true);
+  p[9] = sf;
+  p[10] = cr;
+  return p;
+}
+
+/**
+ * Sets the transmit power (`SET_TX_POWER`).
+ *
+ * @param dbm - TX power in dBm as a signed byte; the firmware clamps to
+ * `[-9, maxTxPower]` and rejects values outside that range.
+ * @see `CMD_SET_RADIO_TX_POWER` in the companion radio's `MyMesh.cpp`.
+ */
+export function buildSetTxPower(dbm: number): Uint8Array {
+  const p = new Uint8Array(2);
+  p[0] = CMD.SET_TX_POWER;
+  new DataView(p.buffer).setInt8(1, dbm);
   return p;
 }
 

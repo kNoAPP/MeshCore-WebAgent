@@ -18,6 +18,8 @@ export const CMD = {
   SET_ADVERT_NAME: 0x08,
   ADD_UPDATE_CONTACT: 0x09,
   SYNC_NEXT_MESSAGE: 0x0a,
+  SET_RADIO_PARAMS: 0x0b,
+  SET_TX_POWER: 0x0c,
   RESET_PATH: 0x0d,
   REMOVE_CONTACT: 0x0f,
   SHARE_CONTACT: 0x10,
@@ -118,6 +120,56 @@ export const MAX_MSG_BYTES = 160;
  * `node_name` in `NodePrefs.h`.
  */
 export const MAX_ADVERT_NAME_BYTES = 31;
+
+/**
+ * Wire scale for the `radio_freq` and `radio_bw` fields: both travel as a
+ * uint32 of the value times 1000 (frequency in kHz, bandwidth in Hz), so the
+ * displayed MHz/kHz multiply by this on the way out and {@link parseSelfInfo}
+ * divides by it on the way in.
+ *
+ * @see `CMD_SET_RADIO_PARAMS` in the companion radio's `MyMesh.cpp`, which
+ * reads the uint32s and stores `freq = raw / 1000` (MHz) and `bw = raw / 1000`
+ * (kHz).
+ */
+export const RADIO_PARAM_SCALE = 1000;
+
+/**
+ * Inclusive frequency bounds (MHz) the firmware accepts for
+ * {@link CMD.SET_RADIO_PARAMS}; values outside are rejected with
+ * `ERR_CODE.ILLEGAL_ARG`, so the editor validates against them client-side.
+ *
+ * @see the `freq >= 150000 && freq <= 2500000` guard (wire scale) in
+ * `MyMesh.cpp`.
+ */
+export const RADIO_FREQ_MIN_MHZ = 150;
+/** @see {@link RADIO_FREQ_MIN_MHZ}. */
+export const RADIO_FREQ_MAX_MHZ = 2500;
+
+/**
+ * Lowest TX power (dBm) the firmware accepts for {@link CMD.SET_TX_POWER}; the
+ * upper bound is the device's reported `maxTxPower`.
+ *
+ * @see the `power < -9 || power > MAX_LORA_TX_POWER` guard in `MyMesh.cpp`.
+ */
+export const TX_POWER_MIN_DBM = -9;
+
+/**
+ * Spreading-factor options offered in the radio editor (SF7–SF12). The firmware
+ * tolerates SF5–SF12, but SF7+ is the usable LoRa range MeshCore configs use.
+ */
+export const RADIO_SF_VALUES = [7, 8, 9, 10, 11, 12] as const;
+
+/**
+ * Coding-rate options offered in the radio editor: the denominator `n` of a
+ * `4/n` rate, matching the firmware's accepted `cr` range (5–8).
+ */
+export const RADIO_CR_VALUES = [5, 6, 7, 8] as const;
+
+/**
+ * Bandwidth options (kHz) offered in the radio editor — the standard SX126x
+ * LoRa bandwidths within the firmware's accepted 7–500 kHz range.
+ */
+export const RADIO_BW_VALUES_KHZ = [62.5, 125, 250, 500] as const;
 
 /** {@link Contact.advType} value for a repeater node. */
 export const ADV_TYPE_REPEATER = 2;
