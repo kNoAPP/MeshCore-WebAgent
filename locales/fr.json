@@ -22,7 +22,8 @@
     "stats": "📊 Stats",
     "settings": "⚙ Paramètres",
     "disconnect": "⏻ Déconnecter",
-    "language": "Langue"
+    "language": "Langue",
+    "advertise": "Annoncer ce nœud"
   },
   "theme": {
     "toggle": "Basculer le thème clair/sombre"

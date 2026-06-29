@@ -22,7 +22,8 @@
     "stats": "📊 Estadísticas",
     "settings": "⚙ Configuración",
     "disconnect": "⏻ Desconectar",
-    "language": "Idioma"
+    "language": "Idioma",
+    "advertise": "Anunciar este nodo"
   },
   "theme": {
     "toggle": "Cambiar tema claro/oscuro"

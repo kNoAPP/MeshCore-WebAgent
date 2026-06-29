@@ -22,7 +22,8 @@
     "stats": "📊 Stats",
     "settings": "⚙ Settings",
     "disconnect": "⏻ Disconnect",
-    "language": "Language"
+    "language": "Language",
+    "advertise": "Advertise this node"
   },
   "theme": {
     "toggle": "Toggle light/dark theme"

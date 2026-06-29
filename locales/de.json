@@ -22,7 +22,8 @@
     "stats": "📊 Statistik",
     "settings": "⚙ Einstellungen",
     "disconnect": "⏻ Trennen",
-    "language": "Sprache"
+    "language": "Sprache",
+    "advertise": "Diesen Knoten ankündigen"
   },
   "theme": {
     "toggle": "Helles/dunkles Design umschalten"
