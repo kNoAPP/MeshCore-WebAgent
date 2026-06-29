@@ -67,6 +67,20 @@ function scaled(mhzOrKhz: number): number {
 }
 
 /**
+ * Localized formatters shared by the editor's steps, bound to the active
+ * language: `num` for plain numbers and `crLabel` for the `4/n` coding-rate
+ * label.
+ */
+function useRadioFormat() {
+  const { t, i18n } = useTranslation();
+  return {
+    t,
+    num: (n: number) => n.toLocaleString(i18n.language),
+    crLabel: (n: number) => t('settings.radioEdit.crLabel', { value: n }),
+  };
+}
+
+/**
  * Two-step editor for the radio's LoRa parameters, launched from the Settings
  * Radio card. The first step edits a draft seeded from `fields`; the second
  * confirms, warning that a wrong frequency/bandwidth/SF/CR can silently isolate
@@ -81,7 +95,7 @@ export function RadioSettingsModal({
   fields: RadioFields;
   onClose: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t, num, crLabel } = useRadioFormat();
   const { applyRadioParams } = useMeshCore();
 
   const [freq, setFreq] = useState(String(fields.radioFreq));
@@ -92,10 +106,9 @@ export function RadioSettingsModal({
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const num = (n: number) => n.toLocaleString(i18n.language);
-  const crLabel = (n: number) => t('settings.radioEdit.crLabel', { value: n });
-
-  const freqNum = Number(freq);
+  // Normalize to the wire's kHz resolution so the value we validate, show in
+  // the diff, and send can't drift from what the device actually stores.
+  const freqNum = scaled(Number(freq)) / RADIO_PARAM_SCALE;
   const freqValid =
     freq.trim() !== '' &&
     Number.isFinite(freqNum) &&
@@ -179,7 +192,6 @@ export function RadioSettingsModal({
       }
       onClose={onClose}
       onBack={confirming ? () => setConfirming(false) : undefined}
-      widthClass='w-120'
     >
       {confirming ? (
         <RadioConfirmStep
@@ -251,9 +263,7 @@ function RadioEditStep({
   onCancel: () => void;
   onReview: () => void;
 }) {
-  const { t, i18n } = useTranslation();
-  const num = (n: number) => n.toLocaleString(i18n.language);
-  const crLabel = (n: number) => t('settings.radioEdit.crLabel', { value: n });
+  const { t, num, crLabel } = useRadioFormat();
 
   return (
     <div className='space-y-4'>
