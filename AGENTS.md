@@ -35,14 +35,14 @@ format check, lint, type-check, build.
 Domain-specific instructions live in `.agents/skills/`. Read the relevant skill
 before working in that area:
 
-| Skill           | When to use                                           |
-| --------------- | ----------------------------------------------------- |
-| `architecture`  | Navigating the codebase, stack, or data flow          |
-| `code-style`    | Writing or reviewing any source file (incl. comments) |
-| `commits`       | Writing commit messages or naming branches            |
-| `deployment`    | Touching `next.config.ts` or CI workflows             |
-| `protocol`      | Touching anything in `lib/meshcore/`                  |
-| `pull-requests` | Preparing or describing a pull request                |
+| Skill                       | When to use                                           |
+| --------------------------- | ----------------------------------------------------- |
+| `architecture`              | Navigating the codebase, stack, or data flow          |
+| `code-style`                | Writing or reviewing any source file (incl. comments) |
+| `commits`                   | Writing commit messages or naming branches            |
+| `protocol`                  | Touching anything in `lib/meshcore/`                  |
+| `pull-requests`             | Preparing or describing a pull request                |
+| `resolving-review-feedback` | Resolving or responding to PR review feedback         |
 
 ## Key Conventions
 
