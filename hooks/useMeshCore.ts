@@ -27,6 +27,7 @@ import type {
   Contact,
   Advert,
   AutoAddConfig,
+  RadioParams,
   Message,
   RawRxPacket,
   ITransport,
@@ -983,6 +984,51 @@ export function useMeshCore() {
     [client, showToast],
   );
 
+  /**
+   * Writes the radio parameters to the device. Frequency/bandwidth/SF/CR go in
+   * one `SET_RADIO_PARAMS` command and TX power in a separate `SET_TX_POWER`;
+   * each is sent only when its value actually changed, and the store updates
+   * via `onSelfInfo` as each write lands. A failed write leaves the radio's
+   * other (already-applied) values intact and reports the error.
+   *
+   * @returns whether every needed write succeeded, so the caller can keep its
+   * editor open on failure.
+   */
+  const applyRadioParams = useCallback(
+    async (params: RadioParams): Promise<boolean> => {
+      if (!canTransmit(client)) return false;
+      const cur = client.selfInfo;
+      const radioChanged =
+        cur?.radioFreq !== params.radioFreq ||
+        cur?.radioBw !== params.radioBw ||
+        cur?.radioSf !== params.radioSf ||
+        cur?.radioCr !== params.radioCr;
+      const powerChanged = cur?.txPower !== params.txPower;
+      try {
+        if (radioChanged) {
+          await client.setRadioParams(
+            params.radioFreq,
+            params.radioBw,
+            params.radioSf,
+            params.radioCr,
+          );
+        }
+        if (powerChanged) await client.setTxPower(params.txPower);
+        showToast(i18n.t('toast.radioParamsSaved'), 'success');
+        return true;
+      } catch (err) {
+        showToast(
+          i18n.t('toast.radioParamsSaveFailed', {
+            error: (err as Error).message,
+          }),
+          'error',
+        );
+        return false;
+      }
+    },
+    [client, showToast],
+  );
+
   /** Persists auto-add settings locally and writes them to the radio. */
   const applyAutoAddConfig = useCallback(
     async (cfg: AutoAddConfig) => {
@@ -1025,6 +1071,7 @@ export function useMeshCore() {
     addChannel,
     removeChannel,
     setNodeName,
+    applyRadioParams,
     applyAutoAddConfig,
   };
 }

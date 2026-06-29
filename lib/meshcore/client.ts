@@ -44,6 +44,8 @@ import {
   buildShareContact,
   buildSetChannel,
   buildSetAdvertName,
+  buildSetRadioParams,
+  buildSetTxPower,
   buildSetOtherParams,
   buildSetAutoAddConfig,
   buildGetAutoAddConfig,
@@ -667,6 +669,57 @@ export class MeshCoreClient {
     await this.cmd(buildSetAdvertName(name), [RESP.OK], 5000);
     if (this.selfInfo) {
       this.selfInfo = { ...this.selfInfo, name };
+      this.callbacks.onSelfInfo?.(this.selfInfo);
+    }
+  }
+
+  /**
+   * Sets the core LoRa parameters (`SET_RADIO_PARAMS`: frequency, bandwidth,
+   * spreading factor, coding rate). On success, updates the local `selfInfo`
+   * mirror with the applied values and fires
+   * {@link MeshCoreCallbacks.onSelfInfo} so Settings reflects them immediately
+   * — the firmware has no clean re-read of `SELF_INFO`, so the echoed values
+   * are trusted.
+   *
+   * @throws if the radio rejects the values (`ERR` — e.g. out of the accepted
+   * range) or the command times out, so the caller can surface the failure
+   * without overwriting the displayed values.
+   */
+  async setRadioParams(
+    freqMhz: number,
+    bwKhz: number,
+    sf: number,
+    cr: number,
+  ): Promise<void> {
+    await this.cmd(
+      buildSetRadioParams(freqMhz, bwKhz, sf, cr),
+      [RESP.OK],
+      5000,
+    );
+    if (this.selfInfo) {
+      this.selfInfo = {
+        ...this.selfInfo,
+        radioFreq: freqMhz,
+        radioBw: bwKhz,
+        radioSf: sf,
+        radioCr: cr,
+      };
+      this.callbacks.onSelfInfo?.(this.selfInfo);
+    }
+  }
+
+  /**
+   * Sets the transmit power (`SET_TX_POWER`). On success, updates the local
+   * `selfInfo` mirror and fires {@link MeshCoreCallbacks.onSelfInfo}.
+   *
+   * @param dbm - TX power in dBm; the firmware rejects values outside
+   * `[-9, maxTxPower]`.
+   * @throws if the radio rejects the value or the command times out.
+   */
+  async setTxPower(dbm: number): Promise<void> {
+    await this.cmd(buildSetTxPower(dbm), [RESP.OK], 5000);
+    if (this.selfInfo) {
+      this.selfInfo = { ...this.selfInfo, txPower: dbm };
       this.callbacks.onSelfInfo?.(this.selfInfo);
     }
   }
