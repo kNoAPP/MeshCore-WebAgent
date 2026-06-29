@@ -5,7 +5,7 @@
 
 import { useSyncExternalStore, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Moon, Sun, Megaphone } from 'lucide-react';
+import { Moon, Sun, Radio } from 'lucide-react';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { fmtVoltage } from '@/lib/utils';
@@ -203,7 +203,7 @@ function AdvertMenu() {
         aria-expanded={open}
         className='flex items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-(--border-control) disabled:hover:text-(--text2)'
       >
-        <Megaphone size={15} />
+        <Radio size={15} />
       </button>
       {open && (
         <div
