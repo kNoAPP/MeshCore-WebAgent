@@ -50,6 +50,7 @@ import {
   buildSetOtherParams,
   buildSetAutoAddConfig,
   buildGetAutoAddConfig,
+  buildReboot,
 } from './frames';
 import {
   parseSelfInfo,
@@ -761,6 +762,25 @@ export class MeshCoreClient {
     const rawHops =
       cfg.maxHops >= MAX_HOPS_NO_LIMIT ? 0 : Math.min(cfg.maxHops + 1, 64);
     await this.cmd(buildSetAutoAddConfig(bits, rawHops), [RESP.OK], 5000);
+  }
+
+  /**
+   * Reboots the radio (`REBOOT`). The radio usually restarts before it can
+   * reply, dropping the transport link as part of the command, so a missing
+   * `OK` within the short timeout is treated as success — only a device `ERR`
+   * (e.g. the firmware doesn't support the command) is surfaced as a failure.
+   * The dropped link then flows through {@link MeshCoreCallbacks.onDisconnect}
+   * into the hook's auto-reconnect loop, which recovers the session once the
+   * device comes back.
+   */
+  async reboot(): Promise<void> {
+    try {
+      await this.cmd(buildReboot(), [RESP.OK], 1000);
+    } catch (err) {
+      // A device ERR carries a numeric code; rethrow it. A bare timeout (no
+      // code) is expected — the radio rebooted before replying — so swallow it.
+      if ((err as { code?: number }).code !== undefined) throw err;
+    }
   }
 
   /**

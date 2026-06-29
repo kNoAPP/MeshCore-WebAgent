@@ -151,7 +151,8 @@
       "identity": "Identité",
       "radio": "Radio",
       "advertise": "Annoncer",
-      "storage": "Stockage et batterie"
+      "storage": "Stockage et batterie",
+      "danger": "Actions de l'appareil"
     },
     "model": "Modèle",
     "firmware": "Version du firmware",
@@ -192,7 +193,11 @@
     "storageUsed": "Stockage",
     "kbUsage": "{{used}} / {{total}} KB",
     "noBattery": "Le stockage et la batterie ne sont pas signalés par cet appareil.",
-    "viewStats": "Voir toutes les statistiques →"
+    "viewStats": "Voir toutes les statistiques →",
+    "rebootHint": "Redémarrez la radio. La connexion sera coupée pendant le redémarrage et se rétablira automatiquement une fois l'appareil revenu.",
+    "reboot": "Redémarrer l'appareil",
+    "rebootConfirm": "Redémarrer la radio maintenant ?",
+    "rebootConfirmAction": "Redémarrer"
   },
   "chat": {
     "empty": "Sélectionne un canal ou un contact pour commencer à discuter",
@@ -380,6 +385,8 @@
     "advertNoRecent": "Partage impossible : votre radio n'a pas reçu d'annonce récente de ce contact",
     "selfAdvertZeroHopSent": "Annoncé aux nœuds à proximité",
     "selfAdvertFloodSent": "Annonce diffusée au réseau",
-    "selfAdvertFailed": "Échec de l'annonce : {{error}}"
+    "selfAdvertFailed": "Échec de l'annonce : {{error}}",
+    "rebooting": "Redémarrage… reconnexion dès le retour de l'appareil",
+    "rebootFailed": "Échec du redémarrage : {{error}}"
   }
 }

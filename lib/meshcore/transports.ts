@@ -91,9 +91,13 @@ export class USBTransport extends BaseTransport implements ITransport {
   // Tracks the running read loop so reopen() can await its full unwind (and
   // suppressed fireClose) before re-arming drop detection.
   private readTask: Promise<void> | null = null;
+  // USB identity of the granted port, captured up front so reopen() can find
+  // the same device again after it re-enumerates (see resolveCurrentPort).
+  private readonly portInfo: SerialPortInfo;
 
   constructor(private port: SerialPort) {
     super();
+    this.portInfo = port.getInfo();
   }
 
   /** Opens the serial port at {@link USB_BAUD_RATE} and acquires the writer. */
@@ -167,7 +171,29 @@ export class USBTransport extends BaseTransport implements ITransport {
     this.parser = null;
     this.started = false;
     this.armForReopen();
+    await this.resolveCurrentPort();
     await this.open();
+  }
+
+  /**
+   * Re-resolves {@link port} from the still-granted ports before reopening. A
+   * native-USB companion fully re-enumerates when it reboots, which can replace
+   * the `SerialPort` captured at first connect with a fresh object — reopening
+   * the stale handle then never succeeds. Matching by USB vendor/product picks
+   * the device that actually came back; if none is found yet (still booting),
+   * the existing handle is kept and the next reconnect attempt retries.
+   */
+  private async resolveCurrentPort(): Promise<void> {
+    const { usbVendorId, usbProductId } = this.portInfo;
+    if (usbVendorId === undefined || usbProductId === undefined) return;
+    const ports = await navigator.serial.getPorts();
+    const match = ports.find((p) => {
+      const info = p.getInfo();
+      return (
+        info.usbVendorId === usbVendorId && info.usbProductId === usbProductId
+      );
+    });
+    if (match) this.port = match;
   }
 
   async close(): Promise<void> {

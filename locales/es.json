@@ -151,7 +151,8 @@
       "identity": "Identidad",
       "radio": "Radio",
       "advertise": "Anunciar",
-      "storage": "Almacenamiento y batería"
+      "storage": "Almacenamiento y batería",
+      "danger": "Acciones del dispositivo"
     },
     "model": "Modelo",
     "firmware": "Versión de firmware",
@@ -192,7 +193,11 @@
     "storageUsed": "Almacenamiento",
     "kbUsage": "{{used}} / {{total}} KB",
     "noBattery": "Este dispositivo no informa el almacenamiento ni la batería.",
-    "viewStats": "Ver estadísticas completas →"
+    "viewStats": "Ver estadísticas completas →",
+    "rebootHint": "Reinicia la radio. La conexión se cortará mientras se reinicia y se reconectará automáticamente cuando el dispositivo vuelva.",
+    "reboot": "Reiniciar dispositivo",
+    "rebootConfirm": "¿Reiniciar la radio ahora?",
+    "rebootConfirmAction": "Reiniciar"
   },
   "chat": {
     "empty": "Selecciona un canal o contacto para empezar a chatear",
@@ -380,6 +385,8 @@
     "advertNoRecent": "No se puede compartir: tu radio no ha recibido un advert reciente de este contacto",
     "selfAdvertZeroHopSent": "Anunciado a los nodos cercanos",
     "selfAdvertFloodSent": "Anuncio difundido a la malla",
-    "selfAdvertFailed": "Error al anunciar: {{error}}"
+    "selfAdvertFailed": "Error al anunciar: {{error}}",
+    "rebooting": "Reiniciando… se reconectará cuando el dispositivo vuelva",
+    "rebootFailed": "Error al reiniciar: {{error}}"
   }
 }

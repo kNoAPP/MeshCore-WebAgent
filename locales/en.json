@@ -151,7 +151,8 @@
       "identity": "Identity",
       "radio": "Radio",
       "advertise": "Advertise",
-      "storage": "Storage & Battery"
+      "storage": "Storage & Battery",
+      "danger": "Device actions"
     },
     "model": "Model",
     "firmware": "Firmware version",
@@ -192,7 +193,11 @@
     "storageUsed": "Storage",
     "kbUsage": "{{used}} / {{total}} KB",
     "noBattery": "Storage and battery not reported by this device.",
-    "viewStats": "View full stats →"
+    "viewStats": "View full stats →",
+    "rebootHint": "Restart the radio. The connection will drop while it reboots and reconnect automatically once the device comes back.",
+    "reboot": "Reboot device",
+    "rebootConfirm": "Reboot the radio now?",
+    "rebootConfirmAction": "Reboot"
   },
   "chat": {
     "empty": "Select a channel or contact to start chatting",
@@ -380,6 +385,8 @@
     "advertNoRecent": "Can't share: your radio hasn't heard a recent advert from this contact",
     "selfAdvertZeroHopSent": "Advertised to nearby nodes",
     "selfAdvertFloodSent": "Advert flooded to the mesh",
-    "selfAdvertFailed": "Failed to advertise: {{error}}"
+    "selfAdvertFailed": "Failed to advertise: {{error}}",
+    "rebooting": "Rebooting… reconnecting when the device comes back",
+    "rebootFailed": "Failed to reboot: {{error}}"
   }
 }
