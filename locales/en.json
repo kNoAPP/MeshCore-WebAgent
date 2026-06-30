@@ -290,13 +290,7 @@
   "map": {
     "self": "This node",
     "offlineBadge": "Offline map",
-    "useOfflineMap": "Use offline map",
-    "useOnlineMap": "Use online map",
-    "markerCap": "Showing {{shown}} of {{total}} nodes",
-    "tileConsentTitle": "Load online map tiles?",
-    "tileConsentBody": "Online map tiles are fetched from a third-party host (CARTO). This reveals the approximate location of your nodes to that host. The bundled offline map leaks nothing.",
-    "tileConsentAccept": "Use online tiles",
-    "tileConsentDecline": "Stay offline"
+    "markerCap": "Showing {{shown}} of {{total}} nodes"
   },
   "sidebar": {
     "channels": "Channels",

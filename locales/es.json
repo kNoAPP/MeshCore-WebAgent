@@ -290,13 +290,7 @@
   "map": {
     "self": "Este nodo",
     "offlineBadge": "Mapa sin conexión",
-    "useOfflineMap": "Usar mapa sin conexión",
-    "useOnlineMap": "Usar mapa en línea",
-    "markerCap": "Mostrando {{shown}} de {{total}} nodos",
-    "tileConsentTitle": "¿Cargar mosaicos del mapa en línea?",
-    "tileConsentBody": "Los mosaicos del mapa en línea se obtienen de un proveedor externo (CARTO). Esto revela la ubicación aproximada de tus nodos a ese proveedor. El mapa sin conexión incluido no filtra nada.",
-    "tileConsentAccept": "Usar mosaicos en línea",
-    "tileConsentDecline": "Seguir sin conexión"
+    "markerCap": "Mostrando {{shown}} de {{total}} nodos"
   },
   "sidebar": {
     "channels": "Canales",

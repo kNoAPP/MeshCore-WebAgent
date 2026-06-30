@@ -5,11 +5,22 @@ import type { Theme } from '@/lib/theme/config';
 
 /**
  * Path (relative to the static export root) of the bundled low-resolution world
- * outline used as the offline basemap. Natural Earth `countries-110m`, shipped
- * as TopoJSON so the offline half needs no network. Cached by the service
- * worker so it is available after a cold, offline reload.
+ * outline. Natural Earth `countries-110m`, shipped as TopoJSON so it needs no
+ * network. Rendered as a vector underlay *beneath* the raster tiles: invisible
+ * while tiles are present, but it shows country shapes (instead of blank gaps)
+ * for areas that were never cached when the connection is offline. Cached by
+ * the service worker so it survives a cold, offline reload.
  */
 export const OFFLINE_BASEMAP_URL = '/map/countries-110m.json';
+
+/**
+ * Highest zoom level the background warm-up pre-fetches for the whole world (in
+ * both themes), so a freshly offline client has at least coarse coverage of
+ * places it never browsed. Tile count grows ~4x per level, so keep this low;
+ * detail for areas the user actually visits is filled in by the service
+ * worker's runtime tile caching.
+ */
+export const WARMUP_MAX_ZOOM = 4;
 
 /**
  * Raster tile templates for the online basemap, keyed by app theme so the map
@@ -35,28 +46,20 @@ export const TILE_ATTRIBUTION =
 export const MAX_MAP_MARKERS = 500;
 
 /**
- * Persisted, user-tunable map state. `center`/`zoom` restore the last viewport;
- * `forceOffline` is the manual "use the bundled basemap even when online"
- * toggle (handy on captive/metered links); `onlineTilesConsented` records the
- * one-time acknowledgment that online tiles fetch from — and reveal the
- * viewport to — a third-party host.
+ * Persisted, user-tunable map state. `center`/`zoom` restore the last viewport.
  */
 export interface MapPrefs {
   center: [number, number]; // [lat, lon] in decimal degrees
   zoom: number;
-  forceOffline: boolean;
-  onlineTilesConsented: boolean;
 }
 
 /** localStorage key for the persisted {@link MapPrefs}. */
 export const MAP_PREFS_STORAGE_KEY = 'meshcore.mapPrefs';
 
-/** Default viewport (a whole-world view); online tiles not yet consented. */
+/** Default viewport (a whole-world view). */
 export const DEFAULT_MAP_PREFS: MapPrefs = {
   center: [20, 0],
   zoom: 2,
-  forceOffline: false,
-  onlineTilesConsented: false,
 };
 
 /**
@@ -78,14 +81,6 @@ export function loadMapPrefs(): MapPrefs {
           typeof parsed.zoom === 'number'
             ? parsed.zoom
             : DEFAULT_MAP_PREFS.zoom,
-        forceOffline:
-          typeof parsed.forceOffline === 'boolean'
-            ? parsed.forceOffline
-            : DEFAULT_MAP_PREFS.forceOffline,
-        onlineTilesConsented:
-          typeof parsed.onlineTilesConsented === 'boolean'
-            ? parsed.onlineTilesConsented
-            : DEFAULT_MAP_PREFS.onlineTilesConsented,
       };
     }
   } catch {}

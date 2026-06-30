@@ -289,13 +289,7 @@
   "map": {
     "self": "Ce nœud",
     "offlineBadge": "Carte hors ligne",
-    "useOfflineMap": "Utiliser la carte hors ligne",
-    "useOnlineMap": "Utiliser la carte en ligne",
-    "markerCap": "Affichage de {{shown}} sur {{total}} nœuds",
-    "tileConsentTitle": "Charger les tuiles de carte en ligne ?",
-    "tileConsentBody": "Les tuiles de carte en ligne sont récupérées auprès d'un hébergeur tiers (CARTO). Cela révèle la position approximative de vos nœuds à cet hébergeur. La carte hors ligne fournie ne divulgue rien.",
-    "tileConsentAccept": "Utiliser les tuiles en ligne",
-    "tileConsentDecline": "Rester hors ligne"
+    "markerCap": "Affichage de {{shown}} sur {{total}} nœuds"
   },
   "sidebar": {
     "channels": "Canaux",
