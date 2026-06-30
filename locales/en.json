@@ -150,7 +150,6 @@
       "device": "Device",
       "identity": "Identity",
       "radio": "Radio",
-      "advertise": "Advertise",
       "storage": "Storage & Battery",
       "danger": "Device actions"
     },
@@ -163,6 +162,12 @@
     "nodeName": "Node name",
     "editName": "Edit node name",
     "publicKey": "Public key",
+    "shareNode": "Share my node",
+    "shareNodeTitle": "Share my node",
+    "shareNodeScanHint": "Scan to add this node",
+    "shareNodeAdvert": "Zero Hop Advert",
+    "shareNodeFlood": "Flood Advert",
+    "shareNodeAdvertHint": "Advertise this node so others can add it",
     "frequency": "Frequency",
     "bandwidth": "Bandwidth",
     "spreadingFactor": "Spreading factor",
@@ -186,7 +191,6 @@
       "confirmTitle": "Apply radio changes?",
       "warning": "Wrong radio settings can silently cut this node off from the mesh. Peers must share the same frequency, bandwidth, spreading factor, and coding rate to hear each other. Double-check the values below before applying."
     },
-    "advertiseHint": "Announce this node so others can hear and add it. Zero-hop reaches direct neighbors only; flood reaches the whole mesh but uses more airtime, so send it sparingly.",
     "advertiseZeroHop": "Advertise to neighbors (zero-hop)",
     "advertiseFlood": "Advertise (flood)",
     "voltage": "Voltage",

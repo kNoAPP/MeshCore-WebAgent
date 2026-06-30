@@ -150,7 +150,6 @@
       "device": "Dispositivo",
       "identity": "Identidad",
       "radio": "Radio",
-      "advertise": "Anunciar",
       "storage": "Almacenamiento y batería",
       "danger": "Acciones del dispositivo"
     },
@@ -163,6 +162,12 @@
     "nodeName": "Nombre del nodo",
     "editName": "Editar nombre del nodo",
     "publicKey": "Clave pública",
+    "shareNode": "Compartir mi nodo",
+    "shareNodeTitle": "Compartir mi nodo",
+    "shareNodeScanHint": "Escanea para añadir este nodo",
+    "shareNodeAdvert": "Advert de cero saltos",
+    "shareNodeFlood": "Advert por inundación",
+    "shareNodeAdvertHint": "Anuncia este nodo para que otros puedan añadirlo",
     "frequency": "Frecuencia",
     "bandwidth": "Ancho de banda",
     "spreadingFactor": "Factor de dispersión",
@@ -186,7 +191,6 @@
       "confirmTitle": "¿Aplicar los cambios de radio?",
       "warning": "Una configuración de radio incorrecta puede aislar silenciosamente este nodo de la malla. Los pares deben compartir la misma frecuencia, ancho de banda, factor de dispersión y tasa de codificación para oírse entre sí. Revisa los valores siguientes antes de aplicar."
     },
-    "advertiseHint": "Anuncia este nodo para que otros puedan oírlo y añadirlo. El de cero saltos llega solo a los vecinos directos; el de inundación llega a toda la malla pero usa más tiempo de aire, así que úsalo con moderación.",
     "advertiseZeroHop": "Anunciar a vecinos (cero saltos)",
     "advertiseFlood": "Anunciar (inundación)",
     "voltage": "Voltaje",
