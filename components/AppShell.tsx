@@ -6,7 +6,6 @@
 import dynamic from 'next/dynamic';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
-import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { DesktopOnly } from './DesktopOnly';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
@@ -40,7 +39,6 @@ export function AppShell() {
   const view = useMeshStore((s) => s.view);
   const connected = status === 'connected';
   const reconnecting = status === 'reconnecting';
-  useOnlineStatus();
   // A dropped link keeps the app mounted (chats stay visible) under a blocking
   // reconnect overlay, rather than dumping the user back to the connect screen.
   const active = isActiveStatus(status);

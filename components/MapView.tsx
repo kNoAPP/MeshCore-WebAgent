@@ -6,9 +6,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
-import { feature } from 'topojson-client';
-import type { GeometryCollection, Topology } from 'topojson-specification';
-import type { FeatureCollection } from 'geojson';
 import 'leaflet/dist/leaflet.css';
 import { useMeshStore } from '@/store/meshStore';
 import { ADV_ICON } from '@/lib/utils';
@@ -21,12 +18,10 @@ import {
 import {
   DEFAULT_MAP_PREFS,
   MAX_MAP_MARKERS,
-  OFFLINE_BASEMAP_URL,
   TILE_ATTRIBUTION,
   TILE_URLS,
   type MapPrefs,
 } from '@/lib/map/config';
-import { warmOfflineTiles } from '@/lib/map/tileWarmup';
 
 /** Escapes a string for safe insertion into marker/tooltip HTML. */
 function escapeHtml(value: string): string {
@@ -63,15 +58,11 @@ function nodeIcon(node: MapNode): L.DivIcon {
  * world when none have a location.
  */
 function initialView(
-  prefs: MapPrefs,
+  prefs: MapPrefs | null,
   self: MapNode | null,
   nodes: MapNode[],
 ): { center: [number, number]; zoom: number } {
-  const untouched =
-    prefs.center[0] === DEFAULT_MAP_PREFS.center[0] &&
-    prefs.center[1] === DEFAULT_MAP_PREFS.center[1] &&
-    prefs.zoom === DEFAULT_MAP_PREFS.zoom;
-  if (!untouched) return { center: prefs.center, zoom: prefs.zoom };
+  if (prefs) return { center: prefs.center, zoom: prefs.zoom };
   if (self) return { center: [self.lat, self.lon], zoom: 11 };
   const avg = averageCenter(nodes);
   if (avg) return { center: avg, zoom: 11 };
@@ -80,13 +71,10 @@ function initialView(
 
 /**
  * Desktop map view: plots this node and every located contact/advert on a
- * single raster basemap (CARTO). The service worker streams tiles from the
- * network when online — caching them as it goes — and serves the cached copy
- * when offline, so the map "just works" in both states with no toggle.
- * A bundled vector world outline sits beneath the tiles, showing country shapes
- * wherever cached tiles are missing offline. When this node has no GPS fix, the
- * map still opens — centered on the average of located contacts/adverts, or the
- * whole world when none have a location.
+ * single online raster basemap (CARTO Positron/Dark Matter, matching the app
+ * theme). When this node has no GPS fix, the map still opens — centered on the
+ * average of located contacts/adverts, or the whole world when none have a
+ * location.
  */
 export function MapView() {
   const selfInfo = useMeshStore((s) => s.selfInfo);
@@ -95,8 +83,8 @@ export function MapView() {
 
   const self = useMemo(() => selfMapNode(selfInfo), [selfInfo]);
   const nodes = useMemo(
-    () => collectMapNodes(contacts, adverts),
-    [contacts, adverts],
+    () => collectMapNodes(contacts, adverts, self?.pubkeyPrefix),
+    [contacts, adverts, self?.pubkeyPrefix],
   );
 
   return <LeafletMap self={self} nodes={nodes} />;
@@ -112,7 +100,6 @@ function LeafletMap({
 }) {
   const { t } = useTranslation();
   const theme = useMeshStore((s) => s.theme);
-  const isOnline = useMeshStore((s) => s.isOnline);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -123,9 +110,8 @@ function LeafletMap({
     initialView(useMeshStore.getState().mapPrefs, self, nodes),
   );
 
-  // Create the map once, with the bundled vector world outline as the bottom
-  // layer. The persist-on-move handler reads live store state via getState(),
-  // so the effect needs no reactive deps.
+  // Create the map once. The persist-on-move handler reads live store state via
+  // getState(), so the effect needs no reactive deps.
   useEffect(() => {
     if (!containerRef.current) return;
     const map = L.map(containerRef.current, {
@@ -135,36 +121,23 @@ function LeafletMap({
     });
     mapRef.current = map;
 
-    // A pane below the tile pane (z-index 200) so the vector outline shows
-    // through wherever raster tiles are missing (offline gaps) yet stays hidden
-    // behind tiles when they are present.
-    map.createPane('vectorBase');
-    const pane = map.getPane('vectorBase');
-    if (pane) pane.style.zIndex = '150';
-
     markerLayerRef.current = L.layerGroup().addTo(map);
 
-    void (async () => {
-      try {
-        const res = await fetch(OFFLINE_BASEMAP_URL);
-        const topo = (await res.json()) as Topology;
-        const geo = feature(
-          topo,
-          topo.objects.countries as GeometryCollection,
-        ) as FeatureCollection;
-        if (!mapRef.current) return;
-        L.geoJSON(geo, {
-          pane: 'vectorBase',
-          interactive: false,
-          style: () => ({ className: 'map-land', weight: 0.6 }),
-        }).addTo(map);
-      } catch {}
-    })();
+    // `detectRetina` swaps in `@2x` tiles (via the `{r}` token) on hi-DPI
+    // displays so labels stay crisp under the app's 1.25 CSS zoom.
+    tileLayerRef.current = L.tileLayer(
+      TILE_URLS[useMeshStore.getState().theme],
+      {
+        attribution: TILE_ATTRIBUTION,
+        subdomains: 'abcd',
+        maxZoom: 20,
+        detectRetina: true,
+      },
+    ).addTo(map);
 
     const persist = () => {
       const c = map.getCenter();
       useMeshStore.getState().setMapPrefs({
-        ...useMeshStore.getState().mapPrefs,
         center: [c.lat, c.lng],
         zoom: map.getZoom(),
       });
@@ -180,33 +153,11 @@ function LeafletMap({
     };
   }, [startView]);
 
-  // (Re)create the raster tile layer for the active theme; light/dark just
-  // points it at the other CARTO style. Tiles are fetched at @2x (see
-  // TILE_URLS) and drawn in the default 256 px slots so they stay sharp under
-  // the 1.25 CSS zoom. The service worker decides network vs. cache, so the one
-  // layer serves both online and offline with no switching here.
+  // Point the single tile layer at the active theme's CARTO style; light/dark
+  // just swaps the URL template, avoiding a remove/re-add flash.
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const layer = L.tileLayer(TILE_URLS[theme], {
-      attribution: TILE_ATTRIBUTION,
-      subdomains: 'abcd',
-      maxZoom: 19,
-    }).addTo(map);
-    tileLayerRef.current = layer;
-    return () => {
-      map.removeLayer(layer);
-      if (tileLayerRef.current === layer) tileLayerRef.current = null;
-    };
+    tileLayerRef.current?.setUrl(TILE_URLS[theme]);
   }, [theme]);
-
-  // While online, upgrade the visible tiles to full resolution (a reconnect
-  // re-requests them) and warm the offline cache for places not yet browsed.
-  useEffect(() => {
-    if (!isOnline) return;
-    tileLayerRef.current?.redraw();
-    warmOfflineTiles();
-  }, [isOnline]);
 
   // Rebuild markers when the located node set changes.
   useEffect(() => {
@@ -236,11 +187,6 @@ function LeafletMap({
     <div className='meshcore-map relative isolate flex-1'>
       <div ref={containerRef} className='absolute inset-0' />
       <div className='pointer-events-none absolute inset-x-0 top-0 z-1000 flex flex-col items-start gap-2 p-3'>
-        {!isOnline && (
-          <span className='pointer-events-auto rounded-md border border-(--border) bg-(--surface)/90 px-2.5 py-1 text-xs text-(--text2) backdrop-blur'>
-            {t('map.offlineBadge')}
-          </span>
-        )}
         {capped && (
           <span className='pointer-events-auto rounded-md border border-(--border) bg-(--surface)/90 px-2.5 py-1 text-xs text-(--text2) backdrop-blur'>
             {t('map.markerCap', { shown: MAX_MAP_MARKERS, total })}

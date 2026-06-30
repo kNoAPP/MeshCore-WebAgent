@@ -82,12 +82,6 @@ export type ContactSort = (typeof CONTACT_SORTS)[number];
 /** Which top-level page the connected app is showing. */
 export type AppView = 'chat' | 'stats' | 'settings' | 'map';
 
-/** Reads the browser's online status, defaulting to `true` on SSR. */
-function initialOnline(): boolean {
-  if (typeof navigator === 'undefined') return true;
-  return navigator.onLine;
-}
-
 /** Persisted contacts-list view: filter, order, and favorite pinning. */
 export interface ContactView {
   filter: ContactFilter;
@@ -167,8 +161,8 @@ interface MeshState {
   contactView: ContactView;
   locale: SupportedLocale;
   theme: Theme;
-  isOnline: boolean;
-  mapPrefs: MapPrefs;
+  /** Persisted viewport, or `null` until the user first pans/zooms the map. */
+  mapPrefs: MapPrefs | null;
   toast: Toast | null;
   view: AppView;
   managePanel: { kind: 'contact' | 'channel'; id: string } | null;
@@ -193,7 +187,6 @@ interface MeshActions {
   setContactView: (view: ContactView) => void;
   setLocale: (locale: SupportedLocale) => void;
   setTheme: (theme: Theme) => void;
-  setOnline: (online: boolean) => void;
   setMapPrefs: (prefs: MapPrefs) => void;
   addMessage: (id: string, msg: Message) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
@@ -231,7 +224,6 @@ const initialState: MeshState = {
   contactView: loadContactView(),
   locale: resolveInitialLocale(),
   theme: resolveInitialTheme(),
-  isOnline: initialOnline(),
   mapPrefs: loadMapPrefs(),
   toast: null,
   view: 'chat',
@@ -297,8 +289,6 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     void i18n.changeLanguage(locale);
     set({ locale });
   },
-
-  setOnline: (isOnline) => set({ isOnline }),
 
   setMapPrefs: (mapPrefs) => {
     saveMapPrefs(mapPrefs);
@@ -439,8 +429,6 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       theme: get().theme,
       // Map preferences are a persistent user preference, not session state
       mapPrefs: get().mapPrefs,
-      // Online status reflects the browser, not the radio link
-      isOnline: get().isOnline,
     }),
 }));
 

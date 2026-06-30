@@ -289,7 +289,6 @@
   },
   "map": {
     "self": "Dieser Knoten",
-    "offlineBadge": "Offline-Karte",
     "markerCap": "{{shown}} von {{total}} Knoten werden angezeigt"
   },
   "sidebar": {

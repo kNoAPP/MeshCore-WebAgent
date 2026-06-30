@@ -19,6 +19,7 @@
     "reconnecting": "Reconnexion…",
     "disconnected": "Déconnecté",
     "chat": "💬 Discussion",
+    "map": "🗺 Carte",
     "stats": "📊 Stats",
     "settings": "⚙ Paramètres",
     "disconnect": "⏻ Déconnecter",
@@ -288,7 +289,6 @@
   },
   "map": {
     "self": "Ce nœud",
-    "offlineBadge": "Carte hors ligne",
     "markerCap": "Affichage de {{shown}} sur {{total}} nœuds"
   },
   "sidebar": {

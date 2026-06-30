@@ -289,7 +289,6 @@
   },
   "map": {
     "self": "Este nodo",
-    "offlineBadge": "Mapa sin conexión",
     "markerCap": "Mostrando {{shown}} de {{total}} nodos"
   },
   "sidebar": {

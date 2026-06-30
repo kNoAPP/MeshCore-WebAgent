@@ -289,7 +289,6 @@
   },
   "map": {
     "self": "This node",
-    "offlineBadge": "Offline map",
     "markerCap": "Showing {{shown}} of {{total}} nodes"
   },
   "sidebar": {

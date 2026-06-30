@@ -64,18 +64,21 @@ export function selfMapNode(self: SelfInfo | null): MapNode | null {
  * coordinate encodings to degrees at this single boundary: `SelfInfo` is in
  * degrees, while `Contact`/`Advert` are micro-degrees (÷1e6). Saved contacts
  * win over an advert from the same node (the contact opens the manage panel);
- * adverts only contribute nodes not already in the contact table. Self is
- * excluded here — it is handled separately via {@link selfMapNode} so it gets
- * a distinct marker.
+ * adverts only contribute nodes not already in the contact table. This node's
+ * own `selfPrefix` is excluded so it never doubles up the ringed self marker
+ * from {@link selfMapNode} (e.g. when the mesh echoes back our own advert).
  */
 export function collectMapNodes(
   contacts: Record<string, Contact>,
   adverts: Record<string, Advert>,
+  selfPrefix?: string,
 ): MapNode[] {
   const nodes: MapNode[] = [];
   const seen = new Set<string>();
+  if (selfPrefix) seen.add(selfPrefix);
 
   for (const contact of Object.values(contacts)) {
+    if (seen.has(contact.pubkeyPrefix)) continue;
     const coords = contactCoords(contact.advLat, contact.advLon);
     if (!coords) continue;
     seen.add(contact.pubkeyPrefix);
