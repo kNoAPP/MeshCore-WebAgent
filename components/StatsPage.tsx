@@ -24,7 +24,10 @@ export function StatsPage() {
   // than reading the shared store) so a timed-out fetch surfaces the card's
   // "unavailable" state here without clearing the header's last-known reading.
   const [battery, setBatteryLocal] = useState<BatteryInfo | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Starts true so the very first paint shows shimmer skeletons instead of a
+  // blank grid (the auto-fetch effect runs just after mount). Toggled on for
+  // refreshes too, and cleared once a fetch settles.
+  const [loading, setLoading] = useState(true);
   // True once a fetch has completed at least once this session. Distinct from
   // `loading`: it gates the "unavailable" cards so they appear only after a
   // real attempt, not during the initial blank render.
@@ -32,7 +35,8 @@ export function StatsPage() {
   // The device clock (epoch seconds) and its skew from this computer at the
   // moment it was read, or null when there's no readable time — the radio
   // lacks GET_DEVICE_TIME (older firmware) or its clock is unset. The clock
-  // card is hidden while null.
+  // card shows "not reported" while null (once fetched), matching the other
+  // cards so the grid doesn't reflow.
   const [clock, setClock] = useState<{ time: number; skew: number } | null>(
     null,
   );
@@ -45,8 +49,8 @@ export function StatsPage() {
 
   // Reads the device clock and stores it with a fresh skew snapshot, unless
   // `gen` is no longer the current session. A null (unsupported firmware) or
-  // unset (epoch 0) clock blanks the card; a transient read error leaves the
-  // current display untouched.
+  // unset (epoch 0) clock surfaces the card's "not reported" state; a transient
+  // read error leaves the current display untouched.
   const readClock = useCallback(
     async (gen: number) => {
       if (!client) return;
@@ -66,42 +70,47 @@ export function StatsPage() {
     [client],
   );
 
-  // Auto-fetch when the stats view opens; only setState after an await (never
-  // synchronously in the effect body).
+  // Runs one full stats → battery → clock read for session `gen`, settling
+  // `loading` when it finishes. Each step is awaited in sequence, never
+  // pipelined: the firmware answers one command sequence at a time, so racing
+  // them lets one starve another past its timeout (it comes back null and the
+  // card reads "not reported"). A stale `gen` — the view reopened, or a newer
+  // refresh began — drops its late setState instead of clobbering the current
+  // session. Overlapping reads (StrictMode's double-invoke, or a reconnect that
+  // swaps in a new client mid-read) are already made safe by the client's
+  // command serialization plus this guard, so no extra in-flight latch is kept.
+  const runFetch = useCallback(
+    async (gen: number) => {
+      try {
+        if (!client) return;
+        const s = await client.getStats();
+        if (gen !== session.current) return;
+        setStats(s);
+        setFetched(true);
+        const b = await client.getBattery();
+        if (gen !== session.current) return;
+        setBatteryLocal(b);
+        if (b) useMeshStore.getState().setBattery(b);
+        await readClock(gen);
+      } finally {
+        if (gen === session.current) setLoading(false);
+      }
+    },
+    [client, readClock],
+  );
+
+  // Auto-fetch when the stats view opens or the client changes (a reconnect
+  // swaps in a fresh client, which must re-read against the new link). Only
+  // setState happens after an await, never synchronously in the effect body.
   useEffect(() => {
     if (view !== 'stats' || !client) return;
-    const gen = ++session.current;
-    void (async () => {
-      const [s, b] = await Promise.all([
-        client.getStats(),
-        client.getBattery(),
-      ]);
-      if (gen !== session.current) return;
-      setStats(s);
-      setFetched(true);
-      setBatteryLocal(b);
-      if (b) useMeshStore.getState().setBattery(b);
-      // Read the clock on its own: the firmware answers GET_DEVICE_TIME
-      // reliably only one command at a time, so it can't be pipelined into the
-      // stats batch above.
-      await readClock(gen);
-    })();
-  }, [view, client, readClock]);
+    void runFetch(++session.current);
+  }, [view, client, runFetch]);
 
-  const refresh = useCallback(async () => {
-    if (!client) return;
-    const gen = session.current;
+  const refresh = useCallback(() => {
     setLoading(true);
-    const [s, b] = await Promise.all([client.getStats(), client.getBattery()]);
-    if (gen === session.current) {
-      setStats(s);
-      setFetched(true);
-      setBatteryLocal(b);
-      if (b) useMeshStore.getState().setBattery(b);
-      await readClock(gen);
-    }
-    setLoading(false);
-  }, [client, readClock]);
+    void runFetch(++session.current);
+  }, [runFetch]);
 
   // Push this computer's time to the radio, then re-read to show the corrected
   // skew (a few seconds at most, from the round trip).
@@ -121,6 +130,162 @@ export function StatsPage() {
     }
   }, [client, readClock]);
 
+  // One descriptor per card, in display order. `labels` lists every row label
+  // and drives both the loading skeleton (one shimmer row per label) and the
+  // row order; `rows` is the populated data, or null when the device didn't
+  // report this section (rendered as "not reported" once a fetch has landed).
+  // Keeping the labels and their values in a single descriptor is what stops
+  // the skeleton layout from drifting out of sync with the loaded layout.
+  const cards: {
+    title: string;
+    labels: string[];
+    rows: [string, string, React.ReactNode?][] | null;
+  }[] = [
+    {
+      title: t('stats.card.storageBattery'),
+      labels: [
+        t('stats.voltage'),
+        t('stats.used'),
+        t('stats.total'),
+        t('stats.free'),
+        t('stats.usage'),
+      ],
+      rows: battery
+        ? [
+            [t('stats.voltage'), fmtVoltage(battery.voltage)],
+            [
+              t('stats.used'),
+              `${battery.usedKB.toLocaleString(i18n.language)} KB`,
+            ],
+            [
+              t('stats.total'),
+              `${battery.totalKB.toLocaleString(i18n.language)} KB`,
+            ],
+            [
+              t('stats.free'),
+              `${(battery.totalKB - battery.usedKB).toLocaleString(i18n.language)} KB`,
+            ],
+            [
+              t('stats.usage'),
+              `${battery.totalKB ? Math.round((battery.usedKB / battery.totalKB) * 100) : '?'}%`,
+            ],
+          ]
+        : null,
+    },
+    {
+      title: t('stats.card.core'),
+      labels: [
+        t('stats.uptime'),
+        t('stats.battery'),
+        t('stats.errors'),
+        t('stats.queueLength'),
+      ],
+      rows: stats?.core
+        ? [
+            [t('stats.uptime'), fmtUptime(stats.core.uptimeSecs)],
+            [t('stats.battery'), fmtVoltage(stats.core.battMv)],
+            [t('stats.errors'), String(stats.core.errors)],
+            [t('stats.queueLength'), String(stats.core.queueLen)],
+          ]
+        : null,
+    },
+    {
+      title: t('stats.card.clock'),
+      labels: [t('stats.deviceTime'), t('stats.clockSkew')],
+      rows:
+        clock !== null
+          ? [
+              [
+                t('stats.deviceTime'),
+                new Date(clock.time * 1000).toLocaleString(i18n.language),
+              ],
+              [
+                t('stats.clockSkew'),
+                Math.abs(clock.skew) <= CLOCK_SKEW_THRESHOLD_SECS
+                  ? t('stats.clockInSync')
+                  : fmtSkew(clock.skew),
+                <button
+                  key='resync'
+                  onClick={resyncClock}
+                  disabled={resyncing}
+                  title={t('stats.resyncClock')}
+                  aria-label={t('stats.resyncClock')}
+                  className='leading-none text-(--text2) transition-colors hover:text-(--accent) disabled:opacity-50'
+                >
+                  {resyncing ? '⟳' : '↻'}
+                </button>,
+              ],
+            ]
+          : null,
+    },
+    {
+      title: t('stats.card.radio'),
+      labels: [
+        t('stats.noiseFloor'),
+        t('stats.lastRssi'),
+        t('stats.lastSnr'),
+        t('stats.txAirtime'),
+        t('stats.rxAirtime'),
+      ],
+      rows: stats?.radio
+        ? [
+            [t('stats.noiseFloor'), `${stats.radio.noiseFloor} dBm`],
+            [t('stats.lastRssi'), `${stats.radio.lastRssi} dBm`],
+            [
+              t('stats.lastSnr'),
+              `${stats.radio.lastSnr > 0 ? '+' : ''}${stats.radio.lastSnr.toFixed(2)} dB`,
+            ],
+            [t('stats.txAirtime'), fmtAirtime(stats.radio.txAirSecs)],
+            [t('stats.rxAirtime'), fmtAirtime(stats.radio.rxAirSecs)],
+          ]
+        : null,
+    },
+    {
+      title: t('stats.card.packets'),
+      labels: [
+        t('stats.received'),
+        t('stats.sent'),
+        t('stats.floodTx'),
+        t('stats.floodRx'),
+        t('stats.directTx'),
+        t('stats.directRx'),
+      ],
+      rows: stats?.packets
+        ? [
+            [
+              t('stats.received'),
+              stats.packets.recv.toLocaleString(i18n.language),
+            ],
+            [t('stats.sent'), stats.packets.sent.toLocaleString(i18n.language)],
+            [
+              t('stats.floodTx'),
+              stats.packets.floodTx.toLocaleString(i18n.language),
+            ],
+            [
+              t('stats.floodRx'),
+              stats.packets.floodRx.toLocaleString(i18n.language),
+            ],
+            [
+              t('stats.directTx'),
+              stats.packets.directTx.toLocaleString(i18n.language),
+            ],
+            [
+              t('stats.directRx'),
+              stats.packets.directRx.toLocaleString(i18n.language),
+            ],
+            ...(stats.packets.recvErrors != null
+              ? ([
+                  [
+                    t('stats.rxErrors'),
+                    stats.packets.recvErrors.toLocaleString(i18n.language),
+                  ],
+                ] as [string, string][])
+              : []),
+          ]
+        : null,
+    },
+  ];
+
   return (
     <div className='flex flex-1 flex-col overflow-y-auto p-7'>
       <div className='mx-auto w-full max-w-3xl'>
@@ -137,157 +302,40 @@ export function StatsPage() {
         </div>
 
         <div className='grid grid-cols-2 gap-4'>
-          {battery ? (
-            <StatCard
-              title={t('stats.card.storageBattery')}
-              rows={[
-                [t('stats.voltage'), fmtVoltage(battery.voltage)],
-                [
-                  t('stats.used'),
-                  `${battery.usedKB.toLocaleString(i18n.language)} KB`,
-                ],
-                [
-                  t('stats.total'),
-                  `${battery.totalKB.toLocaleString(i18n.language)} KB`,
-                ],
-                [
-                  t('stats.free'),
-                  `${(battery.totalKB - battery.usedKB).toLocaleString(i18n.language)} KB`,
-                ],
-                [
-                  t('stats.usage'),
-                  `${battery.totalKB ? Math.round((battery.usedKB / battery.totalKB) * 100) : '?'}%`,
-                ],
-              ]}
-            />
-          ) : (
-            fetched && (
+          {cards.map(({ title, labels, rows }) =>
+            loading ? (
               <StatCard
-                title={t('stats.card.storageBattery')}
-                note={t('stats.notReported')}
+                key={title}
+                title={title}
+                loading
+                rows={labels.map((label) => [label, ''])}
               />
-            )
-          )}
-          {stats?.core ? (
-            <StatCard
-              title={t('stats.card.core')}
-              rows={[
-                [t('stats.uptime'), fmtUptime(stats.core.uptimeSecs)],
-                [t('stats.battery'), fmtVoltage(stats.core.battMv)],
-                [t('stats.errors'), String(stats.core.errors)],
-                [t('stats.queueLength'), String(stats.core.queueLen)],
-              ]}
-            />
-          ) : (
-            fetched && (
-              <StatCard
-                title={t('stats.card.core')}
-                note={t('stats.notReported')}
-              />
-            )
-          )}
-          {clock !== null && (
-            <StatCard
-              title={t('stats.card.clock')}
-              rows={[
-                [
-                  t('stats.deviceTime'),
-                  new Date(clock.time * 1000).toLocaleString(i18n.language),
-                ],
-                [
-                  t('stats.clockSkew'),
-                  Math.abs(clock.skew) <= CLOCK_SKEW_THRESHOLD_SECS
-                    ? t('stats.clockInSync')
-                    : fmtSkew(clock.skew),
-                  <button
-                    key='resync'
-                    onClick={resyncClock}
-                    disabled={resyncing}
-                    title={t('stats.resyncClock')}
-                    aria-label={t('stats.resyncClock')}
-                    className='leading-none text-(--text2) transition-colors hover:text-(--accent) disabled:opacity-50'
-                  >
-                    {resyncing ? '⟳' : '↻'}
-                  </button>,
-                ],
-              ]}
-            />
-          )}
-          {stats?.radio ? (
-            <StatCard
-              title={t('stats.card.radio')}
-              rows={[
-                [t('stats.noiseFloor'), `${stats.radio.noiseFloor} dBm`],
-                [t('stats.lastRssi'), `${stats.radio.lastRssi} dBm`],
-                [
-                  t('stats.lastSnr'),
-                  `${stats.radio.lastSnr > 0 ? '+' : ''}${stats.radio.lastSnr.toFixed(2)} dB`,
-                ],
-                [t('stats.txAirtime'), fmtAirtime(stats.radio.txAirSecs)],
-                [t('stats.rxAirtime'), fmtAirtime(stats.radio.rxAirSecs)],
-              ]}
-            />
-          ) : (
-            fetched && (
-              <StatCard
-                title={t('stats.card.radio')}
-                note={t('stats.notReported')}
-              />
-            )
-          )}
-          {stats?.packets ? (
-            <StatCard
-              title={t('stats.card.packets')}
-              rows={[
-                [
-                  t('stats.received'),
-                  stats.packets.recv.toLocaleString(i18n.language),
-                ],
-                [
-                  t('stats.sent'),
-                  stats.packets.sent.toLocaleString(i18n.language),
-                ],
-                [
-                  t('stats.floodTx'),
-                  stats.packets.floodTx.toLocaleString(i18n.language),
-                ],
-                [
-                  t('stats.floodRx'),
-                  stats.packets.floodRx.toLocaleString(i18n.language),
-                ],
-                [
-                  t('stats.directTx'),
-                  stats.packets.directTx.toLocaleString(i18n.language),
-                ],
-                [
-                  t('stats.directRx'),
-                  stats.packets.directRx.toLocaleString(i18n.language),
-                ],
-                ...(stats.packets.recvErrors != null
-                  ? ([
-                      [
-                        t('stats.rxErrors'),
-                        stats.packets.recvErrors.toLocaleString(i18n.language),
-                      ],
-                    ] as [string, string][])
-                  : []),
-              ]}
-            />
-          ) : (
-            fetched && (
-              <StatCard
-                title={t('stats.card.packets')}
-                note={t('stats.notReported')}
-              />
-            )
+            ) : rows ? (
+              <StatCard key={title} title={title} rows={rows} />
+            ) : (
+              // Keep the slot once a fetch has landed (matching the other
+              // cards) so the grid doesn't reflow when a section resolves to no
+              // readable data.
+              fetched && (
+                <StatCard
+                  key={title}
+                  title={title}
+                  note={t('stats.notReported')}
+                />
+              )
+            ),
           )}
         </div>
 
-        {fetched && !stats?.core && !stats?.radio && !stats?.packets && (
-          <p className='mt-4 text-xs text-(--text2)'>
-            {t('stats.allUnavailable')}
-          </p>
-        )}
+        {!loading &&
+          fetched &&
+          !stats?.core &&
+          !stats?.radio &&
+          !stats?.packets && (
+            <p className='mt-4 text-xs text-(--text2)'>
+              {t('stats.allUnavailable')}
+            </p>
+          )}
       </div>
     </div>
   );
@@ -297,16 +345,19 @@ export function StatsPage() {
  * A titled card rendering `[label, value]` rows for one stats group. A row may
  * carry an optional third element — an action node (e.g. a button) shown after
  * the value. When `note` is set, the card shows that muted line instead of rows
- * — used to render a section the device didn't report.
+ * — used to render a section the device didn't report. When `loading` is set,
+ * the labels render normally but each value is replaced by a shimmer block.
  */
 function StatCard({
   title,
   rows = [],
   note,
+  loading = false,
 }: {
   title: string;
   rows?: [string, string, React.ReactNode?][];
   note?: string;
+  loading?: boolean;
 }) {
   return (
     <div className='rounded-lg p-3.5' style={{ background: 'var(--surface2)' }}>
@@ -323,7 +374,9 @@ function StatCard({
             style={{ borderColor: 'var(--border)' }}
           >
             <span className='text-(--text2)'>{label}</span>
-            {action ? (
+            {loading ? (
+              <span className='skeleton h-3 w-16 self-center' />
+            ) : action ? (
               <span className='flex items-center gap-1.5'>
                 <span className='font-semibold'>{val}</span>
                 {action}
