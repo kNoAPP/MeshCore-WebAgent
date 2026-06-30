@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.5.0...v1.6.0) (2026-06-30)
+
+
+### Features
+
+* reboot the connected device (REBOOT command) ([#101](https://github.com/kNoAPP/MeshCore-WebAgent/issues/101)) ([0787be7](https://github.com/kNoAPP/MeshCore-WebAgent/commit/0787be7afe1e4f6511a98045019bbb446efd8040))
+* self-advertise to the mesh (flood + zero-hop) ([#98](https://github.com/kNoAPP/MeshCore-WebAgent/issues/98)) ([e9edeab](https://github.com/kNoAPP/MeshCore-WebAgent/commit/e9edeab2d7ccfb25649d392d7dc38c20d36a940d))
+* share your node via self-contact QR and link ([#103](https://github.com/kNoAPP/MeshCore-WebAgent/issues/103)) ([326d4bf](https://github.com/kNoAPP/MeshCore-WebAgent/commit/326d4bf6874d1a545c5a948614718024233bd150))
+* view & edit radio parameters with region presets ([#96](https://github.com/kNoAPP/MeshCore-WebAgent/issues/96)) ([340df3d](https://github.com/kNoAPP/MeshCore-WebAgent/commit/340df3db3ddf6be209c1a414e34ce4d4edc6e874))
+
+
+### Bug Fixes
+
+* **stats:** stabilize device queries and add loading skeletons ([#104](https://github.com/kNoAPP/MeshCore-WebAgent/issues/104)) ([911167b](https://github.com/kNoAPP/MeshCore-WebAgent/commit/911167b276ccf1e2ac80e1664e9c4da2589ab107))
+* **transport:** re-acquire USB port on reconnect after re-enumeration ([#99](https://github.com/kNoAPP/MeshCore-WebAgent/issues/99)) ([2c91838](https://github.com/kNoAPP/MeshCore-WebAgent/commit/2c91838f5ec7aeea76c975f34f44915831e0f153))
+
 ## [1.5.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.4.0...v1.5.0) (2026-06-28)
 
 
