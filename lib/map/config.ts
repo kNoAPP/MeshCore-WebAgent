@@ -18,12 +18,13 @@ export const OFFLINE_BASEMAP_URL = '/map/countries-110m.json';
  *
  * @remarks Provider choice is a maintainer decision (see issue #68). The URL is
  * intentionally a single configurable constant so it can be swapped without
- * touching the map component. `{s}` subdomains and `{r}` retina suffix are
- * Leaflet tile-template tokens.
+ * touching the map component. `{s}` is the Leaflet subdomain token. Tiles are
+ * requested at `@2x` (512 px) and drawn in the default 256 px slots so labels
+ * stay crisp under the app's 1.25 CSS zoom and on hi-DPI displays.
  */
 export const TILE_URLS: Record<Theme, string> = {
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
 };
 
 /** Attribution shown on the online basemap, required by the tile provider. */

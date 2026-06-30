@@ -175,11 +175,12 @@ function LeafletMap({
 
     if (useOnlineTiles) {
       swap(
+        // Tiles are fetched at @2x (see TILE_URLS) and drawn in the default
+        // 256 px slots, so they stay sharp under the 1.25 CSS zoom.
         L.tileLayer(TILE_URLS[theme], {
           attribution: TILE_ATTRIBUTION,
           subdomains: 'abcd',
           maxZoom: 19,
-          detectRetina: true,
         }),
       );
     } else {
