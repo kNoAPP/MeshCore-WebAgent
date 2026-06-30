@@ -226,6 +226,9 @@
     "route": "Ruta",
     "path": "Trayecto",
     "lastAdvert": "Último anuncio",
+    "location": "Ubicación",
+    "distance": "Distancia",
+    "distanceValue": "{{distance}} km · {{compass}}",
     "favorite": "☆ Favorito",
     "unfavorite": "★ Quitar favorito",
     "resetRoute": "Restablecer ruta",
@@ -253,6 +256,16 @@
     "directHops": "Directo (0 saltos)",
     "hops_one": "{{count}} salto",
     "hops_other": "{{count}} saltos"
+  },
+  "compass": {
+    "n": "N",
+    "ne": "NE",
+    "e": "E",
+    "se": "SE",
+    "s": "S",
+    "sw": "SO",
+    "w": "O",
+    "nw": "NO"
   },
   "routeChip": {
     "flood": "Flood",

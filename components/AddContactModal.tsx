@@ -8,13 +8,19 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
-import { ADV_ICON, ADV_LABEL_KEY, fromHex, parseContactUri } from '@/lib/utils';
+import {
+  ADV_ICON,
+  ADV_LABEL_KEY,
+  formatLatLon,
+  fromHex,
+  parseContactUri,
+} from '@/lib/utils';
 import {
   ADV_TYPE_REPEATER,
   ADV_TYPE_ROOM,
   ADV_TYPE_SENSOR,
 } from '@/lib/meshcore/constants';
-import { formatRelative } from '@/lib/i18n/format';
+import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
 
 /**
  * How the contact is provided: `discover` lists heard over-the-air adverts to
@@ -70,6 +76,7 @@ export function AddContactModal() {
     contacts,
     autoAddConfig,
   } = useMeshStore();
+  const selfInfo = useMeshStore((s) => s.selfInfo);
   const { importContact, addDiscoveredContact } = useMeshCore();
   const [mode, setMode] = useState<Mode>('discover');
   const [link, setLink] = useState('');
@@ -164,6 +171,13 @@ export function AddContactModal() {
           <div className='space-y-1'>
             {heard.map((a) => {
               const added = contacts[a.pubkeyPrefix] !== undefined;
+              const location = formatLatLon(a.advLat, a.advLon);
+              const distance = formatDistanceBearing(
+                selfInfo?.advLat,
+                selfInfo?.advLon,
+                a.advLat,
+                a.advLon,
+              );
               return (
                 <div
                   key={a.pubkeyPrefix}
@@ -185,6 +199,12 @@ export function AddContactModal() {
                       · {formatRelative(a.lastHeard)}
                       {autoAddConfig.showPublicKeys && ` · ${a.pubkeyPrefix}`}
                     </div>
+                    {location && (
+                      <div className='truncate text-xs text-(--text2)'>
+                        {location}
+                        {distance && ` · ${distance}`}
+                      </div>
+                    )}
                   </div>
                   {added ? (
                     <span className='text-xs text-(--green)'>
