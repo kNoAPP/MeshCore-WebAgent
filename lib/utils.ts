@@ -211,20 +211,20 @@ export function parseContactUri(uri: string): ParsedContactUri | null {
   } catch {
     return null;
   }
-  // The custom scheme parses with the rest in `pathname` (host is empty), so
-  // match the literal prefix instead of relying on `host`/`pathname` split.
+  // The custom scheme keeps the prefix in `host` + `pathname` (e.g.
+  // host `contact`, pathname `/add`), so join the two and match the literal.
   if (parsed.protocol !== 'meshcore:') return null;
   const path = `${parsed.host}${parsed.pathname}`.replace(/\/$/, '');
   if (path !== 'contact/add') return null;
   const pubkey = parsed.searchParams.get('public_key') ?? '';
   if (!fromHex(pubkey, 32)) return null;
-  const typeRaw = parsed.searchParams.get('type');
-  const advType = typeRaw === null ? 1 : Number(typeRaw);
-  if (!Number.isInteger(advType) || advType < 1 || advType > 4) return null;
+  // `type` is the advert type (1–4); anything missing or unrecognized falls
+  // back to 1 (companion), mirroring how {@link contactShareUri} encodes it.
+  const advType = Number(parsed.searchParams.get('type'));
   return {
+    advType: advType >= 1 && advType <= 4 ? advType : 1,
     name: parsed.searchParams.get('name') ?? '',
     pubkey: pubkey.toLowerCase(),
-    advType,
   };
 }
 

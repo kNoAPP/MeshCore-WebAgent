@@ -321,6 +321,7 @@
   "addContact": {
     "title": "➕ Añadir contacto",
     "link": "Enlace de contacto",
+    "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Nombre",
     "publicKey": "Clave pública (hex, 32 bytes)",
     "publicKeyPlaceholder": "64 caracteres hex",

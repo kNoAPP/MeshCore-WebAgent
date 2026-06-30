@@ -213,9 +213,8 @@ export function AddContactModal() {
             <input
               value={link}
               onChange={(e) => setLink(e.target.value)}
-              placeholder='meshcore://contact/add?…'
-              className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
-              style={{ borderColor: 'var(--border)' }}
+              placeholder={t('addContact.linkPlaceholder')}
+              className='w-full rounded-md border border-(--border) bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
             />
           </label>
           {error && <p className='text-xs text-(--red)'>{error}</p>}
@@ -230,8 +229,7 @@ export function AddContactModal() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={32}
-              className='w-full rounded-md border bg-(--bg) px-3 py-2 text-sm outline-none focus:border-(--accent)'
-              style={{ borderColor: 'var(--border)' }}
+              className='w-full rounded-md border border-(--border) bg-(--bg) px-3 py-2 text-sm outline-none focus:border-(--accent)'
             />
           </label>
 
@@ -243,11 +241,11 @@ export function AddContactModal() {
               value={pubkey}
               onChange={(e) => setPubkey(e.target.value)}
               placeholder={t('addContact.publicKeyPlaceholder')}
-              className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
-              style={{
-                borderColor:
-                  pubkey && !keyValid ? 'var(--red)' : 'var(--border)',
-              }}
+              className={`w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none ${
+                pubkey && !keyValid
+                  ? 'border-(--red)'
+                  : 'border-(--border) focus:border-(--accent)'
+              }`}
             />
             {pubkey && !keyValid && (
               <span className='mt-1 block text-xs text-(--red)'>
@@ -268,12 +266,8 @@ export function AddContactModal() {
                   className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
                     advType === type
                       ? 'border-(--accent) text-(--accent)'
-                      : 'text-(--text2) hover:bg-(--surface2)'
+                      : 'border-(--border) text-(--text2) hover:bg-(--surface2)'
                   }`}
-                  style={{
-                    borderColor:
-                      advType === type ? 'var(--accent)' : 'var(--border)',
-                  }}
                 >
                   <span>{ADV_ICON[type]}</span>
                   {t(ADV_LABEL_KEY[type])}

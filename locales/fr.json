@@ -321,6 +321,7 @@
   "addContact": {
     "title": "➕ Ajouter un contact",
     "link": "Lien du contact",
+    "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Nom",
     "publicKey": "Clé publique (hex, 32 octets)",
     "publicKeyPlaceholder": "64 caractères hex",
@@ -329,7 +330,7 @@
     "add": "Ajouter",
     "mode": {
       "discoverLabel": "Découvrir à proximité",
-      "discoverHint": "Nœuds entendus par radio. Ajoutes-en un directement comme contact.",
+      "discoverHint": "Nœuds entendus par radio. Ajoute-en un directement comme contact.",
       "pasteLabel": "Coller le lien",
       "pasteHint": "Colle un lien meshcore://contact/add. Ses informations préremplissent les champs pour que tu puisses les vérifier avant d'ajouter.",
       "manualLabel": "Saisir manuellement",
