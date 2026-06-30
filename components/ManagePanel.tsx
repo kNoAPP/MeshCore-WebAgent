@@ -21,8 +21,9 @@ import {
   channelHashHex,
   deriveHashtagSecret,
   bytesEqual,
+  formatLatLon,
 } from '@/lib/utils';
-import { formatRelative } from '@/lib/i18n/format';
+import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
 import {
   ADV_TYPE_REPEATER,
   FAVORITE_FLAG,
@@ -50,6 +51,7 @@ function ManagePanelView() {
   const { t } = useTranslation();
   const { managePanel, setManagePanel, contacts, channels, autoAddConfig } =
     useMeshStore();
+  const selfInfo = useMeshStore((s) => s.selfInfo);
   const {
     toggleFavorite,
     removeContact,
@@ -109,6 +111,13 @@ function ManagePanelView() {
   if (!contact) return null;
   const isFav = (contact.flags & FAVORITE_FLAG) !== 0;
   const hasRoute = contact.outPathLen !== NO_PATH;
+  const location = formatLatLon(contact.advLat, contact.advLon);
+  const distance = formatDistanceBearing(
+    selfInfo?.advLat,
+    selfInfo?.advLon,
+    contact.advLat,
+    contact.advLon,
+  );
 
   const contactTitle = `${ADV_ICON[contact.advType] ?? '👤'} ${contact.name || contact.pubkeyPrefix.slice(0, 8)}`;
 
@@ -162,6 +171,12 @@ function ManagePanelView() {
                   : t('common.unknown')
               }
             />
+            {location && (
+              <DetailRow label={t('manage.location')} value={location} />
+            )}
+            {distance && (
+              <DetailRow label={t('manage.distance')} value={distance} />
+            )}
           </div>
 
           {confirming ? (

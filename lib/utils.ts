@@ -291,3 +291,93 @@ export function contactCategory(advType: number): ContactCategory {
       return 'user';
   }
 }
+
+/**
+ * Converts the firmware's micro-degree latitude/longitude encoding (an `int32`
+ * scaled by 1e6) to decimal degrees.
+ */
+export function microToDeg(micro: number): number {
+  return micro / 1e6;
+}
+
+/**
+ * Formats a contact/advert location (micro-degree lat/lon) as
+ * `"47.6062, -122.3321"`, or `null` when unset.
+ *
+ * @remarks The firmware writes `0` for an unset coordinate, so a zero (or
+ * missing) latitude **or** longitude — including the `(0, 0)` "Null Island"
+ * point — is treated as no location. Coordinates use a `.` decimal regardless
+ * of locale: the pair is comma-separated, so a locale comma decimal would be
+ * ambiguous, and `lat, lon` with a dot decimal is the standard geographic
+ * notation the official app shows.
+ */
+export function formatLatLon(
+  latMicro?: number,
+  lonMicro?: number,
+): string | null {
+  if (!latMicro || !lonMicro) return null;
+  return `${microToDeg(latMicro).toFixed(4)}, ${microToDeg(lonMicro).toFixed(4)}`;
+}
+
+/** Earth's mean radius in kilometers, used by {@link haversineKm}. */
+const EARTH_RADIUS_KM = 6371;
+
+const toRad = (deg: number): number => (deg * Math.PI) / 180;
+
+/**
+ * Great-circle distance in kilometers between two points, each in decimal
+ * degrees, via the haversine formula.
+ */
+export function haversineKm(
+  aLat: number,
+  aLon: number,
+  bLat: number,
+  bLon: number,
+): number {
+  const dLat = toRad(bLat - aLat);
+  const dLon = toRad(bLon - aLon);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Initial compass bearing from point A to point B, both in decimal degrees, as
+ * degrees clockwise from north in the range `[0, 360)`.
+ */
+export function bearingDeg(
+  aLat: number,
+  aLon: number,
+  bLat: number,
+  bLon: number,
+): number {
+  const lat1 = toRad(aLat);
+  const lat2 = toRad(bLat);
+  const dLon = toRad(bLon - aLon);
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+/** Translation keys for the 8-point compass, ordered clockwise from north. */
+export const COMPASS_KEYS = [
+  'compass.n',
+  'compass.ne',
+  'compass.e',
+  'compass.se',
+  'compass.s',
+  'compass.sw',
+  'compass.w',
+  'compass.nw',
+] as const;
+
+/**
+ * Maps a bearing in degrees to its 8-point compass translation key (N, NE, E,
+ * …), rounding to the nearest 45° sector.
+ */
+export function compassKey(bearing: number): (typeof COMPASS_KEYS)[number] {
+  return COMPASS_KEYS[Math.round(bearing / 45) % 8];
+}
