@@ -150,7 +150,6 @@
       "device": "Gerät",
       "identity": "Identität",
       "radio": "Funk",
-      "advertise": "Ankündigen",
       "storage": "Speicher & Akku",
       "danger": "Geräteaktionen"
     },
@@ -163,6 +162,12 @@
     "nodeName": "Knotenname",
     "editName": "Knotennamen bearbeiten",
     "publicKey": "Öffentlicher Schlüssel",
+    "shareNode": "Meinen Knoten teilen",
+    "shareNodeTitle": "Meinen Knoten teilen",
+    "shareNodeScanHint": "Scannen, um diesen Knoten hinzuzufügen",
+    "shareNodeAdvert": "Zero-Hop-Advert",
+    "shareNodeFlood": "Flood-Advert",
+    "shareNodeAdvertHint": "Diesen Knoten ankündigen, damit andere ihn hinzufügen können",
     "frequency": "Frequenz",
     "bandwidth": "Bandbreite",
     "spreadingFactor": "Spreizfaktor",
@@ -186,7 +191,6 @@
       "confirmTitle": "Funkänderungen anwenden?",
       "warning": "Falsche Funkeinstellungen können diesen Knoten unbemerkt vom Mesh trennen. Gegenstellen müssen dieselbe Frequenz, Bandbreite, denselben Spreizfaktor und dieselbe Coderate verwenden, um sich zu hören. Prüfe die folgenden Werte vor dem Anwenden."
     },
-    "advertiseHint": "Mache diesen Knoten bekannt, damit andere ihn hören und hinzufügen können. Zero-Hop erreicht nur direkte Nachbarn; Flood erreicht das gesamte Mesh, verbraucht aber mehr Sendezeit – setze es daher sparsam ein.",
     "advertiseZeroHop": "An Nachbarn ankündigen (Zero-Hop)",
     "advertiseFlood": "Ankündigen (Flood)",
     "voltage": "Spannung",

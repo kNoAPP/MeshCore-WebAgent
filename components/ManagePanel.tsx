@@ -5,13 +5,13 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, Radio } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { useMeshStore, channelConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
 import { CopyButton } from './CopyButton';
-import { QrCode } from './QrCode';
+import { ShareCard } from './ShareCard';
 import {
   ADV_ICON,
   ADV_LABEL_KEY,
@@ -228,43 +228,21 @@ function ContactShare({
   // don't support (here or in the official app), so disable it for them.
   const isRepeater = contact.advType === ADV_TYPE_REPEATER;
   return (
-    <div>
-      <div className='flex flex-col items-center gap-2'>
-        <QrCode value={contactShareUri(contact)} size={180} />
-        <span className='text-base font-bold'>
-          {`${ADV_ICON[contact.advType] ?? '👤'} ${contact.name || contact.pubkeyPrefix.slice(0, 8)}`}
-        </span>
-        <span className='text-xs text-(--text2)'>
-          {t('manage.shareScanHint')}
-        </span>
-      </div>
-
-      <div className='mt-5'>
-        <span className='text-xs text-(--text2)'>{t('manage.publicKey')}</span>
-        <div className='mt-1 flex items-center gap-3 rounded-md bg-(--surface2) px-3 py-2'>
-          <span className='flex-1 font-mono text-xs break-all'>
-            {contact.pubkey}
-          </span>
-          <CopyButton value={contact.pubkey} />
-        </div>
-      </div>
-
-      <div className='mt-6 border-t border-(--border) pt-4'>
-        <button
-          onClick={onShareAdvert}
-          disabled={isRepeater}
-          className='flex w-full items-center justify-center gap-2 rounded-md bg-(--accent) px-3 py-2 text-sm font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
-        >
-          <Radio size={16} />
-          {t('manage.zeroHopAdvert')}
-        </button>
-        <p className='mt-2 text-center text-xs text-(--text2)'>
-          {isRepeater
-            ? t('manage.zeroHopAdvertRepeater')
-            : t('manage.zeroHopAdvertHint')}
-        </p>
-      </div>
-    </div>
+    <ShareCard
+      qrValue={contactShareUri(contact)}
+      title={`${ADV_ICON[contact.advType] ?? '👤'} ${contact.name || contact.pubkeyPrefix.slice(0, 8)}`}
+      scanHint={t('manage.shareScanHint')}
+      pubkeyLabel={t('manage.publicKey')}
+      pubkey={contact.pubkey}
+      advertLabel={t('manage.zeroHopAdvert')}
+      advertHint={
+        isRepeater
+          ? t('manage.zeroHopAdvertRepeater')
+          : t('manage.zeroHopAdvertHint')
+      }
+      advertDisabled={isRepeater}
+      onAdvert={onShareAdvert}
+    />
   );
 }
 

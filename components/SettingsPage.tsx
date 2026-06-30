@@ -9,9 +9,18 @@ import { Pencil } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
-import { fmtVoltage, fmtNum, utf8ByteLength } from '@/lib/utils';
+import {
+  fmtVoltage,
+  fmtNum,
+  utf8ByteLength,
+  contactShareUri,
+  ADV_ICON,
+} from '@/lib/utils';
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
+import type { SelfInfo } from '@/types/meshcore';
 import { CopyButton } from './CopyButton';
+import { ModalShell } from './ModalShell';
+import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
 
 /**
@@ -39,6 +48,7 @@ export function SettingsPage() {
   const reconnecting = status === 'reconnecting';
 
   const [radioEditOpen, setRadioEditOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   // Editing needs a fully connected link and a firmware that reports every
   // radio field; older firmware that omits any leaves the affordance disabled.
   const fields = radioFields(selfInfo);
@@ -137,7 +147,19 @@ export function SettingsPage() {
             />
           </Card>
 
-          <Card title={t('settings.section.identity')} className='col-span-2'>
+          <Card
+            title={t('settings.section.identity')}
+            className='col-span-2'
+            action={
+              <button
+                onClick={() => setShareOpen(true)}
+                disabled={!selfInfo?.pubkey}
+                className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
+              >
+                {t('settings.shareNode')}
+              </button>
+            }
+          >
             <NodeNameRow />
             <Row
               label={t('settings.publicKey')}
@@ -146,8 +168,6 @@ export function SettingsPage() {
               copy={selfInfo?.pubkey || undefined}
             />
           </Card>
-
-          <AdvertiseCard />
 
           <Card title={t('settings.section.storage')} className='col-span-2'>
             {battery ? (
@@ -188,7 +208,58 @@ export function SettingsPage() {
           onClose={() => setRadioEditOpen(false)}
         />
       )}
+
+      {shareOpen && selfInfo?.pubkey && (
+        <ShareNodeModal
+          selfInfo={selfInfo}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * The "Share my node" modal: presents this node as a scannable contact QR, the
+ * public key with a copy button, and a zero-hop advert action. Renders the
+ * shared {@link ShareCard}, so it's identical to {@link ManagePanel}'s contact
+ * share screen. The advert button advertises this node to direct neighbors —
+ * the self-equivalent of re-broadcasting a contact's advert.
+ */
+function ShareNodeModal({
+  selfInfo,
+  onClose,
+}: {
+  selfInfo: SelfInfo;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const status = useMeshStore((s) => s.status);
+  const { advertise, sending } = useAdvertise();
+  const advType = selfInfo.advType ?? 1;
+  const uri = contactShareUri({
+    name: selfInfo.name,
+    pubkey: selfInfo.pubkey,
+    advType,
+  });
+  const enabled = status === 'connected' && !sending;
+  return (
+    <ModalShell title={t('settings.shareNodeTitle')} onClose={onClose}>
+      <ShareCard
+        qrValue={uri}
+        title={`${ADV_ICON[advType] ?? '👤'} ${selfInfo.name || t('common.unknown')}`}
+        scanHint={t('settings.shareNodeScanHint')}
+        pubkeyLabel={t('settings.publicKey')}
+        pubkey={selfInfo.pubkey}
+        advertLabel={t('settings.shareNodeAdvert')}
+        advertHint={t('settings.shareNodeAdvertHint')}
+        advertDisabled={!enabled}
+        onAdvert={() => void advertise(false)}
+        floodLabel={t('settings.shareNodeFlood')}
+        floodDisabled={!enabled}
+        onFloodAdvert={() => void advertise(true)}
+      />
+    </ModalShell>
   );
 }
 
@@ -312,47 +383,6 @@ function NodeNameRow() {
         </button>
       </div>
     </div>
-  );
-}
-
-/**
- * The Advertise section: two actions that broadcast this node to the mesh.
- * Zero-hop (the prominent, accent button) reaches only direct neighbors; flood
- * (the quieter, secondary button) propagates across the whole mesh at the cost
- * of more airtime, so it's deliberately the less prominent option. Both gate on
- * a fully connected link, matching every other radio write; advertising is
- * low-risk and not a persistent change, so there's no confirmation — just a
- * toast on completion via {@link useMeshCore.advertiseSelf}.
- */
-function AdvertiseCard() {
-  const { t } = useTranslation();
-  const status = useMeshStore((s) => s.status);
-  const { advertise, sending } = useAdvertise();
-
-  const enabled = status === 'connected' && !sending;
-
-  return (
-    <Card title={t('settings.section.advertise')} className='col-span-2'>
-      <p className='mb-3 text-xs text-(--text2)'>
-        {t('settings.advertiseHint')}
-      </p>
-      <div className='flex flex-wrap gap-2'>
-        <button
-          onClick={() => void advertise(false)}
-          disabled={!enabled}
-          className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
-        >
-          {t('settings.advertiseZeroHop')}
-        </button>
-        <button
-          onClick={() => void advertise(true)}
-          disabled={!enabled}
-          className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
-        >
-          {t('settings.advertiseFlood')}
-        </button>
-      </div>
-    </Card>
   );
 }
 

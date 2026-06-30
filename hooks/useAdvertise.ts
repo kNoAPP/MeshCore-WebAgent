@@ -10,9 +10,9 @@ import { useMeshCore } from './useMeshCore';
 /**
  * Wraps {@link useMeshCore.advertiseSelf} with the shared `sending` flag that
  * both advertise affordances — the header's {@link AdvertMenu} and the Settings
- * {@link AdvertiseCard} — gate their buttons on. The flag lives in the store so
- * the two surfaces, both mounted on the Settings page, share one busy lock and
- * can't fire overlapping broadcasts.
+ * "Share my node" {@link ShareCard} — gate their buttons on. The flag lives in
+ * the store so the two surfaces share one busy lock and can't fire overlapping
+ * broadcasts.
  *
  * @returns `advertise(flood)` to broadcast (whole mesh when `flood`, else
  * zero-hop) and `sending`, true while a broadcast is in flight.

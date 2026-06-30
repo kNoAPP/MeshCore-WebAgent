@@ -150,7 +150,6 @@
       "device": "Appareil",
       "identity": "Identité",
       "radio": "Radio",
-      "advertise": "Annoncer",
       "storage": "Stockage et batterie",
       "danger": "Actions de l'appareil"
     },
@@ -163,6 +162,12 @@
     "nodeName": "Nom du nœud",
     "editName": "Modifier le nom du nœud",
     "publicKey": "Clé publique",
+    "shareNode": "Partager mon nœud",
+    "shareNodeTitle": "Partager mon nœud",
+    "shareNodeScanHint": "Scanner pour ajouter ce nœud",
+    "shareNodeAdvert": "Annonce zéro saut",
+    "shareNodeFlood": "Annonce par inondation",
+    "shareNodeAdvertHint": "Annoncer ce nœud pour que d'autres puissent l'ajouter",
     "frequency": "Fréquence",
     "bandwidth": "Bande passante",
     "spreadingFactor": "Facteur d'étalement",
@@ -186,7 +191,6 @@
       "confirmTitle": "Appliquer les modifications radio ?",
       "warning": "De mauvais paramètres radio peuvent isoler silencieusement ce nœud du maillage. Les pairs doivent partager la même fréquence, bande passante, facteur d'étalement et taux de codage pour s'entendre. Vérifiez les valeurs ci-dessous avant d'appliquer."
     },
-    "advertiseHint": "Annoncez ce nœud pour que d'autres puissent l'entendre et l'ajouter. Le zéro saut n'atteint que les voisins directs ; l'inondation atteint tout le réseau mais consomme plus de temps d'antenne, alors utilisez-la avec parcimonie.",
     "advertiseZeroHop": "Annoncer aux voisins (zéro saut)",
     "advertiseFlood": "Annoncer (inondation)",
     "voltage": "Tension",
