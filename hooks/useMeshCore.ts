@@ -852,6 +852,65 @@ export function useMeshCore() {
   );
 
   /**
+   * Adds a contact from a shared link or manual key entry (name + 64-hex
+   * public key + advert type). Builds the same {@link Contact} shape as
+   * {@link addDiscoveredContact} and writes it via the
+   * {@link CMD.ADD_UPDATE_CONTACT} path — the route the official app uses for
+   * QR/manual imports (`ImportContact` is reserved for whole signed advert
+   * packets, which a name+key+type contact doesn't carry).
+   */
+  const importContact = useCallback(
+    async ({
+      name,
+      pubkey,
+      advType,
+    }: {
+      name: string;
+      pubkey: string;
+      advType: number;
+    }) => {
+      if (!canTransmit(client)) return;
+      const pubkeyBytes = fromHex(pubkey, 32);
+      if (!pubkeyBytes) {
+        showToast(i18n.t('toast.invalidPublicKey'), 'error');
+        return;
+      }
+      const pubkeyPrefix = toHex(pubkeyBytes.slice(0, 6));
+      if (client.contacts[pubkeyPrefix]) {
+        showToast(
+          i18n.t('toast.contactAlreadyAdded', {
+            name: client.contacts[pubkeyPrefix].name || pubkeyPrefix,
+          }),
+        );
+        return;
+      }
+      const contact: Contact = {
+        pubkey: toHex(pubkeyBytes),
+        pubkeyPrefix,
+        pubkeyBytes,
+        advType,
+        flags: 0,
+        outPathLen: 255,
+        path: new Uint8Array(0),
+        name,
+      };
+      try {
+        await client.addContact(contact);
+        showToast(
+          i18n.t('toast.added', { name: name || pubkeyPrefix }),
+          'success',
+        );
+      } catch (err) {
+        showToast(
+          i18n.t('toast.addContactFailed', { error: (err as Error).message }),
+          'error',
+        );
+      }
+    },
+    [client, showToast],
+  );
+
+  /**
    * Shares a contact via a zero-hop advert: the radio re-broadcasts that
    * contact's advert to direct neighbors so they can hear and add it.
    */
@@ -1112,6 +1171,7 @@ export function useMeshCore() {
     resetContactPath,
     toggleFavorite,
     addDiscoveredContact,
+    importContact,
     shareContact,
     advertiseSelf,
     removeContact,

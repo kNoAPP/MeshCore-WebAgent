@@ -268,7 +268,6 @@
     "resetExplain": "Discards this route. Messages will flood the mesh until a new route is found."
   },
   "discover": {
-    "title": "📡 Discovered nodes",
     "empty": "No adverts heard yet. Discovered nodes appear here as their adverts arrive.",
     "node": "Node",
     "added": "✓ Added",
@@ -317,6 +316,30 @@
       "hashtagChars": "Use only a–z, 0–9, and hyphens.",
       "enterName": "Enter a channel name.",
       "invalidSecret": "Secret key must be 32 hex characters (16 bytes)."
+    }
+  },
+  "addContact": {
+    "title": "➕ Add contact",
+    "link": "Contact link",
+    "linkPlaceholder": "meshcore://contact/add?…",
+    "name": "Name",
+    "publicKey": "Public key (hex, 32 bytes)",
+    "publicKeyPlaceholder": "64 hex characters",
+    "type": "Type",
+    "review": "Review",
+    "add": "Add",
+    "mode": {
+      "discoverLabel": "Discover nearby",
+      "discoverHint": "Nodes heard over the air. Add one directly as a contact.",
+      "pasteLabel": "Paste link",
+      "pasteHint": "Paste a meshcore://contact/add link. Its details prefill the fields so you can review before adding.",
+      "manualLabel": "Enter manually",
+      "manualHint": "Enter the contact's name, 64-character public key, and node type."
+    },
+    "error": {
+      "invalidLink": "That isn't a valid contact link.",
+      "enterName": "Enter a contact name.",
+      "invalidKey": "Public key must be 64 hex characters (32 bytes)."
     }
   },
   "message": {
@@ -369,6 +392,7 @@
     "favoriteUpdateFailed": "Failed to update favorite: {{error}}",
     "invalidPublicKey": "Invalid public key",
     "added": "Added {{name}}",
+    "contactAlreadyAdded": "“{{name}}” is already added",
     "addContactFailed": "Failed to add contact: {{error}}",
     "contactRemoved": "Contact removed",
     "removeContactFailed": "Failed to remove contact: {{error}}",

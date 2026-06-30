@@ -268,7 +268,6 @@
     "resetExplain": "Descarta esta ruta. Los mensajes inundarán la malla hasta que se encuentre una nueva ruta."
   },
   "discover": {
-    "title": "📡 Nodos descubiertos",
     "empty": "Aún no se han escuchado anuncios. Los nodos descubiertos aparecen aquí a medida que llegan sus anuncios.",
     "node": "Nodo",
     "added": "✓ Añadido",
@@ -317,6 +316,30 @@
       "hashtagChars": "Usa solo a–z, 0–9 y guiones.",
       "enterName": "Introduce un nombre de canal.",
       "invalidSecret": "La clave secreta debe tener 32 caracteres hex (16 bytes)."
+    }
+  },
+  "addContact": {
+    "title": "➕ Añadir contacto",
+    "link": "Enlace de contacto",
+    "linkPlaceholder": "meshcore://contact/add?…",
+    "name": "Nombre",
+    "publicKey": "Clave pública (hex, 32 bytes)",
+    "publicKeyPlaceholder": "64 caracteres hex",
+    "type": "Tipo",
+    "review": "Revisar",
+    "add": "Añadir",
+    "mode": {
+      "discoverLabel": "Descubrir cercanos",
+      "discoverHint": "Nodos escuchados por radio. Añade uno directamente como contacto.",
+      "pasteLabel": "Pegar enlace",
+      "pasteHint": "Pega un enlace meshcore://contact/add. Sus datos rellenan los campos para que puedas revisarlos antes de añadir.",
+      "manualLabel": "Introducir manualmente",
+      "manualHint": "Introduce el nombre del contacto, su clave pública de 64 caracteres y el tipo de nodo."
+    },
+    "error": {
+      "invalidLink": "Eso no es un enlace de contacto válido.",
+      "enterName": "Introduce un nombre de contacto.",
+      "invalidKey": "La clave pública debe tener 64 caracteres hex (32 bytes)."
     }
   },
   "message": {
@@ -369,6 +392,7 @@
     "favoriteUpdateFailed": "Fallo al actualizar favorito: {{error}}",
     "invalidPublicKey": "Clave pública no válida",
     "added": "Añadido {{name}}",
+    "contactAlreadyAdded": "“{{name}}” ya está añadido",
     "addContactFailed": "Fallo al añadir contacto: {{error}}",
     "contactRemoved": "Contacto eliminado",
     "removeContactFailed": "Fallo al eliminar contacto: {{error}}",

@@ -137,9 +137,9 @@ export function Sidebar() {
     contactView,
     setContactView,
     setManagePanel,
-    setDiscoverOpen,
     setAutoAddOpen,
     setAddChannelOpen,
+    setAddContactOpen,
   } = useMeshStore();
   const {
     filter: contactFilter,
@@ -345,7 +345,7 @@ export function Sidebar() {
               ⚙
             </button>
             <button
-              onClick={() => setDiscoverOpen(true)}
+              onClick={() => setAddContactOpen(true)}
               title={t('sidebar.addContact')}
               aria-label={t('sidebar.addContact')}
               className='text-(--text2) hover:text-(--accent)'
