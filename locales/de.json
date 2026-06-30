@@ -268,7 +268,6 @@
     "resetExplain": "Verwirft diese Route. Nachrichten fluten das Mesh, bis eine neue Route gefunden wird."
   },
   "discover": {
-    "title": "📡 Entdeckte Knoten",
     "empty": "Noch keine Ankündigungen gehört. Entdeckte Knoten erscheinen hier, sobald ihre Ankündigungen eintreffen.",
     "node": "Knoten",
     "added": "✓ Hinzugefügt",
@@ -317,6 +316,29 @@
       "hashtagChars": "Verwende nur a–z, 0–9 und Bindestriche.",
       "enterName": "Gib einen Kanalnamen ein.",
       "invalidSecret": "Der geheime Schlüssel muss 32 Hex-Zeichen (16 Bytes) haben."
+    }
+  },
+  "addContact": {
+    "title": "➕ Kontakt hinzufügen",
+    "link": "Kontakt-Link",
+    "name": "Name",
+    "publicKey": "Öffentlicher Schlüssel (hex, 32 Bytes)",
+    "publicKeyPlaceholder": "64 Hex-Zeichen",
+    "type": "Typ",
+    "review": "Prüfen",
+    "add": "Hinzufügen",
+    "mode": {
+      "discoverLabel": "In der Nähe entdecken",
+      "discoverHint": "Über Funk gehörte Knoten. Füge einen direkt als Kontakt hinzu.",
+      "pasteLabel": "Link einfügen",
+      "pasteHint": "Füge einen meshcore://contact/add-Link ein. Seine Details füllen die Felder vor, damit du sie vor dem Hinzufügen prüfen kannst.",
+      "manualLabel": "Manuell eingeben",
+      "manualHint": "Gib den Namen des Kontakts, seinen 64-stelligen öffentlichen Schlüssel und den Knotentyp ein."
+    },
+    "error": {
+      "invalidLink": "Das ist kein gültiger Kontakt-Link.",
+      "enterName": "Gib einen Kontaktnamen ein.",
+      "invalidKey": "Der öffentliche Schlüssel muss 64 Hex-Zeichen (32 Bytes) haben."
     }
   },
   "message": {
@@ -369,6 +391,7 @@
     "favoriteUpdateFailed": "Aktualisieren des Favoriten fehlgeschlagen: {{error}}",
     "invalidPublicKey": "Ungültiger öffentlicher Schlüssel",
     "added": "{{name}} hinzugefügt",
+    "contactAlreadyAdded": "„{{name}}“ ist bereits hinzugefügt",
     "addContactFailed": "Hinzufügen des Kontakts fehlgeschlagen: {{error}}",
     "contactRemoved": "Kontakt entfernt",
     "removeContactFailed": "Entfernen des Kontakts fehlgeschlagen: {{error}}",

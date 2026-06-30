@@ -14,9 +14,9 @@ import { ReconnectingOverlay } from './ReconnectingOverlay';
 import { StatsPage } from './StatsPage';
 import { SettingsPage } from './SettingsPage';
 import { ManagePanel } from './ManagePanel';
-import { DiscoverPanel } from './DiscoverPanel';
 import { AutoAddSettings } from './AutoAddSettings';
 import { AddChannelModal } from './AddChannelModal';
+import { AddContactModal } from './AddContactModal';
 import { Toast } from './Toast';
 
 /**
@@ -70,9 +70,9 @@ export function AppShell() {
       {connected && (
         <>
           <ManagePanel />
-          <DiscoverPanel />
           <AutoAddSettings />
           <AddChannelModal />
+          <AddContactModal />
         </>
       )}
       <Toast />

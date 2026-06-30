@@ -268,7 +268,6 @@
     "resetExplain": "Abandonne cette route. Les messages inonderont le maillage jusqu'à ce qu'une nouvelle route soit trouvée."
   },
   "discover": {
-    "title": "📡 Nœuds découverts",
     "empty": "Aucune annonce entendue pour l'instant. Les nœuds découverts apparaissent ici à mesure que leurs annonces arrivent.",
     "node": "Nœud",
     "added": "✓ Ajouté",
@@ -317,6 +316,29 @@
       "hashtagChars": "Utilise uniquement a–z, 0–9 et des tirets.",
       "enterName": "Saisis un nom de canal.",
       "invalidSecret": "La clé secrète doit comporter 32 caractères hex (16 octets)."
+    }
+  },
+  "addContact": {
+    "title": "➕ Ajouter un contact",
+    "link": "Lien du contact",
+    "name": "Nom",
+    "publicKey": "Clé publique (hex, 32 octets)",
+    "publicKeyPlaceholder": "64 caractères hex",
+    "type": "Type",
+    "review": "Vérifier",
+    "add": "Ajouter",
+    "mode": {
+      "discoverLabel": "Découvrir à proximité",
+      "discoverHint": "Nœuds entendus par radio. Ajoutes-en un directement comme contact.",
+      "pasteLabel": "Coller le lien",
+      "pasteHint": "Colle un lien meshcore://contact/add. Ses informations préremplissent les champs pour que tu puisses les vérifier avant d'ajouter.",
+      "manualLabel": "Saisir manuellement",
+      "manualHint": "Saisis le nom du contact, sa clé publique de 64 caractères et le type de nœud."
+    },
+    "error": {
+      "invalidLink": "Ce n'est pas un lien de contact valide.",
+      "enterName": "Saisis un nom de contact.",
+      "invalidKey": "La clé publique doit comporter 64 caractères hex (32 octets)."
     }
   },
   "message": {
@@ -369,6 +391,7 @@
     "favoriteUpdateFailed": "Échec de la mise à jour du favori : {{error}}",
     "invalidPublicKey": "Clé publique non valide",
     "added": "{{name}} ajouté",
+    "contactAlreadyAdded": "« {{name}} » est déjà ajouté",
     "addContactFailed": "Échec de l'ajout du contact : {{error}}",
     "contactRemoved": "Contact supprimé",
     "removeContactFailed": "Échec de la suppression du contact : {{error}}",

@@ -188,6 +188,46 @@ export function contactShareUri(
   return `meshcore://contact/add?${params.toString()}`;
 }
 
+/** A contact parsed from a `meshcore://contact/add` link. */
+export interface ParsedContactUri {
+  name: string;
+  pubkey: string;
+  advType: number;
+}
+
+/**
+ * Parses a `meshcore://contact/add` link — the inverse of
+ * {@link contactShareUri} and the format the official app encodes in contact QR
+ * codes. The URI must carry a 64-hex `public_key`; `name` is URL-decoded and
+ * `type` defaults to 1 (companion) when absent. Tolerant of malformed input:
+ * returns `null` rather than throwing on any bad scheme, host, path, or key.
+ *
+ * @see https://docs.meshcore.io/qr_codes/
+ */
+export function parseContactUri(uri: string): ParsedContactUri | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(uri.trim());
+  } catch {
+    return null;
+  }
+  // The custom scheme parses with the rest in `pathname` (host is empty), so
+  // match the literal prefix instead of relying on `host`/`pathname` split.
+  if (parsed.protocol !== 'meshcore:') return null;
+  const path = `${parsed.host}${parsed.pathname}`.replace(/\/$/, '');
+  if (path !== 'contact/add') return null;
+  const pubkey = parsed.searchParams.get('public_key') ?? '';
+  if (!fromHex(pubkey, 32)) return null;
+  const typeRaw = parsed.searchParams.get('type');
+  const advType = typeRaw === null ? 1 : Number(typeRaw);
+  if (!Number.isInteger(advType) || advType < 1 || advType > 4) return null;
+  return {
+    name: parsed.searchParams.get('name') ?? '',
+    pubkey: pubkey.toLowerCase(),
+    advType,
+  };
+}
+
 /** Translation key for each {@link Contact.advType}. */
 export const ADV_LABEL_KEY = {
   0: 'advType.contact',

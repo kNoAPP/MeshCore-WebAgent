@@ -163,9 +163,9 @@ interface MeshState {
   toast: Toast | null;
   view: AppView;
   managePanel: { kind: 'contact' | 'channel'; id: string } | null;
-  discoverOpen: boolean;
   autoAddOpen: boolean;
   addChannelOpen: boolean;
+  addContactOpen: boolean;
   advertising: boolean;
 }
 
@@ -195,9 +195,9 @@ interface MeshActions {
   setManagePanel: (
     panel: { kind: 'contact' | 'channel'; id: string } | null,
   ) => void;
-  setDiscoverOpen: (open: boolean) => void;
   setAutoAddOpen: (open: boolean) => void;
   setAddChannelOpen: (open: boolean) => void;
+  setAddContactOpen: (open: boolean) => void;
   setAdvertising: (advertising: boolean) => void;
   closeConnectionOverlays: () => void;
   reset: () => void;
@@ -223,9 +223,9 @@ const initialState: MeshState = {
   toast: null,
   view: 'chat',
   managePanel: null,
-  discoverOpen: false,
   autoAddOpen: false,
   addChannelOpen: false,
+  addContactOpen: false,
   advertising: false,
 };
 
@@ -388,9 +388,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   dismissToast: () => set({ toast: null }),
   setView: (view) => set({ view }),
   setManagePanel: (managePanel) => set({ managePanel }),
-  setDiscoverOpen: (discoverOpen) => set({ discoverOpen }),
   setAutoAddOpen: (autoAddOpen) => set({ autoAddOpen }),
   setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
+  setAddContactOpen: (addContactOpen) => set({ addContactOpen }),
   setAdvertising: (advertising) => set({ advertising }),
   // Closes every connection-scoped overlay/panel at once. Called when the link
   // drops so a panel left open doesn't silently reappear once reconnect
@@ -400,9 +400,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({
       view: 'chat',
       managePanel: null,
-      discoverOpen: false,
       autoAddOpen: false,
       addChannelOpen: false,
+      addContactOpen: false,
     }),
 
   reset: () =>
