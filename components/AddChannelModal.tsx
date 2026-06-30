@@ -52,10 +52,10 @@ const MODES = [
 }[];
 
 /**
- * Modal for adding a channel in one of three {@link Mode}s (create private,
- * join
- * private by hex secret, or join a public hashtag). Validates input, then calls
- * the `addChannel` action. Mounted only while {@link useMeshStore}
+ * Modal for adding a channel in one of four {@link Mode}s (create private, join
+ * private by hex secret, join a public hashtag, or paste a
+ * `meshcore://channel/add` link to review before joining). Validates input,
+ * then calls the `addChannel` action. Mounted only while {@link useMeshStore}
  * `addChannelOpen` is set.
  */
 export function AddChannelModal() {
