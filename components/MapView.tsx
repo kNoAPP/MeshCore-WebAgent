@@ -12,7 +12,12 @@ import type { FeatureCollection } from 'geojson';
 import 'leaflet/dist/leaflet.css';
 import { useMeshStore } from '@/store/meshStore';
 import { ADV_ICON } from '@/lib/utils';
-import { collectMapNodes, selfMapNode, type MapNode } from '@/lib/map/nodes';
+import {
+  averageCenter,
+  collectMapNodes,
+  selfMapNode,
+  type MapNode,
+} from '@/lib/map/nodes';
 import {
   DEFAULT_MAP_PREFS,
   MAX_MAP_MARKERS,
@@ -52,30 +57,32 @@ function nodeIcon(node: MapNode): L.DivIcon {
 
 /**
  * Picks the starting viewport: the persisted center/zoom if the user has panned
- * before, otherwise a close-in view centered on this node.
+ * before; otherwise a close-in view on this node, or — when this node reports
+ * no fix — the average of located contacts/adverts, falling back to the whole
+ * world when none have a location.
  */
 function initialView(
   prefs: MapPrefs,
-  self: MapNode,
+  self: MapNode | null,
+  nodes: MapNode[],
 ): { center: [number, number]; zoom: number } {
   const untouched =
     prefs.center[0] === DEFAULT_MAP_PREFS.center[0] &&
     prefs.center[1] === DEFAULT_MAP_PREFS.center[1] &&
     prefs.zoom === DEFAULT_MAP_PREFS.zoom;
-  if (untouched) return { center: [self.lat, self.lon], zoom: 11 };
-  return { center: prefs.center, zoom: prefs.zoom };
-}
-
-/** Formats a node's coordinates as `"47.61, -122.33"` (always dot-decimal). */
-function formatCoords(node: MapNode): string {
-  return `${node.lat.toFixed(4)}, ${node.lon.toFixed(4)}`;
+  if (!untouched) return { center: prefs.center, zoom: prefs.zoom };
+  if (self) return { center: [self.lat, self.lon], zoom: 11 };
+  const avg = averageCenter(nodes);
+  if (avg) return { center: avg, zoom: 11 };
+  return { center: DEFAULT_MAP_PREFS.center, zoom: DEFAULT_MAP_PREFS.zoom };
 }
 
 /**
  * Desktop map view: plots this node and every located contact/advert. Renders a
  * live slippy map (online, after a one-time tile-host consent) or the bundled
  * offline outline (offline, when forced, or before consent). When this node has
- * no GPS fix, falls back to a coordinate list instead of a map it can't anchor.
+ * no GPS fix, the map still opens — centered on the average of located
+ * contacts/adverts, or the whole world when none have a location.
  */
 export function MapView() {
   const selfInfo = useMeshStore((s) => s.selfInfo);
@@ -88,12 +95,17 @@ export function MapView() {
     [contacts, adverts],
   );
 
-  if (!self) return <MapFallback nodes={nodes} />;
   return <LeafletMap self={self} nodes={nodes} />;
 }
 
-/** The interactive Leaflet map, mounted only when this node has a fix. */
-function LeafletMap({ self, nodes }: { self: MapNode; nodes: MapNode[] }) {
+/** The interactive Leaflet map; this node's marker shows when located. */
+function LeafletMap({
+  self,
+  nodes,
+}: {
+  self: MapNode | null;
+  nodes: MapNode[];
+}) {
   const { t } = useTranslation();
   const theme = useMeshStore((s) => s.theme);
   const isOnline = useMeshStore((s) => s.isOnline);
@@ -107,7 +119,7 @@ function LeafletMap({ self, nodes }: { self: MapNode; nodes: MapNode[] }) {
   const geoRef = useRef<FeatureCollection | null>(null);
   // Capture the opening viewport once, from the first render's state.
   const [startView] = useState(() =>
-    initialView(useMeshStore.getState().mapPrefs, self),
+    initialView(useMeshStore.getState().mapPrefs, self, nodes),
   );
 
   const useOnlineTiles =
@@ -205,7 +217,8 @@ function LeafletMap({ self, nodes }: { self: MapNode; nodes: MapNode[] }) {
     const layer = markerLayerRef.current;
     if (!layer) return;
     layer.clearLayers();
-    for (const node of [self, ...nodes].slice(0, MAX_MAP_MARKERS)) {
+    const all = self ? [self, ...nodes] : nodes;
+    for (const node of all.slice(0, MAX_MAP_MARKERS)) {
       const marker = L.marker([node.lat, node.lon], { icon: nodeIcon(node) });
       const label =
         node.kind === 'self' ? t('map.self') : escapeHtml(node.name);
@@ -220,7 +233,7 @@ function LeafletMap({ self, nodes }: { self: MapNode; nodes: MapNode[] }) {
     }
   }, [self, nodes, t]);
 
-  const total = nodes.length + 1;
+  const total = nodes.length + (self ? 1 : 0);
   const capped = total > MAX_MAP_MARKERS;
 
   return (
@@ -298,61 +311,6 @@ function TileConsent({
             {t('map.tileConsentAccept')}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Shown when this node has no GPS fix, so an anchored map isn't meaningful.
- * Lists located contacts/adverts with their coordinates; contact rows open the
- * manage panel. This path is offline by construction (no tiles).
- */
-function MapFallback({ nodes }: { nodes: MapNode[] }) {
-  const { t } = useTranslation();
-  const setManagePanel = useMeshStore((s) => s.setManagePanel);
-  const sorted = useMemo(
-    () => [...nodes].sort((a, b) => a.name.localeCompare(b.name)),
-    [nodes],
-  );
-
-  return (
-    <div className='flex-1 overflow-y-auto p-6'>
-      <div className='mx-auto max-w-lg'>
-        <h2 className='mb-1 text-base font-bold text-(--text)'>
-          {t('map.fallbackTitle')}
-        </h2>
-        <p className='mb-4 text-sm text-(--text2)'>{t('map.fallbackBody')}</p>
-        {sorted.length === 0 ? (
-          <p className='text-sm text-(--text2)'>{t('map.fallbackEmpty')}</p>
-        ) : (
-          <ul className='divide-y divide-(--border) rounded-lg border border-(--border)'>
-            {sorted.map((node) => {
-              const isContact = node.kind === 'contact';
-              return (
-                <li key={node.key}>
-                  <button
-                    disabled={!isContact}
-                    onClick={() =>
-                      setManagePanel({ kind: 'contact', id: node.pubkeyPrefix })
-                    }
-                    className='flex w-full items-center gap-3 px-4 py-2.5 text-left enabled:hover:bg-(--surface2) disabled:cursor-default'
-                  >
-                    <span className='text-lg'>
-                      {ADV_ICON[node.advType] ?? '👤'}
-                    </span>
-                    <span className='min-w-0 flex-1 truncate text-sm text-(--text)'>
-                      {node.name}
-                    </span>
-                    <span className='shrink-0 font-mono text-xs text-(--text2)'>
-                      {formatCoords(node)}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
       </div>
     </div>
   );

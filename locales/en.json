@@ -296,10 +296,7 @@
     "tileConsentTitle": "Load online map tiles?",
     "tileConsentBody": "Online map tiles are fetched from a third-party host (CARTO). This reveals the approximate location of your nodes to that host. The bundled offline map leaks nothing.",
     "tileConsentAccept": "Use online tiles",
-    "tileConsentDecline": "Stay offline",
-    "fallbackTitle": "No location for this node",
-    "fallbackBody": "Your radio has no GPS fix, so the map can't be centered. Located contacts and adverts are listed below.",
-    "fallbackEmpty": "No located contacts or adverts yet."
+    "tileConsentDecline": "Stay offline"
   },
   "sidebar": {
     "channels": "Channels",

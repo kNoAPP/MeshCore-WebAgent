@@ -296,10 +296,7 @@
     "tileConsentTitle": "Online-Kartenkacheln laden?",
     "tileConsentBody": "Online-Kartenkacheln werden von einem Drittanbieter (CARTO) abgerufen. Dadurch wird der ungefähre Standort deiner Knoten an diesen Anbieter weitergegeben. Die mitgelieferte Offline-Karte gibt nichts preis.",
     "tileConsentAccept": "Online-Kacheln verwenden",
-    "tileConsentDecline": "Offline bleiben",
-    "fallbackTitle": "Kein Standort für diesen Knoten",
-    "fallbackBody": "Dein Funkgerät hat keine GPS-Position, daher kann die Karte nicht zentriert werden. Lokalisierte Kontakte und Ankündigungen sind unten aufgeführt.",
-    "fallbackEmpty": "Noch keine lokalisierten Kontakte oder Ankündigungen."
+    "tileConsentDecline": "Offline bleiben"
   },
   "sidebar": {
     "channels": "Kanäle",
