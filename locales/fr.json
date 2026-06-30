@@ -302,20 +302,26 @@
     "secretGenerated": "Clé secrète (générée)",
     "regenerate": "Régénérer",
     "secretHex": "Clé secrète (hex, 16 octets)",
+    "link": "Lien du canal",
+    "linkPlaceholder": "meshcore://channel/add?…",
     "create": "Créer",
     "join": "Rejoindre",
+    "review": "Vérifier",
     "mode": {
       "createLabel": "Créer privé",
       "createHint": "Génère une clé secrète aléatoire. Partage-la pour que d'autres puissent rejoindre.",
       "joinPrivateLabel": "Rejoindre privé",
       "joinPrivateHint": "Saisis le nom du canal et sa clé secrète de 16 octets (hex).",
       "joinHashtagLabel": "Rejoindre hashtag",
-      "joinHashtagHint": "Les canaux hashtag sont publics — quiconque saisit le même nom rejoint. Utilise uniquement a–z, 0–9 et des tirets."
+      "joinHashtagHint": "Les canaux hashtag sont publics — quiconque saisit le même nom rejoint. Utilise uniquement a–z, 0–9 et des tirets.",
+      "joinLinkLabel": "Coller le lien",
+      "joinLinkHint": "Colle un lien meshcore://channel/add. Son nom et sa clé secrète préremplissent les champs pour que tu puisses les vérifier avant de rejoindre."
     },
     "error": {
       "hashtagChars": "Utilise uniquement a–z, 0–9 et des tirets.",
       "enterName": "Saisis un nom de canal.",
-      "invalidSecret": "La clé secrète doit comporter 32 caractères hex (16 octets)."
+      "invalidSecret": "La clé secrète doit comporter 32 caractères hex (16 octets).",
+      "invalidLink": "Ce n'est pas un lien de canal valide."
     }
   },
   "addContact": {

@@ -302,20 +302,26 @@
     "secretGenerated": "Clave secreta (generada)",
     "regenerate": "Regenerar",
     "secretHex": "Clave secreta (hex, 16 bytes)",
+    "link": "Enlace de canal",
+    "linkPlaceholder": "meshcore://channel/add?…",
     "create": "Crear",
     "join": "Unirse",
+    "review": "Revisar",
     "mode": {
       "createLabel": "Crear privado",
       "createHint": "Genera una clave secreta aleatoria. Compártela para que otros puedan unirse.",
       "joinPrivateLabel": "Unirse a privado",
       "joinPrivateHint": "Introduce el nombre del canal y su clave secreta de 16 bytes (hex).",
       "joinHashtagLabel": "Unirse a hashtag",
-      "joinHashtagHint": "Los canales hashtag son públicos: cualquiera que introduzca el mismo nombre se une. Usa solo a–z, 0–9 y guiones."
+      "joinHashtagHint": "Los canales hashtag son públicos: cualquiera que introduzca el mismo nombre se une. Usa solo a–z, 0–9 y guiones.",
+      "joinLinkLabel": "Pegar enlace",
+      "joinLinkHint": "Pega un enlace meshcore://channel/add. Su nombre y clave secreta rellenan los campos para que puedas revisarlos antes de unirte."
     },
     "error": {
       "hashtagChars": "Usa solo a–z, 0–9 y guiones.",
       "enterName": "Introduce un nombre de canal.",
-      "invalidSecret": "La clave secreta debe tener 32 caracteres hex (16 bytes)."
+      "invalidSecret": "La clave secreta debe tener 32 caracteres hex (16 bytes).",
+      "invalidLink": "Eso no es un enlace de canal válido."
     }
   },
   "addContact": {

@@ -302,20 +302,26 @@
     "secretGenerated": "Geheimer Schlüssel (generiert)",
     "regenerate": "Neu generieren",
     "secretHex": "Geheimer Schlüssel (hex, 16 Bytes)",
+    "link": "Kanal-Link",
+    "linkPlaceholder": "meshcore://channel/add?…",
     "create": "Erstellen",
     "join": "Beitreten",
+    "review": "Prüfen",
     "mode": {
       "createLabel": "Privat erstellen",
       "createHint": "Generiert einen zufälligen geheimen Schlüssel. Teile ihn, damit andere beitreten können.",
       "joinPrivateLabel": "Privat beitreten",
       "joinPrivateHint": "Gib den Kanalnamen und seinen 16-Byte-Geheimschlüssel (hex) ein.",
       "joinHashtagLabel": "Hashtag beitreten",
-      "joinHashtagHint": "Hashtag-Kanäle sind öffentlich — jeder, der denselben Namen eingibt, tritt bei. Verwende nur a–z, 0–9 und Bindestriche."
+      "joinHashtagHint": "Hashtag-Kanäle sind öffentlich — jeder, der denselben Namen eingibt, tritt bei. Verwende nur a–z, 0–9 und Bindestriche.",
+      "joinLinkLabel": "Link einfügen",
+      "joinLinkHint": "Füge einen meshcore://channel/add-Link ein. Sein Name und Geheimschlüssel füllen die Beitrittsfelder vor, damit du sie vor dem Beitreten prüfen kannst."
     },
     "error": {
       "hashtagChars": "Verwende nur a–z, 0–9 und Bindestriche.",
       "enterName": "Gib einen Kanalnamen ein.",
-      "invalidSecret": "Der geheime Schlüssel muss 32 Hex-Zeichen (16 Bytes) haben."
+      "invalidSecret": "Der geheime Schlüssel muss 32 Hex-Zeichen (16 Bytes) haben.",
+      "invalidLink": "Das ist kein gültiger Kanal-Link."
     }
   },
   "addContact": {

@@ -30,14 +30,14 @@ const MODES = [
     hintKey: 'addContact.mode.discoverHint',
   },
   {
-    id: 'paste',
-    labelKey: 'addContact.mode.pasteLabel',
-    hintKey: 'addContact.mode.pasteHint',
-  },
-  {
     id: 'manual',
     labelKey: 'addContact.mode.manualLabel',
     hintKey: 'addContact.mode.manualHint',
+  },
+  {
+    id: 'paste',
+    labelKey: 'addContact.mode.pasteLabel',
+    hintKey: 'addContact.mode.pasteHint',
   },
 ] as const satisfies readonly {
   id: Mode;
