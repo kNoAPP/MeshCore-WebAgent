@@ -976,8 +976,9 @@ export class MeshCoreClient {
   // notify the hook. Idempotent.
   private handleClose(): void {
     if (this._closed) return;
-    // Tag the rejection so an in-flight `reboot()` can tell this expected
-    // restart-induced drop apart from a genuine failure.
+    // Tag the rejection as a link drop so callers can tell it apart from a
+    // genuine command failure — `reboot()` uses this to treat the expected
+    // restart-induced drop as success.
     const err: Error & { transportClosed?: true } = new Error(
       'Transport closed',
     );

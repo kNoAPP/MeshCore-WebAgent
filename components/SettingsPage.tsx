@@ -368,11 +368,14 @@ function AdvertiseCard() {
 function RebootCard() {
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);
+  const client = useMeshStore((s) => s.client);
   const { rebootDevice } = useMeshCore();
   const [confirming, setConfirming] = useState(false);
   const [rebooting, setRebooting] = useState(false);
 
-  const connected = status === 'connected';
+  // Mirrors canTransmit(): status flips to 'connected' before the post-init
+  // hydrate finishes, so also require a live, open client handle.
+  const connected = status === 'connected' && !!client && !client.closed;
 
   const reboot = async () => {
     setRebooting(true);
