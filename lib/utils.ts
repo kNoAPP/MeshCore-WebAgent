@@ -228,6 +228,40 @@ export function parseContactUri(uri: string): ParsedContactUri | null {
   };
 }
 
+/** A channel parsed from a `meshcore://channel/add` link. */
+export interface ParsedChannelUri {
+  name: string;
+  secret: string;
+}
+
+/**
+ * Parses a `meshcore://channel/add` link — the format the official app encodes
+ * in channel QR codes. The URI must carry a 32-hex `secret`; `name` is
+ * URL-decoded and defaults to empty when absent. Tolerant of malformed input:
+ * returns `null` rather than throwing on any bad scheme, host, path, or secret.
+ *
+ * @see https://docs.meshcore.io/qr_codes/
+ */
+export function parseChannelUri(uri: string): ParsedChannelUri | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(uri.trim());
+  } catch {
+    return null;
+  }
+  // The custom scheme keeps the prefix in `host` + `pathname` (e.g.
+  // host `channel`, pathname `/add`), so join the two and match the literal.
+  if (parsed.protocol !== 'meshcore:') return null;
+  const path = `${parsed.host}${parsed.pathname}`.replace(/\/$/, '');
+  if (path !== 'channel/add') return null;
+  const secret = parsed.searchParams.get('secret') ?? '';
+  if (!fromHex(secret, 16)) return null;
+  return {
+    name: parsed.searchParams.get('name') ?? '',
+    secret: secret.toLowerCase(),
+  };
+}
+
 /** Translation key for each {@link Contact.advType}. */
 export const ADV_LABEL_KEY = {
   0: 'advType.contact',

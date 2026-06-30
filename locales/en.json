@@ -302,20 +302,26 @@
     "secretGenerated": "Secret key (generated)",
     "regenerate": "Regenerate",
     "secretHex": "Secret key (hex, 16 bytes)",
+    "link": "Channel link",
+    "linkPlaceholder": "meshcore://channel/add?…",
     "create": "Create",
     "join": "Join",
+    "review": "Review",
     "mode": {
       "createLabel": "Create Private",
       "createHint": "Generates a random secret key. Share it so others can join.",
       "joinPrivateLabel": "Join Private",
       "joinPrivateHint": "Enter the channel name and its 16-byte secret key (hex).",
       "joinHashtagLabel": "Join Hashtag",
-      "joinHashtagHint": "Hashtag channels are public — anyone entering the same name joins. Use a–z, 0–9, and hyphens only."
+      "joinHashtagHint": "Hashtag channels are public — anyone entering the same name joins. Use a–z, 0–9, and hyphens only.",
+      "joinLinkLabel": "Paste link",
+      "joinLinkHint": "Paste a meshcore://channel/add link. Its name and secret prefill the join fields so you can review before joining."
     },
     "error": {
       "hashtagChars": "Use only a–z, 0–9, and hyphens.",
       "enterName": "Enter a channel name.",
-      "invalidSecret": "Secret key must be 32 hex characters (16 bytes)."
+      "invalidSecret": "Secret key must be 32 hex characters (16 bytes).",
+      "invalidLink": "That isn't a valid channel link."
     }
   },
   "addContact": {

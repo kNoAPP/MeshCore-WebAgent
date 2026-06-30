@@ -8,14 +8,21 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
-import { fromHex, randomSecret, deriveHashtagSecret, toHex } from '@/lib/utils';
+import {
+  fromHex,
+  randomSecret,
+  deriveHashtagSecret,
+  toHex,
+  parseChannelUri,
+} from '@/lib/utils';
 
 /**
  * How the channel secret is obtained: `create` generates a random one,
  * `joinPrivate` takes a hex secret, `joinHashtag` derives it from a public
- * name.
+ * name, `joinLink` parses a `meshcore://channel/add` link into the
+ * `joinPrivate` fields for review.
  */
-type Mode = 'create' | 'joinPrivate' | 'joinHashtag';
+type Mode = 'create' | 'joinPrivate' | 'joinHashtag' | 'joinLink';
 
 const MODES = [
   {
@@ -33,6 +40,11 @@ const MODES = [
     labelKey: 'addChannel.mode.joinHashtagLabel',
     hintKey: 'addChannel.mode.joinHashtagHint',
   },
+  {
+    id: 'joinLink',
+    labelKey: 'addChannel.mode.joinLinkLabel',
+    hintKey: 'addChannel.mode.joinLinkHint',
+  },
 ] as const satisfies readonly {
   id: Mode;
   labelKey: string;
@@ -40,10 +52,10 @@ const MODES = [
 }[];
 
 /**
- * Modal for adding a channel in one of three {@link Mode}s (create private,
- * join
- * private by hex secret, or join a public hashtag). Validates input, then calls
- * the `addChannel` action. Mounted only while {@link useMeshStore}
+ * Modal for adding a channel in one of four {@link Mode}s (create private, join
+ * private by hex secret, join a public hashtag, or paste a
+ * `meshcore://channel/add` link to review before joining). Validates input,
+ * then calls the `addChannel` action. Mounted only while {@link useMeshStore}
  * `addChannelOpen` is set.
  */
 export function AddChannelModal() {
@@ -54,6 +66,7 @@ export function AddChannelModal() {
   const [name, setName] = useState('');
   const [secretHex, setSecretHex] = useState('');
   const [hashtag, setHashtag] = useState('');
+  const [link, setLink] = useState('');
   const [generated, setGenerated] = useState(() => toHex(randomSecret()));
   const [error, setError] = useState('');
 
@@ -63,9 +76,22 @@ export function AddChannelModal() {
     setName('');
     setSecretHex('');
     setHashtag('');
+    setLink('');
     setGenerated(toHex(randomSecret()));
     setError('');
     setAddChannelOpen(false);
+  };
+
+  const useLink = () => {
+    setError('');
+    const parsed = parseChannelUri(link);
+    if (!parsed) {
+      setError(t('addChannel.error.invalidLink'));
+      return;
+    }
+    setName(parsed.name);
+    setSecretHex(parsed.secret);
+    setMode('joinPrivate');
   };
 
   const submit = async () => {
@@ -152,7 +178,7 @@ export function AddChannelModal() {
               />
             </div>
           </label>
-        ) : (
+        ) : mode === 'joinLink' ? null : (
           <label className='block'>
             <span className='mb-1 block text-xs text-(--text2)'>
               {t('addChannel.name')}
@@ -201,6 +227,21 @@ export function AddChannelModal() {
           </label>
         )}
 
+        {mode === 'joinLink' && (
+          <label className='block'>
+            <span className='mb-1 block text-xs text-(--text2)'>
+              {t('addChannel.link')}
+            </span>
+            <input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder={t('addChannel.linkPlaceholder')}
+              className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
+              style={{ borderColor: 'var(--border)' }}
+            />
+          </label>
+        )}
+
         {error && <p className='text-xs text-(--red)'>{error}</p>}
       </div>
 
@@ -212,10 +253,14 @@ export function AddChannelModal() {
           {t('common.cancel')}
         </button>
         <button
-          onClick={submit}
+          onClick={mode === 'joinLink' ? useLink : submit}
           className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--accent-hover)'
         >
-          {mode === 'create' ? t('addChannel.create') : t('addChannel.join')}
+          {mode === 'create'
+            ? t('addChannel.create')
+            : mode === 'joinLink'
+              ? t('addChannel.review')
+              : t('addChannel.join')}
         </button>
       </div>
     </ModalShell>
