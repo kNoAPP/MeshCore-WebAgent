@@ -82,7 +82,7 @@ export function Header() {
            reconnecting — the link is down, so switching views would only show
            stale or half-synced state behind the reconnecting overlay. */
         <nav className='flex overflow-hidden rounded-md border border-(--border-control)'>
-          {(['chat', 'stats', 'settings'] as const).map((v) => (
+          {(['chat', 'map', 'stats', 'settings'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}

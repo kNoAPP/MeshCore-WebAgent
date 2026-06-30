@@ -143,3 +143,59 @@ html {
     animation: none;
   }
 }
+
+/*
+ * Map view (Leaflet). Leaflet's stylesheet is imported lazily inside MapView's
+ * chunk, so it can load after this file; overrides are therefore scoped under
+ * `.meshcore-map` to win on specificity regardless of stylesheet order. Colors
+ * come from the same theme tokens as the rest of the UI, so both the offline
+ * basemap and the controls follow light/dark.
+ */
+.meshcore-map .leaflet-container {
+  background: var(--bg);
+  font: inherit;
+}
+/* Offline basemap land/borders. Leaflet sets a default stroke/fill as SVG
+   presentation attributes, which this class (a CSS rule) overrides. */
+.map-land {
+  fill: var(--surface2);
+  stroke: var(--border-control);
+}
+.map-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 18px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+.map-marker-self {
+  box-sizing: border-box;
+  border-radius: 9999px;
+  background: var(--bg);
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.meshcore-map .leaflet-bar a,
+.meshcore-map .leaflet-bar a:hover {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+.meshcore-map .leaflet-control-attribution {
+  background: var(--surface);
+  color: var(--text2);
+}
+.meshcore-map .leaflet-control-attribution a {
+  color: var(--accent);
+}
+.meshcore-map .leaflet-tooltip {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+.meshcore-map .leaflet-tooltip-top::before {
+  border-top-color: var(--surface);
+}

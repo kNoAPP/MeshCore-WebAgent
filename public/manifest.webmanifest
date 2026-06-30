@@ -1,0 +1,17 @@
+{
+  "name": "MeshCore Companion",
+  "short_name": "MeshCore",
+  "description": "Web interface for MeshCore companion radios",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0e14",
+  "theme_color": "#0a0e14",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

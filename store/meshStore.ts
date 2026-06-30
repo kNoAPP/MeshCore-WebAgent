@@ -31,6 +31,7 @@ import {
   resolveInitialTheme,
   type Theme,
 } from '@/lib/theme/config';
+import { loadMapPrefs, saveMapPrefs, type MapPrefs } from '@/lib/map/config';
 
 /** localStorage key for the persisted {@link AutoAddConfig}. */
 const AUTOADD_STORAGE_KEY = 'meshcore.autoAddConfig';
@@ -79,7 +80,13 @@ export const CONTACT_SORTS = ['az', 'heard', 'latest'] as const;
 export type ContactSort = (typeof CONTACT_SORTS)[number];
 
 /** Which top-level page the connected app is showing. */
-export type AppView = 'chat' | 'stats' | 'settings';
+export type AppView = 'chat' | 'stats' | 'settings' | 'map';
+
+/** Reads the browser's online status, defaulting to `true` on SSR. */
+function initialOnline(): boolean {
+  if (typeof navigator === 'undefined') return true;
+  return navigator.onLine;
+}
 
 /** Persisted contacts-list view: filter, order, and favorite pinning. */
 export interface ContactView {
@@ -160,6 +167,8 @@ interface MeshState {
   contactView: ContactView;
   locale: SupportedLocale;
   theme: Theme;
+  isOnline: boolean;
+  mapPrefs: MapPrefs;
   toast: Toast | null;
   view: AppView;
   managePanel: { kind: 'contact' | 'channel'; id: string } | null;
@@ -184,6 +193,8 @@ interface MeshActions {
   setContactView: (view: ContactView) => void;
   setLocale: (locale: SupportedLocale) => void;
   setTheme: (theme: Theme) => void;
+  setOnline: (online: boolean) => void;
+  setMapPrefs: (prefs: MapPrefs) => void;
   addMessage: (id: string, msg: Message) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
@@ -220,6 +231,8 @@ const initialState: MeshState = {
   contactView: loadContactView(),
   locale: resolveInitialLocale(),
   theme: resolveInitialTheme(),
+  isOnline: initialOnline(),
+  mapPrefs: loadMapPrefs(),
   toast: null,
   view: 'chat',
   managePanel: null,
@@ -283,6 +296,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     }
     void i18n.changeLanguage(locale);
     set({ locale });
+  },
+
+  setOnline: (isOnline) => set({ isOnline }),
+
+  setMapPrefs: (mapPrefs) => {
+    saveMapPrefs(mapPrefs);
+    set({ mapPrefs });
   },
 
   setTheme: (theme) => {
@@ -417,6 +437,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       locale: get().locale,
       // Theme is a persistent user preference, not session state
       theme: get().theme,
+      // Map preferences are a persistent user preference, not session state
+      mapPrefs: get().mapPrefs,
+      // Online status reflects the browser, not the radio link
+      isOnline: get().isOnline,
     }),
 }));
 

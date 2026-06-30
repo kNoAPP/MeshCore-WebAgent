@@ -286,6 +286,20 @@
     "added": "✓ Ajouté",
     "add": "Ajouter"
   },
+  "map": {
+    "self": "Ce nœud",
+    "offlineBadge": "Carte hors ligne",
+    "useOfflineMap": "Utiliser la carte hors ligne",
+    "useOnlineMap": "Utiliser la carte en ligne",
+    "markerCap": "Affichage de {{shown}} sur {{total}} nœuds",
+    "tileConsentTitle": "Charger les tuiles de carte en ligne ?",
+    "tileConsentBody": "Les tuiles de carte en ligne sont récupérées auprès d'un hébergeur tiers (CARTO). Cela révèle la position approximative de vos nœuds à cet hébergeur. La carte hors ligne fournie ne divulgue rien.",
+    "tileConsentAccept": "Utiliser les tuiles en ligne",
+    "tileConsentDecline": "Rester hors ligne",
+    "fallbackTitle": "Aucune position pour ce nœud",
+    "fallbackBody": "Votre radio n'a pas de position GPS, la carte ne peut donc pas être centrée. Les contacts et annonces localisés sont listés ci-dessous.",
+    "fallbackEmpty": "Aucun contact ou annonce localisé pour l'instant."
+  },
   "sidebar": {
     "channels": "Canaux",
     "contacts": "Contacts",

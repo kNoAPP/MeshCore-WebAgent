@@ -19,6 +19,7 @@
     "reconnecting": "Verbinde neu…",
     "disconnected": "Getrennt",
     "chat": "💬 Chat",
+    "map": "🗺 Karte",
     "stats": "📊 Statistik",
     "settings": "⚙ Einstellungen",
     "disconnect": "⏻ Trennen",
@@ -285,6 +286,20 @@
     "node": "Knoten",
     "added": "✓ Hinzugefügt",
     "add": "Hinzufügen"
+  },
+  "map": {
+    "self": "Dieser Knoten",
+    "offlineBadge": "Offline-Karte",
+    "useOfflineMap": "Offline-Karte verwenden",
+    "useOnlineMap": "Online-Karte verwenden",
+    "markerCap": "{{shown}} von {{total}} Knoten werden angezeigt",
+    "tileConsentTitle": "Online-Kartenkacheln laden?",
+    "tileConsentBody": "Online-Kartenkacheln werden von einem Drittanbieter (CARTO) abgerufen. Dadurch wird der ungefähre Standort deiner Knoten an diesen Anbieter weitergegeben. Die mitgelieferte Offline-Karte gibt nichts preis.",
+    "tileConsentAccept": "Online-Kacheln verwenden",
+    "tileConsentDecline": "Offline bleiben",
+    "fallbackTitle": "Kein Standort für diesen Knoten",
+    "fallbackBody": "Dein Funkgerät hat keine GPS-Position, daher kann die Karte nicht zentriert werden. Lokalisierte Kontakte und Ankündigungen sind unten aufgeführt.",
+    "fallbackEmpty": "Noch keine lokalisierten Kontakte oder Ankündigungen."
   },
   "sidebar": {
     "channels": "Kanäle",
