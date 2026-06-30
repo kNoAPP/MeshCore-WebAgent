@@ -280,15 +280,20 @@ export class MeshCoreClient {
   // is in `types` (an ERR frame rejects the pending command). Rejects on
   // timeout. Exchanges are serialized through `cmdChain` so only one is ever
   // outstanding — the radio answers one request at a time, and a single pending
-  // handler keeps response/ERR matching unambiguous.
+  // handler keeps response/ERR matching unambiguous. `retries` re-sends the
+  // command that many extra times if it times out (read-only commands pass 1 to
+  // ride out a transient drop under load); other failures propagate on the
+  // first try.
   private cmd(
     payload: Uint8Array,
     types: RespCode[],
     timeout = 5000,
+    retries = 0,
   ): Promise<Uint8Array> {
+    const attempt = () => this.sendCmd(payload, types, timeout);
     const run = this.cmdChain.then(
-      () => this.sendCmd(payload, types, timeout),
-      () => this.sendCmd(payload, types, timeout),
+      () => this.attemptCmd(attempt, retries),
+      () => this.attemptCmd(attempt, retries),
     );
     // Advance the chain on settle (success or failure) without leaking the
     // rejection into the next command or retaining the resolved frame.
@@ -297,6 +302,25 @@ export class MeshCoreClient {
       () => undefined,
     );
     return run;
+  }
+
+  // Runs one exchange, re-running it up to `retries` more times when it rejects
+  // with a timeout. A timeout is the one transient worth retrying — a device
+  // ERR is a definitive answer, and a closed transport fails fast (see
+  // `sendCmd`), so re-requesting either just doubles the wait. The single home
+  // for the timeout-retry policy: callers opt in with `cmd`'s `retries` arg
+  // instead of hand-rolling their own loop.
+  private async attemptCmd(
+    attempt: () => Promise<Uint8Array>,
+    retries: number,
+  ): Promise<Uint8Array> {
+    for (let left = retries; ; left--) {
+      try {
+        return await attempt();
+      } catch (err) {
+        if (left <= 0 || !(err as { timeout?: boolean }).timeout) throw err;
+      }
+    }
   }
 
   // Performs one command/response exchange: registers a pending handler, arms
@@ -308,6 +332,14 @@ export class MeshCoreClient {
     timeout: number,
   ): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
+      // The chain may still hold commands that were queued before the link
+      // dropped; fail them immediately rather than arming a timeout against a
+      // dead transport (a closed BLE characteristic's write often never
+      // rejects, so the handler would otherwise sit until its full timeout).
+      if (this._closed) {
+        reject(new Error('Transport closed'));
+        return;
+      }
       const h: PendingCmd = {
         types,
         resolve,
@@ -878,7 +910,7 @@ export class MeshCoreClient {
     let secs: number | null;
     try {
       secs = parseCurrentTime(
-        await this.cmd(buildGetDeviceTime(), [RESP.CURR_TIME], 3000),
+        await this.cmd(buildGetDeviceTime(), [RESP.CURR_TIME], 3000, 1),
       );
     } catch (err) {
       // Only an ERR frame from `resolveHandler` carrying the explicit
@@ -909,23 +941,17 @@ export class MeshCoreClient {
     await this.cmd(buildSetDeviceTime(epochSecs), [RESP.OK], 5000);
   }
 
-  /** Fetches battery and storage stats, or null if the request times out. */
+  /** Fetches battery and storage stats, or null if the request fails. */
   async getBattery(): Promise<BatteryInfo | null> {
-    // One retry: a single read occasionally times out under load; re-requesting
-    // this read-only command keeps the card from intermittently blanking.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        return parseBattAndStorage(
-          await this.cmd(buildGetBattery(), [RESP.BATT_AND_STORAGE], 3000),
-        );
-      } catch (err) {
-        // Only a timeout is worth retrying — a device ERR is a definitive
-        // answer, and re-requesting it just doubles the wait before the card
-        // settles to "not reported".
-        if (!(err as { timeout?: boolean }).timeout) break;
-      }
+    // One timeout retry (via cmd) so a single dropped read under load doesn't
+    // intermittently blank the card.
+    try {
+      return parseBattAndStorage(
+        await this.cmd(buildGetBattery(), [RESP.BATT_AND_STORAGE], 3000, 1),
+      );
+    } catch {
+      return null;
     }
-    return null;
   }
 
   /**
@@ -940,30 +966,21 @@ export class MeshCoreClient {
     };
   }
 
-  // Requests one `STATS` page and parses it, retrying once. A page occasionally
-  // times out or returns a malformed frame under load; a single re-request
-  // almost always succeeds and stops the card from reading "not reported".
+  // Requests one `STATS` page and parses it, retrying once on timeout (via cmd)
+  // so a transient drop under load doesn't blank the card. Returns undefined if
+  // the page times out, errors, or comes back malformed.
   private async getStatsPage<T>(
     subtype: number,
     parse: (d: Uint8Array) => T | null,
   ): Promise<T | undefined> {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const parsed = parse(
-          await this.cmd(buildGetStats(subtype), [RESP.STATS], 3000),
-        );
-        // A non-null parse is the answer; an explicit null is a malformed
-        // frame, so fall through and retry once. Compare against `null`
-        // explicitly so a legitimate `0`/empty value isn't discarded.
-        if (parsed !== null) return parsed;
-      } catch (err) {
-        // Only a timeout is worth retrying — a device ERR is a definitive
-        // answer, and re-requesting it just doubles the wait before the card
-        // settles to "not reported".
-        if (!(err as { timeout?: boolean }).timeout) break;
-      }
+    try {
+      return (
+        parse(await this.cmd(buildGetStats(subtype), [RESP.STATS], 3000, 1)) ??
+        undefined
+      );
+    } catch {
+      return undefined;
     }
-    return undefined;
   }
 
   /**
