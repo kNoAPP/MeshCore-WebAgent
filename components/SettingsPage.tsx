@@ -13,7 +13,7 @@ import {
   fmtVoltage,
   fmtNum,
   utf8ByteLength,
-  selfShareUri,
+  contactShareUri,
   ADV_ICON,
 } from '@/lib/utils';
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
@@ -236,8 +236,12 @@ function ShareNodeModal({
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);
   const { advertise, sending } = useAdvertise();
-  const uri = selfShareUri(selfInfo);
   const advType = selfInfo.advType ?? 1;
+  const uri = contactShareUri({
+    name: selfInfo.name,
+    pubkey: selfInfo.pubkey,
+    advType,
+  });
   const enabled = status === 'connected' && !sending;
   return (
     <ModalShell title={t('settings.shareNodeTitle')} onClose={onClose}>

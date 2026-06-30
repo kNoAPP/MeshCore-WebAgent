@@ -16,10 +16,18 @@ import { QrCode } from './QrCode';
  * advert handler.
  *
  * @param qrValue - the string encoded into the QR (the share URI).
+ * @param title - the bold heading above the scan hint (icon + node name).
+ * @param scanHint - the muted line prompting the viewer to scan the QR.
+ * @param pubkeyLabel - the caption above the public-key copy row.
  * @param pubkey - the full public key, shown in the copy row and copied on
  * click.
- * @param onAdvert - invoked by the zero-hop advert button.
+ * @param advertLabel - the zero-hop advert button's label.
+ * @param advertHint - the muted explanation shown beneath the advert buttons.
  * @param advertDisabled - disables the advert button (e.g. for repeaters).
+ * @param onAdvert - invoked by the zero-hop advert button.
+ * @param floodLabel - the flood advert button's label; required when
+ * {@link onFloodAdvert} is set.
+ * @param floodDisabled - disables the flood advert button.
  * @param onFloodAdvert - when set, renders a second (flood) advert button
  * beside the zero-hop one; only self-share uses it.
  */
@@ -46,10 +54,14 @@ export function ShareCard({
   advertHint: string;
   advertDisabled?: boolean;
   onAdvert: () => void;
-  floodLabel?: string;
-  floodDisabled?: boolean;
-  onFloodAdvert?: () => void;
-}) {
+} & (
+  | {
+      onFloodAdvert?: undefined;
+      floodLabel?: undefined;
+      floodDisabled?: undefined;
+    }
+  | { onFloodAdvert: () => void; floodLabel: string; floodDisabled?: boolean }
+)) {
   return (
     <div>
       <div className='flex flex-col items-center gap-2'>

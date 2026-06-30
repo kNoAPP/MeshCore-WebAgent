@@ -6,7 +6,7 @@ import {
   ADV_TYPE_ROOM,
   ADV_TYPE_SENSOR,
 } from '@/lib/meshcore/constants';
-import type { Contact, SelfInfo } from '@/types/meshcore';
+import type { Contact } from '@/types/meshcore';
 
 /**
  * Hex-encodes bytes as lowercase, two chars per byte.
@@ -186,22 +186,6 @@ export function contactShareUri(
     type: String(contact.advType || 1),
   });
   return `meshcore://contact/add?${params.toString()}`;
-}
-
-/**
- * Builds the `meshcore://contact/add` share URI for this node so others can add
- * you by scanning your QR or pasting the link. Delegates to
- * {@link contactShareUri}; {@link SelfInfo.advType} is optional on older
- * firmware, so it falls back to 1 (companion/chat) there.
- */
-export function selfShareUri(
-  selfInfo: Pick<SelfInfo, 'name' | 'pubkey' | 'advType'>,
-): string {
-  return contactShareUri({
-    name: selfInfo.name,
-    pubkey: selfInfo.pubkey,
-    advType: selfInfo.advType ?? 1,
-  });
 }
 
 /** Translation key for each {@link Contact.advType}. */
