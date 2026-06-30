@@ -151,7 +151,8 @@
       "identity": "Identität",
       "radio": "Funk",
       "advertise": "Ankündigen",
-      "storage": "Speicher & Akku"
+      "storage": "Speicher & Akku",
+      "danger": "Geräteaktionen"
     },
     "model": "Modell",
     "firmware": "Firmware-Version",
@@ -192,7 +193,11 @@
     "storageUsed": "Speicher",
     "kbUsage": "{{used}} / {{total}} KB",
     "noBattery": "Speicher und Akku werden von diesem Gerät nicht gemeldet.",
-    "viewStats": "Vollständige Statistiken anzeigen →"
+    "viewStats": "Vollständige Statistiken anzeigen →",
+    "rebootHint": "Starte das Funkgerät neu. Die Verbindung wird während des Neustarts getrennt und stellt sich automatisch wieder her, sobald das Gerät zurück ist.",
+    "reboot": "Gerät neu starten",
+    "rebootConfirm": "Funkgerät jetzt neu starten?",
+    "rebootConfirmAction": "Neu starten"
   },
   "chat": {
     "empty": "Wähle einen Kanal oder Kontakt, um zu chatten",
@@ -380,6 +385,8 @@
     "advertNoRecent": "Teilen nicht möglich: Dein Funkgerät hat kürzlich kein Advert von diesem Kontakt empfangen",
     "selfAdvertZeroHopSent": "An Nodes in der Nähe angekündigt",
     "selfAdvertFloodSent": "Ankündigung ins Mesh geflutet",
-    "selfAdvertFailed": "Ankündigung fehlgeschlagen: {{error}}"
+    "selfAdvertFailed": "Ankündigung fehlgeschlagen: {{error}}",
+    "rebooting": "Neustart … Verbindung wird wiederhergestellt, sobald das Gerät zurück ist",
+    "rebootFailed": "Neustart fehlgeschlagen: {{error}}"
   }
 }

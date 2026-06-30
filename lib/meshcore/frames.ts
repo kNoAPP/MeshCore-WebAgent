@@ -319,6 +319,22 @@ export function buildSetOtherParams(manualAdd: number): Uint8Array {
 }
 
 /**
+ * Reboots the radio (`REBOOT`). The payload is the command byte followed by the
+ * ASCII confirmation word `"reboot"` (no terminator) — a guard the firmware
+ * checks before restarting, matching `sendCommandReboot` in `meshcore.js`. The
+ * radio typically restarts before replying, so the link drops as part of the
+ * command; the caller treats that as success (see
+ * {@link MeshCoreClient.reboot}).
+ */
+export function buildReboot(): Uint8Array {
+  const magic = enc.encode('reboot');
+  const p = new Uint8Array(1 + magic.length);
+  p[0] = CMD.REBOOT;
+  p.set(magic, 1);
+  return p;
+}
+
+/**
  * Sets the auto-add filter and hop limit.
  *
  * @param configByte - {@link AUTOADD} bitmask.

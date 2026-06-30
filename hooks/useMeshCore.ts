@@ -1055,6 +1055,26 @@ export function useMeshCore() {
     [client, showToast],
   );
 
+  /**
+   * Reboots the radio. The command drops the transport link as the device
+   * restarts; we deliberately do *not* call {@link disconnect} (which would set
+   * `userInitiatedDisconnect` and suppress reconnect). Instead the drop flows
+   * through the client's `onDisconnect` into the auto-reconnect loop, which
+   * recovers the session once the radio comes back. Just toast "Rebooting…".
+   */
+  const rebootDevice = useCallback(async () => {
+    if (!canTransmit(client)) return;
+    try {
+      await client.reboot();
+      showToast(i18n.t('toast.rebooting'));
+    } catch (err) {
+      showToast(
+        i18n.t('toast.rebootFailed', { error: (err as Error).message }),
+        'error',
+      );
+    }
+  }, [client, showToast]);
+
   /** Persists auto-add settings locally and writes them to the radio. */
   const applyAutoAddConfig = useCallback(
     async (cfg: AutoAddConfig) => {
@@ -1100,5 +1120,6 @@ export function useMeshCore() {
     setNodeName,
     applyRadioParams,
     applyAutoAddConfig,
+    rebootDevice,
   };
 }

@@ -20,8 +20,9 @@ import { RadioSettingsModal, radioFields } from './RadioSettings';
  * pane while `view` is `'settings'`. The Identity section's node name is
  * editable inline ({@link NodeNameRow}), the Radio section opens the
  * {@link RadioSettingsModal} editor, and the Advertise section
- * ({@link AdvertiseCard}) announces this node to the mesh; remaining device
- * actions (reboot, share) land in later Phase 2 tasks.
+ * ({@link AdvertiseCard}) announces this node to the mesh. The Device actions
+ * section ({@link RebootCard}) reboots the radio behind an inline confirmation;
+ * the dropped link recovers through the hook's auto-reconnect loop.
  */
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -176,6 +177,8 @@ export function SettingsPage() {
               {t('settings.viewStats')}
             </button>
           </Card>
+
+          <RebootCard />
         </div>
       </div>
 
@@ -349,6 +352,71 @@ function AdvertiseCard() {
           {t('settings.advertiseFlood')}
         </button>
       </div>
+    </Card>
+  );
+}
+
+/**
+ * The Device actions section: reboots the radio behind an inline confirmation.
+ * Rebooting is destructive to the live link — the radio restarts and the
+ * transport drops — so it's deliberately red-styled and a two-step action.
+ * After {@link useMeshCore.rebootDevice} sends the command the link drops and
+ * the hook's auto-reconnect loop recovers the session, so there's nothing to do
+ * here but toast and let the reconnecting overlay take over. Gated to a fully
+ * connected link, matching every other radio write.
+ */
+function RebootCard() {
+  const { t } = useTranslation();
+  const status = useMeshStore((s) => s.status);
+  const client = useMeshStore((s) => s.client);
+  const { rebootDevice } = useMeshCore();
+  const [confirming, setConfirming] = useState(false);
+  const [rebooting, setRebooting] = useState(false);
+
+  // Mirrors canTransmit(): status flips to 'connected' before the post-init
+  // hydrate finishes, so also require a live, open client handle.
+  const connected = status === 'connected' && !!client && !client.closed;
+
+  const reboot = async () => {
+    setRebooting(true);
+    await rebootDevice();
+    setRebooting(false);
+    setConfirming(false);
+  };
+
+  return (
+    <Card title={t('settings.section.danger')} className='col-span-2'>
+      <p className='mb-3 text-xs text-(--text2)'>{t('settings.rebootHint')}</p>
+      {confirming ? (
+        <div className='flex items-center justify-between gap-3'>
+          <span className='text-xs text-(--text2)'>
+            {t('settings.rebootConfirm')}
+          </span>
+          <div className='flex shrink-0 gap-2'>
+            <button
+              onClick={() => setConfirming(false)}
+              className='rounded-md px-3 py-1.5 text-xs text-(--text) hover:bg-(--surface)'
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={() => void reboot()}
+              disabled={!connected || rebooting}
+              className='rounded-md bg-(--red) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--red-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--red)'
+            >
+              {t('settings.rebootConfirmAction')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setConfirming(true)}
+          disabled={!connected}
+          className='rounded-md bg-(--red-dim) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--red-dim-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--red-dim)'
+        >
+          {t('settings.reboot')}
+        </button>
+      )}
     </Card>
   );
 }

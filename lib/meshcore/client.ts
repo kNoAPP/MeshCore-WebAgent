@@ -50,6 +50,7 @@ import {
   buildSetOtherParams,
   buildSetAutoAddConfig,
   buildGetAutoAddConfig,
+  buildReboot,
 } from './frames';
 import {
   parseSelfInfo,
@@ -285,7 +286,11 @@ export class MeshCoreClient {
         timer: setTimeout(() => {
           const i = this.handlers.indexOf(h);
           if (i !== -1) this.handlers.splice(i, 1);
-          reject(new Error(`Timeout waiting for 0x${types[0].toString(16)}`));
+          const err: Error & { timeout?: true } = new Error(
+            `Timeout waiting for 0x${types[0].toString(16)}`,
+          );
+          err.timeout = true;
+          reject(err);
         }, timeout),
       };
       this.handlers.push(h);
@@ -764,6 +769,30 @@ export class MeshCoreClient {
   }
 
   /**
+   * Reboots the radio (`REBOOT`). The radio usually restarts before it can
+   * reply, dropping the transport link as part of the command, so the command
+   * resolving as a bare response timeout — or the link dropping first — is
+   * treated as success. A device `ERR` (e.g. the firmware doesn't support the
+   * command) or a transport/send failure is surfaced as a failure.
+   * The dropped link then flows through {@link MeshCoreCallbacks.onDisconnect}
+   * into the hook's auto-reconnect loop, which recovers the session once the
+   * device comes back.
+   */
+  async reboot(): Promise<void> {
+    try {
+      await this.cmd(buildReboot(), [RESP.OK], 1000);
+    } catch (err) {
+      // Two outcomes are expected: a bare response timeout (the radio replied
+      // too slowly) or the link dropping as the radio restarts, which rejects
+      // the in-flight command with the tagged `transportClosed` error. Surface
+      // everything else: a device ERR (numeric `code`) or a transport/send
+      // failure means the reboot never took effect.
+      const e = err as { timeout?: true; transportClosed?: true };
+      if (!e.timeout && !e.transportClosed) throw err;
+    }
+  }
+
+  /**
    * The auto-add mode, derived from the `manual_add` byte in the `APP_START`
    * handshake (so always available after {@link init}); undefined on older
    * firmware that omits it.
@@ -947,7 +976,14 @@ export class MeshCoreClient {
   // notify the hook. Idempotent.
   private handleClose(): void {
     if (this._closed) return;
-    this.teardown(new Error('Transport closed'));
+    // Tag the rejection as a link drop so callers can tell it apart from a
+    // genuine command failure — `reboot()` uses this to treat the expected
+    // restart-induced drop as success.
+    const err: Error & { transportClosed?: true } = new Error(
+      'Transport closed',
+    );
+    err.transportClosed = true;
+    this.teardown(err);
     // The link is already gone — do NOT close the transport here.
     this.callbacks.onDisconnect?.();
   }
