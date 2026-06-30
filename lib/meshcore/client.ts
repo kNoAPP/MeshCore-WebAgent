@@ -918,7 +918,12 @@ export class MeshCoreClient {
         return parseBattAndStorage(
           await this.cmd(buildGetBattery(), [RESP.BATT_AND_STORAGE], 3000),
         );
-      } catch {}
+      } catch (err) {
+        // Only a timeout is worth retrying — a device ERR is a definitive
+        // answer, and re-requesting it just doubles the wait before the card
+        // settles to "not reported".
+        if (!(err as { timeout?: boolean }).timeout) break;
+      }
     }
     return null;
   }
@@ -947,8 +952,16 @@ export class MeshCoreClient {
         const parsed = parse(
           await this.cmd(buildGetStats(subtype), [RESP.STATS], 3000),
         );
-        if (parsed) return parsed;
-      } catch {}
+        // A non-null parse is the answer; an explicit null is a malformed
+        // frame, so fall through and retry once. Compare against `null`
+        // explicitly so a legitimate `0`/empty value isn't discarded.
+        if (parsed !== null) return parsed;
+      } catch (err) {
+        // Only a timeout is worth retrying — a device ERR is a definitive
+        // answer, and re-requesting it just doubles the wait before the card
+        // settles to "not reported".
+        if (!(err as { timeout?: boolean }).timeout) break;
+      }
     }
     return undefined;
   }

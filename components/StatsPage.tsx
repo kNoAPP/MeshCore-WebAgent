@@ -35,7 +35,8 @@ export function StatsPage() {
   // The device clock (epoch seconds) and its skew from this computer at the
   // moment it was read, or null when there's no readable time — the radio
   // lacks GET_DEVICE_TIME (older firmware) or its clock is unset. The clock
-  // card is hidden while null.
+  // card shows "not reported" while null (once fetched), matching the other
+  // cards so the grid doesn't reflow.
   const [clock, setClock] = useState<{ time: number; skew: number } | null>(
     null,
   );
@@ -55,8 +56,8 @@ export function StatsPage() {
 
   // Reads the device clock and stores it with a fresh skew snapshot, unless
   // `gen` is no longer the current session. A null (unsupported firmware) or
-  // unset (epoch 0) clock blanks the card; a transient read error leaves the
-  // current display untouched.
+  // unset (epoch 0) clock surfaces the card's "not reported" state; a transient
+  // read error leaves the current display untouched.
   const readClock = useCallback(
     async (gen: number) => {
       if (!client) return;
@@ -275,7 +276,7 @@ export function StatsPage() {
                   />
                 )
               )}
-              {clock !== null && (
+              {clock !== null ? (
                 <StatCard
                   title={t('stats.card.clock')}
                   rows={[
@@ -301,6 +302,16 @@ export function StatsPage() {
                     ],
                   ]}
                 />
+              ) : (
+                // Keep the clock slot once a fetch has landed (matching the
+                // other cards) so the grid doesn't reflow when the loading
+                // skeleton's clock card resolves to no readable time.
+                fetched && (
+                  <StatCard
+                    title={t('stats.card.clock')}
+                    note={t('stats.notReported')}
+                  />
+                )
               )}
               {stats?.radio ? (
                 <StatCard
