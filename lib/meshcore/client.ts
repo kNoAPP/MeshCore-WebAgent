@@ -162,6 +162,12 @@ export class MeshCoreClient {
   deviceInfo: DeviceInfo | null = null;
 
   private handlers: PendingCmd[] = [];
+  // Serializes command/response exchanges: each cmd() waits for the previous to
+  // settle before sending. The radio handles one exchange at a time, so this
+  // stops the 5s message poll (or any other command) from racing a fetch for
+  // the shared handler queue and intermittently stealing an ERR rejection or
+  // delaying a reply past its timeout.
+  private cmdChain: Promise<unknown> = Promise.resolve();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private pathSyncTimer: ReturnType<typeof setTimeout> | null = null;
   private polling = false;
@@ -271,12 +277,35 @@ export class MeshCoreClient {
   }
 
   // Sends a command and resolves with the first inbound frame whose RESP code
-  // is in `types` (an ERR frame rejects any pending command). Rejects on
-  // timeout.
+  // is in `types` (an ERR frame rejects the pending command). Rejects on
+  // timeout. Exchanges are serialized through `cmdChain` so only one is ever
+  // outstanding — the radio answers one request at a time, and a single pending
+  // handler keeps response/ERR matching unambiguous.
   private cmd(
     payload: Uint8Array,
     types: RespCode[],
     timeout = 5000,
+  ): Promise<Uint8Array> {
+    const run = this.cmdChain.then(
+      () => this.sendCmd(payload, types, timeout),
+      () => this.sendCmd(payload, types, timeout),
+    );
+    // Advance the chain on settle (success or failure) without leaking the
+    // rejection into the next command or retaining the resolved frame.
+    this.cmdChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  // Performs one command/response exchange: registers a pending handler, arms
+  // the timeout, and writes the payload. Always call through `cmd` so it stays
+  // serialized.
+  private sendCmd(
+    payload: Uint8Array,
+    types: RespCode[],
+    timeout: number,
   ): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
       const h: PendingCmd = {
@@ -882,13 +911,16 @@ export class MeshCoreClient {
 
   /** Fetches battery and storage stats, or null if the request times out. */
   async getBattery(): Promise<BatteryInfo | null> {
-    try {
-      return parseBattAndStorage(
-        await this.cmd(buildGetBattery(), [RESP.BATT_AND_STORAGE], 3000),
-      );
-    } catch {
-      return null;
+    // One retry: a single read occasionally times out under load; re-requesting
+    // this read-only command keeps the card from intermittently blanking.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return parseBattAndStorage(
+          await this.cmd(buildGetBattery(), [RESP.BATT_AND_STORAGE], 3000),
+        );
+      } catch {}
     }
+    return null;
   }
 
   /**
@@ -896,20 +928,29 @@ export class MeshCoreClient {
    * its request fails.
    */
   async getStats(): Promise<StatsResult> {
-    const result: StatsResult = {};
-    try {
-      const d = await this.cmd(buildGetStats(0), [RESP.STATS], 3000);
-      result.core = parseStatsCore(d) ?? undefined;
-    } catch {}
-    try {
-      const d = await this.cmd(buildGetStats(1), [RESP.STATS], 3000);
-      result.radio = parseStatsRadio(d) ?? undefined;
-    } catch {}
-    try {
-      const d = await this.cmd(buildGetStats(2), [RESP.STATS], 3000);
-      result.packets = parseStatsPackets(d) ?? undefined;
-    } catch {}
-    return result;
+    return {
+      core: await this.getStatsPage(0, parseStatsCore),
+      radio: await this.getStatsPage(1, parseStatsRadio),
+      packets: await this.getStatsPage(2, parseStatsPackets),
+    };
+  }
+
+  // Requests one `STATS` page and parses it, retrying once. A page occasionally
+  // times out or returns a malformed frame under load; a single re-request
+  // almost always succeeds and stops the card from reading "not reported".
+  private async getStatsPage<T>(
+    subtype: number,
+    parse: (d: Uint8Array) => T | null,
+  ): Promise<T | undefined> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const parsed = parse(
+          await this.cmd(buildGetStats(subtype), [RESP.STATS], 3000),
+        );
+        if (parsed) return parsed;
+      } catch {}
+    }
+    return undefined;
   }
 
   /**

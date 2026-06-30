@@ -100,3 +100,42 @@ body,
   background: var(--border);
   border-radius: 4px;
 }
+
+/*
+ * Skeleton placeholder with a sweeping shimmer, used for loading states (e.g.
+ * the stats cards while a fetch is in flight). The base block reads against
+ * either surface tone; the sweep is a translucent highlight of the muted text
+ * color so it shows in both themes.
+ */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--border);
+  border-radius: 4px;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text2) 25%, transparent),
+    transparent
+  );
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Respect users who prefer reduced motion: hold a static placeholder. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
