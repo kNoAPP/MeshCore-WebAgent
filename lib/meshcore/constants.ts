@@ -21,6 +21,7 @@ export const CMD = {
   SET_RADIO_PARAMS: 0x0b,
   SET_TX_POWER: 0x0c,
   RESET_PATH: 0x0d,
+  SET_ADVERT_LATLON: 0x0e,
   REMOVE_CONTACT: 0x0f,
   SHARE_CONTACT: 0x10,
   EXPORT_CONTACT: 0x11,
@@ -152,6 +153,54 @@ export const RADIO_FREQ_MAX_MHZ = 2500;
  * @see the `power < -9 || power > MAX_LORA_TX_POWER` guard in `MyMesh.cpp`.
  */
 export const TX_POWER_MIN_DBM = -9;
+
+/**
+ * Wire scale for the advertised latitude/longitude sent with
+ * {@link CMD.SET_ADVERT_LATLON} and reported in `SELF_INFO`: degrees travel as
+ * a signed int32 of `degrees * 1e6`.
+ *
+ * @see `CMD_SET_ADVERT_LATLON` in the companion radio's `MyMesh.cpp`, which
+ * reads the int32s and stores `node_lat = raw / 1e6`.
+ */
+export const LATLON_SCALE = 1e6;
+
+/**
+ * Inclusive latitude bounds (decimal degrees) the firmware accepts for
+ * {@link CMD.SET_ADVERT_LATLON}; values outside are rejected with
+ * `ERR_CODE.ILLEGAL_ARG`, so the editor validates against them client-side.
+ *
+ * @see the `lat <= 90 * 1E6 && lat >= -90 * 1E6` guard in `MyMesh.cpp`.
+ */
+export const ADVERT_LAT_MIN = -90;
+/** @see {@link ADVERT_LAT_MIN}. */
+export const ADVERT_LAT_MAX = 90;
+
+/**
+ * Inclusive longitude bounds (decimal degrees) the firmware accepts for
+ * {@link CMD.SET_ADVERT_LATLON}.
+ *
+ * @see the `lon <= 180 * 1E6 && lon >= -180 * 1E6` guard in `MyMesh.cpp`.
+ */
+export const ADVERT_LON_MIN = -180;
+/** @see {@link ADVERT_LON_MIN}. */
+export const ADVERT_LON_MAX = 180;
+
+/**
+ * `advert_loc_policy` values (`SELF_INFO` byte 45, and byte 3 of the
+ * {@link CMD.SET_OTHER_PARAMS} frame) that decide whether — and from where —
+ * this radio's location is attached to its adverts.
+ *
+ * @see the `ADVERT_LOC_*` defines and `CMD_SET_OTHER_PARAMS` handler in the
+ * companion radio's `CommonCLI.h` / `MyMesh.cpp`.
+ */
+export const ADVERT_LOC_POLICY = {
+  /** Never attach a location to adverts. */
+  NONE: 0,
+  /** Attach the live GPS fix (from the sensor manager), when available. */
+  SHARE: 1,
+  /** Attach the coordinate stored via {@link CMD.SET_ADVERT_LATLON}. */
+  PREFS: 2,
+} as const;
 
 /**
  * Spreading-factor options offered in the radio editor (SF7–SF12). The firmware

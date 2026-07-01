@@ -165,6 +165,17 @@ interface MeshState {
   mapPrefs: MapPrefs | null;
   toast: Toast | null;
   view: AppView;
+  /**
+   * True while the map is in location-pick mode (opened from the Location card
+   * in Settings). Drives the map's confirm/cancel banner and click-to-place
+   * marker; cleared by any navigation.
+   */
+  mapPicking: boolean;
+  /**
+   * A location the user just confirmed on the map, in decimal degrees, awaiting
+   * consumption by the Location card. One-shot: cleared once read.
+   */
+  pendingLocation: { lat: number; lon: number } | null;
   managePanel: { kind: 'contact' | 'channel'; id: string } | null;
   autoAddOpen: boolean;
   addChannelOpen: boolean;
@@ -196,6 +207,14 @@ interface MeshActions {
   showToast: (text: string, variant?: Toast['variant']) => void;
   dismissToast: () => void;
   setView: (view: AppView) => void;
+  /** Opens the map in location-pick mode. */
+  startLocationPick: () => void;
+  /** Confirms the picked coordinate (degrees) and returns to Settings. */
+  confirmLocationPick: (lat: number, lon: number) => void;
+  /** Aborts location picking without a result, staying on the map. */
+  cancelLocationPick: () => void;
+  /** Clears the one-shot {@link MeshState.pendingLocation} after it's read. */
+  clearPendingLocation: () => void;
   setManagePanel: (
     panel: { kind: 'contact' | 'channel'; id: string } | null,
   ) => void;
@@ -227,6 +246,8 @@ const initialState: MeshState = {
   mapPrefs: loadMapPrefs(),
   toast: null,
   view: 'chat',
+  mapPicking: false,
+  pendingLocation: null,
   managePanel: null,
   autoAddOpen: false,
   addChannelOpen: false,
@@ -396,7 +417,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   },
 
   dismissToast: () => set({ toast: null }),
-  setView: (view) => set({ view }),
+  // Any manual tab switch also aborts an in-progress location pick.
+  setView: (view) => set({ view, mapPicking: false }),
+  startLocationPick: () => set({ mapPicking: true, view: 'map' }),
+  confirmLocationPick: (lat, lon) =>
+    set({ mapPicking: false, view: 'settings', pendingLocation: { lat, lon } }),
+  cancelLocationPick: () => set({ mapPicking: false }),
+  clearPendingLocation: () => set({ pendingLocation: null }),
   setManagePanel: (managePanel) => set({ managePanel }),
   setAutoAddOpen: (autoAddOpen) => set({ autoAddOpen }),
   setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
@@ -409,6 +436,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   closeConnectionOverlays: () =>
     set({
       view: 'chat',
+      mapPicking: false,
+      pendingLocation: null,
       managePanel: null,
       autoAddOpen: false,
       addChannelOpen: false,

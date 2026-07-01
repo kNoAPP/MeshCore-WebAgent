@@ -151,7 +151,7 @@
       "device": "Device",
       "identity": "Identity",
       "radio": "Radio",
-      "storage": "Storage & Battery",
+      "location": "Location",
       "danger": "Device actions"
     },
     "model": "Model",
@@ -194,11 +194,11 @@
     },
     "advertiseZeroHop": "Advertise to neighbors (zero-hop)",
     "advertiseFlood": "Advertise (flood)",
-    "voltage": "Voltage",
-    "storageUsed": "Storage",
-    "kbUsage": "{{used}} / {{total}} KB",
-    "noBattery": "Storage and battery not reported by this device.",
-    "viewStats": "View full stats →",
+    "locationHint": "Set the location this radio advertises to the mesh. Enter coordinates in decimal degrees, or pick a spot on the map.",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "setOnMap": "Set on map",
+    "sharePosition": "Share position in advert",
     "rebootHint": "Restart the radio. The connection will drop while it reboots and reconnect automatically once the device comes back.",
     "reboot": "Reboot device",
     "rebootConfirm": "Reboot the radio now?",
@@ -290,6 +290,11 @@
   "map": {
     "self": "This node",
     "markerCap": "Showing {{shown}} of {{total}} nodes",
+    "pick": {
+      "hint": "Click the map to set this radio's location.",
+      "confirm": "Confirm location",
+      "cancel": "Cancel"
+    },
     "legend": {
       "title": "Legend",
       "companion": "Companion",
@@ -438,6 +443,10 @@
     "saveSettingsFailed": "Failed to save settings: {{error}}",
     "nodeNameSaved": "Node name updated",
     "nodeNameSaveFailed": "Failed to update node name: {{error}}",
+    "locationSaved": "Location updated",
+    "locationSaveFailed": "Failed to update location: {{error}}",
+    "sharePositionSaved": "Advert location sharing updated",
+    "sharePositionSaveFailed": "Failed to update advert location sharing: {{error}}",
     "radioParamsSaved": "Radio settings updated",
     "radioParamsSaveFailed": "Failed to update radio settings: {{error}}",
     "advertSent": "Advert sent to nearby nodes",

@@ -151,7 +151,7 @@
       "device": "Gerät",
       "identity": "Identität",
       "radio": "Funk",
-      "storage": "Speicher & Akku",
+      "location": "Standort",
       "danger": "Geräteaktionen"
     },
     "model": "Modell",
@@ -194,11 +194,11 @@
     },
     "advertiseZeroHop": "An Nachbarn ankündigen (Zero-Hop)",
     "advertiseFlood": "Ankündigen (Flood)",
-    "voltage": "Spannung",
-    "storageUsed": "Speicher",
-    "kbUsage": "{{used}} / {{total}} KB",
-    "noBattery": "Speicher und Akku werden von diesem Gerät nicht gemeldet.",
-    "viewStats": "Vollständige Statistiken anzeigen →",
+    "locationHint": "Lege den Standort fest, den dieses Funkgerät im Mesh ankündigt. Gib Koordinaten in Dezimalgrad ein oder wähle einen Punkt auf der Karte.",
+    "latitude": "Breitengrad",
+    "longitude": "Längengrad",
+    "setOnMap": "Auf Karte festlegen",
+    "sharePosition": "Position im Advert teilen",
     "rebootHint": "Starte das Funkgerät neu. Die Verbindung wird während des Neustarts getrennt und stellt sich automatisch wieder her, sobald das Gerät zurück ist.",
     "reboot": "Gerät neu starten",
     "rebootConfirm": "Funkgerät jetzt neu starten?",
@@ -290,6 +290,11 @@
   "map": {
     "self": "Dieser Knoten",
     "markerCap": "{{shown}} von {{total}} Knoten werden angezeigt",
+    "pick": {
+      "hint": "Klicke auf die Karte, um den Standort dieses Funkgeräts festzulegen.",
+      "confirm": "Standort bestätigen",
+      "cancel": "Abbrechen"
+    },
     "legend": {
       "title": "Legende",
       "companion": "Begleiter",
@@ -438,6 +443,10 @@
     "saveSettingsFailed": "Speichern der Einstellungen fehlgeschlagen: {{error}}",
     "nodeNameSaved": "Knotenname aktualisiert",
     "nodeNameSaveFailed": "Aktualisieren des Knotennamens fehlgeschlagen: {{error}}",
+    "locationSaved": "Standort aktualisiert",
+    "locationSaveFailed": "Aktualisieren des Standorts fehlgeschlagen: {{error}}",
+    "sharePositionSaved": "Standortfreigabe im Advert aktualisiert",
+    "sharePositionSaveFailed": "Aktualisieren der Standortfreigabe im Advert fehlgeschlagen: {{error}}",
     "radioParamsSaved": "Funkeinstellungen aktualisiert",
     "radioParamsSaveFailed": "Aktualisieren der Funkeinstellungen fehlgeschlagen: {{error}}",
     "advertSent": "Advert an Nodes in der Nähe gesendet",

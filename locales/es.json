@@ -151,7 +151,7 @@
       "device": "Dispositivo",
       "identity": "Identidad",
       "radio": "Radio",
-      "storage": "Almacenamiento y batería",
+      "location": "Ubicación",
       "danger": "Acciones del dispositivo"
     },
     "model": "Modelo",
@@ -194,11 +194,11 @@
     },
     "advertiseZeroHop": "Anunciar a vecinos (cero saltos)",
     "advertiseFlood": "Anunciar (inundación)",
-    "voltage": "Voltaje",
-    "storageUsed": "Almacenamiento",
-    "kbUsage": "{{used}} / {{total}} KB",
-    "noBattery": "Este dispositivo no informa el almacenamiento ni la batería.",
-    "viewStats": "Ver estadísticas completas →",
+    "locationHint": "Establece la ubicación que esta radio anuncia a la malla. Introduce coordenadas en grados decimales o elige un punto en el mapa.",
+    "latitude": "Latitud",
+    "longitude": "Longitud",
+    "setOnMap": "Fijar en el mapa",
+    "sharePosition": "Compartir posición en el anuncio",
     "rebootHint": "Reinicia la radio. La conexión se cortará mientras se reinicia y se reconectará automáticamente cuando el dispositivo vuelva.",
     "reboot": "Reiniciar dispositivo",
     "rebootConfirm": "¿Reiniciar la radio ahora?",
@@ -290,6 +290,11 @@
   "map": {
     "self": "Este nodo",
     "markerCap": "Mostrando {{shown}} de {{total}} nodos",
+    "pick": {
+      "hint": "Haz clic en el mapa para establecer la ubicación de esta radio.",
+      "confirm": "Confirmar ubicación",
+      "cancel": "Cancelar"
+    },
     "legend": {
       "title": "Leyenda",
       "companion": "Compañero",
@@ -438,6 +443,10 @@
     "saveSettingsFailed": "Fallo al guardar ajustes: {{error}}",
     "nodeNameSaved": "Nombre del nodo actualizado",
     "nodeNameSaveFailed": "Fallo al actualizar el nombre del nodo: {{error}}",
+    "locationSaved": "Ubicación actualizada",
+    "locationSaveFailed": "Fallo al actualizar la ubicación: {{error}}",
+    "sharePositionSaved": "Compartir ubicación en el anuncio actualizado",
+    "sharePositionSaveFailed": "Fallo al actualizar el compartir ubicación en el anuncio: {{error}}",
     "radioParamsSaved": "Configuración de radio actualizada",
     "radioParamsSaveFailed": "Fallo al actualizar la configuración de radio: {{error}}",
     "advertSent": "Advert enviado a los nodos cercanos",
