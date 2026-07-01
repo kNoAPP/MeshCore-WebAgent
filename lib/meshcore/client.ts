@@ -838,20 +838,29 @@ export class MeshCoreClient {
   async setSharePosition(share: boolean): Promise<void> {
     const policy = share ? ADVERT_LOC_POLICY.PREFS : ADVERT_LOC_POLICY.NONE;
     const info = this.selfInfo;
+    // SET_OTHER_PARAMS is positional: the location policy (byte 3) can only be
+    // reached by resending the earlier prefs. If this radio's SELF_INFO was too
+    // short to report them, sending 0 would silently reset the user's other
+    // settings — refuse rather than clobber them.
+    if (
+      info?.manualAdd === undefined ||
+      info.telemetryMode === undefined ||
+      info.multiAcks === undefined
+    ) {
+      throw new Error('Radio did not report the prefs needed to change this');
+    }
     await this.cmd(
       buildSetAdvertLocPolicy(
-        info?.manualAdd ?? 0,
-        info?.telemetryMode ?? 0,
+        info.manualAdd,
+        info.telemetryMode,
         policy,
-        info?.multiAcks ?? 0,
+        info.multiAcks,
       ),
       [RESP.OK],
       5000,
     );
-    if (this.selfInfo) {
-      this.selfInfo = { ...this.selfInfo, advLocPolicy: policy };
-      this.callbacks.onSelfInfo?.(this.selfInfo);
-    }
+    this.selfInfo = { ...info, advLocPolicy: policy };
+    this.callbacks.onSelfInfo?.(this.selfInfo);
   }
 
   /**

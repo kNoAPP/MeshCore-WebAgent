@@ -150,6 +150,13 @@ function LeafletMap({
   // mode: a confirm/cancel banner and a draggable click-to-place pin.
   const mapPicking = useMeshStore((s) => s.mapPicking);
   const pickMarkerRef = useRef<L.Marker | null>(null);
+  // Latest self, read imperatively when entering pick mode. Keeping it out of
+  // the pick effect's deps means a mid-pick reconnect (which hands us a new
+  // `self`) won't re-run the effect and discard the user's placed pin.
+  const selfRef = useRef(self);
+  useEffect(() => {
+    selfRef.current = self;
+  }, [self]);
   // The coordinate (decimal degrees) the user has placed, or null until the
   // first map click while picking. Drives the Confirm button's enabled state.
   const [pickedPoint, setPickedPoint] = useState<{
@@ -293,7 +300,8 @@ function LeafletMap({
       }
     };
 
-    if (self) place(self.lat, self.lon);
+    const seed = selfRef.current;
+    if (seed) place(seed.lat, seed.lon);
 
     const onClick = (e: L.LeafletMouseEvent) =>
       place(e.latlng.lat, e.latlng.lng);
@@ -305,7 +313,7 @@ function LeafletMap({
       pickMarkerRef.current = null;
       setPickedPoint(null);
     };
-  }, [mapPicking, self]);
+  }, [mapPicking]);
 
   const total = visible.length + (self ? 1 : 0);
   const capped = total > MAX_MAP_MARKERS;
