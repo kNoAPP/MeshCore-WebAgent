@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil } from 'lucide-react';
-import { useMeshStore } from '@/store/meshStore';
+import { useMeshStore, type SettingsSection } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
 import { fmtNum, utf8ByteLength, contactShareUri, ADV_ICON } from '@/lib/utils';
@@ -40,9 +40,25 @@ import { RadioSettingsModal, radioFields } from './RadioSettings';
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { status, selfInfo, deviceInfo: device } = useMeshStore();
+  const settingsSection = useMeshStore((s) => s.settingsSection);
+  const clearSettingsSection = useMeshStore((s) => s.clearSettingsSection);
 
   const [radioEditOpen, setRadioEditOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+
+  // Scroll to and briefly flash a section card deep-linked from the command
+  // palette, then clear the one-shot request.
+  useEffect(() => {
+    if (!settingsSection) return;
+    const el = document.getElementById(`settings-${settingsSection}`);
+    clearSettingsSection();
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'auto', block: 'center' });
+    el.classList.add('msg-flash');
+    const timer = setTimeout(() => el.classList.remove('msg-flash'), 1600);
+    return () => clearTimeout(timer);
+  }, [settingsSection, clearSettingsSection]);
+
   // Editing needs a fully connected link and a firmware that reports every
   // radio field; older firmware that omits any leaves the affordance disabled.
   const fields = radioFields(selfInfo);
@@ -59,7 +75,7 @@ export function SettingsPage() {
         </div>
 
         <div className='grid grid-cols-2 gap-4'>
-          <Card title={t('settings.section.device')}>
+          <Card title={t('settings.section.device')} section='device'>
             <Row label={t('settings.model')} value={device?.model || unknown} />
             <Row
               label={t('settings.firmware')}
@@ -84,6 +100,7 @@ export function SettingsPage() {
 
           <Card
             title={t('settings.section.radio')}
+            section='radio'
             action={
               <button
                 onClick={() => setRadioEditOpen(true)}
@@ -144,6 +161,7 @@ export function SettingsPage() {
           <Card
             title={t('settings.section.identity')}
             className='col-span-2'
+            section='identity'
             action={
               <button
                 onClick={() => setShareOpen(true)}
@@ -432,7 +450,11 @@ function LocationCard() {
   };
 
   return (
-    <Card title={t('settings.section.location')} className='col-span-2'>
+    <Card
+      title={t('settings.section.location')}
+      className='col-span-2'
+      section='location'
+    >
       <p className='mb-3 text-xs text-(--text2)'>
         {t('settings.locationHint')}
       </p>
@@ -535,7 +557,11 @@ function RebootCard() {
   };
 
   return (
-    <Card title={t('settings.section.danger')} className='col-span-2'>
+    <Card
+      title={t('settings.section.danger')}
+      className='col-span-2'
+      section='danger'
+    >
       <p className='mb-3 text-xs text-(--text2)'>{t('settings.rebootHint')}</p>
       {confirming ? (
         <div className='flex items-center justify-between gap-3'>
@@ -574,20 +600,26 @@ function RebootCard() {
 /**
  * A titled card for one settings group. `action` renders an optional control
  * (e.g. an Edit button) on the right of the card heading.
+ *
+ * @param section - deep-link anchor id, so the command palette can scroll to
+ * and flash this card.
  */
 function Card({
   title,
   action,
   className,
+  section,
   children,
 }: {
   title: string;
   action?: React.ReactNode;
   className?: string;
+  section?: SettingsSection;
   children: React.ReactNode;
 }) {
   return (
     <div
+      id={section ? `settings-${section}` : undefined}
       className={`rounded-lg p-3.5 ${className ?? ''}`}
       style={{ background: 'var(--surface2)' }}
     >

@@ -18,6 +18,7 @@ import { ManagePanel } from './ManagePanel';
 import { AutoAddSettings } from './AutoAddSettings';
 import { AddChannelModal } from './AddChannelModal';
 import { AddContactModal } from './AddContactModal';
+import { CommandPalette } from './CommandPalette';
 import { Toast } from './Toast';
 
 // Leaflet and the map view are loaded only when the map opens, keeping the
@@ -37,6 +38,7 @@ export function AppShell() {
   const isDesktop = useIsDesktop();
   const status = useMeshStore((s) => s.status);
   const view = useMeshStore((s) => s.view);
+  const commandPaletteOpen = useMeshStore((s) => s.commandPaletteOpen);
   const connected = status === 'connected';
   const reconnecting = status === 'reconnecting';
   // A dropped link keeps the app mounted (chats stay visible) under a blocking
@@ -84,6 +86,7 @@ export function AppShell() {
           <AutoAddSettings />
           <AddChannelModal />
           <AddContactModal />
+          {commandPaletteOpen && <CommandPalette />}
         </>
       )}
       <Toast />

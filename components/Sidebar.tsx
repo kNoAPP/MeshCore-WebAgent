@@ -3,7 +3,14 @@
 
 'use client';
 
-import { useRef, useState, useCallback, useLayoutEffect, useMemo } from 'react';
+import {
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   useMeshStore,
@@ -155,6 +162,7 @@ export function Sidebar() {
   const channelsContentRef = useRef<HTMLDivElement>(null);
   const channelsHeaderRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<HTMLDivElement>(null);
+  const activeItemRef = useRef<HTMLDivElement>(null);
 
   const sortedChannels = Object.values(channels).sort((a, b) => a.idx - b.idx);
 
@@ -212,6 +220,13 @@ export function Sidebar() {
       return compareBySort(a, b, contactSort, latestTimes);
     });
   }, [contacts, contactFilter, contactSort, pinFavorites, latestTimes]);
+
+  // Scroll the active row into view when the open conversation changes, so a
+  // selection made elsewhere (e.g. the command palette) reveals its item even
+  // when it sits far down the list.
+  useEffect(() => {
+    activeItemRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [activeConvo?.id]);
 
   const onDividerMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -279,6 +294,7 @@ export function Sidebar() {
               return (
                 <SidebarItem
                   key={id}
+                  innerRef={active ? activeItemRef : undefined}
                   icon={ch.idx === 0 ? '📢' : '🔒'}
                   label={ch.name || t('common.channelName', { index: ch.idx })}
                   active={active}
@@ -364,6 +380,7 @@ export function Sidebar() {
             return (
               <SidebarItem
                 key={id}
+                innerRef={active ? activeItemRef : undefined}
                 icon={isFav ? '⭐' : (ADV_ICON[c.advType] ?? '👤')}
                 label={c.name || c.pubkeyPrefix.slice(0, 8)}
                 active={active}
@@ -572,6 +589,8 @@ function MenuRow({
  * One channel/contact row: icon, label, unread badge, and a hover-revealed
  * manage (`⋯`) button. Disabled rows (e.g. repeaters) aren't clickable to open.
  *
+ * @param innerRef - attached to the row root, so the parent can scroll the
+ * active row into view.
  * @param onManage - opens the manage panel for this item.
  * @param onClick - opens this conversation.
  */
@@ -582,6 +601,7 @@ function SidebarItem({
   unread,
   disabled,
   title,
+  innerRef,
   onManage,
   onClick,
 }: {
@@ -591,12 +611,14 @@ function SidebarItem({
   unread: number;
   disabled?: boolean;
   title?: string;
+  innerRef?: React.Ref<HTMLDivElement>;
   onManage: () => void;
   onClick: () => void;
 }) {
   const { t } = useTranslation();
   return (
     <div
+      ref={innerRef}
       className={`group flex w-full items-center gap-2 px-3.5 py-2 text-sm transition-colors ${
         disabled
           ? 'text-(--text2)'
