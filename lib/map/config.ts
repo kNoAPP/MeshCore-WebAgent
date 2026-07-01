@@ -25,8 +25,20 @@ export const TILE_URLS: Record<Theme, string> = {
 export const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-/** Upper bound on plotted markers, so a busy mesh can't stall the renderer. */
-export const MAX_MAP_MARKERS = 500;
+/**
+ * Upper bound on plotted markers, so a busy mesh can't stall the renderer. Each
+ * marker is a plain Leaflet `divIcon` (one DOM node), so this is effectively a
+ * DOM-node budget; beyond a few thousand, prefer marker clustering over a
+ * higher cap.
+ */
+export const MAX_MAP_MARKERS = 2000;
+
+/**
+ * Edge length, in pixels, of a node marker (the colored shape and its square
+ * bounding box). Small shapes keep clusters legible when zoomed out; adjust
+ * this single value to resize every marker.
+ */
+export const MAP_MARKER_SIZE_PX = 16;
 
 /**
  * Persisted, user-tunable map state. `center`/`zoom` restore the last viewport.

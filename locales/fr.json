@@ -289,7 +289,15 @@
   },
   "map": {
     "self": "Ce nœud",
-    "markerCap": "Affichage de {{shown}} sur {{total}} nœuds"
+    "markerCap": "Affichage de {{shown}} sur {{total}} nœuds",
+    "legend": {
+      "title": "Légende",
+      "companion": "Compagnon",
+      "repeater": "Répéteur",
+      "roomServer": "Serveur de salle",
+      "sensor": "Capteur",
+      "favoritesOnly": "Favoris uniquement"
+    }
   },
   "sidebar": {
     "channels": "Canaux",

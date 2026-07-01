@@ -289,7 +289,15 @@
   },
   "map": {
     "self": "Este nodo",
-    "markerCap": "Mostrando {{shown}} de {{total}} nodos"
+    "markerCap": "Mostrando {{shown}} de {{total}} nodos",
+    "legend": {
+      "title": "Leyenda",
+      "companion": "Compañero",
+      "repeater": "Repetidor",
+      "roomServer": "Servidor de sala",
+      "sensor": "Sensor",
+      "favoritesOnly": "Solo favoritos"
+    }
   },
   "sidebar": {
     "channels": "Canales",
