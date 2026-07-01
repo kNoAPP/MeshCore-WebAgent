@@ -404,7 +404,9 @@
     "justNow": "ahora mismo",
     "minutes": "hace {{count}}m",
     "hours": "hace {{count}}h",
-    "days": "hace {{count}}d"
+    "days": "hace {{count}}d",
+    "today": "Hoy",
+    "yesterday": "Ayer"
   },
   "toast": {
     "newMessageIn": "Nuevo mensaje en {{channel}}",

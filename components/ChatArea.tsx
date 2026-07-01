@@ -3,11 +3,19 @@
 
 'use client';
 
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  Fragment,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ADV_ICON, utf8ByteLength } from '@/lib/utils';
+import { formatDateDivider } from '@/lib/i18n/format';
 import { MessageBubble } from './MessageBubble';
 import { RouteChip } from './RouteChip';
 import {
@@ -67,7 +75,33 @@ export function ChatArea() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevConvoId = useRef<string | null>(null);
 
-  const messages = activeConvo ? (msgHistory[activeConvo.id] ?? []) : [];
+  const messages = useMemo(
+    () => (activeConvo ? (msgHistory[activeConvo.id] ?? []) : []),
+    [activeConvo, msgHistory],
+  );
+
+  // For each message, the timestamp to render a date divider above it (the
+  // first message of each local calendar day), or null. Timestamp-less
+  // messages never open a new day, so they don't produce spurious dividers.
+  const dayDividers = useMemo(
+    () =>
+      messages.map((msg, i) => {
+        if (!msg.timestamp) return null;
+        const dayKey = new Date(msg.timestamp * 1000).toDateString();
+        // Compare against the most recent earlier message that has a
+        // timestamp, so gaps of timestamp-less messages don't split a day.
+        let prevDayKey: string | null = null;
+        for (let j = i - 1; j >= 0; j--) {
+          const prevTs = messages[j].timestamp;
+          if (prevTs) {
+            prevDayKey = new Date(prevTs * 1000).toDateString();
+            break;
+          }
+        }
+        return dayKey !== prevDayKey ? msg.timestamp : null;
+      }),
+    [messages],
+  );
 
   // Mentionable names span both saved contacts and anyone seen posting in
   // history, so channel participants who were never added as a contact can
@@ -266,54 +300,66 @@ export function ChatArea() {
             deviceName.length > 0 &&
             bodyText.toLowerCase().includes(`@[${deviceName.toLowerCase()}]`);
 
+          const dividerTs = dayDividers[i];
+
           return (
-            <div
-              key={msg.id ?? i}
-              className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
-            >
-              {!msg.system && (
-                <div className='px-1 text-[11px] text-(--text2)'>
-                  {senderLabel}
+            <Fragment key={msg.id ?? i}>
+              {dividerTs != null && (
+                <div className='my-1 flex justify-center'>
+                  <div className='rounded-lg border border-dashed border-(--border) px-3 py-1.5 text-[11px] text-(--text2)'>
+                    {formatDateDivider(dividerTs)}
+                  </div>
                 </div>
               )}
-              <MessageBubble
-                msg={msg}
-                text={bodyText}
-                deviceName={deviceName}
-                mentioned={mentioned}
-                statusActions={
-                  msg.own && msg.status === 'failed' ? (
-                    <span
-                      className='mr-1.5 inline-flex items-center gap-1.5'
-                      style={{ color: 'var(--amber)' }}
-                    >
-                      <span title={t('chat.noAckTooltip')}>
-                        {t('chat.noAck')}
-                      </span>
-                      <span>·</span>
-                      <button
-                        onClick={() => retryMessage(msg, activeConvo)}
-                        className='font-semibold underline hover:opacity-80'
+              <div
+                className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
+              >
+                {!msg.system && (
+                  <div className='px-1 text-[11px] text-(--text2)'>
+                    {senderLabel}
+                  </div>
+                )}
+                <MessageBubble
+                  msg={msg}
+                  text={bodyText}
+                  deviceName={deviceName}
+                  mentioned={mentioned}
+                  statusActions={
+                    msg.own && msg.status === 'failed' ? (
+                      <span
+                        className='mr-1.5 inline-flex items-center gap-1.5'
+                        style={{ color: 'var(--amber)' }}
                       >
-                        {t('chat.retry')}
-                      </button>
-                      {msg.kind === 'direct' &&
-                        (msg.attempt ?? 0) >= 1 &&
-                        directContact &&
-                        directContact.outPathLen !== NO_PATH && (
-                          <button
-                            onClick={() => retryMessage(msg, activeConvo, true)}
-                            title={t('chat.resetRouteRetryTooltip')}
-                            className='font-semibold underline hover:opacity-80'
-                          >
-                            {t('chat.resetRouteRetry')}
-                          </button>
-                        )}
-                    </span>
-                  ) : undefined
-                }
-              />
-            </div>
+                        <span title={t('chat.noAckTooltip')}>
+                          {t('chat.noAck')}
+                        </span>
+                        <span>·</span>
+                        <button
+                          onClick={() => retryMessage(msg, activeConvo)}
+                          className='font-semibold underline hover:opacity-80'
+                        >
+                          {t('chat.retry')}
+                        </button>
+                        {msg.kind === 'direct' &&
+                          (msg.attempt ?? 0) >= 1 &&
+                          directContact &&
+                          directContact.outPathLen !== NO_PATH && (
+                            <button
+                              onClick={() =>
+                                retryMessage(msg, activeConvo, true)
+                              }
+                              title={t('chat.resetRouteRetryTooltip')}
+                              className='font-semibold underline hover:opacity-80'
+                            >
+                              {t('chat.resetRouteRetry')}
+                            </button>
+                          )}
+                      </span>
+                    ) : undefined
+                  }
+                />
+              </div>
+            </Fragment>
           );
         })}
         <div ref={bottomRef} />

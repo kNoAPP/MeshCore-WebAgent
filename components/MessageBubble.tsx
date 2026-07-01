@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { Message } from '@/types/meshcore';
 import { formatTime } from '@/lib/i18n/format';
+import { CopyButton } from './CopyButton';
 
 interface Props {
   msg: Message;
@@ -128,15 +129,24 @@ export function MessageBubble({
   return (
     <>
       <div
-        className={`max-w-[70%] px-3 py-2 text-sm leading-snug wrap-break-word ${
-          msg.own
-            ? 'rounded-[14px_4px_14px_14px] bg-(--accent) text-white'
-            : mentioned
-              ? 'rounded-[4px_14px_14px_14px] border border-yellow-400/60 bg-yellow-400/10 text-(--text)'
-              : 'rounded-[4px_14px_14px_14px] bg-(--surface2) text-(--text)'
+        className={`group/msg flex w-full items-center gap-1.5 ${
+          msg.own ? 'flex-row-reverse' : 'flex-row'
         }`}
       >
-        {renderText(text, deviceName, msg.own ?? false)}
+        <div
+          className={`max-w-[70%] px-3 py-2 text-sm leading-snug whitespace-pre-wrap wrap-break-word ${
+            msg.own
+              ? 'rounded-[14px_4px_14px_14px] bg-(--accent) text-white'
+              : mentioned
+                ? 'rounded-[4px_14px_14px_14px] border border-yellow-400/60 bg-yellow-400/10 text-(--text)'
+                : 'rounded-[4px_14px_14px_14px] bg-(--surface2) text-(--text)'
+          }`}
+        >
+          {renderText(text, deviceName, msg.own ?? false)}
+        </div>
+        <span className='opacity-0 transition-opacity group-hover/msg:opacity-100'>
+          <CopyButton value={text} />
+        </span>
       </div>
       <div className='px-1 text-[10px] text-(--text2)'>
         {statusActions}
