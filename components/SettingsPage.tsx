@@ -417,8 +417,11 @@ function LocationCard() {
   };
 
   // Any non-`NONE` policy attaches a location; the app only ever writes the
-  // `PREFS` (stored coordinate) variant, matching the firmware default.
-  const sharing = advLocPolicy !== ADVERT_LOC_POLICY.NONE;
+  // `PREFS` (stored coordinate) variant, matching the firmware default. An
+  // unknown policy (older firmware's short `SELF_INFO`) reads as not sharing so
+  // the toggle starts from the off baseline rather than falsely showing on.
+  const sharing =
+    advLocPolicy !== undefined && advLocPolicy !== ADVERT_LOC_POLICY.NONE;
   const toggleShare = async () => {
     if (!editable || savingShare) return;
     setSavingShare(true);
