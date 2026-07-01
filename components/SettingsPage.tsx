@@ -395,8 +395,10 @@ function LocationCard() {
   // the affordance disabled while reconnecting rather than hiding it.
   const editable = status === 'connected';
 
-  const latNum = parseFloat(latStr);
-  const lonNum = parseFloat(lonStr);
+  // `Number` (not `parseFloat`) so trailing junk like "12abc" is rejected as
+  // NaN rather than silently parsed to 12, matching RadioSettings' inputs.
+  const latNum = Number(latStr);
+  const lonNum = Number(lonStr);
   const latValid =
     latStr.trim() !== '' &&
     Number.isFinite(latNum) &&
