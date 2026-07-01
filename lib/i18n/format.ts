@@ -29,6 +29,27 @@ export function formatRelative(timestamp: number): string {
 }
 
 /**
+ * Formats a Unix epoch-seconds timestamp as a localized day label for a chat
+ * date divider: `Today`, `Yesterday`, or a full localized date (e.g.
+ * `June 28, 2026`) for older days. Day boundaries are compared in local time.
+ */
+export function formatDateDivider(timestamp: number): string {
+  const startOfDay = (d: Date): number =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const date = new Date(timestamp * 1000);
+  const dayDiff = Math.round(
+    (startOfDay(new Date()) - startOfDay(date)) / 86_400_000,
+  );
+  if (dayDiff === 0) return i18n.t('relative.today');
+  if (dayDiff === 1) return i18n.t('relative.yesterday');
+  return date.toLocaleDateString(i18n.language, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/**
  * Formats the distance and 8-point compass bearing from this node to a target,
  * e.g. `"3.2 km · NE"`, or `null` when either endpoint is unset.
  *
