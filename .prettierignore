@@ -7,7 +7,6 @@ node_modules
 package-lock.json 
 public/\*.svg
 public/version.json
-public/map
 app/favicon.ico
 CHANGELOG.md
 AUTHORS
