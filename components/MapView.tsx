@@ -77,7 +77,7 @@ function nodeIcon(node: MapNode): L.DivIcon {
  * a white ring, distinct from the category node markers.
  */
 function pickIcon(): L.DivIcon {
-  const size = 20;
+  const size = MAP_MARKER_SIZE_PX;
   return L.divIcon({
     html: `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:var(--accent);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.5)"></div>`,
     className: '',
