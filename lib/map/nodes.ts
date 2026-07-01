@@ -2,6 +2,7 @@
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
 import { microToDeg } from '@/lib/utils';
+import { FAVORITE_FLAG } from '@/lib/meshcore/constants';
 import type { Advert, Contact, SelfInfo } from '@/types/meshcore';
 
 /**
@@ -19,6 +20,8 @@ export interface MapNode {
   lat: number;
   lon: number;
   kind: 'self' | 'contact' | 'advert';
+  /** Favorited contact — flagged with a gold marker outline. */
+  favorite: boolean;
 }
 
 /** Decimal-degree coordinates of a node with a fix, or `null` if unset. */
@@ -56,6 +59,7 @@ export function selfMapNode(self: SelfInfo | null): MapNode | null {
     lat: coords.lat,
     lon: coords.lon,
     kind: 'self',
+    favorite: false,
   };
 }
 
@@ -90,6 +94,7 @@ export function collectMapNodes(
       lat: coords.lat,
       lon: coords.lon,
       kind: 'contact',
+      favorite: (contact.flags & FAVORITE_FLAG) !== 0,
     });
   }
 
@@ -106,6 +111,7 @@ export function collectMapNodes(
       lat: coords.lat,
       lon: coords.lon,
       kind: 'advert',
+      favorite: false,
     });
   }
 

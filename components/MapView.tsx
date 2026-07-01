@@ -8,15 +8,23 @@ import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useMeshStore } from '@/store/meshStore';
-import { ADV_ICON } from '@/lib/utils';
 import { collectMapNodes, selfMapNode, type MapNode } from '@/lib/map/nodes';
 import {
   DEFAULT_MAP_PREFS,
+  MAP_MARKER_SIZE_PX,
   MAX_MAP_MARKERS,
   TILE_ATTRIBUTION,
   TILE_URLS,
   type MapPrefs,
 } from '@/lib/map/config';
+import {
+  FAVORITE_OUTLINE,
+  FAVORITE_OUTLINE_WIDTH,
+  LEGEND_CATEGORIES,
+  MARKER_STYLES,
+  markerStyle,
+  shapeSvg,
+} from '@/lib/map/markers';
 
 /**
  * The single-world extent, in decimal degrees. Longitude spans the full globe;
@@ -44,16 +52,23 @@ function escapeHtml(value: string): string {
   );
 }
 
-/** Builds a `divIcon` for a node — its advert-type emoji, self ringed. */
+/**
+ * Builds a `divIcon` for a node — category shape/color, self ringed, and a
+ * gold border on favorited contacts.
+ */
 function nodeIcon(node: MapNode): L.DivIcon {
-  const emoji = ADV_ICON[node.advType] ?? '👤';
+  const { shape, color } = markerStyle(node.advType);
   const cls =
     node.kind === 'self' ? 'map-marker map-marker-self' : 'map-marker';
+  const size = MAP_MARKER_SIZE_PX;
+  const svg = node.favorite
+    ? shapeSvg(shape, color, size, FAVORITE_OUTLINE, FAVORITE_OUTLINE_WIDTH)
+    : shapeSvg(shape, color, size);
   return L.divIcon({
-    html: `<div class="${cls}"><span>${emoji}</span></div>`,
+    html: `<div class="${cls}" style="width:${size}px;height:${size}px">${svg}</div>`,
     className: '',
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
@@ -121,6 +136,8 @@ function LeafletMap({
   const [startView] = useState(() =>
     initialView(useMeshStore.getState().mapPrefs, self, nodes),
   );
+  // When on, only favorited contacts (plus this node) are plotted.
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
 
   // Create the map once. The persist-on-move handler reads live store state via
   // getState(), so the effect needs no reactive deps.
@@ -200,7 +217,8 @@ function LeafletMap({
     const layer = markerLayerRef.current;
     if (!layer) return;
     layer.clearLayers();
-    const all = self ? [self, ...nodes] : nodes;
+    const visible = favoritesOnly ? nodes.filter((n) => n.favorite) : nodes;
+    const all = self ? [self, ...visible] : visible;
     for (const node of all.slice(0, MAX_MAP_MARKERS)) {
       const marker = L.marker([node.lat, node.lon], { icon: nodeIcon(node) });
       const label =
@@ -214,7 +232,7 @@ function LeafletMap({
       }
       marker.addTo(layer);
     }
-  }, [self, nodes, t]);
+  }, [self, nodes, favoritesOnly, t]);
 
   const total = nodes.length + (self ? 1 : 0);
   const capped = total > MAX_MAP_MARKERS;
@@ -229,6 +247,107 @@ function LeafletMap({
           </span>
         )}
       </div>
+      <MapLegend
+        favoritesOnly={favoritesOnly}
+        onToggleFavoritesOnly={() => setFavoritesOnly((v) => !v)}
+      />
     </div>
+  );
+}
+
+/**
+ * A collapsible key, pinned to the map's bottom-right corner, pairing each node
+ * category with the colored shape used to plot it, plus a switch to limit the
+ * map to favorited contacts. Collapsed state is transient UI, so it lives in
+ * local component state rather than the store.
+ *
+ * @param favoritesOnly - whether the map is currently filtered to favorites.
+ * @param onToggleFavoritesOnly - flips the favorites-only filter.
+ */
+function MapLegend({
+  favoritesOnly,
+  onToggleFavoritesOnly,
+}: {
+  favoritesOnly: boolean;
+  onToggleFavoritesOnly: () => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className='pointer-events-auto absolute right-3 bottom-8 z-1000 overflow-hidden rounded-md border border-(--border) bg-(--surface)/90 text-(--text) backdrop-blur'>
+      <button
+        type='button'
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className='flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-xs font-semibold tracking-wide text-(--text2) uppercase hover:text-(--accent)'
+      >
+        {t('map.legend.title')}
+        <Chevron open={open} />
+      </button>
+      {open && (
+        <>
+          <ul className='flex flex-col gap-1.5 px-2.5 pt-0.5 pb-2'>
+            {LEGEND_CATEGORIES.map((category) => {
+              const style = MARKER_STYLES[category];
+              return (
+                <li
+                  key={category}
+                  className='flex items-center gap-2 text-xs whitespace-nowrap'
+                >
+                  <span
+                    className='flex h-3.5 w-3.5 shrink-0 items-center justify-center'
+                    aria-hidden='true'
+                    dangerouslySetInnerHTML={{
+                      __html: shapeSvg(style.shape, style.color, 14),
+                    }}
+                  />
+                  {t(style.labelKey)}
+                </li>
+              );
+            })}
+          </ul>
+          <button
+            type='button'
+            role='switch'
+            aria-checked={favoritesOnly}
+            onClick={onToggleFavoritesOnly}
+            className='flex w-full items-center justify-between gap-3 border-t border-(--border) px-2.5 py-2 text-xs whitespace-nowrap hover:text-(--accent)'
+          >
+            <span>{t('map.legend.favoritesOnly')}</span>
+            <span
+              className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+              style={{
+                background: favoritesOnly ? 'var(--accent)' : 'var(--border)',
+              }}
+            >
+              <span
+                className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+                  favoritesOnly ? 'left-3.5' : 'left-0.5'
+                }`}
+              />
+            </span>
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Caret that flips to indicate the legend's expanded/collapsed state. */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox='0 0 16 16'
+      className={`h-3 w-3 transition-transform ${open ? '' : 'rotate-180'}`}
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='1.8'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      aria-hidden='true'
+    >
+      <path d='M4 10l4-4 4 4' />
+    </svg>
   );
 }

@@ -29,6 +29,13 @@ export const TILE_ATTRIBUTION =
 export const MAX_MAP_MARKERS = 500;
 
 /**
+ * Edge length, in pixels, of a node marker (the colored shape and its square
+ * bounding box). Small shapes keep clusters legible when zoomed out; adjust
+ * this single value to resize every marker.
+ */
+export const MAP_MARKER_SIZE_PX = 16;
+
+/**
  * Persisted, user-tunable map state. `center`/`zoom` restore the last viewport.
  */
 export interface MapPrefs {
