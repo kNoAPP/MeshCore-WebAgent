@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.6.0...v1.7.0) (2026-07-01)
+
+
+### Features
+
+* add channel import by meshcore://channel/add link ([#109](https://github.com/kNoAPP/MeshCore-WebAgent/issues/109)) ([f483a5c](https://github.com/kNoAPP/MeshCore-WebAgent/commit/f483a5c7396a36ff8e9d6bd44d6299ccf443db45))
+* add contact by link, manual key entry, and discover tab ([#106](https://github.com/kNoAPP/MeshCore-WebAgent/issues/106)) ([a8ac710](https://github.com/kNoAPP/MeshCore-WebAgent/commit/a8ac7109c01680fe50080a04c06cd43df7d14c42))
+* add Leaflet + OSM + Carto map view of contacts and adverts ([#111](https://github.com/kNoAPP/MeshCore-WebAgent/issues/111)) ([77c9baa](https://github.com/kNoAPP/MeshCore-WebAgent/commit/77c9baaeba6f0f58a51d1b98807627842cb7c8bb))
+* set default app zoom to 125% ([#108](https://github.com/kNoAPP/MeshCore-WebAgent/issues/108)) ([77a6f4a](https://github.com/kNoAPP/MeshCore-WebAgent/commit/77a6f4a453b15a47e07413d42cd8f61b042861b0))
+* show coordinates and distance in contact and advert detail ([#110](https://github.com/kNoAPP/MeshCore-WebAgent/issues/110)) ([a5b4c2d](https://github.com/kNoAPP/MeshCore-WebAgent/commit/a5b4c2d5259feb62176293eb9087429f3798c515))
+
 ## [1.6.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.5.0...v1.6.0) (2026-06-30)
 
 
