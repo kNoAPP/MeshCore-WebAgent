@@ -3,6 +3,7 @@
 
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { DesktopOnly } from './DesktopOnly';
@@ -18,6 +19,14 @@ import { AutoAddSettings } from './AutoAddSettings';
 import { AddChannelModal } from './AddChannelModal';
 import { AddContactModal } from './AddContactModal';
 import { Toast } from './Toast';
+
+// Leaflet and the map view are loaded only when the map opens, keeping the
+// initial bundle lean. `ssr: false` skips it during the static export, since
+// Leaflet needs the browser DOM.
+const MapView = dynamic(
+  () => import('./MapView').then((m) => ({ default: m.MapView })),
+  { ssr: false },
+);
 
 /**
  * Top-level app layout. Restricts the client to desktop browsers; otherwise
@@ -55,6 +64,8 @@ export function AppShell() {
               <StatsPage />
             ) : view === 'settings' ? (
               <SettingsPage />
+            ) : view === 'map' ? (
+              <MapView />
             ) : (
               <>
                 <Sidebar />

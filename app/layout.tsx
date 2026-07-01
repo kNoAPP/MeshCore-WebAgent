@@ -5,11 +5,13 @@ import type { Metadata } from 'next';
 import { I18nProvider } from '@/components/I18nProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { VersionCheck } from '@/components/VersionCheck';
+import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'MeshCore Companion',
   description: 'Web interface for MeshCore companion radios',
+  manifest: '/manifest.webmanifest',
 };
 
 /**
@@ -63,6 +65,7 @@ export default function RootLayout({
         <ThemeProvider>
           <I18nProvider>
             <VersionCheck />
+            <ServiceWorkerRegister />
             {children}
           </I18nProvider>
         </ThemeProvider>

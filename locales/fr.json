@@ -19,6 +19,7 @@
     "reconnecting": "Reconnexion…",
     "disconnected": "Déconnecté",
     "chat": "💬 Discussion",
+    "map": "🗺 Carte",
     "stats": "📊 Stats",
     "settings": "⚙ Paramètres",
     "disconnect": "⏻ Déconnecter",
@@ -285,6 +286,10 @@
     "node": "Nœud",
     "added": "✓ Ajouté",
     "add": "Ajouter"
+  },
+  "map": {
+    "self": "Ce nœud",
+    "markerCap": "Affichage de {{shown}} sur {{total}} nœuds"
   },
   "sidebar": {
     "channels": "Canaux",

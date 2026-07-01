@@ -19,6 +19,7 @@
     "reconnecting": "Reconectando…",
     "disconnected": "Desconectado",
     "chat": "💬 Chat",
+    "map": "🗺 Mapa",
     "stats": "📊 Estadísticas",
     "settings": "⚙ Configuración",
     "disconnect": "⏻ Desconectar",
@@ -285,6 +286,10 @@
     "node": "Nodo",
     "added": "✓ Añadido",
     "add": "Añadir"
+  },
+  "map": {
+    "self": "Este nodo",
+    "markerCap": "Mostrando {{shown}} de {{total}} nodos"
   },
   "sidebar": {
     "channels": "Canales",

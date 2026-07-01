@@ -19,6 +19,7 @@
     "reconnecting": "Verbinde neu…",
     "disconnected": "Getrennt",
     "chat": "💬 Chat",
+    "map": "🗺 Karte",
     "stats": "📊 Statistik",
     "settings": "⚙ Einstellungen",
     "disconnect": "⏻ Trennen",
@@ -285,6 +286,10 @@
     "node": "Knoten",
     "added": "✓ Hinzugefügt",
     "add": "Hinzufügen"
+  },
+  "map": {
+    "self": "Dieser Knoten",
+    "markerCap": "{{shown}} von {{total}} Knoten werden angezeigt"
   },
   "sidebar": {
     "channels": "Kanäle",
