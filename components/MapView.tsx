@@ -23,6 +23,17 @@ import {
   type MapPrefs,
 } from '@/lib/map/config';
 
+/**
+ * The single-world extent, in decimal degrees. Longitude spans the full globe;
+ * latitude is clamped to the Web Mercator limit (±85.05113°) so the bounds line
+ * up exactly with the tile grid's top and bottom edges — no blank strip at the
+ * poles.
+ */
+const WORLD_BOUNDS: L.LatLngBoundsExpression = [
+  [-85.05112878, -180],
+  [85.05112878, 180],
+];
+
 /** Escapes a string for safe insertion into marker/tooltip HTML. */
 function escapeHtml(value: string): string {
   return value.replace(
@@ -117,12 +128,25 @@ function LeafletMap({
     const map = L.map(containerRef.current, {
       center: startView.center,
       zoom: startView.zoom,
-      worldCopyJump: true,
+      // Lock to a single world so markers (which Leaflet renders only on the
+      // primary copy) can't disagree with a basemap repeated at low zoom.
+      maxBounds: WORLD_BOUNDS,
+      maxBoundsViscosity: 1,
     });
     mapRef.current = map;
 
+    // Never let the viewport show blank space around the world: the minimum
+    // zoom is the smallest level at which the world still covers the whole
+    // container, recomputed whenever the container resizes.
+    const clampMinZoom = () => {
+      map.setMinZoom(map.getBoundsZoom(WORLD_BOUNDS, true));
+    };
+    clampMinZoom();
+    map.on('resize', clampMinZoom);
+
     markerLayerRef.current = L.layerGroup().addTo(map);
 
+    // `noWrap` keeps the basemap to one world (matching the bounded view);
     // `detectRetina` swaps in `@2x` tiles (via the `{r}` token) on hi-DPI
     // displays so labels stay crisp under the app's 1.25 CSS zoom.
     tileLayerRef.current = L.tileLayer(
@@ -131,6 +155,7 @@ function LeafletMap({
         attribution: TILE_ATTRIBUTION,
         subdomains: 'abcd',
         maxZoom: 20,
+        noWrap: true,
         detectRetina: true,
       },
     ).addTo(map);
@@ -146,6 +171,7 @@ function LeafletMap({
 
     return () => {
       map.off('moveend', persist);
+      map.off('resize', clampMinZoom);
       map.remove();
       mapRef.current = null;
       markerLayerRef.current = null;
