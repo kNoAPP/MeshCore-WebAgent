@@ -6,8 +6,8 @@
 import { useEffect } from 'react';
 
 /**
- * Registers the offline service worker (`/public/sw.js`) once on mount. Renders
- * nothing.
+ * Registers the offline service worker — served at `/sw.js` (from
+ * `public/sw.js`) — once on mount. Renders nothing.
  *
  * @remarks Production-only: a service worker in `next dev` interferes with HMR,
  * and the static export is what actually ships the worker. Registration failure

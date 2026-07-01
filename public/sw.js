@@ -15,7 +15,18 @@
 const CACHE = 'meshcore-shell-v1';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    (async () => {
+      // Precache the app shell so the network-first navigation fallback
+      // (`cache.match('/')`) always has something to serve on a cold offline
+      // reload — even before any online, SW-controlled navigation has populated
+      // the runtime cache. Content-hashed `/_next/static/*` chunks aren't known
+      // here; they fill in via cache-first on the first controlled load.
+      const cache = await caches.open(CACHE);
+      await cache.add('/').catch(() => {});
+      await self.skipWaiting();
+    })(),
+  );
 });
 
 self.addEventListener('activate', (event) => {
