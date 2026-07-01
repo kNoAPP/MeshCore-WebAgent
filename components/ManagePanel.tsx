@@ -76,7 +76,7 @@ function ManagePanelView() {
     if (!channel) return null;
     return (
       <ModalShell
-        title={`🔒 ${channel.name || t('common.channelName', { index: idx })}`}
+        title={`${idx === 0 ? '📢' : '🔒'} ${channel.name || t('common.channelName', { index: idx })}`}
         onClose={close}
       >
         <ChannelDetails channel={channel} />
