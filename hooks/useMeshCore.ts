@@ -1070,6 +1070,59 @@ export function useMeshCore() {
   );
 
   /**
+   * Writes this radio's advertised location to the device; the store updates
+   * via `onSelfInfo`.
+   *
+   * @param latDeg - latitude in decimal degrees.
+   * @param lonDeg - longitude in decimal degrees.
+   * @returns whether the write succeeded, so the caller can keep its editor
+   * open (preserving the typed values) on failure.
+   */
+  const setLocation = useCallback(
+    async (latDeg: number, lonDeg: number): Promise<boolean> => {
+      if (!canTransmit(client)) return false;
+      try {
+        await client.setLocation(latDeg, lonDeg);
+        showToast(i18n.t('toast.locationSaved'), 'success');
+        return true;
+      } catch (err) {
+        showToast(
+          i18n.t('toast.locationSaveFailed', { error: (err as Error).message }),
+          'error',
+        );
+        return false;
+      }
+    },
+    [client, showToast],
+  );
+
+  /**
+   * Toggles whether the radio attaches its stored location to adverts.
+   *
+   * @returns whether the write succeeded, so the caller can revert its toggle
+   * on failure.
+   */
+  const setSharePosition = useCallback(
+    async (share: boolean): Promise<boolean> => {
+      if (!canTransmit(client)) return false;
+      try {
+        await client.setSharePosition(share);
+        showToast(i18n.t('toast.sharePositionSaved'), 'success');
+        return true;
+      } catch (err) {
+        showToast(
+          i18n.t('toast.sharePositionSaveFailed', {
+            error: (err as Error).message,
+          }),
+          'error',
+        );
+        return false;
+      }
+    },
+    [client, showToast],
+  );
+
+  /**
    * Writes the radio parameters to the device. Frequency/bandwidth/SF/CR go in
    * one `SET_RADIO_PARAMS` command and TX power in a separate `SET_TX_POWER`;
    * each is sent only when its value actually changed, and the store updates
@@ -1178,6 +1231,8 @@ export function useMeshCore() {
     addChannel,
     removeChannel,
     setNodeName,
+    setLocation,
+    setSharePosition,
     applyRadioParams,
     applyAutoAddConfig,
     rebootDevice,

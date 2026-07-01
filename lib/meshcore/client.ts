@@ -25,6 +25,7 @@ import {
   AUTOADD,
   MANUAL_ADD_OFF,
   MANUAL_ADD_ON,
+  ADVERT_LOC_POLICY,
 } from './constants';
 import {
   buildAppStart,
@@ -47,7 +48,9 @@ import {
   buildSetAdvertName,
   buildSetRadioParams,
   buildSetTxPower,
+  buildSetAdvertLatLon,
   buildSetOtherParams,
+  buildSetAdvertLocPolicy,
   buildSetAutoAddConfig,
   buildGetAutoAddConfig,
   buildReboot,
@@ -797,6 +800,56 @@ export class MeshCoreClient {
     await this.cmd(buildSetTxPower(dbm), [RESP.OK], 5000);
     if (this.selfInfo) {
       this.selfInfo = { ...this.selfInfo, txPower: dbm };
+      this.callbacks.onSelfInfo?.(this.selfInfo);
+    }
+  }
+
+  /**
+   * Sets this radio's advertised location (`SET_ADVERT_LATLON`). On success,
+   * updates the local `selfInfo` mirror (in decimal degrees, matching
+   * {@link parseSelfInfo}) and fires {@link MeshCoreCallbacks.onSelfInfo} so
+   * Settings and the map reflect it immediately; peers learn it on the radio's
+   * next advert.
+   *
+   * @param latDeg - latitude in decimal degrees; the firmware rejects values
+   * outside ±90°.
+   * @param lonDeg - longitude in decimal degrees; the firmware rejects values
+   * outside ±180°.
+   * @throws if the radio rejects the coordinate (`ERR`) or the command times
+   * out, so the caller can surface the failure without overwriting the shown
+   * values.
+   */
+  async setLocation(latDeg: number, lonDeg: number): Promise<void> {
+    await this.cmd(buildSetAdvertLatLon(latDeg, lonDeg), [RESP.OK], 5000);
+    if (this.selfInfo) {
+      this.selfInfo = { ...this.selfInfo, advLat: latDeg, advLon: lonDeg };
+      this.callbacks.onSelfInfo?.(this.selfInfo);
+    }
+  }
+
+  /**
+   * Toggles whether this radio's stored location is attached to its adverts.
+   *
+   * @param share - `true` uses {@link ADVERT_LOC_POLICY.PREFS} (the coordinate
+   * set via {@link setLocation}); `false` uses {@link ADVERT_LOC_POLICY.NONE}.
+   * @remarks The current `manual_add`, `telemetry_mode`, and `multi_acks` prefs
+   * are echoed back so only the location policy changes.
+   */
+  async setSharePosition(share: boolean): Promise<void> {
+    const policy = share ? ADVERT_LOC_POLICY.PREFS : ADVERT_LOC_POLICY.NONE;
+    const info = this.selfInfo;
+    await this.cmd(
+      buildSetAdvertLocPolicy(
+        info?.manualAdd ?? 0,
+        info?.telemetryMode ?? 0,
+        policy,
+        info?.multiAcks ?? 0,
+      ),
+      [RESP.OK],
+      5000,
+    );
+    if (this.selfInfo) {
+      this.selfInfo = { ...this.selfInfo, advLocPolicy: policy };
       this.callbacks.onSelfInfo?.(this.selfInfo);
     }
   }

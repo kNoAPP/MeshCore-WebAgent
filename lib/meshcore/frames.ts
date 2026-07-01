@@ -6,6 +6,7 @@ import {
   MAX_MSG_BYTES,
   MAX_ADVERT_NAME_BYTES,
   RADIO_PARAM_SCALE,
+  LATLON_SCALE,
 } from './constants';
 import { truncateUtf8 } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
@@ -305,6 +306,33 @@ export function buildSetTxPower(dbm: number): Uint8Array {
 }
 
 /**
+ * Sets the radio's advertised location (`SET_ADVERT_LATLON`) — the coordinate
+ * peers plot on the map. Sent whenever the advert location policy shares a
+ * fixed position rather than a live GPS fix.
+ *
+ * @param latDeg - latitude in decimal degrees; sent as a signed int32 LE of
+ * `latDeg * 1e6` ({@link LATLON_SCALE}), mirroring the parse side. The firmware
+ * rejects values outside ±90°.
+ * @param lonDeg - longitude in decimal degrees; sent as a signed int32 LE of
+ * `lonDeg * 1e6`. The firmware rejects values outside ±180°.
+ * @remarks
+ * The 9-byte frame omits the optional trailing altitude int32 (reserved for
+ * future firmware use), matching the `len >= 9` guard in
+ * `CMD_SET_ADVERT_LATLON` in the companion radio's `MyMesh.cpp`.
+ */
+export function buildSetAdvertLatLon(
+  latDeg: number,
+  lonDeg: number,
+): Uint8Array {
+  const p = new Uint8Array(9);
+  const v = new DataView(p.buffer);
+  p[0] = CMD.SET_ADVERT_LATLON;
+  v.setInt32(1, Math.round(latDeg * LATLON_SCALE), true);
+  v.setInt32(5, Math.round(lonDeg * LATLON_SCALE), true);
+  return p;
+}
+
+/**
  * Sets `manual_add_contacts` (the auto-add mode).
  *
  * @param manualAdd - {@link MANUAL_ADD_OFF} (auto-add all) or
@@ -316,6 +344,34 @@ export function buildSetTxPower(dbm: number): Uint8Array {
  */
 export function buildSetOtherParams(manualAdd: number): Uint8Array {
   return new Uint8Array([CMD.SET_OTHER_PARAMS, manualAdd & 0xff]);
+}
+
+/**
+ * Sets `advert_loc_policy` via {@link CMD.SET_OTHER_PARAMS}.
+ *
+ * @param manualAdd - current `manual_add_contacts` value.
+ * @param telemetryMode - current packed `telemetry_mode` byte.
+ * @param locPolicy - one of {@link ADVERT_LOC_POLICY}.
+ * @param multiAcks - current `multi_acks` value.
+ * @remarks
+ * The firmware reads these prefs positionally, so the policy (byte 3) can only
+ * be reached by resending the earlier bytes. The current `manual_add`,
+ * `telemetry_mode`, and `multi_acks` are echoed back unchanged so this write
+ * touches only the location policy.
+ */
+export function buildSetAdvertLocPolicy(
+  manualAdd: number,
+  telemetryMode: number,
+  locPolicy: number,
+  multiAcks: number,
+): Uint8Array {
+  return new Uint8Array([
+    CMD.SET_OTHER_PARAMS,
+    manualAdd & 0xff,
+    telemetryMode & 0xff,
+    locPolicy & 0xff,
+    multiAcks & 0xff,
+  ]);
 }
 
 /**

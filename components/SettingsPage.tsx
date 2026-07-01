@@ -3,20 +3,21 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
+import { fmtNum, utf8ByteLength, contactShareUri, ADV_ICON } from '@/lib/utils';
 import {
-  fmtVoltage,
-  fmtNum,
-  utf8ByteLength,
-  contactShareUri,
-  ADV_ICON,
-} from '@/lib/utils';
-import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
+  MAX_ADVERT_NAME_BYTES,
+  ADVERT_LAT_MIN,
+  ADVERT_LAT_MAX,
+  ADVERT_LON_MIN,
+  ADVERT_LON_MAX,
+  ADVERT_LOC_POLICY,
+} from '@/lib/meshcore/constants';
 import type { SelfInfo } from '@/types/meshcore';
 import { CopyButton } from './CopyButton';
 import { ModalShell } from './ModalShell';
@@ -24,28 +25,21 @@ import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
 
 /**
- * Settings page: device identity, firmware, radio configuration, and a
- * storage/battery summary. Rendered by {@link AppShell} in place of the chat
- * pane while `view` is `'settings'`. The Identity section's node name is
+ * Settings page: device identity, firmware, radio configuration, and this
+ * radio's advertised location. Rendered by {@link AppShell} in place of the
+ * chat pane while `view` is `'settings'`. The Identity section's node name is
  * editable inline ({@link NodeNameRow}), the Radio section opens the
- * {@link RadioSettingsModal} editor, and the Advertise section
- * ({@link AdvertiseCard}) announces this node to the mesh. The Device actions
- * section ({@link RebootCard}) reboots the radio behind an inline confirmation;
- * the dropped link recovers through the hook's auto-reconnect loop.
+ * {@link RadioSettingsModal} editor, the Location section
+ * ({@link LocationCard}) sets the advertised coordinate (typed or picked on the
+ * map), and the Advertise section ({@link AdvertiseCard}) announces this node
+ * to the mesh.
+ * The Device actions section ({@link RebootCard}) reboots the radio behind an
+ * inline confirmation; the dropped link recovers through the hook's
+ * auto-reconnect loop.
  */
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
-  const {
-    status,
-    selfInfo,
-    deviceInfo: device,
-    battery,
-    setView,
-  } = useMeshStore();
-
-  // Stats auto-fetches over the link on activation, so the shortcut to it is
-  // gated while reconnecting — matching the header's Stats tab.
-  const reconnecting = status === 'reconnecting';
+  const { status, selfInfo, deviceInfo: device } = useMeshStore();
 
   const [radioEditOpen, setRadioEditOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -169,34 +163,7 @@ export function SettingsPage() {
             />
           </Card>
 
-          <Card title={t('settings.section.storage')} className='col-span-2'>
-            {battery ? (
-              <>
-                <Row
-                  label={t('settings.voltage')}
-                  value={fmtVoltage(battery.voltage)}
-                />
-                <Row
-                  label={t('settings.storageUsed')}
-                  value={t('settings.kbUsage', {
-                    used: num(battery.usedKB),
-                    total: num(battery.totalKB),
-                  })}
-                />
-              </>
-            ) : (
-              <p className='py-1.5 text-xs text-(--text2)'>
-                {t('settings.noBattery')}
-              </p>
-            )}
-            <button
-              onClick={() => setView('stats')}
-              disabled={reconnecting}
-              className='mt-2 text-xs text-(--accent) hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50'
-            >
-              {t('settings.viewStats')}
-            </button>
-          </Card>
+          <LocationCard />
 
           <RebootCard />
         </div>
@@ -383,6 +350,154 @@ function NodeNameRow() {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * The Location section: sets this radio's advertised coordinate, either typed
+ * directly or picked on the map. Values are decimal degrees; {@link SelfInfo}
+ * already reports them in degrees (unlike contacts), so they seed the inputs
+ * as-is and `0`/unset shows blank. The editor stays populated after a failed
+ * write so the values aren't lost, and it consumes a coordinate handed back by
+ * the map picker via the store's one-shot `pendingLocation`. Gated to a fully
+ * connected link, matching every other radio write.
+ */
+function LocationCard() {
+  const { t } = useTranslation();
+  const status = useMeshStore((s) => s.status);
+  const advLocPolicy = useMeshStore((s) => s.selfInfo?.advLocPolicy);
+  const { setLocation, setSharePosition } = useMeshCore();
+
+  const fmtDeg = (v?: number) => (v ? String(v) : '');
+  // Seed from a coordinate the map picker just handed back (the store's
+  // one-shot `pendingLocation`), else this radio's current advertised location.
+  // The card remounts on the return from the map, so reading it at init works.
+  const [latStr, setLatStr] = useState(() => {
+    const p = useMeshStore.getState().pendingLocation;
+    return p ? String(p.lat) : fmtDeg(useMeshStore.getState().selfInfo?.advLat);
+  });
+  const [lonStr, setLonStr] = useState(() => {
+    const p = useMeshStore.getState().pendingLocation;
+    return p ? String(p.lon) : fmtDeg(useMeshStore.getState().selfInfo?.advLon);
+  });
+  const [saving, setSaving] = useState(false);
+  const [savingShare, setSavingShare] = useState(false);
+
+  // Clear the consumed one-shot signal so a later remount seeds from the live
+  // location, not a stale pick. Touches only the store, never local state.
+  useEffect(() => {
+    if (useMeshStore.getState().pendingLocation) {
+      useMeshStore.getState().clearPendingLocation();
+    }
+  }, []);
+
+  // Writes only land on a fully connected link (the hook gates on it too); show
+  // the affordance disabled while reconnecting rather than hiding it.
+  const editable = status === 'connected';
+
+  const latNum = parseFloat(latStr);
+  const lonNum = parseFloat(lonStr);
+  const latValid =
+    latStr.trim() !== '' &&
+    Number.isFinite(latNum) &&
+    latNum >= ADVERT_LAT_MIN &&
+    latNum <= ADVERT_LAT_MAX;
+  const lonValid =
+    lonStr.trim() !== '' &&
+    Number.isFinite(lonNum) &&
+    lonNum >= ADVERT_LON_MIN &&
+    lonNum <= ADVERT_LON_MAX;
+  const canSave = editable && latValid && lonValid && !saving;
+
+  const save = async () => {
+    if (!canSave) return;
+    setSaving(true);
+    await setLocation(latNum, lonNum);
+    setSaving(false);
+  };
+
+  // Any non-`NONE` policy attaches a location; the app only ever writes the
+  // `PREFS` (stored coordinate) variant, matching the firmware default.
+  const sharing = advLocPolicy !== ADVERT_LOC_POLICY.NONE;
+  const toggleShare = async () => {
+    if (!editable || savingShare) return;
+    setSavingShare(true);
+    await setSharePosition(!sharing);
+    setSavingShare(false);
+  };
+
+  return (
+    <Card title={t('settings.section.location')} className='col-span-2'>
+      <p className='mb-3 text-xs text-(--text2)'>
+        {t('settings.locationHint')}
+      </p>
+      <div className='flex gap-3'>
+        <div className='flex flex-1 flex-col gap-1 text-xs'>
+          <label className='text-(--text2)'>{t('settings.latitude')}</label>
+          <input
+            value={latStr}
+            onChange={(e) => setLatStr(e.target.value)}
+            inputMode='decimal'
+            placeholder='0.000000'
+            aria-label={t('settings.latitude')}
+            className={`min-w-0 rounded-md border bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent) ${
+              latStr.trim() !== '' && !latValid
+                ? 'border-(--red)'
+                : 'border-(--border-control)'
+            }`}
+          />
+        </div>
+        <div className='flex flex-1 flex-col gap-1 text-xs'>
+          <label className='text-(--text2)'>{t('settings.longitude')}</label>
+          <input
+            value={lonStr}
+            onChange={(e) => setLonStr(e.target.value)}
+            inputMode='decimal'
+            placeholder='0.000000'
+            aria-label={t('settings.longitude')}
+            className={`min-w-0 rounded-md border bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent) ${
+              lonStr.trim() !== '' && !lonValid
+                ? 'border-(--red)'
+                : 'border-(--border-control)'
+            }`}
+          />
+        </div>
+      </div>
+      <div className='mt-3 flex items-center justify-between gap-2'>
+        <button
+          onClick={() => useMeshStore.getState().startLocationPick()}
+          className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text2) hover:text-(--text)'
+        >
+          {t('settings.setOnMap')}
+        </button>
+        <button
+          onClick={() => void save()}
+          disabled={!canSave}
+          className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
+        >
+          {t('common.save')}
+        </button>
+      </div>
+      <button
+        role='switch'
+        aria-checked={sharing}
+        disabled={!editable || savingShare}
+        onClick={() => void toggleShare()}
+        className='mt-3 flex w-full items-center justify-between gap-2 border-t border-(--border) pt-3 text-left text-xs text-(--text) disabled:cursor-not-allowed disabled:opacity-50'
+      >
+        <span>{t('settings.sharePosition')}</span>
+        <span
+          className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+          style={{ background: sharing ? 'var(--accent)' : 'var(--border)' }}
+        >
+          <span
+            className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+              sharing ? 'left-3.5' : 'left-0.5'
+            }`}
+          />
+        </span>
+      </button>
+    </Card>
   );
 }
 

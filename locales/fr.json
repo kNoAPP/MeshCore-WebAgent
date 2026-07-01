@@ -151,7 +151,7 @@
       "device": "Appareil",
       "identity": "Identité",
       "radio": "Radio",
-      "storage": "Stockage et batterie",
+      "location": "Localisation",
       "danger": "Actions de l'appareil"
     },
     "model": "Modèle",
@@ -194,11 +194,11 @@
     },
     "advertiseZeroHop": "Annoncer aux voisins (zéro saut)",
     "advertiseFlood": "Annoncer (inondation)",
-    "voltage": "Tension",
-    "storageUsed": "Stockage",
-    "kbUsage": "{{used}} / {{total}} KB",
-    "noBattery": "Le stockage et la batterie ne sont pas signalés par cet appareil.",
-    "viewStats": "Voir toutes les statistiques →",
+    "locationHint": "Définissez la position que cette radio annonce au maillage. Saisissez des coordonnées en degrés décimaux ou choisissez un point sur la carte.",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "setOnMap": "Définir sur la carte",
+    "sharePosition": "Partager la position dans l'annonce",
     "rebootHint": "Redémarrez la radio. La connexion sera coupée pendant le redémarrage et se rétablira automatiquement une fois l'appareil revenu.",
     "reboot": "Redémarrer l'appareil",
     "rebootConfirm": "Redémarrer la radio maintenant ?",
@@ -290,6 +290,11 @@
   "map": {
     "self": "Ce nœud",
     "markerCap": "Affichage de {{shown}} sur {{total}} nœuds",
+    "pick": {
+      "hint": "Cliquez sur la carte pour définir la position de cette radio.",
+      "confirm": "Confirmer la position",
+      "cancel": "Annuler"
+    },
     "legend": {
       "title": "Légende",
       "companion": "Compagnon",
@@ -438,6 +443,10 @@
     "saveSettingsFailed": "Échec de l'enregistrement des paramètres : {{error}}",
     "nodeNameSaved": "Nom du nœud mis à jour",
     "nodeNameSaveFailed": "Échec de la mise à jour du nom du nœud : {{error}}",
+    "locationSaved": "Position mise à jour",
+    "locationSaveFailed": "Échec de la mise à jour de la position : {{error}}",
+    "sharePositionSaved": "Partage de position dans l'annonce mis à jour",
+    "sharePositionSaveFailed": "Échec de la mise à jour du partage de position dans l'annonce : {{error}}",
     "radioParamsSaved": "Paramètres radio mis à jour",
     "radioParamsSaveFailed": "Échec de la mise à jour des paramètres radio : {{error}}",
     "advertSent": "Annonce envoyée aux nœuds à proximité",
