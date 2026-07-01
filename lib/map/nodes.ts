@@ -111,18 +111,3 @@ export function collectMapNodes(
 
   return nodes;
 }
-
-/**
- * Mean latitude/longitude of the given located nodes, or `null` when the list
- * is empty. Used to center the map when this node reports no fix of its own.
- */
-export function averageCenter(nodes: MapNode[]): [number, number] | null {
-  if (nodes.length === 0) return null;
-  let lat = 0;
-  let lon = 0;
-  for (const node of nodes) {
-    lat += node.lat;
-    lon += node.lon;
-  }
-  return [lat / nodes.length, lon / nodes.length];
-}

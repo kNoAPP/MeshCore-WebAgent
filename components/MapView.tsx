@@ -9,12 +9,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useMeshStore } from '@/store/meshStore';
 import { ADV_ICON } from '@/lib/utils';
-import {
-  averageCenter,
-  collectMapNodes,
-  selfMapNode,
-  type MapNode,
-} from '@/lib/map/nodes';
+import { collectMapNodes, selfMapNode, type MapNode } from '@/lib/map/nodes';
 import {
   DEFAULT_MAP_PREFS,
   MAX_MAP_MARKERS,
@@ -63,29 +58,35 @@ function nodeIcon(node: MapNode): L.DivIcon {
 }
 
 /**
+ * The opening viewport: either a fixed `center`/`zoom`, or a set of `bounds`
+ * (one `[lat, lon]` per node) to frame with {@link L.Map.fitBounds}.
+ */
+type StartView =
+  | { center: [number, number]; zoom: number }
+  | { bounds: [number, number][] };
+
+/**
  * Picks the starting viewport: the persisted center/zoom if the user has panned
  * before; otherwise a close-in view on this node, or — when this node reports
- * no fix — the average of located contacts/adverts, falling back to the whole
- * world when none have a location.
+ * no fix — bounds framing every located contact/advert, falling back to the
+ * whole world when none have a location.
  */
 function initialView(
   prefs: MapPrefs | null,
   self: MapNode | null,
   nodes: MapNode[],
-): { center: [number, number]; zoom: number } {
+): StartView {
   if (prefs) return { center: prefs.center, zoom: prefs.zoom };
   if (self) return { center: [self.lat, self.lon], zoom: 11 };
-  const avg = averageCenter(nodes);
-  if (avg) return { center: avg, zoom: 11 };
+  if (nodes.length > 0) return { bounds: nodes.map((n) => [n.lat, n.lon]) };
   return { center: DEFAULT_MAP_PREFS.center, zoom: DEFAULT_MAP_PREFS.zoom };
 }
 
 /**
  * Desktop map view: plots this node and every located contact/advert on a
  * single online raster basemap (CARTO Positron/Dark Matter, matching the app
- * theme). When this node has no GPS fix, the map still opens — centered on the
- * average of located contacts/adverts, or the whole world when none have a
- * location.
+ * theme). When this node has no GPS fix, the map still opens — framed to fit
+ * every located contact/advert, or the whole world when none have a location.
  */
 export function MapView() {
   const selfInfo = useMeshStore((s) => s.selfInfo);
@@ -126,10 +127,9 @@ function LeafletMap({
   useEffect(() => {
     if (!containerRef.current) return;
     const map = L.map(containerRef.current, {
-      center: startView.center,
-      zoom: startView.zoom,
       // Lock to a single world so markers (which Leaflet renders only on the
-      // primary copy) can't disagree with a basemap repeated at low zoom.
+      // primary copy) can't disagree with a basemap repeated at low zoom. The
+      // opening viewport is applied below, once the min zoom is known.
       maxBounds: WORLD_BOUNDS,
       maxBoundsViscosity: 1,
     });
@@ -143,6 +143,16 @@ function LeafletMap({
     };
     clampMinZoom();
     map.on('resize', clampMinZoom);
+
+    // Apply the opening viewport now, before the persist handler is wired, so
+    // this programmatic move never writes prefs for a user who hasn't panned.
+    // The `bounds` case frames every located node; `maxZoom` keeps a single
+    // node (or a tight cluster) from slamming all the way to street level.
+    if ('bounds' in startView) {
+      map.fitBounds(startView.bounds, { padding: [40, 40], maxZoom: 13 });
+    } else {
+      map.setView(startView.center, startView.zoom);
+    }
 
     markerLayerRef.current = L.layerGroup().addTo(map);
 
