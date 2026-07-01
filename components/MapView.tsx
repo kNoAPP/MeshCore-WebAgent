@@ -139,6 +139,14 @@ function LeafletMap({
   // When on, only favorited contacts (plus this node) are plotted.
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
+  // The nodes actually eligible for plotting, after the favorites-only filter.
+  // Both the marker layer and the cap banner derive from this so their counts
+  // never disagree.
+  const visible = useMemo(
+    () => (favoritesOnly ? nodes.filter((n) => n.favorite) : nodes),
+    [nodes, favoritesOnly],
+  );
+
   // Create the map once. The persist-on-move handler reads live store state via
   // getState(), so the effect needs no reactive deps.
   useEffect(() => {
@@ -217,7 +225,6 @@ function LeafletMap({
     const layer = markerLayerRef.current;
     if (!layer) return;
     layer.clearLayers();
-    const visible = favoritesOnly ? nodes.filter((n) => n.favorite) : nodes;
     const all = self ? [self, ...visible] : visible;
     for (const node of all.slice(0, MAX_MAP_MARKERS)) {
       const marker = L.marker([node.lat, node.lon], { icon: nodeIcon(node) });
@@ -232,9 +239,9 @@ function LeafletMap({
       }
       marker.addTo(layer);
     }
-  }, [self, nodes, favoritesOnly, t]);
+  }, [self, visible, t]);
 
-  const total = nodes.length + (self ? 1 : 0);
+  const total = visible.length + (self ? 1 : 0);
   const capped = total > MAX_MAP_MARKERS;
 
   return (
