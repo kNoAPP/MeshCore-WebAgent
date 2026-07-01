@@ -74,14 +74,12 @@ function nodeIcon(node: MapNode): L.DivIcon {
 
 /**
  * A draggable pin used only in location-pick mode: a filled accent circle with
- * a contrasting themed ring, distinct from the category node markers. The ring
- * uses `--text` so it stays visible on both the light and dark basemaps (a
- * hardcoded white ring vanished against the light-mode tiles).
+ * a white ring, distinct from the category node markers.
  */
 function pickIcon(): L.DivIcon {
   const size = 20;
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:var(--accent);border:3px solid var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.5)"></div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:var(--accent);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.5)"></div>`,
     className: '',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
