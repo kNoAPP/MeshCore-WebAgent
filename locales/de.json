@@ -312,7 +312,8 @@
     "systemPlaceholder": "Beschreibe, was die KI mit dem Ereignis tun soll…",
     "allowTools": "Tools, die die KI verwenden darf",
     "maxTurns": "Max. KI-Durchläufe",
-    "maxTurnsHint": "LLM-Durchläufe, bevor die Regel stoppen muss ({{min}}–{{max}}).",
+    "maxTurnsHint": "LLM-Durchläufe, bevor die Regel stoppen muss; ganz nach rechts für unbegrenzt.",
+    "unlimited": "Unbegrenzt",
     "maxTokens": "Max. Antwortlänge",
     "maxTokensHint": "Tokens pro KI-Antwort ({{min}}–{{max}}).",
     "autonomyLabel": "Autonomie",
@@ -321,7 +322,7 @@
     "saveRule": "Änderungen speichern",
     "edit": "Bearbeiten",
     "rules": "Regeln",
-    "noRules": "Noch keine Regeln. Erstelle unten eine.",
+    "noRules": "Noch keine Regeln. Erstelle eine mit Neue Regel.",
     "enableRule": "Regel aktivieren",
     "trigger": {
       "message": "Eine Nachricht trifft ein",

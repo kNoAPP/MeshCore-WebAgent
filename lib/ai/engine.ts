@@ -53,8 +53,14 @@ export const MAX_MAX_TOKENS = 8192;
 export const DEFAULT_MAX_TURNS = 8;
 /** Lower bound a rule's turn cap is clamped to. */
 export const MIN_MAX_TURNS = 1;
-/** Upper bound a rule's turn cap is clamped to. */
-export const MAX_MAX_TURNS = 20;
+/** Upper bound a rule's *finite* turn cap is clamped to. */
+export const MAX_MAX_TURNS = 32;
+/**
+ * Sentinel {@link AutomationRule} turn cap meaning "no limit" — the turn
+ * slider's far-right stop. Stored as a negative marker (never a valid count) so
+ * it survives JSON persistence, unlike `Infinity`.
+ */
+export const UNLIMITED_TURNS = -1;
 
 // Backstop on how many transmit/write (gated) actions one event may produce, so
 // a runaway prompt can't flood the approval inbox or the radio. Reads are
@@ -307,13 +313,17 @@ class AutomationEngine {
     );
     const schemas = toolSchemas(allowed);
     // Per-rule loop and length caps, clamped to safe bounds (a bad stored value
-    // can't make the loop run away or the request exceed the provider).
-    const maxTurns = clampInt(
-      rule.action.maxTurns,
-      DEFAULT_MAX_TURNS,
-      MIN_MAX_TURNS,
-      MAX_MAX_TURNS,
-    );
+    // can't make the loop run away or the request exceed the provider). The
+    // UNLIMITED_TURNS sentinel opts a rule out of the turn cap entirely.
+    const maxTurns =
+      rule.action.maxTurns === UNLIMITED_TURNS
+        ? Infinity
+        : clampInt(
+            rule.action.maxTurns,
+            DEFAULT_MAX_TURNS,
+            MIN_MAX_TURNS,
+            MAX_MAX_TURNS,
+          );
     const maxTokens = clampInt(
       rule.action.maxTokens,
       DEFAULT_MAX_TOKENS,

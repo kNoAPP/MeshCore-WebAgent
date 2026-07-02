@@ -312,7 +312,8 @@
     "systemPlaceholder": "Describe qué debe hacer la IA con el evento…",
     "allowTools": "Herramientas que la IA puede usar",
     "maxTurns": "Máx. turnos de IA",
-    "maxTurnsHint": "Rondas del LLM antes de que la regla deba parar ({{min}}–{{max}}).",
+    "maxTurnsHint": "Rondas del LLM antes de que la regla deba parar; desliza del todo a la derecha para sin límite.",
+    "unlimited": "Sin límite",
     "maxTokens": "Longitud máx. de respuesta",
     "maxTokensHint": "Tokens por respuesta de IA ({{min}}–{{max}}).",
     "autonomyLabel": "Autonomía",
@@ -321,7 +322,7 @@
     "saveRule": "Guardar cambios",
     "edit": "Editar",
     "rules": "Reglas",
-    "noRules": "Aún no hay reglas. Crea una abajo.",
+    "noRules": "Aún no hay reglas. Crea una con Nueva regla.",
     "enableRule": "Activar regla",
     "trigger": {
       "message": "Llega un mensaje",
