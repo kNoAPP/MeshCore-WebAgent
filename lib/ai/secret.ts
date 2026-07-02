@@ -69,6 +69,17 @@ export function getApiKey(): string | null {
  * per session after {@link deriveStorageKey} in useMeshCore.
  */
 export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
+  // A reconnect keeps the in-memory key alive for the same radio, but if the
+  // link came back on a *different* radio (e.g. a shared WiFi address now
+  // answered by another device), that key must not carry over — drop it so it
+  // can't be used for the wrong radio and so this radio's own remembered key
+  // can load in its place.
+  if (ctx !== null && ctx.pubkey !== pubkey && apiKey !== null) {
+    generation++;
+    apiKey = null;
+    persisted = false;
+    syncStatus();
+  }
   ctx = { pubkey, storageKey };
 }
 

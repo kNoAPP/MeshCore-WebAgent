@@ -510,12 +510,14 @@ export function useMeshCore() {
           const key = await deriveStorageKey(secrets, pubkey);
           storageKey = key;
 
-          // Reuse the same per-radio key for secret storage and restore a
-          // "remembered" LLM API key if one was saved for this radio.
+          // Reuse the same per-radio key for secret storage, then restore a
+          // "remembered" LLM API key and the saved history in parallel — two
+          // independent IndexedDB reads with no ordering dependency.
           setSecretContext(pubkey, key);
-          await loadPersistedApiKey();
-
-          const saved = await loadRadioData(pubkey, key);
+          const [, saved] = await Promise.all([
+            loadPersistedApiKey(),
+            loadRadioData(pubkey, key),
+          ]);
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);
 
           saveUnsub = useMeshStore.subscribe((state, prev) => {
