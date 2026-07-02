@@ -20,6 +20,12 @@ const KIND_ICON: Record<CommandKind, typeof Search> = {
   page: ArrowRight,
 };
 
+/** id of the results listbox, wired to the combobox input's aria-* attrs. */
+const LISTBOX_ID = 'command-results';
+
+/** Stable id for the option at flat index `i`, for `aria-activedescendant`. */
+const optionId = (i: number): string => `command-option-${i}`;
+
 /**
  * Renders `text`, wrapping each Fuse match range in an accent-colored span.
  * Ranges are inclusive `[start, end]` character offsets.
@@ -68,6 +74,7 @@ function ResultRow({
   return (
     <button
       type='button'
+      id={optionId(index)}
       data-idx={index}
       role='option'
       aria-selected={active}
@@ -151,10 +158,14 @@ export function CommandPalette(): React.ReactElement {
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActive((i) => (flat.length ? (i + 1) % flat.length : 0));
+      // Step from the clamped index, so a shrunk result set can't leave the
+      // highlight stranded past the end and jump on the next keypress.
+      setActive(flat.length ? (activeIndex + 1) % flat.length : 0);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActive((i) => (flat.length ? (i - 1 + flat.length) % flat.length : 0));
+      setActive(
+        flat.length ? (activeIndex - 1 + flat.length) % flat.length : 0,
+      );
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const result = flat[activeIndex];
@@ -185,6 +196,13 @@ export function CommandPalette(): React.ReactElement {
             }}
             placeholder={t('command.placeholder')}
             aria-label={t('command.placeholder')}
+            role='combobox'
+            aria-autocomplete='list'
+            aria-controls={LISTBOX_ID}
+            aria-expanded={flat.length > 0}
+            aria-activedescendant={
+              flat.length ? optionId(activeIndex) : undefined
+            }
             className='input-field px-9!'
           />
           {query && (
@@ -203,15 +221,29 @@ export function CommandPalette(): React.ReactElement {
           )}
         </div>
 
-        <div ref={listRef} className='max-h-[50vh] overflow-y-auto'>
+        <div
+          ref={listRef}
+          id={LISTBOX_ID}
+          role='listbox'
+          aria-label={t('command.title')}
+          className='max-h-[50vh] overflow-y-auto'
+        >
           {flat.length === 0 ? (
             <p className='py-8 text-center text-sm text-(--text2)'>
               {t('command.empty')}
             </p>
           ) : (
             groups.map((group) => (
-              <div key={group.key} className='mb-2'>
-                <div className='px-3 py-1 text-[11px] font-semibold tracking-widest text-(--text2) uppercase'>
+              <div
+                key={group.key}
+                role='group'
+                aria-label={t(group.headingKey)}
+                className='mb-2'
+              >
+                <div
+                  aria-hidden='true'
+                  className='px-3 py-1 text-[11px] font-semibold tracking-widest text-(--text2) uppercase'
+                >
                   {t(group.headingKey)}
                 </div>
                 {group.results.map((result) => {
