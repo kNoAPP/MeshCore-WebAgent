@@ -55,6 +55,7 @@
       "identity": "Identité",
       "location": "Emplacement",
       "ai": "Paramètres IA",
+      "automation": "Automatisation",
       "danger": "Actions de l'appareil"
     },
     "keywords": {
@@ -67,6 +68,7 @@
       "identity": "identité clé publique nom de nœud",
       "location": "emplacement coordonnées gps position",
       "ai": "ia llm clé api anthropic claude assistant",
+      "automation": "automatisation règles automatiser agent déclencheurs tâches",
       "danger": "redémarrer appareil actions danger"
     }
   },

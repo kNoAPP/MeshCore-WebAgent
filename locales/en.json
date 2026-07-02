@@ -55,6 +55,7 @@
       "identity": "Identity",
       "location": "Location",
       "ai": "AI settings",
+      "automation": "Automation",
       "danger": "Device actions"
     },
     "keywords": {
@@ -67,6 +68,7 @@
       "identity": "identity public key node name",
       "location": "location coordinates gps position",
       "ai": "ai llm api key anthropic claude assistant",
+      "automation": "automation rules automate agent triggers tasks",
       "danger": "reboot restart device actions danger"
     }
   },
