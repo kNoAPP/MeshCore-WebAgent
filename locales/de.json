@@ -55,6 +55,7 @@
       "identity": "Identität",
       "location": "Standort",
       "ai": "KI-Einstellungen",
+      "automation": "Automatisierung",
       "danger": "Geräteaktionen"
     },
     "keywords": {
@@ -67,6 +68,7 @@
       "identity": "identität öffentlicher schlüssel knotenname",
       "location": "standort koordinaten gps position",
       "ai": "ki llm api-schlüssel anthropic claude assistent",
+      "automation": "automatisierung regeln automatisieren agent auslöser aufgaben",
       "danger": "neustart gerät aktionen gefahr"
     }
   },

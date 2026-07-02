@@ -55,6 +55,7 @@
       "identity": "Identidad",
       "location": "Ubicación",
       "ai": "Ajustes de IA",
+      "automation": "Automatización",
       "danger": "Acciones del dispositivo"
     },
     "keywords": {
@@ -67,6 +68,7 @@
       "identity": "identidad clave pública nombre de nodo",
       "location": "ubicación coordenadas gps posición",
       "ai": "ia llm clave api anthropic claude asistente",
+      "automation": "automatización reglas automatizar agente disparadores tareas",
       "danger": "reiniciar dispositivo acciones peligro"
     }
   },

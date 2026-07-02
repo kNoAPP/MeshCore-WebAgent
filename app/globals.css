@@ -4,6 +4,19 @@
 
 @import 'tailwindcss';
 
+/*
+ * Tailwind v4's Preflight sets interactive controls to `cursor: default`,
+ * unlike v3 which used `cursor: pointer`. Restore the pointer on enabled
+ * buttons and role="button" elements so hovering a clickable control shows the
+ * hand cursor; disabled controls keep the default arrow. Kept outside any
+ * layer so it reliably wins over Preflight's layered base reset.
+ */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+label[for] {
+  cursor: pointer;
+}
+
 @layer components {
   .input-field {
     width: 100%;
