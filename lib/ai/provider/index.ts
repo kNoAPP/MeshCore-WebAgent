@@ -8,6 +8,7 @@
 export {
   LLMError,
   type LLMErrorKind,
+  type LLMContentBlock,
   type LLMMessage,
   type LLMModel,
   type LLMProvider,

@@ -18,6 +18,11 @@ import type {
   SyncProgress,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
+import type {
+  AutomationRule,
+  StagedAction,
+  AuditEntry,
+} from '@/types/automation';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { convoId } from '@/lib/utils';
 import i18n from '@/lib/i18n';
@@ -35,6 +40,12 @@ import { loadMapPrefs, saveMapPrefs, type MapPrefs } from '@/lib/map/config';
 
 /** localStorage key for the persisted {@link AutoAddConfig}. */
 const AUTOADD_STORAGE_KEY = 'meshcore.autoAddConfig';
+
+/** localStorage key for the persisted automation master switch. */
+const AUTOMATION_ENABLED_STORAGE_KEY = 'meshcore.automationEnabled';
+
+/** Cap on the in-memory automation audit log, newest kept. */
+const AUDIT_LOG_LIMIT = 200;
 
 const DEFAULT_AUTOADD_CONFIG: AutoAddConfig = {
   mode: 'all',
@@ -58,6 +69,32 @@ function loadAutoAddConfig(): AutoAddConfig {
     if (raw) return { ...DEFAULT_AUTOADD_CONFIG, ...JSON.parse(raw) };
   } catch {}
   return DEFAULT_AUTOADD_CONFIG;
+}
+
+/**
+ * Reads the persisted automation master switch from localStorage, defaulting to
+ * off (and on SSR) so automation never silently arms on a fresh device.
+ */
+function loadAutomationEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return (
+      window.localStorage.getItem(AUTOMATION_ENABLED_STORAGE_KEY) === 'true'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Persists the automation master switch to localStorage (best-effort). */
+function saveAutomationEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      AUTOMATION_ENABLED_STORAGE_KEY,
+      String(enabled),
+    );
+  } catch {}
 }
 
 /** All filter values, in menu order; also the allowlist for persisted state. */
@@ -89,6 +126,7 @@ export const SETTINGS_SECTIONS = [
   'identity',
   'location',
   'ai',
+  'automation',
   'danger',
 ] as const;
 
@@ -222,6 +260,16 @@ interface MeshState {
    * whether it's persisted on this device. Never holds the key value itself.
    */
   aiKeyStatus: AiKeyStatus;
+
+  // Automation (task 6.4)
+  /** Master switch: while off, the engine is unsubscribed and fully inert. */
+  automationEnabled: boolean;
+  /** Per-radio automation rules, restored on connect and saved on change. */
+  automationRules: AutomationRule[];
+  /** Transmit/write actions awaiting human approval in the inbox. */
+  stagedActions: StagedAction[];
+  /** Append-only log of AI decisions (newest first, never the key). */
+  auditLog: AuditEntry[];
 }
 
 interface MeshActions {
@@ -272,6 +320,22 @@ interface MeshActions {
   closeConnectionOverlays: () => void;
   /** Updates the masked AI key indicator (never the value). */
   setAiKeyStatus: (status: AiKeyStatus) => void;
+  /** Flips the automation master switch. */
+  setAutomationEnabled: (enabled: boolean) => void;
+  /** Replaces the rule set (from per-radio persistence on connect). */
+  restoreAutomationRules: (rules: AutomationRule[]) => void;
+  addAutomationRule: (rule: AutomationRule) => void;
+  updateAutomationRule: (id: string, patch: Partial<AutomationRule>) => void;
+  removeAutomationRule: (id: string) => void;
+  /** Queues a transmit/write action for human approval. */
+  stageAction: (action: StagedAction) => void;
+  /** Removes a staged action once approved or denied. */
+  resolveStagedAction: (id: string) => void;
+  /** Appends an audit record (newest first, capped). */
+  addAuditEntry: (entry: AuditEntry) => void;
+  clearAuditLog: () => void;
+  /** Kill switch: disable the master switch and clear the staged queue. */
+  killSwitch: () => void;
   reset: () => void;
 }
 
@@ -306,6 +370,10 @@ const initialState: MeshState = {
   commandPaletteOpen: false,
   settingsSection: null,
   aiKeyStatus: 'none',
+  automationEnabled: loadAutomationEnabled(),
+  automationRules: [],
+  stagedActions: [],
+  auditLog: [],
 };
 
 let toastSeq = 0;
@@ -508,6 +576,42 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setAiKeyStatus: (aiKeyStatus) => set({ aiKeyStatus }),
 
+  setAutomationEnabled: (automationEnabled) => {
+    saveAutomationEnabled(automationEnabled);
+    set({ automationEnabled });
+  },
+  restoreAutomationRules: (automationRules) => set({ automationRules }),
+  addAutomationRule: (rule) =>
+    set((state) => ({ automationRules: [...state.automationRules, rule] })),
+  updateAutomationRule: (id, patch) =>
+    set((state) => ({
+      automationRules: state.automationRules.map((r) =>
+        r.id === id ? { ...r, ...patch } : r,
+      ),
+    })),
+  removeAutomationRule: (id) =>
+    set((state) => ({
+      automationRules: state.automationRules.filter((r) => r.id !== id),
+      // Drop any pending approvals for a rule the user just deleted.
+      stagedActions: state.stagedActions.filter((a) => a.ruleId !== id),
+    })),
+  stageAction: (action) =>
+    set((state) => ({ stagedActions: [...state.stagedActions, action] })),
+  resolveStagedAction: (id) =>
+    set((state) => ({
+      stagedActions: state.stagedActions.filter((a) => a.id !== id),
+    })),
+  addAuditEntry: (entry) =>
+    set((state) => ({
+      auditLog: [entry, ...state.auditLog].slice(0, AUDIT_LOG_LIMIT),
+    })),
+  clearAuditLog: () => set({ auditLog: [] }),
+  killSwitch: () => {
+    // The kill switch disarms automation for good, not just this session.
+    saveAutomationEnabled(false);
+    set({ automationEnabled: false, stagedActions: [] });
+  },
+
   reset: () =>
     set({
       ...initialState,
@@ -522,6 +626,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       theme: get().theme,
       // Map preferences are a persistent user preference, not session state
       mapPrefs: get().mapPrefs,
+      // The automation master switch persists across sessions/reconnects
+      automationEnabled: get().automationEnabled,
     }),
 }));
 

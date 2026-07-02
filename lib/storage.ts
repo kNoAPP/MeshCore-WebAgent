@@ -291,3 +291,60 @@ export async function clearSecret(pubkey: string, name: string): Promise<void> {
     await idbDelete(SECRETS_STORE, secretRecordKey(pubkey, name));
   } catch {}
 }
+
+// Automation rules (task 6.4) are stored per-radio, encrypted under the same
+// per-radio key as message history, in their own record so they never entangle
+// with the msgHistory blob. Namespaced key in the radios store keeps one
+// radio's rules from colliding with its history record (keyed by bare pubkey).
+function rulesRecordKey(pubkey: string): string {
+  return `${pubkey}:automation-rules`;
+}
+
+/**
+ * Encrypts and stores a radio's automation rules. Best-effort — any failure is
+ * swallowed, exactly like {@link saveRadioData}.
+ *
+ * @param key - the key from {@link deriveStorageKey} for this radio.
+ * @param rules - the JSON-serializable rule list to persist.
+ */
+export async function saveAutomationRules(
+  pubkey: string,
+  key: CryptoKey,
+  rules: unknown,
+): Promise<void> {
+  try {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = new TextEncoder().encode(JSON.stringify(rules));
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      plaintext.buffer as ArrayBuffer,
+    );
+    await idbPut(STORE_NAME, rulesRecordKey(pubkey), { iv, data: ciphertext });
+  } catch {}
+}
+
+/**
+ * Loads and decrypts a radio's stored automation rules.
+ *
+ * @param key - the key from {@link deriveStorageKey} for this radio.
+ * @returns the parsed rule list, or null if nothing is stored or decryption
+ * fails (wrong key / different radio / corrupt record).
+ */
+export async function loadAutomationRules<T>(
+  pubkey: string,
+  key: CryptoKey,
+): Promise<T | null> {
+  try {
+    const record = await idbGet(STORE_NAME, rulesRecordKey(pubkey));
+    if (!record) return null;
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: record.iv },
+      key,
+      record.data,
+    );
+    return JSON.parse(new TextDecoder().decode(plaintext)) as T;
+  } catch {
+    return null;
+  }
+}

@@ -5,7 +5,7 @@
 
 import { useSyncExternalStore, useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Moon, Sun, Radio, Search } from 'lucide-react';
+import { Moon, Sun, Radio, Search, ShieldAlert, Inbox } from 'lucide-react';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
@@ -151,6 +151,8 @@ export function Header() {
             {deviceName}
           </span>
           <AdvertMenu />
+          <ProposalsButton />
+          <KillSwitchButton />
           {connected && battery && (
             <span className='text-xs text-(--text2)'>
               {fmtVoltage(battery.voltage)} 💾 {battery.usedKB}/
@@ -192,6 +194,59 @@ export function Header() {
         {displayTheme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
       </button>
     </header>
+  );
+}
+
+/**
+ * Shows the count of automation actions awaiting approval and, on click, jumps
+ * to the Approval inbox (Settings → Automation). Rendered only while at least
+ * one proposal is pending, so suggested actions are discoverable from anywhere
+ * instead of being buried in the settings panel.
+ */
+function ProposalsButton() {
+  const { t } = useTranslation();
+  const count = useMeshStore((s) => s.stagedActions.length);
+  const openSettingsSection = useMeshStore((s) => s.openSettingsSection);
+  if (count === 0) return null;
+  return (
+    <button
+      onClick={() => openSettingsSection('automation')}
+      aria-label={t('automation.inbox.title', { count })}
+      title={t('automation.inbox.title', { count })}
+      className='flex items-center gap-1.5 rounded-md border border-(--accent) px-2.5 py-1 text-xs font-semibold text-(--accent) transition-colors hover:bg-(--accent) hover:text-white'
+    >
+      <Inbox size={13} />
+      {count}
+    </button>
+  );
+}
+
+/**
+ * Always-visible automation kill switch, shown only while automation is armed.
+ * One click halts everything immediately: it aborts any in-flight AI run,
+ * disables the master switch, and clears the staged-approval queue (via the
+ * store's {@link killSwitch}). Deliberately styled as a danger control so it's
+ * impossible to miss.
+ */
+function KillSwitchButton() {
+  const { t } = useTranslation();
+  const enabled = useMeshStore((s) => s.automationEnabled);
+  const killSwitch = useMeshStore((s) => s.killSwitch);
+  const showToast = useMeshStore((s) => s.showToast);
+  if (!enabled) return null;
+  return (
+    <button
+      onClick={() => {
+        killSwitch();
+        showToast(t('automation.killed'));
+      }}
+      aria-label={t('automation.kill')}
+      title={t('automation.killHint')}
+      className='flex items-center gap-1.5 rounded-md border border-(--red) px-2.5 py-1 text-xs font-semibold text-(--red) transition-colors hover:bg-(--red) hover:text-white'
+    >
+      <ShieldAlert size={13} />
+      {t('automation.kill')}
+    </button>
   );
 }
 

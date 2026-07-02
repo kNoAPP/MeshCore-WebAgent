@@ -9,6 +9,7 @@
     "back": "Retour",
     "copy": "Copier",
     "copied": "Copié",
+    "delete": "Supprimer",
     "channelName": "Canal {{index}}",
     "unknown": "Inconnu",
     "device": "Appareil MeshCore"
@@ -193,6 +194,7 @@
       "radio": "Radio",
       "location": "Localisation",
       "ai": "IA",
+      "automation": "Automatisation",
       "danger": "Actions de l'appareil"
     },
     "model": "Modèle",
@@ -272,6 +274,108 @@
         "server": "Le fournisseur a rencontré une erreur — réessayez plus tard.",
         "unknown": "Une erreur s'est produite."
       }
+    }
+  },
+  "automation": {
+    "hint": "Les automatisations réagissent aux événements du réseau maillé en direct et peuvent effectuer des actions radio en votre nom, éventuellement à l'aide de votre clé IA. Par défaut, elles proposent des actions à approuver ; l'autonomie totale est optionnelle par règle et limitée en fréquence.",
+    "liveOnly": "Les automatisations ne s'exécutent que tant que cet onglet est ouvert et connecté. Les événements reçus lorsqu'il est fermé sont ignorés — il n'y a pas de relecture.",
+    "master": "Activer l'automatisation",
+    "on": "Armée — les événements correspondants exécutent vos règles",
+    "off": "Désactivée — aucune règle ne s'exécute",
+    "kill": "Tout arrêter",
+    "killHint": "Arrêter immédiatement toute l'automatisation : interrompre toute exécution IA en cours, désactiver les règles et vider les approbations en attente.",
+    "killed": "Automatisation arrêtée",
+    "rateLimitedToast": "Limite de temps d'antenne atteinte — réapprouvez dans un instant pour envoyer.",
+    "newRule": "Nouvelle règle",
+    "editRule": "Modifier la règle",
+    "name": "Nom",
+    "namePlaceholder": "p. ex. Rédiger des réponses automatiquement",
+    "when": "Quand",
+    "scope": "Portée",
+    "scopeAny": "Tout message",
+    "scopeDirect": "Messages directs",
+    "scopeChannel": "Messages de canal",
+    "contains": "Seulement si le texte contient",
+    "containsPlaceholder": "mot-clé (facultatif)",
+    "do": "Alors",
+    "actionPrompt": "Exécuter un prompt IA (peut appeler des outils)",
+    "actionFixed": "Exécuter un outil fixe",
+    "tool": "Outil",
+    "message": "Message",
+    "messagePlaceholder": "Texte à envoyer",
+    "contact": "Contact",
+    "node": "Nœud",
+    "channel": "Canal",
+    "flood": "Flood (tout le réseau)",
+    "pick": "Sélectionner…",
+    "system": "Instructions IA",
+    "systemPlaceholder": "Décrivez ce que l'IA doit faire avec l'événement…",
+    "allowTools": "Outils que l'IA peut utiliser",
+    "maxTurns": "Tours d'IA max.",
+    "maxTurnsHint": "Allers-retours LLM avant l'arrêt de la règle ({{min}}–{{max}}).",
+    "maxTokens": "Longueur de réponse max.",
+    "maxTokensHint": "Jetons par réponse IA ({{min}}–{{max}}).",
+    "autonomyLabel": "Autonomie",
+    "autoWarning": "Les règles autonomes agissent sans demander. Elles respectent toujours la liste d'outils autorisés, la limite de temps d'antenne et le coupe-circuit.",
+    "addRule": "Ajouter une règle",
+    "saveRule": "Enregistrer les modifications",
+    "edit": "Modifier",
+    "rules": "Règles",
+    "noRules": "Aucune règle pour l'instant. Créez-en une ci-dessous.",
+    "enableRule": "Activer la règle",
+    "trigger": {
+      "message": "Un message arrive",
+      "advert": "Un nœud s'annonce",
+      "ack": "Une remise est confirmée",
+      "connection": "La connexion change"
+    },
+    "autonomy": {
+      "approve": "Suggérer (approuver chaque action)",
+      "auto": "Autonome (agir automatiquement)"
+    },
+    "inbox": {
+      "title": "Approbations en attente ({{count}})",
+      "approve": "Approuver",
+      "deny": "Refuser"
+    },
+    "action": {
+      "sendDirect": "Envoyer à {{to}} : « {{text}} »",
+      "sendChannel": "Envoyer à {{channel}} : « {{text}} »",
+      "advertiseFlood": "Annoncer ce nœud (flood)",
+      "advertiseZeroHop": "Annoncer ce nœud (zéro saut)",
+      "addContact": "Ajouter le contact {{name}}",
+      "removeContact": "Supprimer le contact {{name}}",
+      "toggleFavorite": "Basculer le favori pour {{name}}",
+      "resetPath": "Réinitialiser la route vers {{name}}"
+    },
+    "event": {
+      "message": "Message de {{who}}",
+      "channelMessage": "canal",
+      "advert": "Annonce de {{name}}",
+      "ack": "Remise confirmée",
+      "connection": "Connexion {{status}}",
+      "approved": "Action approuvée"
+    },
+    "outcome": {
+      "proposed": "Proposé",
+      "approved": "Approuvé",
+      "denied": "Refusé",
+      "auto": "Automatique",
+      "executed": "Exécuté",
+      "failed": "Échoué",
+      "rateLimited": "Débit limité",
+      "blocked": "Bloqué"
+    },
+    "audit": {
+      "title": "Journal d'audit",
+      "empty": "Aucune action IA pour l'instant.",
+      "clear": "Effacer",
+      "noKey": "Aucune clé IA chargée",
+      "llmError": "Erreur IA : {{kind}}",
+      "notAllowed": "Outil non autorisé : {{tool}}",
+      "rateLimited": "Limite de temps d'antenne atteinte",
+      "maxSteps": "Limite de tours atteinte alors que des outils étaient encore appelés",
+      "actionLimit": "Limite d'actions atteinte pour cet événement"
     }
   },
   "chat": {

@@ -36,8 +36,25 @@ export interface ToolSchema {
 /** One conversation turn sent to the model. */
 export interface LLMMessage {
   role: 'user' | 'assistant';
-  content: string;
+  /**
+   * Plain text for a simple turn, or structured {@link LLMContentBlock}s when
+   * relaying the assistant's tool calls and the tool results fed back to it
+   * during the agentic loop (task 6.4).
+   */
+  content: string | LLMContentBlock[];
 }
+
+/**
+ * A content block within a structured {@link LLMMessage}. Used by the
+ * automation tool loop to echo the model's `toolUse` calls back as an assistant
+ * turn and return each `toolResult` as the following user turn, so a
+ * read-then-act rule can continue across turns. Vendor-neutral; the provider
+ * maps these to its wire format.
+ */
+export type LLMContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'toolUse'; id: string; name: string; input: unknown }
+  | { type: 'toolResult'; toolUseId: string; content: string };
 
 /** A single, provider-agnostic completion request. */
 export interface LLMRequest {
