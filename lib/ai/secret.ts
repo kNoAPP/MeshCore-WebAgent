@@ -65,8 +65,14 @@ export async function setApiKey(
   apiKey = value;
   persisted = false;
   if (remember && ctx) {
-    await saveSecret(ctx.pubkey, ctx.storageKey, API_KEY_NAME, value);
-    persisted = true;
+    // Only report the key as persisted if the encrypted write actually landed;
+    // saveSecret is best-effort and can silently fail (quota, private mode).
+    persisted = await saveSecret(
+      ctx.pubkey,
+      ctx.storageKey,
+      API_KEY_NAME,
+      value,
+    );
   }
   syncStatus();
 }
@@ -77,9 +83,17 @@ export async function setApiKey(
  * @returns true if a persisted key was found and loaded.
  */
 export async function loadPersistedApiKey(): Promise<boolean> {
-  if (!ctx) return false;
-  const value = await loadSecret(ctx.pubkey, ctx.storageKey, API_KEY_NAME);
-  if (value === null) return false;
+  const active = ctx;
+  if (!active) return false;
+  const value = await loadSecret(
+    active.pubkey,
+    active.storageKey,
+    API_KEY_NAME,
+  );
+  // The session may have been torn down (wipeApiKey) or switched to another
+  // radio during the await; if the context changed, discard the result rather
+  // than resurrecting a key onto a dead — or a different radio's — context.
+  if (value === null || ctx !== active) return false;
   apiKey = value;
   persisted = true;
   syncStatus();

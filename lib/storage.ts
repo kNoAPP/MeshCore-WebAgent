@@ -88,7 +88,23 @@ function openDB(): Promise<IDBDatabase> {
         db.createObjectStore(SECRETS_STORE);
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // If another tab opens a newer DB version, close this connection so we
+      // don't block its upgrade (and drop the cache so the next call reopens).
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    // A connection held by another tab at an older version blocks this upgrade.
+    // Fail fast instead of hanging forever; callers are best-effort and the
+    // dropped cache lets a later call retry once that tab closes.
+    req.onblocked = () => {
+      dbPromise = null;
+      reject(new Error('IndexedDB upgrade blocked by another open connection'));
+    };
     req.onerror = () => {
       dbPromise = null;
       reject(req.error);
@@ -201,13 +217,15 @@ function secretRecordKey(pubkey: string, name: string): string {
  * @param name - a stable identifier for the secret within this radio's scope.
  * @param value - the plaintext secret; never logged, only ever written as
  * AES-256-GCM ciphertext.
+ * @returns true if the encrypted record was written, false if the write failed
+ * (so callers don't report a secret as persisted when it never reached disk).
  */
 export async function saveSecret(
   pubkey: string,
   key: CryptoKey,
   name: string,
   value: string,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const plaintext = new TextEncoder().encode(value);
@@ -220,7 +238,10 @@ export async function saveSecret(
       iv,
       data: ciphertext,
     });
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
