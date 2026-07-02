@@ -12,6 +12,8 @@ import { useAdvertise } from '@/hooks/useAdvertise';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { fmtVoltage } from '@/lib/utils';
 import { Wordmark } from './Wordmark';
+import { ModalShell } from './ModalShell';
+import { ApprovalInboxList } from './AutomationPanel';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 import type { SupportedLocale } from '@/lib/i18n/config';
 import { DEFAULT_THEME } from '@/lib/theme/config';
@@ -198,26 +200,49 @@ export function Header() {
 }
 
 /**
- * Shows the count of automation actions awaiting approval and, on click, jumps
- * to the Approval inbox (Settings → Automation). Rendered only while at least
- * one proposal is pending, so suggested actions are discoverable from anywhere
- * instead of being buried in the settings panel.
+ * Shows the count of automation actions awaiting approval and, on click, opens
+ * a popup listing every staged proposal for Approve/Deny — the same inbox
+ * rendered in Settings → Automation, surfaced from anywhere. Rendered only
+ * while at least one proposal is pending.
+ *
+ * The popup's open state lives in {@link ProposalsInbox}, which is mounted only
+ * while the queue is non-empty. Draining the queue unmounts it, discarding that
+ * state, so a newly arriving proposal always starts closed — opening requires
+ * an explicit click and never happens automatically.
  */
 function ProposalsButton() {
-  const { t } = useTranslation();
   const count = useMeshStore((s) => s.stagedActions.length);
-  const openSettingsSection = useMeshStore((s) => s.openSettingsSection);
   if (count === 0) return null;
+  return <ProposalsInbox count={count} />;
+}
+
+/**
+ * The proposals button plus its click-opened popup; see
+ * {@link ProposalsButton}.
+ */
+function ProposalsInbox({ count }: { count: number }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   return (
-    <button
-      onClick={() => openSettingsSection('automation')}
-      aria-label={t('automation.inbox.title', { count })}
-      title={t('automation.inbox.title', { count })}
-      className='flex items-center gap-1.5 rounded-md border border-(--accent) px-2.5 py-1 text-xs font-semibold text-(--accent) transition-colors hover:bg-(--accent) hover:text-white'
-    >
-      <Inbox size={13} />
-      {count}
-    </button>
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        aria-label={t('automation.inbox.title', { count })}
+        title={t('automation.inbox.title', { count })}
+        className='flex items-center gap-1.5 rounded-md border border-(--accent) px-2.5 py-1 text-xs font-semibold text-(--accent) transition-colors hover:bg-(--accent) hover:text-white'
+      >
+        <Inbox size={13} />
+        {count}
+      </button>
+      {open && (
+        <ModalShell
+          title={t('automation.inbox.title', { count })}
+          onClose={() => setOpen(false)}
+        >
+          <ApprovalInboxList />
+        </ModalShell>
+      )}
+    </>
   );
 }
 

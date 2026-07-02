@@ -30,38 +30,40 @@ export function ModalShell({
   const { t } = useTranslation();
   return (
     <div
-      className='fixed inset-0 z-50 flex items-center justify-center'
+      className='fixed inset-0 z-50 flex items-center justify-center p-6'
       style={{ background: 'rgba(0,0,0,0.6)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className={`max-h-[85vh] ${widthClass} max-w-[95vw] overflow-y-auto rounded-[10px] border p-7`}
+        className={`flex max-h-full ${widthClass} max-w-full flex-col overflow-hidden rounded-[10px] border`}
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
-        <div className='mb-5 flex items-center justify-between gap-2'>
-          <div className='flex min-w-0 items-center gap-2'>
-            {onBack && (
-              <button
-                onClick={onBack}
-                aria-label={t('common.back')}
-                className='shrink-0 text-(--text2) hover:text-(--text)'
-              >
-                <ArrowLeft size={18} />
-              </button>
-            )}
-            <h2 className='truncate text-base font-bold'>{title}</h2>
+        <div className='min-h-0 overflow-y-auto p-7'>
+          <div className='mb-5 flex items-center justify-between gap-2'>
+            <div className='flex min-w-0 items-center gap-2'>
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  aria-label={t('common.back')}
+                  className='shrink-0 text-(--text2) hover:text-(--text)'
+                >
+                  <ArrowLeft size={18} />
+                </button>
+              )}
+              <h2 className='truncate text-base font-bold'>{title}</h2>
+            </div>
+            <button
+              onClick={onClose}
+              aria-label={t('common.close')}
+              className='shrink-0 text-lg leading-none text-(--text2) hover:text-(--text)'
+            >
+              ✕
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            aria-label={t('common.close')}
-            className='shrink-0 text-lg leading-none text-(--text2) hover:text-(--text)'
-          >
-            ✕
-          </button>
+          {children}
         </div>
-        {children}
       </div>
     </div>
   );
