@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.9.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.8.0...v1.9.0) (2026-07-02)
+
+
+### Features
+
+* add LLM provider abstraction and BYO-key settings ([#122](https://github.com/kNoAPP/MeshCore-WebAgent/issues/122)) ([68d2a8d](https://github.com/kNoAPP/MeshCore-WebAgent/commit/68d2a8df27d69f53d9d638ac158f240786b777b3))
+* add mesh event bus and automation rules engine ([#123](https://github.com/kNoAPP/MeshCore-WebAgent/issues/123)) ([c96d10a](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c96d10adde2c15ce5ee89d07f6c9f7b38e463e50))
+* **ai:** add secure per-radio secret storage for API keys ([#120](https://github.com/kNoAPP/MeshCore-WebAgent/issues/120)) ([0f89562](https://github.com/kNoAPP/MeshCore-WebAgent/commit/0f895629c9f032211e272a0591664602b94a0d5b))
+* **ai:** teach the model MeshCore constraints via a system preamble ([#124](https://github.com/kNoAPP/MeshCore-WebAgent/issues/124)) ([5a16906](https://github.com/kNoAPP/MeshCore-WebAgent/commit/5a16906080ae1c7829c5cb4fea58c1346a0056d2))
+
 ## [1.8.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.7.0...v1.8.0) (2026-07-02)
 
 
