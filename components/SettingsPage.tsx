@@ -24,6 +24,7 @@ import { CopyButton } from './CopyButton';
 import { ModalShell } from './ModalShell';
 import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
+import { AiSettingsBody } from './AiSettings';
 
 /**
  * Settings page: device identity, firmware, radio configuration, and this
@@ -181,6 +182,14 @@ export function SettingsPage() {
           </Card>
 
           <LocationCard />
+
+          <Card
+            title={t('settings.section.ai')}
+            className='col-span-2'
+            section='ai'
+          >
+            <AiSettingsBody />
+          </Card>
 
           <RebootCard />
         </div>

@@ -75,6 +75,7 @@ export const PAGE_TARGETS = [
   { id: 'radio', view: 'settings', section: 'radio' },
   { id: 'identity', view: 'settings', section: 'identity' },
   { id: 'location', view: 'settings', section: 'location' },
+  { id: 'ai', view: 'settings', section: 'ai' },
   { id: 'danger', view: 'settings', section: 'danger' },
 ] as const satisfies ReadonlyArray<{
   id: string;

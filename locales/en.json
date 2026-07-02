@@ -53,6 +53,7 @@
       "radio": "Radio settings",
       "identity": "Identity",
       "location": "Location",
+      "ai": "AI settings",
       "danger": "Device actions"
     },
     "keywords": {
@@ -64,6 +65,7 @@
       "radio": "radio frequency bandwidth lora",
       "identity": "identity public key node name",
       "location": "location coordinates gps position",
+      "ai": "ai llm api key anthropic claude assistant",
       "danger": "reboot restart device actions danger"
     }
   },
@@ -190,6 +192,7 @@
       "identity": "Identity",
       "radio": "Radio",
       "location": "Location",
+      "ai": "AI",
       "danger": "Device actions"
     },
     "model": "Model",
@@ -240,7 +243,36 @@
     "rebootHint": "Restart the radio. The connection will drop while it reboots and reconnect automatically once the device comes back.",
     "reboot": "Reboot device",
     "rebootConfirm": "Reboot the radio now?",
-    "rebootConfirmAction": "Reboot"
+    "rebootConfirmAction": "Reboot",
+    "ai": {
+      "hint": "Bring your own LLM API key to power in-browser AI features. Your key is used only for direct requests to the provider — it is never sent to any other server.",
+      "provider": "Provider",
+      "model": "Model",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "Paste your API key",
+      "remember": "Remember on this device",
+      "rememberHint": "Encrypts the key for this radio so it restores on the next connect. Requires a connected radio.",
+      "save": "Save key",
+      "forget": "Forget key",
+      "statusNone": "No key loaded",
+      "statusMemory": "Key loaded (this tab only)",
+      "statusPersisted": "Key remembered on this device",
+      "warning": "Your key lives in this browser tab. Only use this on a device you trust.",
+      "test": "Test connection",
+      "testHint": "Send a short prompt to confirm your key works.",
+      "testPlaceholder": "Say hello",
+      "send": "Send",
+      "error": {
+        "auth": "Authentication failed — check your API key.",
+        "rateLimit": "Rate limited by the provider — try again shortly.",
+        "billing": "Billing problem — check your provider account's billing.",
+        "badRequest": "The provider rejected the request.",
+        "tooLarge": "The request was too large.",
+        "network": "Couldn't reach the provider. Check your connection.",
+        "server": "The provider had an error — try again later.",
+        "unknown": "Something went wrong."
+      }
+    }
   },
   "chat": {
     "empty": "Select a channel or contact to start chatting",

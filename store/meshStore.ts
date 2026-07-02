@@ -88,6 +88,7 @@ export const SETTINGS_SECTIONS = [
   'radio',
   'identity',
   'location',
+  'ai',
   'danger',
 ] as const;
 

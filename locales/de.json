@@ -53,6 +53,7 @@
       "radio": "Funkeinstellungen",
       "identity": "Identität",
       "location": "Standort",
+      "ai": "KI-Einstellungen",
       "danger": "Geräteaktionen"
     },
     "keywords": {
@@ -64,6 +65,7 @@
       "radio": "funk frequenz bandbreite lora",
       "identity": "identität öffentlicher schlüssel knotenname",
       "location": "standort koordinaten gps position",
+      "ai": "ki llm api-schlüssel anthropic claude assistent",
       "danger": "neustart gerät aktionen gefahr"
     }
   },
@@ -190,6 +192,7 @@
       "identity": "Identität",
       "radio": "Funk",
       "location": "Standort",
+      "ai": "KI",
       "danger": "Geräteaktionen"
     },
     "model": "Modell",
@@ -240,7 +243,36 @@
     "rebootHint": "Starte das Funkgerät neu. Die Verbindung wird während des Neustarts getrennt und stellt sich automatisch wieder her, sobald das Gerät zurück ist.",
     "reboot": "Gerät neu starten",
     "rebootConfirm": "Funkgerät jetzt neu starten?",
-    "rebootConfirmAction": "Neu starten"
+    "rebootConfirmAction": "Neu starten",
+    "ai": {
+      "hint": "Nutze deinen eigenen LLM-API-Schlüssel für KI-Funktionen im Browser. Dein Schlüssel wird nur für direkte Anfragen an den Anbieter verwendet — er wird nie an einen anderen Server gesendet.",
+      "provider": "Anbieter",
+      "model": "Modell",
+      "apiKey": "API-Schlüssel",
+      "apiKeyPlaceholder": "Füge deinen API-Schlüssel ein",
+      "remember": "Auf diesem Gerät merken",
+      "rememberHint": "Verschlüsselt den Schlüssel für dieses Funkgerät, damit er bei der nächsten Verbindung wiederhergestellt wird. Erfordert ein verbundenes Funkgerät.",
+      "save": "Schlüssel speichern",
+      "forget": "Schlüssel vergessen",
+      "statusNone": "Kein Schlüssel geladen",
+      "statusMemory": "Schlüssel geladen (nur dieser Tab)",
+      "statusPersisted": "Schlüssel auf diesem Gerät gemerkt",
+      "warning": "Dein Schlüssel lebt in diesem Browser-Tab. Verwende dies nur auf einem Gerät, dem du vertraust.",
+      "test": "Verbindung testen",
+      "testHint": "Sende eine kurze Anfrage, um zu bestätigen, dass dein Schlüssel funktioniert.",
+      "testPlaceholder": "Sag hallo",
+      "send": "Senden",
+      "error": {
+        "auth": "Authentifizierung fehlgeschlagen — prüfe deinen API-Schlüssel.",
+        "rateLimit": "Vom Anbieter gedrosselt — versuche es bald erneut.",
+        "billing": "Abrechnungsproblem — prüfe die Abrechnung deines Anbieterkontos.",
+        "badRequest": "Der Anbieter hat die Anfrage abgelehnt.",
+        "tooLarge": "Die Anfrage war zu groß.",
+        "network": "Anbieter nicht erreichbar. Prüfe deine Verbindung.",
+        "server": "Beim Anbieter ist ein Fehler aufgetreten — versuche es später erneut.",
+        "unknown": "Etwas ist schiefgelaufen."
+      }
+    }
   },
   "chat": {
     "empty": "Wähle einen Kanal oder Kontakt, um zu chatten",
