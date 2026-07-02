@@ -53,6 +53,7 @@
       "radio": "Paramètres radio",
       "identity": "Identité",
       "location": "Emplacement",
+      "ai": "Paramètres IA",
       "danger": "Actions de l'appareil"
     },
     "keywords": {
@@ -64,6 +65,7 @@
       "radio": "radio fréquence bande passante lora",
       "identity": "identité clé publique nom de nœud",
       "location": "emplacement coordonnées gps position",
+      "ai": "ia llm clé api anthropic claude assistant",
       "danger": "redémarrer appareil actions danger"
     }
   },
@@ -190,6 +192,7 @@
       "identity": "Identité",
       "radio": "Radio",
       "location": "Localisation",
+      "ai": "IA",
       "danger": "Actions de l'appareil"
     },
     "model": "Modèle",
@@ -240,7 +243,35 @@
     "rebootHint": "Redémarrez la radio. La connexion sera coupée pendant le redémarrage et se rétablira automatiquement une fois l'appareil revenu.",
     "reboot": "Redémarrer l'appareil",
     "rebootConfirm": "Redémarrer la radio maintenant ?",
-    "rebootConfirmAction": "Redémarrer"
+    "rebootConfirmAction": "Redémarrer",
+    "ai": {
+      "hint": "Utilisez votre propre clé API LLM pour alimenter les fonctions d'IA dans le navigateur. Votre clé sert uniquement aux requêtes directes vers le fournisseur — elle n'est jamais envoyée à un autre serveur.",
+      "provider": "Fournisseur",
+      "model": "Modèle",
+      "apiKey": "Clé API",
+      "apiKeyPlaceholder": "Collez votre clé API",
+      "remember": "Mémoriser sur cet appareil",
+      "rememberHint": "Chiffre la clé pour cette radio afin de la restaurer à la prochaine connexion. Nécessite une radio connectée.",
+      "save": "Enregistrer la clé",
+      "forget": "Oublier la clé",
+      "statusNone": "Aucune clé chargée",
+      "statusMemory": "Clé chargée (cet onglet uniquement)",
+      "statusPersisted": "Clé mémorisée sur cet appareil",
+      "warning": "Votre clé réside dans cet onglet du navigateur. Ne l'utilisez que sur un appareil de confiance.",
+      "test": "Tester la connexion",
+      "testHint": "Envoyez une courte requête pour confirmer que votre clé fonctionne.",
+      "testPlaceholder": "Dites bonjour",
+      "send": "Envoyer",
+      "error": {
+        "auth": "Échec de l'authentification — vérifiez votre clé API.",
+        "rateLimit": "Limité par le fournisseur — réessayez bientôt.",
+        "badRequest": "Le fournisseur a rejeté la requête.",
+        "tooLarge": "La requête était trop volumineuse.",
+        "network": "Impossible de joindre le fournisseur. Vérifiez votre connexion.",
+        "server": "Le fournisseur a rencontré une erreur — réessayez plus tard.",
+        "unknown": "Une erreur s'est produite."
+      }
+    }
   },
   "chat": {
     "empty": "Sélectionne un canal ou un contact pour commencer à discuter",

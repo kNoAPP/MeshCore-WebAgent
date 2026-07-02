@@ -53,6 +53,7 @@
       "radio": "Ajustes de radio",
       "identity": "Identidad",
       "location": "Ubicación",
+      "ai": "Ajustes de IA",
       "danger": "Acciones del dispositivo"
     },
     "keywords": {
@@ -64,6 +65,7 @@
       "radio": "radio frecuencia ancho de banda lora",
       "identity": "identidad clave pública nombre de nodo",
       "location": "ubicación coordenadas gps posición",
+      "ai": "ia llm clave api anthropic claude asistente",
       "danger": "reiniciar dispositivo acciones peligro"
     }
   },
@@ -190,6 +192,7 @@
       "identity": "Identidad",
       "radio": "Radio",
       "location": "Ubicación",
+      "ai": "IA",
       "danger": "Acciones del dispositivo"
     },
     "model": "Modelo",
@@ -240,7 +243,35 @@
     "rebootHint": "Reinicia la radio. La conexión se cortará mientras se reinicia y se reconectará automáticamente cuando el dispositivo vuelva.",
     "reboot": "Reiniciar dispositivo",
     "rebootConfirm": "¿Reiniciar la radio ahora?",
-    "rebootConfirmAction": "Reiniciar"
+    "rebootConfirmAction": "Reiniciar",
+    "ai": {
+      "hint": "Usa tu propia clave de API de LLM para las funciones de IA en el navegador. Tu clave solo se usa para solicitudes directas al proveedor — nunca se envía a ningún otro servidor.",
+      "provider": "Proveedor",
+      "model": "Modelo",
+      "apiKey": "Clave de API",
+      "apiKeyPlaceholder": "Pega tu clave de API",
+      "remember": "Recordar en este dispositivo",
+      "rememberHint": "Cifra la clave para esta radio para restaurarla en la próxima conexión. Requiere una radio conectada.",
+      "save": "Guardar clave",
+      "forget": "Olvidar clave",
+      "statusNone": "Ninguna clave cargada",
+      "statusMemory": "Clave cargada (solo esta pestaña)",
+      "statusPersisted": "Clave recordada en este dispositivo",
+      "warning": "Tu clave reside en esta pestaña del navegador. Úsala solo en un dispositivo de confianza.",
+      "test": "Probar conexión",
+      "testHint": "Envía una petición breve para confirmar que tu clave funciona.",
+      "testPlaceholder": "Di hola",
+      "send": "Enviar",
+      "error": {
+        "auth": "Falló la autenticación — revisa tu clave de API.",
+        "rateLimit": "Limitado por el proveedor — inténtalo de nuevo en breve.",
+        "badRequest": "El proveedor rechazó la solicitud.",
+        "tooLarge": "La solicitud era demasiado grande.",
+        "network": "No se pudo contactar al proveedor. Comprueba tu conexión.",
+        "server": "El proveedor tuvo un error — inténtalo más tarde.",
+        "unknown": "Algo salió mal."
+      }
+    }
   },
   "chat": {
     "empty": "Selecciona un canal o contacto para empezar a chatear",
