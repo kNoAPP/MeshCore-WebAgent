@@ -14,6 +14,11 @@ import {
 import { useMeshStore, channelConvoId, directConvoId } from '@/store/meshStore';
 import { loadRadioData, saveRadioData, deriveStorageKey } from '@/lib/storage';
 import {
+  setSecretContext,
+  loadPersistedApiKey,
+  wipeApiKey,
+} from '@/lib/ai/secret';
+import {
   ROUTE_TYPE_FLOOD,
   PAYLOAD_TYPE_GRP_TXT,
   ADV_TYPE_REPEATER,
@@ -191,6 +196,9 @@ function clearSessionState(): void {
   saveUnsub?.();
   saveUnsub = null;
   storageKey = null;
+  // Overwrite the in-memory API key so a torn-down session (disconnect, drop,
+  // or the start of the next connect) can't leave it readable.
+  wipeApiKey();
 }
 
 function closeEchoWindow(): void {
@@ -497,6 +505,11 @@ export function useMeshCore() {
             .filter((s): s is Uint8Array => s != null && s.length > 0);
           const key = await deriveStorageKey(secrets, pubkey);
           storageKey = key;
+
+          // Reuse the same per-radio key for secret storage and restore a
+          // "remembered" LLM API key if one was saved for this radio.
+          setSecretContext(pubkey, key);
+          await loadPersistedApiKey();
 
           const saved = await loadRadioData(pubkey, key);
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);

@@ -94,6 +94,14 @@ export const SETTINGS_SECTIONS = [
 /** A deep-link target for a specific {@link SettingsPage} section card. */
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
+/**
+ * Masked lifecycle state of the BYO LLM API key, mirrored for reactive UI. The
+ * key value itself is never stored here (or in any serialized slice) — only
+ * whether one is loaded in memory and whether an encrypted copy is persisted on
+ * this device. See `lib/ai/secret.ts`.
+ */
+export type AiKeyStatus = 'none' | 'memory' | 'persisted';
+
 /** Persisted contacts-list view: filter, order, and favorite pinning. */
 export interface ContactView {
   filter: ContactFilter;
@@ -206,6 +214,13 @@ interface MeshState {
    * settings view. One-shot: cleared by {@link SettingsPage} once consumed.
    */
   settingsSection: SettingsSection | null;
+
+  // AI
+  /**
+   * Masked indicator of whether a BYO LLM API key is loaded this session and
+   * whether it's persisted on this device. Never holds the key value itself.
+   */
+  aiKeyStatus: AiKeyStatus;
 }
 
 interface MeshActions {
@@ -254,6 +269,8 @@ interface MeshActions {
   openSettingsSection: (section: SettingsSection) => void;
   clearSettingsSection: () => void;
   closeConnectionOverlays: () => void;
+  /** Updates the masked AI key indicator (never the value). */
+  setAiKeyStatus: (status: AiKeyStatus) => void;
   reset: () => void;
 }
 
@@ -287,6 +304,7 @@ const initialState: MeshState = {
   advertising: false,
   commandPaletteOpen: false,
   settingsSection: null,
+  aiKeyStatus: 'none',
 };
 
 let toastSeq = 0;
@@ -486,6 +504,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       commandPaletteOpen: false,
       settingsSection: null,
     }),
+
+  setAiKeyStatus: (aiKeyStatus) => set({ aiKeyStatus }),
 
   reset: () =>
     set({
