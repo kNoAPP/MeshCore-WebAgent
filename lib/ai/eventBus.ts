@@ -6,8 +6,8 @@
 // MeshCoreCallbacks inside useMeshCore's wireClient — we wrap, never replace,
 // those callbacks — and emits a normalized MeshEvent *after* the store has been
 // updated, so subscribers see a consistent world. Zero cost when nobody is
-// subscribed (automation off): emitters guard on hasSubscribers(). See
-// `docs/design/ai-automation.md` §3.
+// subscribed (automation off): emitters short-circuit when `listeners` is
+// empty. See `docs/design/ai-automation.md` §3.
 
 import type { Message, Advert, ConnectionStatus } from '@/types/meshcore';
 
@@ -33,11 +33,6 @@ export type MeshEvent =
 export type MeshEventListener = (event: MeshEvent) => void;
 
 const listeners = new Set<MeshEventListener>();
-
-/** Whether any subscriber is attached — emitters skip all work when false. */
-export function hasSubscribers(): boolean {
-  return listeners.size > 0;
-}
 
 /**
  * Subscribes to the bus.

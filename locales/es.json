@@ -374,7 +374,7 @@
       "llmError": "Error de IA: {{kind}}",
       "notAllowed": "Herramienta no permitida: {{tool}}",
       "rateLimited": "Límite de tiempo de aire alcanzado",
-      "maxSteps": "Se alcanzó el límite de pasos de herramienta sin actuar",
+      "maxSteps": "Se alcanzó el límite de turnos mientras aún se llamaban herramientas",
       "actionLimit": "Límite de acciones alcanzado para este evento"
     }
   },

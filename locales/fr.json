@@ -374,7 +374,7 @@
       "llmError": "Erreur IA : {{kind}}",
       "notAllowed": "Outil non autorisé : {{tool}}",
       "rateLimited": "Limite de temps d'antenne atteinte",
-      "maxSteps": "Limite d'étapes d'outil atteinte sans action",
+      "maxSteps": "Limite de tours atteinte alors que des outils étaient encore appelés",
       "actionLimit": "Limite d'actions atteinte pour cet événement"
     }
   },

@@ -439,7 +439,9 @@ class AutomationEngine {
       messages.push({ role: 'user', content: resultBlocks });
     }
 
-    // Ran the tool loop to its cap without ever reaching a transmit/write.
+    // Exhausted the per-event turn cap while the model was still calling tools
+    // (a turn with no tool call would have returned above). The run may already
+    // have staged or sent transmit/write actions before hitting the cap.
     audit({
       ruleId: rule.id,
       ruleName: rule.name,
