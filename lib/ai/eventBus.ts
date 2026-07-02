@@ -25,7 +25,9 @@ import type {
  * - `contactsUpdated` ← `onContactsUpdated`.
  * - `advert` ← `onAdvertsUpdated`, diffed to one event per new/changed advert.
  * - `ack` ← `onAck` (delivery confirmation with round-trip).
- * - `connection` ← store `status` transitions.
+ * - `connection` — a synthetic `{ status: 'connected' }` fired by
+ *   `useAutomation` when the engine arms; drop/reconnect states unsubscribe the
+ *   engine rather than emitting an event (execution is live-only).
  */
 export type MeshEvent =
   | { type: 'message'; msg: Message }

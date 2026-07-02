@@ -258,8 +258,13 @@ class AutomationEngine {
     }
     // Prompt actions are serialized through the queue so the provider and radio
     // are never raced. Each run gets its own AbortController the kill switch
-    // can trip.
-    this.queue = this.queue.then(() => this.runPrompt(rule, event));
+    // can trip. The trailing catch isolates a run's rejection: an unexpected
+    // throw (outside the provider's error-event contract) must not leave the
+    // queue permanently rejected, which would silently skip every later prompt
+    // rule until stop() resets it.
+    this.queue = this.queue
+      .then(() => this.runPrompt(rule, event))
+      .catch(() => {});
   }
 
   private async runPrompt(
@@ -540,17 +545,17 @@ class AutomationEngine {
   }
 
   /**
-   * Applies one tool call from a rule (fixed action) or the LLM: enforces the
-   * allowlist, then routes reads straight through, and gates transmit/write
-   * calls by the airtime limiter and the rule's autonomy (auto executes;
-   * approve stages for human sign-off). Every path is audited.
+   * Applies a rule's fixed-action tool call: enforces the allowlist, routes
+   * reads straight through, and gates transmit/write calls by the airtime
+   * limiter and the rule's autonomy (auto executes; approve stages for human
+   * sign-off). Every path is audited. The LLM path does not go through here —
+   * it uses the tool loop's runReadForResult / runGatedForResult.
    */
   private dispatchTool(
     rule: AutomationRule,
     event: MeshEvent,
     name: string,
     rawArgs: unknown,
-    llmAllowed?: readonly ToolName[],
   ): void {
     const label = eventLabel(event);
     if (!isToolName(name) || !rule.allowlist.includes(name)) {
@@ -559,18 +564,6 @@ class AutomationEngine {
         ruleName: rule.name,
         event: label,
         tool: isToolName(name) ? name : undefined,
-        outcome: 'blocked',
-        detail: i18n.t('automation.audit.notAllowed', { tool: name }),
-      });
-      return;
-    }
-    // An LLM tool call must also be in the set actually offered this run.
-    if (llmAllowed && !llmAllowed.includes(name)) {
-      audit({
-        ruleId: rule.id,
-        ruleName: rule.name,
-        event: label,
-        tool: name,
         outcome: 'blocked',
         detail: i18n.t('automation.audit.notAllowed', { tool: name }),
       });

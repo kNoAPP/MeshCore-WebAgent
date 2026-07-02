@@ -256,7 +256,8 @@ function KillSwitchButton() {
  * flood (whole mesh). Advertising needs a fully connected link, so the button
  * is disabled while reconnecting — matching the Stats tab — and each action
  * routes through {@link useMeshCore.advertiseSelf}, which toasts the outcome.
- */ function AdvertMenu() {
+ */
+function AdvertMenu() {
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);
   const { advertise, sending } = useAdvertise();
