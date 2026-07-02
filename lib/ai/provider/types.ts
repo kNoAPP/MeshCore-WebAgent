@@ -72,16 +72,19 @@ export type LLMStreamEvent =
  * - `auth` — missing/invalid/blocked key (HTTP 401/403).
  * - `rateLimit` — throttled (HTTP 429); {@link LLMError.retryAfterSeconds} set
  *   when the provider reports it.
+ * - `billing` — a billing/payment problem (HTTP 402); the key is valid but the
+ *   account can't be charged.
  * - `badRequest` — malformed request (HTTP 400); usually a caller bug.
  * - `tooLarge` — request exceeds the provider limit (HTTP 413); trim history.
  * - `network` — CORS rejection or offline (a bare `fetch` `TypeError`).
- * - `server` — provider-side error (HTTP 5xx).
+ * - `server` — provider-side error (HTTP 5xx / timeout / overloaded).
  * - `aborted` — the caller aborted via the request `AbortSignal`.
  * - `unknown` — anything unclassified.
  */
 export type LLMErrorKind =
   | 'auth'
   | 'rateLimit'
+  | 'billing'
   | 'badRequest'
   | 'tooLarge'
   | 'network'

@@ -265,6 +265,7 @@
       "error": {
         "auth": "Falló la autenticación — revisa tu clave de API.",
         "rateLimit": "Limitado por el proveedor — inténtalo de nuevo en breve.",
+        "billing": "Problema de facturación — revisa la facturación de tu cuenta del proveedor.",
         "badRequest": "El proveedor rechazó la solicitud.",
         "tooLarge": "La solicitud era demasiado grande.",
         "network": "No se pudo contactar al proveedor. Comprueba tu conexión.",

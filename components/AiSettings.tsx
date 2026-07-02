@@ -27,6 +27,7 @@ const TEST_MAX_TOKENS = 256;
 const ERROR_KEY = {
   auth: 'settings.ai.error.auth',
   rateLimit: 'settings.ai.error.rateLimit',
+  billing: 'settings.ai.error.billing',
   badRequest: 'settings.ai.error.badRequest',
   tooLarge: 'settings.ai.error.tooLarge',
   network: 'settings.ai.error.network',

@@ -265,6 +265,7 @@
       "error": {
         "auth": "Authentifizierung fehlgeschlagen — prüfe deinen API-Schlüssel.",
         "rateLimit": "Vom Anbieter gedrosselt — versuche es bald erneut.",
+        "billing": "Abrechnungsproblem — prüfe die Abrechnung deines Anbieterkontos.",
         "badRequest": "Der Anbieter hat die Anfrage abgelehnt.",
         "tooLarge": "Die Anfrage war zu groß.",
         "network": "Anbieter nicht erreichbar. Prüfe deine Verbindung.",

@@ -82,6 +82,7 @@ function requestBody(req: LLMRequest): string {
 function errorForStatus(status: number, retryAfter?: number): LLMError {
   if (status === 401 || status === 403) return new LLMError('auth');
   if (status === 429) return new LLMError('rateLimit', retryAfter);
+  if (status === 402) return new LLMError('billing');
   if (status === 400) return new LLMError('badRequest');
   if (status === 413) return new LLMError('tooLarge');
   if (status >= 500) return new LLMError('server');
@@ -200,9 +201,16 @@ function streamErrorKind(type: unknown): LLMErrorKind {
     return 'auth';
   }
   if (type === 'rate_limit_error') return 'rateLimit';
+  if (type === 'billing_error') return 'billing';
   if (type === 'invalid_request_error') return 'badRequest';
   if (type === 'request_too_large') return 'tooLarge';
-  if (type === 'overloaded_error' || type === 'api_error') return 'server';
+  if (
+    type === 'overloaded_error' ||
+    type === 'api_error' ||
+    type === 'timeout_error'
+  ) {
+    return 'server';
+  }
   return 'unknown';
 }
 

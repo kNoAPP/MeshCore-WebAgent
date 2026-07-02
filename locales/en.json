@@ -265,6 +265,7 @@
       "error": {
         "auth": "Authentication failed — check your API key.",
         "rateLimit": "Rate limited by the provider — try again shortly.",
+        "billing": "Billing problem — check your provider account's billing.",
         "badRequest": "The provider rejected the request.",
         "tooLarge": "The request was too large.",
         "network": "Couldn't reach the provider. Check your connection.",
