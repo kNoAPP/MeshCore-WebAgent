@@ -10,6 +10,7 @@ import { useMeshStore, type SettingsSection } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
 import { fmtNum, utf8ByteLength, contactShareUri, ADV_ICON } from '@/lib/utils';
+import { flashTarget } from '@/lib/ui/flash';
 import {
   MAX_ADVERT_NAME_BYTES,
   ADVERT_LAT_MIN,
@@ -54,9 +55,7 @@ export function SettingsPage() {
     clearSettingsSection();
     if (!el) return;
     el.scrollIntoView({ behavior: 'auto', block: 'center' });
-    el.classList.add('msg-flash');
-    const timer = setTimeout(() => el.classList.remove('msg-flash'), 1600);
-    return () => clearTimeout(timer);
+    flashTarget(el);
   }, [settingsSection, clearSettingsSection]);
 
   // Editing needs a fully connected link and a firmware that reports every
