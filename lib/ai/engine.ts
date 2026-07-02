@@ -26,6 +26,7 @@ import {
   isToolName,
   toolClass,
   toolSchemas,
+  buildSystemPrompt,
   type ActionContext,
   type ToolName,
 } from '@/lib/ai/tools';
@@ -340,7 +341,7 @@ class AutomationEngine {
         const streamed = provider.stream(
           {
             model,
-            system: rule.action.system,
+            system: buildSystemPrompt(rule.action.system),
             messages,
             tools: schemas,
             maxTokens,

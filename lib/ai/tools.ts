@@ -13,7 +13,8 @@
 import { useMeshStore } from '@/store/meshStore';
 import i18n from '@/lib/i18n';
 import type { ToolSchema } from '@/lib/ai/provider';
-import { FAVORITE_FLAG } from '@/lib/meshcore/constants';
+import { FAVORITE_FLAG, MAX_MSG_BYTES } from '@/lib/meshcore/constants';
+import { utf8ByteLength } from '@/lib/utils';
 
 /** Every tool the engine can call, in menu order. */
 export const TOOL_NAMES = [
@@ -34,6 +35,36 @@ export const TOOL_NAMES = [
 
 /** A tool name the model calls / a rule references. */
 export type ToolName = (typeof TOOL_NAMES)[number];
+
+/**
+ * Invariant MeshCore operating knowledge prepended to every automation prompt,
+ * ahead of the rule author's own system text (see {@link buildSystemPrompt}).
+ * It teaches the model the mesh constraints every rule needs — message size,
+ * addressing, airtime cost — so users don't have to restate them per rule.
+ * Model-facing (never shown in the UI), so it is intentionally not localized;
+ * the byte cap is interpolated from {@link MAX_MSG_BYTES} to stay in lockstep
+ * with the send path that enforces it.
+ */
+export const SYSTEM_PREAMBLE = `You are an automation agent operating a MeshCore LoRa mesh radio through a fixed set of tools.
+
+MeshCore constraints you must respect:
+- The mesh is low-bandwidth and airtime is shared. Transmit sparingly and keep every message terse.
+- Text messages are capped at ${MAX_MSG_BYTES} UTF-8 bytes; longer text is rejected and must be shortened and resent. Multi-byte characters (emoji, accents) use several bytes each, so stay well under the limit.
+- Contacts are addressed by public-key prefix, never by name. Resolve the prefix with read_contacts or read_adverts before sending a direct message.
+- Channels are addressed by index (0-7).
+- Prefer reading current state (read_contacts, read_messages, read_channels, ...) before any transmit or write action.
+- Transmit and write actions may require human approval and are rate-limited. Do not retry them aggressively.`;
+
+/**
+ * Composes the full system prompt for a prompt rule: the invariant
+ * {@link SYSTEM_PREAMBLE} first, then the rule author's task-specific system
+ * text. Rule text comes last so a user can add nuance while the mesh invariants
+ * always apply.
+ */
+export function buildSystemPrompt(ruleSystem: string): string {
+  const rule = ruleSystem.trim();
+  return rule ? `${SYSTEM_PREAMBLE}\n\n${rule}` : SYSTEM_PREAMBLE;
+}
 
 /**
  * A tool's side-effect class. `read` is always safe; `transmit` uses shared
@@ -127,7 +158,7 @@ export const TOOL_REGISTRY: Record<ToolName, ToolDef> = {
     cls: 'transmit',
     schema: {
       name: 'send_direct_message',
-      description: 'Send a direct message to a contact by public-key prefix.',
+      description: `Send a direct message to a contact by public-key prefix. "text" is limited to ${MAX_MSG_BYTES} UTF-8 bytes and is rejected if longer, so keep it brief.`,
       inputSchema: {
         type: 'object',
         properties: { to: STRING, text: STRING },
@@ -139,7 +170,7 @@ export const TOOL_REGISTRY: Record<ToolName, ToolDef> = {
     cls: 'transmit',
     schema: {
       name: 'send_channel_message',
-      description: 'Send a message to a channel by index.',
+      description: `Send a message to a channel by index. "text" is limited to ${MAX_MSG_BYTES} UTF-8 bytes and is rejected if longer, so keep it brief.`,
       inputSchema: {
         type: 'object',
         properties: { channelIdx: { type: 'number' }, text: STRING },
@@ -248,6 +279,23 @@ function reqNumber(args: Record<string, unknown>, key: string): number {
     throw new Error(`Missing or invalid "${key}"`);
   }
   return n;
+}
+
+/**
+ * Like {@link reqString}, but rejects a message body over {@link MAX_MSG_BYTES}
+ * UTF-8 bytes instead of letting the frame builder silently truncate it. The
+ * error is surfaced back to the model as a tool result so it can shorten and
+ * resend rather than transmitting a clipped fragment.
+ */
+function reqMsgText(args: Record<string, unknown>, key: string): string {
+  const text = reqString(args, key);
+  const bytes = utf8ByteLength(text);
+  if (bytes > MAX_MSG_BYTES) {
+    throw new Error(
+      `Message is ${bytes}/${MAX_MSG_BYTES} UTF-8 bytes; shorten it and resend.`,
+    );
+  }
+  return text;
 }
 
 /**
@@ -361,13 +409,13 @@ export async function callTool(
     case 'send_direct_message':
       await ctx.sendDirectMessage(
         reqString(args, 'to'),
-        reqString(args, 'text'),
+        reqMsgText(args, 'text'),
       );
       return { ok: true };
     case 'send_channel_message':
       await ctx.sendChannelMessage(
         reqNumber(args, 'channelIdx'),
-        reqString(args, 'text'),
+        reqMsgText(args, 'text'),
       );
       return { ok: true };
     case 'advertise':
