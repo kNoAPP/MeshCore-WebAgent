@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.10.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.9.0...v1.10.0) (2026-07-02)
+
+
+### Features
+
+* **automation:** revamp the rule editor with a dialog and limit sliders ([#126](https://github.com/kNoAPP/MeshCore-WebAgent/issues/126)) ([c41821b](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c41821b1ee873eb54b9bffa91e29402cb4f95648))
+
+
+### Bug Fixes
+
+* restore button cursor and index automation in search ([#128](https://github.com/kNoAPP/MeshCore-WebAgent/issues/128)) ([e019b5c](https://github.com/kNoAPP/MeshCore-WebAgent/commit/e019b5c848948b2581721df4d728676563ba62f8))
+
 ## [1.9.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.8.0...v1.9.0) (2026-07-02)
 
 
