@@ -97,14 +97,16 @@ function retryAfterSeconds(res: Response): number | undefined {
 /** Resolves after `ms`, or rejects early if `signal` aborts during the wait. */
 function delay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort);
-      resolve();
-    }, ms);
+    // `onAbort` and `timer` reference each other; both uses live inside
+    // deferred callbacks, so neither runs before the other is initialized.
     const onAbort = () => {
       clearTimeout(timer);
       reject(new DOMException('Aborted', 'AbortError'));
     };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
     signal.addEventListener('abort', onAbort, { once: true });
   });
 }
@@ -171,11 +173,20 @@ async function* readSse(
         buffer = buffer.slice(boundary + 2);
         let event = 'message';
         let data = '';
+        let hasData = false;
         for (const line of frame.split('\n')) {
-          if (line.startsWith('event:')) event = line.slice(6).trim();
-          else if (line.startsWith('data:')) data += line.slice(5).trim();
+          // Per the SSE spec, a field value drops one optional leading space,
+          // and multiple `data:` fields join with a newline — never `trim`,
+          // which would alter payload bytes.
+          if (line.startsWith('event:')) {
+            event = line.slice(6).replace(/^ /, '');
+          } else if (line.startsWith('data:')) {
+            const chunk = line.slice(5).replace(/^ /, '');
+            data = hasData ? `${data}\n${chunk}` : chunk;
+            hasData = true;
+          }
         }
-        if (data) yield { event, data };
+        if (hasData) yield { event, data };
       }
     }
   } finally {

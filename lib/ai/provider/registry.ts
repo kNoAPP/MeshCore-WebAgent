@@ -28,5 +28,8 @@ export function listProviders(): readonly LLMProvider[] {
 
 /** Narrows an arbitrary string to a known {@link ProviderId}. */
 export function isProviderId(value: string): value is ProviderId {
-  return value in PROVIDERS;
+  // `Object.hasOwn`, not `in`, so inherited names (`toString`, `constructor`,
+  // …) from untrusted input (e.g. localStorage) can't be mistaken for a
+  // provider id and resolve to a non-provider value.
+  return Object.hasOwn(PROVIDERS, value);
 }
