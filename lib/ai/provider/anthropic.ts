@@ -40,9 +40,9 @@ let consecutiveAuthFailures = 0;
 
 /** Curated Anthropic model aliases; first is the default. */
 const MODELS: readonly LLMModel[] = [
-  { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
-  { id: 'claude-opus-4-1', label: 'Claude Opus 4.1' },
-  { id: 'claude-3-5-haiku-latest', label: 'Claude Haiku 3.5' },
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
 ];
 
 /**
