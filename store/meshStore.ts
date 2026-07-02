@@ -82,6 +82,18 @@ export type ContactSort = (typeof CONTACT_SORTS)[number];
 /** Which top-level page the connected app is showing. */
 export type AppView = 'chat' | 'stats' | 'settings' | 'map';
 
+/** The cards on the Settings page, in render order; used for deep-linking. */
+export const SETTINGS_SECTIONS = [
+  'device',
+  'radio',
+  'identity',
+  'location',
+  'danger',
+] as const;
+
+/** A deep-link target for a specific {@link SettingsPage} section card. */
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
 /** Persisted contacts-list view: filter, order, and favorite pinning. */
 export interface ContactView {
   filter: ContactFilter;
@@ -156,6 +168,12 @@ interface MeshState {
   // Conversations
   msgHistory: Record<string, Message[]>;
   activeConvo: ActiveConvo | null;
+  /**
+   * Id of a message the open conversation should scroll to and briefly
+   * highlight, set when navigating from the command palette. One-shot: cleared
+   * by {@link ChatArea} once consumed.
+   */
+  scrollToMsgId: string | null;
 
   // UI
   contactView: ContactView;
@@ -181,6 +199,13 @@ interface MeshState {
   addChannelOpen: boolean;
   addContactOpen: boolean;
   advertising: boolean;
+  /** Whether the global "Find Anything" command palette is open. */
+  commandPaletteOpen: boolean;
+  /**
+   * A Settings section to scroll to and highlight after switching to the
+   * settings view. One-shot: cleared by {@link SettingsPage} once consumed.
+   */
+  settingsSection: SettingsSection | null;
 }
 
 interface MeshActions {
@@ -202,6 +227,7 @@ interface MeshActions {
   addMessage: (id: string, msg: Message) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
+  setScrollToMsgId: (msgId: string | null) => void;
   markRead: (id: string) => void;
   restoreHistory: (persisted: Record<string, Message[]>) => void;
   showToast: (text: string, variant?: Toast['variant']) => void;
@@ -222,6 +248,11 @@ interface MeshActions {
   setAddChannelOpen: (open: boolean) => void;
   setAddContactOpen: (open: boolean) => void;
   setAdvertising: (advertising: boolean) => void;
+  openCommandPalette: () => void;
+  closeCommandPalette: () => void;
+  /** Switches to the settings view, deep-linking to a specific section card. */
+  openSettingsSection: (section: SettingsSection) => void;
+  clearSettingsSection: () => void;
   closeConnectionOverlays: () => void;
   reset: () => void;
 }
@@ -240,6 +271,7 @@ const initialState: MeshState = {
   autoAddConfig: loadAutoAddConfig(),
   msgHistory: {},
   activeConvo: null,
+  scrollToMsgId: null,
   contactView: loadContactView(),
   locale: resolveInitialLocale(),
   theme: resolveInitialTheme(),
@@ -253,6 +285,8 @@ const initialState: MeshState = {
   addChannelOpen: false,
   addContactOpen: false,
   advertising: false,
+  commandPaletteOpen: false,
+  settingsSection: null,
 };
 
 let toastSeq = 0;
@@ -352,6 +386,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setActiveConvo: (activeConvo) => set({ activeConvo }),
 
+  setScrollToMsgId: (scrollToMsgId) => set({ scrollToMsgId }),
+
   restoreHistory: (persisted) =>
     set((state) => {
       // Prepend persisted messages before any newly-polled messages (old → new
@@ -418,7 +454,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   dismissToast: () => set({ toast: null }),
   // Any manual tab switch also aborts an in-progress location pick.
-  setView: (view) => set({ view, mapPicking: false }),
+  setView: (view) => set({ view, mapPicking: false, settingsSection: null }),
   startLocationPick: () => set({ mapPicking: true, view: 'map' }),
   confirmLocationPick: (lat, lon) =>
     set({ mapPicking: false, view: 'settings', pendingLocation: { lat, lon } }),
@@ -429,6 +465,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
   setAddContactOpen: (addContactOpen) => set({ addContactOpen }),
   setAdvertising: (advertising) => set({ advertising }),
+  openCommandPalette: () => set({ commandPaletteOpen: true }),
+  closeCommandPalette: () => set({ commandPaletteOpen: false }),
+  openSettingsSection: (settingsSection) =>
+    set({ view: 'settings', mapPicking: false, settingsSection }),
+  clearSettingsSection: () => set({ settingsSection: null }),
   // Closes every connection-scoped overlay/panel at once. Called when the link
   // drops so a panel left open doesn't silently reappear once reconnect
   // remounts the connected UI. Resetting `view` to 'chat' also drops the Stats
@@ -442,6 +483,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       autoAddOpen: false,
       addChannelOpen: false,
       addContactOpen: false,
+      commandPaletteOpen: false,
+      settingsSection: null,
     }),
 
   reset: () =>

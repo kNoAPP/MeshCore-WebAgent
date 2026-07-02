@@ -66,12 +66,15 @@ function splitChannelMessage(text: string): {
  */
 export function ChatArea() {
   const { activeConvo, msgHistory, contacts, deviceName } = useMeshStore();
+  const scrollToMsgId = useMeshStore((s) => s.scrollToMsgId);
+  const setScrollToMsgId = useMeshStore((s) => s.setScrollToMsgId);
   const { sendMessage, retryMessage } = useMeshCore();
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevConvoId = useRef<string | null>(null);
 
@@ -155,10 +158,29 @@ export function ChatArea() {
     const convoId = activeConvo?.id ?? null;
     const switched = prevConvoId.current !== convoId;
     prevConvoId.current = convoId;
+    // A pending command-palette jump owns the scroll position — don't yank it
+    // to the bottom underneath it. Read live so clearing the flag can't
+    // retrigger this effect (its deps deliberately exclude scrollToMsgId).
+    if (useMeshStore.getState().scrollToMsgId) return;
     bottomRef.current?.scrollIntoView({
       behavior: switched ? 'auto' : 'smooth',
     });
   }, [activeConvo?.id, messages.length]);
+
+  // Scroll to and briefly flash a message targeted by the command palette, then
+  // clear the one-shot request.
+  useEffect(() => {
+    if (!scrollToMsgId) return;
+    const el = messagesRef.current?.querySelector<HTMLElement>(
+      `[data-msg-id="${scrollToMsgId}"]`,
+    );
+    setScrollToMsgId(null);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'auto', block: 'center' });
+    el.classList.add('msg-flash');
+    const timer = setTimeout(() => el.classList.remove('msg-flash'), 1600);
+    return () => clearTimeout(timer);
+  }, [scrollToMsgId, activeConvo?.id, setScrollToMsgId]);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -271,7 +293,10 @@ export function ChatArea() {
       </div>
 
       {/* Messages */}
-      <div className='flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'>
+      <div
+        className='flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
+        ref={messagesRef}
+      >
         {messages.length === 0 && (
           <div className='mt-8 text-center text-xs text-(--text2)'>
             {t('chat.noMessages')}
@@ -313,6 +338,7 @@ export function ChatArea() {
               )}
               <div
                 className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
+                data-msg-id={msg.id}
               >
                 {!msg.system && (
                   <div className='px-1 text-[11px] text-(--text2)'>

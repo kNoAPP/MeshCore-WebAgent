@@ -29,6 +29,44 @@
   "theme": {
     "toggle": "Toggle light/dark theme"
   },
+  "command": {
+    "title": "Find anything",
+    "search": "Search",
+    "open": "Open search",
+    "openHint": "Search messages, contacts, channels, and pages (Ctrl/⌘ K)",
+    "placeholder": "Search messages, contacts, channels…",
+    "clear": "Clear search",
+    "empty": "No results found",
+    "group": {
+      "recent": "Recent",
+      "messages": "Messages",
+      "contacts": "Contacts",
+      "channels": "Channels",
+      "pages": "Go to…"
+    },
+    "page": {
+      "chat": "Chat",
+      "map": "Map",
+      "stats": "Stats",
+      "settings": "Settings",
+      "device": "Device settings",
+      "radio": "Radio settings",
+      "identity": "Identity",
+      "location": "Location",
+      "danger": "Device actions"
+    },
+    "keywords": {
+      "chat": "chat messages conversations",
+      "map": "map location nodes",
+      "stats": "stats statistics metrics",
+      "settings": "settings preferences configuration",
+      "device": "device model firmware",
+      "radio": "radio frequency bandwidth lora",
+      "identity": "identity public key node name",
+      "location": "location coordinates gps position",
+      "danger": "reboot restart device actions danger"
+    }
+  },
   "desktopOnly": {
     "title": "Desktop required",
     "body": "MeshCore Companion connects to your radio over USB Serial and Bluetooth — browser features that aren't available on phones or tablets. Please open this site on a desktop or laptop computer.",

@@ -145,6 +145,30 @@ html {
 }
 
 /*
+ * A brief accent flash used to draw the eye to a target scrolled into view from
+ * the command palette (a message bubble or a settings card). Rounded to sit
+ * behind either target without clipping its own corners.
+ */
+.msg-flash {
+  border-radius: 8px;
+  animation: msg-flash 1.6s ease-out;
+}
+@keyframes msg-flash {
+  0%,
+  30% {
+    background: color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg-flash {
+    animation: none;
+  }
+}
+
+/*
  * Map view (Leaflet). Leaflet's stylesheet is imported lazily inside MapView's
  * chunk, so it can load after this file; overrides are therefore scoped under
  * `.meshcore-map` to win on specificity regardless of stylesheet order. Colors

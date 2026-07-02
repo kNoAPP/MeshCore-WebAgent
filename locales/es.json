@@ -29,6 +29,44 @@
   "theme": {
     "toggle": "Cambiar tema claro/oscuro"
   },
+  "command": {
+    "title": "Buscar cualquier cosa",
+    "search": "Buscar",
+    "open": "Abrir búsqueda",
+    "openHint": "Buscar mensajes, contactos, canales y páginas (Ctrl/⌘ K)",
+    "placeholder": "Buscar mensajes, contactos, canales…",
+    "clear": "Borrar búsqueda",
+    "empty": "No se encontraron resultados",
+    "group": {
+      "recent": "Recientes",
+      "messages": "Mensajes",
+      "contacts": "Contactos",
+      "channels": "Canales",
+      "pages": "Ir a…"
+    },
+    "page": {
+      "chat": "Chat",
+      "map": "Mapa",
+      "stats": "Estadísticas",
+      "settings": "Ajustes",
+      "device": "Ajustes del dispositivo",
+      "radio": "Ajustes de radio",
+      "identity": "Identidad",
+      "location": "Ubicación",
+      "danger": "Acciones del dispositivo"
+    },
+    "keywords": {
+      "chat": "chat mensajes conversaciones",
+      "map": "mapa ubicación nodos",
+      "stats": "estadísticas métricas",
+      "settings": "ajustes configuración preferencias",
+      "device": "dispositivo modelo firmware",
+      "radio": "radio frecuencia ancho de banda lora",
+      "identity": "identidad clave pública nombre de nodo",
+      "location": "ubicación coordenadas gps posición",
+      "danger": "reiniciar dispositivo acciones peligro"
+    }
+  },
   "desktopOnly": {
     "title": "Se requiere un ordenador de escritorio",
     "body": "MeshCore Companion se conecta a tu radio por USB Serie y Bluetooth, funciones del navegador que no están disponibles en teléfonos ni tabletas. Abre este sitio en un ordenador de escritorio o portátil.",

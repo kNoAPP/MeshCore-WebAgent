@@ -29,6 +29,44 @@
   "theme": {
     "toggle": "Helles/dunkles Design umschalten"
   },
+  "command": {
+    "title": "Alles finden",
+    "search": "Suchen",
+    "open": "Suche öffnen",
+    "openHint": "Nachrichten, Kontakte, Kanäle und Seiten durchsuchen (Strg/⌘ K)",
+    "placeholder": "Nachrichten, Kontakte, Kanäle durchsuchen…",
+    "clear": "Suche löschen",
+    "empty": "Keine Ergebnisse gefunden",
+    "group": {
+      "recent": "Zuletzt",
+      "messages": "Nachrichten",
+      "contacts": "Kontakte",
+      "channels": "Kanäle",
+      "pages": "Gehe zu…"
+    },
+    "page": {
+      "chat": "Chat",
+      "map": "Karte",
+      "stats": "Statistiken",
+      "settings": "Einstellungen",
+      "device": "Geräteeinstellungen",
+      "radio": "Funkeinstellungen",
+      "identity": "Identität",
+      "location": "Standort",
+      "danger": "Geräteaktionen"
+    },
+    "keywords": {
+      "chat": "chat nachrichten unterhaltungen",
+      "map": "karte standort knoten",
+      "stats": "statistiken metriken",
+      "settings": "einstellungen konfiguration",
+      "device": "gerät modell firmware",
+      "radio": "funk frequenz bandbreite lora",
+      "identity": "identität öffentlicher schlüssel knotenname",
+      "location": "standort koordinaten gps position",
+      "danger": "neustart gerät aktionen gefahr"
+    }
+  },
   "desktopOnly": {
     "title": "Desktop erforderlich",
     "body": "MeshCore Companion verbindet sich über USB-Seriell und Bluetooth mit deinem Funkgerät – Browser-Funktionen, die auf Smartphones und Tablets nicht verfügbar sind. Bitte öffne diese Seite auf einem Desktop- oder Laptop-Computer.",
