@@ -14,6 +14,11 @@ import {
 import { useMeshStore, channelConvoId, directConvoId } from '@/store/meshStore';
 import { loadRadioData, saveRadioData, deriveStorageKey } from '@/lib/storage';
 import {
+  setSecretContext,
+  loadPersistedApiKey,
+  wipeApiKey,
+} from '@/lib/ai/secret';
+import {
   ROUTE_TYPE_FLOOD,
   PAYLOAD_TYPE_GRP_TXT,
   ADV_TYPE_REPEATER,
@@ -135,6 +140,10 @@ function teardownSession(flush = false): void {
   const store = useMeshStore.getState();
   store.client?.destroy();
   clearSessionState();
+  // A real teardown (deliberate disconnect or a reconnect that gave up) is the
+  // point to overwrite the in-memory API key — not a transient drop, whose
+  // reconnect must keep a memory-only key alive for the same radio.
+  wipeApiKey();
   store.setClient(null);
   store.reset();
 }
@@ -452,11 +461,14 @@ export function useMeshCore() {
       // can't resurrect the session the user just tore down.
       if (isReconnect && userInitiatedDisconnect) return false;
       setStatus(isReconnect ? 'reconnecting' : 'connecting');
-      // A fresh connect starts a clean session — reset intent and drop any
-      // reconnect loop still pending from a previous session.
+      // A fresh connect starts a clean session — reset intent, drop any
+      // reconnect loop still pending from a previous session, and overwrite any
+      // in-memory API key so a previous radio's key can't carry into this one.
+      // A reconnect deliberately skips the wipe so a memory-only key survives.
       if (!isReconnect) {
         userInitiatedDisconnect = false;
         clearReconnect();
+        wipeApiKey();
       }
       clearSessionState();
       const c = new MeshCoreClient(transport);
@@ -498,7 +510,14 @@ export function useMeshCore() {
           const key = await deriveStorageKey(secrets, pubkey);
           storageKey = key;
 
-          const saved = await loadRadioData(pubkey, key);
+          // Reuse the same per-radio key for secret storage, then restore a
+          // "remembered" LLM API key and the saved history in parallel — two
+          // independent IndexedDB reads with no ordering dependency.
+          setSecretContext(pubkey, key);
+          const [, saved] = await Promise.all([
+            loadPersistedApiKey(),
+            loadRadioData(pubkey, key),
+          ]);
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);
 
           saveUnsub = useMeshStore.subscribe((state, prev) => {

@@ -7,8 +7,12 @@ import type { Message } from '@/types/meshcore';
 // AES-256-GCM under a key derived from the radio's own secrets (see
 // deriveStorageKey) — so the data is unreadable without that radio's channels.
 const DB_NAME = 'meshcore';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'radios';
+// Secrets (e.g. a BYO LLM API key) live in their own object store so they're
+// never entangled with message history, keyed by `${pubkey}:${name}` and
+// encrypted under the same per-radio key as everything else.
+const SECRETS_STORE = 'secrets';
 
 /**
  * The decrypted payload stored per radio: its conversation history keyed by
@@ -73,37 +77,84 @@ export async function deriveStorageKey(
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openDB(): Promise<IDBDatabase> {
-  dbPromise ??= new Promise((resolve, reject) => {
+  const promise = (dbPromise ??= new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
+    // Set once we give up on this open (blocked): the open request can't be
+    // aborted, so a success that arrives afterwards must close the connection
+    // rather than leak a second live handle to the DB.
+    let abandoned = false;
     req.onupgradeneeded = () => {
-      req.result.createObjectStore(STORE_NAME);
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+      if (!db.objectStoreNames.contains(SECRETS_STORE)) {
+        db.createObjectStore(SECRETS_STORE);
+      }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      if (abandoned) {
+        db.close();
+        return;
+      }
+      // If another tab opens a newer DB version, close this connection so we
+      // don't block its upgrade, dropping the cache so the next call reopens —
+      // but only if this promise is still the cached one, so a newer connection
+      // that already replaced it isn't evicted.
+      db.onversionchange = () => {
+        db.close();
+        if (dbPromise === promise) dbPromise = null;
+      };
+      resolve(db);
+    };
+    // A connection held by another tab at an older version blocks this upgrade.
+    // Fail fast instead of hanging forever; callers are best-effort and the
+    // dropped cache lets a later call retry once that tab closes.
+    req.onblocked = () => {
+      abandoned = true;
+      if (dbPromise === promise) dbPromise = null;
+      reject(new Error('IndexedDB upgrade blocked by another open connection'));
+    };
     req.onerror = () => {
-      dbPromise = null;
+      if (dbPromise === promise) dbPromise = null;
       reject(req.error);
     };
-  });
-  return dbPromise;
+  }));
+  return promise;
 }
 
-async function idbGet(pubkey: string): Promise<EncryptedRecord | undefined> {
+async function idbGet(
+  store: string,
+  key: string,
+): Promise<EncryptedRecord | undefined> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const req = db
-      .transaction(STORE_NAME, 'readonly')
-      .objectStore(STORE_NAME)
-      .get(pubkey);
+    const req = db.transaction(store, 'readonly').objectStore(store).get(key);
     req.onsuccess = () => resolve(req.result as EncryptedRecord | undefined);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function idbPut(pubkey: string, record: EncryptedRecord): Promise<void> {
+async function idbPut(
+  store: string,
+  key: string,
+  record: EncryptedRecord,
+): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(record, pubkey);
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(record, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function idbDelete(store: string, key: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(key);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -128,7 +179,7 @@ export async function saveRadioData(
       key,
       plaintext.buffer as ArrayBuffer,
     );
-    await idbPut(pubkey, { iv, data: ciphertext });
+    await idbPut(STORE_NAME, pubkey, { iv, data: ciphertext });
   } catch {}
 }
 
@@ -144,7 +195,7 @@ export async function loadRadioData(
   key: CryptoKey,
 ): Promise<PersistedRadioData | null> {
   try {
-    const record = await idbGet(pubkey);
+    const record = await idbGet(STORE_NAME, pubkey);
     if (!record) return null;
     const plaintext = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: record.iv },
@@ -159,4 +210,84 @@ export async function loadRadioData(
     // as empty
     return null;
   }
+}
+
+// The IndexedDB key under which a named secret is stored for a given radio.
+// Namespacing by pubkey keeps one radio's secrets from colliding with another's
+// in the shared secrets store.
+function secretRecordKey(pubkey: string, name: string): string {
+  return `${pubkey}:${name}`;
+}
+
+/**
+ * Encrypts and stores a named secret (e.g. an LLM API key) for a radio,
+ * scoped by its public key. Best-effort — any failure is swallowed, exactly
+ * like {@link saveRadioData}.
+ *
+ * @param key - the key from {@link deriveStorageKey} for this radio.
+ * @param name - a stable identifier for the secret within this radio's scope.
+ * @param value - the plaintext secret; never logged, only ever written as
+ * AES-256-GCM ciphertext.
+ * @returns true if the encrypted record was written, false if the write failed
+ * (so callers don't report a secret as persisted when it never reached disk).
+ */
+export async function saveSecret(
+  pubkey: string,
+  key: CryptoKey,
+  name: string,
+  value: string,
+): Promise<boolean> {
+  try {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = new TextEncoder().encode(value);
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      plaintext.buffer as ArrayBuffer,
+    );
+    await idbPut(SECRETS_STORE, secretRecordKey(pubkey, name), {
+      iv,
+      data: ciphertext,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Loads and decrypts a named secret for a radio.
+ *
+ * @param key - the key from {@link deriveStorageKey} for this radio.
+ * @returns the plaintext secret, or null if nothing is stored or decryption
+ * fails (wrong key / different radio / corrupt record) — a different radio is
+ * indistinguishable from an absent secret, which is the intended property.
+ */
+export async function loadSecret(
+  pubkey: string,
+  key: CryptoKey,
+  name: string,
+): Promise<string | null> {
+  try {
+    const record = await idbGet(SECRETS_STORE, secretRecordKey(pubkey, name));
+    if (!record) return null;
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: record.iv },
+      key,
+      record.data,
+    );
+    return new TextDecoder().decode(plaintext);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Deletes a named secret for a radio from IndexedDB. Best-effort — any failure
+ * is swallowed.
+ */
+export async function clearSecret(pubkey: string, name: string): Promise<void> {
+  try {
+    await idbDelete(SECRETS_STORE, secretRecordKey(pubkey, name));
+  } catch {}
 }
