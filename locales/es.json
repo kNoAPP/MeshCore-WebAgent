@@ -9,6 +9,7 @@
     "back": "Atrás",
     "copy": "Copiar",
     "copied": "Copiado",
+    "delete": "Eliminar",
     "channelName": "Canal {{index}}",
     "unknown": "Desconocido",
     "device": "Dispositivo MeshCore"
@@ -193,6 +194,7 @@
       "radio": "Radio",
       "location": "Ubicación",
       "ai": "IA",
+      "automation": "Automatización",
       "danger": "Acciones del dispositivo"
     },
     "model": "Modelo",
@@ -272,6 +274,108 @@
         "server": "El proveedor tuvo un error — inténtalo más tarde.",
         "unknown": "Algo salió mal."
       }
+    }
+  },
+  "automation": {
+    "hint": "Las automatizaciones reaccionan a eventos de malla en vivo y pueden realizar acciones de radio en tu nombre, opcionalmente usando tu clave de IA. De forma predeterminada sugieren acciones para tu aprobación; la autonomía total es opcional por regla y con límite de frecuencia.",
+    "liveOnly": "Las automatizaciones solo se ejecutan mientras esta pestaña está abierta y conectada. Los eventos que llegan mientras está cerrada se descartan — no hay reproducción.",
+    "master": "Activar automatización",
+    "on": "Activa — los eventos coincidentes ejecutan tus reglas",
+    "off": "Desactivada — no se ejecuta ninguna regla",
+    "kill": "Detener todo",
+    "killHint": "Detener toda la automatización de inmediato: cancelar cualquier ejecución de IA en curso, desactivar reglas y borrar aprobaciones pendientes.",
+    "killed": "Automatización detenida",
+    "newRule": "Nueva regla",
+    "editRule": "Editar regla",
+    "name": "Nombre",
+    "namePlaceholder": "p. ej. Redactar respuestas automáticamente",
+    "when": "Cuando",
+    "scope": "Alcance",
+    "scopeAny": "Cualquier mensaje",
+    "scopeDirect": "Mensajes directos",
+    "scopeChannel": "Mensajes de canal",
+    "contains": "Solo si el texto contiene",
+    "containsPlaceholder": "palabra clave (opcional)",
+    "do": "Entonces",
+    "actionPrompt": "Ejecutar un prompt de IA (puede llamar herramientas)",
+    "actionFixed": "Ejecutar una herramienta fija",
+    "tool": "Herramienta",
+    "message": "Mensaje",
+    "messagePlaceholder": "Texto a enviar",
+    "contact": "Contacto",
+    "node": "Nodo",
+    "channel": "Canal",
+    "flood": "Flood (toda la malla)",
+    "pick": "Seleccionar…",
+    "system": "Instrucciones de IA",
+    "systemPlaceholder": "Describe qué debe hacer la IA con el evento…",
+    "allowTools": "Herramientas que la IA puede usar",
+    "maxTurns": "Máx. turnos de IA",
+    "maxTurnsHint": "Rondas del LLM antes de que la regla deba parar ({{min}}–{{max}}).",
+    "maxTokens": "Longitud máx. de respuesta",
+    "maxTokensHint": "Tokens por respuesta de IA ({{min}}–{{max}}).",
+    "autonomyLabel": "Autonomía",
+    "autoWarning": "Las reglas autónomas actúan sin preguntar. Aun así respetan la lista de herramientas permitidas, el límite de tiempo de aire y el interruptor de emergencia.",
+    "addRule": "Añadir regla",
+    "saveRule": "Guardar cambios",
+    "edit": "Editar",
+    "rules": "Reglas",
+    "noRules": "Aún no hay reglas. Crea una abajo.",
+    "enableRule": "Activar regla",
+    "trigger": {
+      "message": "Llega un mensaje",
+      "advert": "Un nodo se anuncia",
+      "ack": "Se confirma una entrega",
+      "connection": "La conexión cambia"
+    },
+    "autonomy": {
+      "approve": "Sugerir (aprobar cada acción)",
+      "auto": "Autónomo (actuar automáticamente)"
+    },
+    "inbox": {
+      "title": "Aprobaciones pendientes ({{count}})",
+      "approve": "Aprobar",
+      "deny": "Rechazar"
+    },
+    "action": {
+      "sendDirect": "Enviar a {{to}}: “{{text}}”",
+      "sendChannel": "Enviar a {{channel}}: “{{text}}”",
+      "advertiseFlood": "Anunciar este nodo (flood)",
+      "advertiseZeroHop": "Anunciar este nodo (cero saltos)",
+      "addContact": "Añadir contacto {{name}}",
+      "removeContact": "Eliminar contacto {{name}}",
+      "toggleFavorite": "Alternar favorito para {{name}}",
+      "resetPath": "Restablecer ruta a {{name}}"
+    },
+    "event": {
+      "message": "Mensaje de {{who}}",
+      "channelMessage": "canal",
+      "advert": "Anuncio de {{name}}",
+      "ack": "Entrega confirmada",
+      "connection": "Conexión {{status}}",
+      "contactsUpdated": "Contactos actualizados",
+      "approved": "Acción aprobada"
+    },
+    "outcome": {
+      "proposed": "Propuesto",
+      "approved": "Aprobado",
+      "denied": "Rechazado",
+      "auto": "Automático",
+      "executed": "Ejecutado",
+      "failed": "Fallido",
+      "rateLimited": "Límite de frecuencia",
+      "blocked": "Bloqueado"
+    },
+    "audit": {
+      "title": "Registro de auditoría",
+      "empty": "Aún no hay acciones de IA.",
+      "clear": "Borrar",
+      "noKey": "No hay clave de IA cargada",
+      "llmError": "Error de IA: {{kind}}",
+      "notAllowed": "Herramienta no permitida: {{tool}}",
+      "rateLimited": "Límite de tiempo de aire alcanzado",
+      "maxSteps": "Se alcanzó el límite de pasos de herramienta sin actuar",
+      "actionLimit": "Límite de acciones alcanzado para este evento"
     }
   },
   "chat": {

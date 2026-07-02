@@ -25,6 +25,7 @@ import { ModalShell } from './ModalShell';
 import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
 import { AiSettingsBody } from './AiSettings';
+import { AutomationSettingsBody } from './AutomationPanel';
 
 /**
  * Settings page: device identity, firmware, radio configuration, and this
@@ -189,6 +190,14 @@ export function SettingsPage() {
             section='ai'
           >
             <AiSettingsBody />
+          </Card>
+
+          <Card
+            title={t('settings.section.automation')}
+            className='col-span-2'
+            section='automation'
+          >
+            <AutomationSettingsBody />
           </Card>
 
           <RebootCard />

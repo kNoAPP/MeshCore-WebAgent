@@ -12,12 +12,18 @@ import {
   createWiFiTransport,
 } from '@/lib/meshcore/transports';
 import { useMeshStore, channelConvoId, directConvoId } from '@/store/meshStore';
-import { loadRadioData, saveRadioData, deriveStorageKey } from '@/lib/storage';
+import {
+  loadRadioData,
+  saveRadioData,
+  deriveStorageKey,
+  loadAutomationRules,
+} from '@/lib/storage';
 import {
   setSecretContext,
   loadPersistedApiKey,
   wipeApiKey,
 } from '@/lib/ai/secret';
+import { emit, emitAdvertDiff, resetEventBus } from '@/lib/ai/eventBus';
 import {
   ROUTE_TYPE_FLOOD,
   PAYLOAD_TYPE_GRP_TXT,
@@ -37,6 +43,7 @@ import type {
   RawRxPacket,
   ITransport,
 } from '@/types/meshcore';
+import type { AutomationRule } from '@/types/automation';
 
 interface PendingAck {
   convoId: string;
@@ -200,6 +207,9 @@ function clearSessionState(): void {
   saveUnsub?.();
   saveUnsub = null;
   storageKey = null;
+  // Drop the advert-diff baseline so the next session doesn't replay a prior
+  // radio's adverts as "new" the moment automation subscribes.
+  resetEventBus();
 }
 
 function closeEchoWindow(): void {
@@ -370,6 +380,7 @@ export function useMeshCore() {
     addMessage,
     updateMessage,
     restoreHistory,
+    restoreAutomationRules,
     showToast,
   } = useMeshStore();
 
@@ -393,31 +404,49 @@ export function useMeshCore() {
         onDeviceInfo: (info) => setDeviceInfo(info),
         onBattery: (b) => setBattery(b),
         onSyncProgress: (p) => setSyncProgress(p),
-        onContactsUpdated: (contacts) => setContacts({ ...contacts }),
+        onContactsUpdated: (contacts) => {
+          const next = { ...contacts };
+          setContacts(next);
+          emit({ type: 'contactsUpdated', contacts: next });
+        },
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
-        onAdvertsUpdated: (adverts) => setAdverts({ ...adverts }),
+        onAdvertsUpdated: (adverts) => {
+          const next = { ...adverts };
+          setAdverts(next);
+          // Diffed to per-advert edge events for the automation engine; a no-op
+          // when nobody is subscribed (automation off).
+          emitAdvertDiff(next);
+        },
         onLogRx: handleEchoPacket,
-        onAck: handleAck,
+        onAck: (ackCode, roundTripMs) => {
+          handleAck(ackCode, roundTripMs);
+          emit({ type: 'ack', ackCode, roundTripMs });
+        },
         onMessage: (msg) => {
           if (msg.kind === 'channel' && msg.channelIdx !== undefined) {
             const id = channelConvoId(msg.channelIdx);
-            addMessage(id, { ...msg, senderName: undefined });
+            const enriched: Message = { ...msg, senderName: undefined };
+            addMessage(id, enriched);
             const chName =
               c.channels[msg.channelIdx]?.name ||
               i18n.t('common.channelName', { index: msg.channelIdx });
             showToast(i18n.t('toast.newMessageIn', { channel: chName }));
+            // Emit after the store update so subscribers see a settled world.
+            emit({ type: 'message', msg: enriched });
           } else if (msg.kind === 'direct' && msg.pubkeyPrefix) {
             const id = directConvoId(msg.pubkeyPrefix);
             const contact = c.lookupContact(msg.pubkeyPrefix);
-            addMessage(id, {
+            const enriched: Message = {
               ...msg,
               senderName: contact?.name ?? msg.pubkeyPrefix.slice(0, 8),
-            });
+            };
+            addMessage(id, enriched);
             showToast(
               i18n.t('toast.newMessageFrom', {
                 sender: contact?.name ?? msg.pubkeyPrefix.slice(0, 8),
               }),
             );
+            emit({ type: 'message', msg: enriched });
           }
         },
         // A drop only triggers the reconnect loop once we're fully connected; a
@@ -511,14 +540,17 @@ export function useMeshCore() {
           storageKey = key;
 
           // Reuse the same per-radio key for secret storage, then restore a
-          // "remembered" LLM API key and the saved history in parallel — two
-          // independent IndexedDB reads with no ordering dependency.
+          // "remembered" LLM API key, the saved history, and any per-radio
+          // automation rules in parallel — independent IndexedDB reads with no
+          // ordering dependency.
           setSecretContext(pubkey, key);
-          const [, saved] = await Promise.all([
+          const [, saved, rules] = await Promise.all([
             loadPersistedApiKey(),
             loadRadioData(pubkey, key),
+            loadAutomationRules<AutomationRule[]>(pubkey, key),
           ]);
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);
+          restoreAutomationRules(rules ?? []);
 
           saveUnsub = useMeshStore.subscribe((state, prev) => {
             if (state.msgHistory === prev.msgHistory) return;
@@ -596,6 +628,7 @@ export function useMeshCore() {
       showToast,
       wireClient,
       restoreHistory,
+      restoreAutomationRules,
       setAutoAddConfig,
     ],
   );

@@ -9,6 +9,7 @@
     "back": "Zurück",
     "copy": "Kopieren",
     "copied": "Kopiert",
+    "delete": "Löschen",
     "channelName": "Kanal {{index}}",
     "unknown": "Unbekannt",
     "device": "MeshCore-Gerät"
@@ -193,6 +194,7 @@
       "radio": "Funk",
       "location": "Standort",
       "ai": "KI",
+      "automation": "Automatisierung",
       "danger": "Geräteaktionen"
     },
     "model": "Modell",
@@ -272,6 +274,108 @@
         "server": "Beim Anbieter ist ein Fehler aufgetreten — versuche es später erneut.",
         "unknown": "Etwas ist schiefgelaufen."
       }
+    }
+  },
+  "automation": {
+    "hint": "Automatisierungen reagieren auf Live-Mesh-Ereignisse und können in deinem Namen Funkaktionen ausführen, optional mit deinem KI-Schlüssel. Standardmäßig schlagen sie Aktionen zur Genehmigung vor; volle Autonomie ist pro Regel optional und ratenbegrenzt.",
+    "liveOnly": "Automatisierungen laufen nur, solange dieser Tab geöffnet und verbunden ist. Ereignisse, die bei geschlossenem Tab eintreffen, werden verworfen — es gibt keine Wiederholung.",
+    "master": "Automatisierung aktivieren",
+    "on": "Aktiv — passende Ereignisse führen deine Regeln aus",
+    "off": "Aus — keine Regeln laufen",
+    "kill": "Alles stoppen",
+    "killHint": "Alle Automatisierung sofort anhalten: laufende KI-Ausführung abbrechen, Regeln deaktivieren und ausstehende Genehmigungen löschen.",
+    "killed": "Automatisierung gestoppt",
+    "newRule": "Neue Regel",
+    "editRule": "Regel bearbeiten",
+    "name": "Name",
+    "namePlaceholder": "z. B. Antworten automatisch entwerfen",
+    "when": "Wenn",
+    "scope": "Bereich",
+    "scopeAny": "Jede Nachricht",
+    "scopeDirect": "Direktnachrichten",
+    "scopeChannel": "Kanalnachrichten",
+    "contains": "Nur wenn Text enthält",
+    "containsPlaceholder": "Schlüsselwort (optional)",
+    "do": "Dann",
+    "actionPrompt": "KI-Prompt ausführen (kann Tools aufrufen)",
+    "actionFixed": "Festes Tool ausführen",
+    "tool": "Tool",
+    "message": "Nachricht",
+    "messagePlaceholder": "Zu sendender Text",
+    "contact": "Kontakt",
+    "node": "Knoten",
+    "channel": "Kanal",
+    "flood": "Flood (gesamtes Mesh)",
+    "pick": "Auswählen…",
+    "system": "KI-Anweisungen",
+    "systemPlaceholder": "Beschreibe, was die KI mit dem Ereignis tun soll…",
+    "allowTools": "Tools, die die KI verwenden darf",
+    "maxTurns": "Max. KI-Durchläufe",
+    "maxTurnsHint": "LLM-Durchläufe, bevor die Regel stoppen muss ({{min}}–{{max}}).",
+    "maxTokens": "Max. Antwortlänge",
+    "maxTokensHint": "Tokens pro KI-Antwort ({{min}}–{{max}}).",
+    "autonomyLabel": "Autonomie",
+    "autoWarning": "Autonome Regeln handeln ohne Nachfrage. Sie befolgen weiterhin die Tool-Freigabeliste, das Sendezeit-Limit und den Notausschalter.",
+    "addRule": "Regel hinzufügen",
+    "saveRule": "Änderungen speichern",
+    "edit": "Bearbeiten",
+    "rules": "Regeln",
+    "noRules": "Noch keine Regeln. Erstelle unten eine.",
+    "enableRule": "Regel aktivieren",
+    "trigger": {
+      "message": "Eine Nachricht trifft ein",
+      "advert": "Ein Knoten kündigt sich an",
+      "ack": "Eine Zustellung wird bestätigt",
+      "connection": "Die Verbindung ändert sich"
+    },
+    "autonomy": {
+      "approve": "Vorschlagen (jede Aktion genehmigen)",
+      "auto": "Autonom (automatisch handeln)"
+    },
+    "inbox": {
+      "title": "Ausstehende Genehmigungen ({{count}})",
+      "approve": "Genehmigen",
+      "deny": "Ablehnen"
+    },
+    "action": {
+      "sendDirect": "An {{to}} senden: „{{text}}“",
+      "sendChannel": "An {{channel}} senden: „{{text}}“",
+      "advertiseFlood": "Diesen Knoten ankündigen (Flood)",
+      "advertiseZeroHop": "Diesen Knoten ankündigen (Zero-Hop)",
+      "addContact": "Kontakt {{name}} hinzufügen",
+      "removeContact": "Kontakt {{name}} entfernen",
+      "toggleFavorite": "Favorit für {{name}} umschalten",
+      "resetPath": "Route zu {{name}} zurücksetzen"
+    },
+    "event": {
+      "message": "Nachricht von {{who}}",
+      "channelMessage": "Kanal",
+      "advert": "Ankündigung von {{name}}",
+      "ack": "Zustellung bestätigt",
+      "connection": "Verbindung {{status}}",
+      "contactsUpdated": "Kontakte aktualisiert",
+      "approved": "Genehmigte Aktion"
+    },
+    "outcome": {
+      "proposed": "Vorgeschlagen",
+      "approved": "Genehmigt",
+      "denied": "Abgelehnt",
+      "auto": "Automatisch",
+      "executed": "Ausgeführt",
+      "failed": "Fehlgeschlagen",
+      "rateLimited": "Ratenbegrenzt",
+      "blocked": "Blockiert"
+    },
+    "audit": {
+      "title": "Prüfprotokoll",
+      "empty": "Noch keine KI-Aktionen.",
+      "clear": "Löschen",
+      "noKey": "Kein KI-Schlüssel geladen",
+      "llmError": "KI-Fehler: {{kind}}",
+      "notAllowed": "Tool nicht erlaubt: {{tool}}",
+      "rateLimited": "Sendezeit-Limit erreicht",
+      "maxSteps": "Tool-Schritt-Limit ohne Aktion erreicht",
+      "actionLimit": "Aktionslimit für dieses Ereignis erreicht"
     }
   },
   "chat": {

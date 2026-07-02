@@ -1,0 +1,813 @@
+// Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
+// (https://github.com/kNoAPP/MeshCore-WebAgent)
+
+'use client';
+
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ShieldAlert } from 'lucide-react';
+import { useMeshStore } from '@/store/meshStore';
+import {
+  automationEngine,
+  DEFAULT_MAX_TURNS,
+  MIN_MAX_TURNS,
+  MAX_MAX_TURNS,
+  DEFAULT_MAX_TOKENS,
+  MIN_MAX_TOKENS,
+  MAX_MAX_TOKENS,
+} from '@/lib/ai/engine';
+import { TOOL_NAMES, toolClass, type ToolName } from '@/lib/ai/tools';
+import type {
+  AutomationRule,
+  RuleAction,
+  RuleTrigger,
+} from '@/types/automation';
+
+/** Trigger kinds offered in the rule editor, in menu order. */
+const TRIGGER_KINDS: RuleTrigger['on'][] = [
+  'message',
+  'advert',
+  'ack',
+  'connection',
+];
+
+/**
+ * The Automation settings card body (task 6.4): master switch + kill switch,
+ * the approval inbox, the rule list/editor, and the audit log. Rules react to
+ * live mesh events and take radio actions behind the guardrails — human-in-the-
+ * loop by default, per-rule autonomy opt-in, allowlist, airtime rate limiting,
+ * and this always-reachable kill switch.
+ */
+export function AutomationSettingsBody() {
+  const { t } = useTranslation();
+  const enabled = useMeshStore((s) => s.automationEnabled);
+  const setEnabled = useMeshStore((s) => s.setAutomationEnabled);
+  const killSwitch = useMeshStore((s) => s.killSwitch);
+  const rules = useMeshStore((s) => s.automationRules);
+  const staged = useMeshStore((s) => s.stagedActions);
+
+  // The rule currently loaded into the editor for changes, or null when adding
+  // a new one. Lifted here so the list's Edit button and the editor share it.
+  const [editing, setEditing] = useState<AutomationRule | null>(null);
+
+  return (
+    <div className='flex flex-col gap-4'>
+      <p className='text-xs text-(--text2)'>{t('automation.hint')}</p>
+      <p className='rounded-md border border-(--border) px-2.5 py-2 text-[11px] text-(--text2)'>
+        {t('automation.liveOnly')}
+      </p>
+
+      <div className='flex items-center justify-between gap-2'>
+        <button
+          role='switch'
+          aria-checked={enabled}
+          onClick={() => setEnabled(!enabled)}
+          className='flex flex-1 items-center justify-between gap-2 text-left text-xs text-(--text)'
+        >
+          <span className='flex flex-col'>
+            <span className='font-semibold'>{t('automation.master')}</span>
+            <span className='text-[11px] text-(--text2)'>
+              {enabled ? t('automation.on') : t('automation.off')}
+            </span>
+          </span>
+          <span
+            className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+            style={{ background: enabled ? 'var(--accent)' : 'var(--border)' }}
+          >
+            <span
+              className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+                enabled ? 'left-3.5' : 'left-0.5'
+              }`}
+            />
+          </span>
+        </button>
+        <button
+          onClick={() => killSwitch()}
+          disabled={!enabled && staged.length === 0}
+          className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--red) px-3 py-1.5 text-xs font-semibold text-(--red) hover:bg-(--red) hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-(--red)'
+        >
+          <ShieldAlert size={14} />
+          {t('automation.kill')}
+        </button>
+      </div>
+
+      {staged.length > 0 && <ApprovalInbox />}
+
+      <RuleList
+        rules={rules}
+        editingId={editing?.id ?? null}
+        onEdit={setEditing}
+      />
+
+      {/* Remount on the edited rule so the form re-initializes from it. */}
+      <RuleEditor
+        key={editing?.id ?? 'new'}
+        editing={editing}
+        onDone={() => setEditing(null)}
+      />
+
+      <AuditLogView />
+    </div>
+  );
+}
+
+/** The pending-approval inbox: each staged action awaits Approve or Deny. */
+function ApprovalInbox() {
+  const { t } = useTranslation();
+  const staged = useMeshStore((s) => s.stagedActions);
+  const resolve = useMeshStore((s) => s.resolveStagedAction);
+
+  return (
+    <div className='flex flex-col gap-2 border-t border-(--border) pt-3'>
+      <span className='text-xs font-semibold text-(--text)'>
+        {t('automation.inbox.title', { count: staged.length })}
+      </span>
+      {staged.map((a) => (
+        <div
+          key={a.id}
+          className='flex items-center justify-between gap-2 rounded-md bg-(--surface) px-2.5 py-2'
+        >
+          <div className='flex min-w-0 flex-col'>
+            <span className='truncate text-xs text-(--text)'>{a.summary}</span>
+            <span className='text-[11px] text-(--text2)'>{a.ruleName}</span>
+          </div>
+          <div className='flex shrink-0 gap-1.5'>
+            <button
+              onClick={() => {
+                void automationEngine.runApproved(
+                  a.tool,
+                  a.args,
+                  a.ruleId,
+                  a.ruleName,
+                );
+                resolve(a.id);
+              }}
+              className='rounded-md bg-(--accent) px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-(--accent-hover)'
+            >
+              {t('automation.inbox.approve')}
+            </button>
+            <button
+              onClick={() => {
+                automationEngine.recordDenied(
+                  a.tool,
+                  a.args,
+                  a.ruleId,
+                  a.ruleName,
+                );
+                resolve(a.id);
+              }}
+              className='rounded-md border border-(--border-control) px-2.5 py-1 text-[11px] text-(--text2) hover:text-(--text)'
+            >
+              {t('automation.inbox.deny')}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The saved rules, each with an enable toggle and a delete control. */
+function RuleList({
+  rules,
+  editingId,
+  onEdit,
+}: {
+  rules: AutomationRule[];
+  editingId: string | null;
+  onEdit: (rule: AutomationRule | null) => void;
+}) {
+  const { t } = useTranslation();
+  const update = useMeshStore((s) => s.updateAutomationRule);
+  const remove = useMeshStore((s) => s.removeAutomationRule);
+
+  if (rules.length === 0) {
+    return (
+      <p className='text-[11px] text-(--text2)'>{t('automation.noRules')}</p>
+    );
+  }
+
+  return (
+    <div className='flex flex-col gap-2 border-t border-(--border) pt-3'>
+      <span className='text-xs font-semibold text-(--text)'>
+        {t('automation.rules')}
+      </span>
+      {rules.map((r) => (
+        <div
+          key={r.id}
+          className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-2 ${
+            editingId === r.id
+              ? 'bg-(--surface) ring-1 ring-(--accent)'
+              : 'bg-(--surface)'
+          }`}
+        >
+          <div className='flex min-w-0 flex-col'>
+            <span className='truncate text-xs font-semibold text-(--text)'>
+              {r.name}
+            </span>
+            <span className='text-[11px] text-(--text2)'>
+              {t(`automation.trigger.${r.trigger.on}`)} ·{' '}
+              {t(`automation.autonomy.${r.autonomy}`)}
+            </span>
+          </div>
+          <div className='flex shrink-0 items-center gap-2'>
+            <button
+              role='switch'
+              aria-checked={r.enabled}
+              aria-label={t('automation.enableRule')}
+              onClick={() => update(r.id, { enabled: !r.enabled })}
+              className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+              style={{
+                background: r.enabled ? 'var(--accent)' : 'var(--border)',
+              }}
+            >
+              <span
+                className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+                  r.enabled ? 'left-3.5' : 'left-0.5'
+                }`}
+              />
+            </button>
+            <button
+              onClick={() => onEdit(editingId === r.id ? null : r)}
+              className='rounded-md border border-(--border-control) px-2 py-1 text-[11px] text-(--text2) hover:text-(--accent)'
+            >
+              {t('automation.edit')}
+            </button>
+            <button
+              onClick={() => {
+                remove(r.id);
+                if (editingId === r.id) onEdit(null);
+              }}
+              className='rounded-md border border-(--border-control) px-2 py-1 text-[11px] text-(--text2) hover:text-(--red)'
+            >
+              {t('common.delete')}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const selectClass =
+  'min-w-0 rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent)';
+
+/** Parses a numeric-input string, clamping to a range, else the fallback. */
+function clampInt(
+  value: string,
+  fallback: number,
+  lo: number,
+  hi: number,
+): number {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(hi, Math.max(lo, n));
+}
+
+/** Reverses a saved rule into the editor's field values (null → defaults). */
+function deriveFields(editing: AutomationRule | null) {
+  const fixedArgs: Record<string, unknown> =
+    editing?.action.kind === 'fixed' ? editing.action.args : {};
+  const target =
+    typeof fixedArgs.to === 'string'
+      ? fixedArgs.to
+      : typeof fixedArgs.pubkeyPrefix === 'string'
+        ? fixedArgs.pubkeyPrefix
+        : '';
+  return {
+    name: editing?.name ?? '',
+    triggerOn: editing?.trigger.on ?? ('message' as RuleTrigger['on']),
+    scope:
+      editing?.trigger.on === 'message'
+        ? editing.trigger.scope
+        : ('any' as 'any' | 'direct' | 'channel'),
+    contains: editing?.condition?.contains ?? '',
+    actionKind: editing?.action.kind ?? ('prompt' as 'fixed' | 'prompt'),
+    fixedTool:
+      editing?.action.kind === 'fixed'
+        ? editing.action.tool
+        : ('send_channel_message' as ToolName),
+    fixedText: typeof fixedArgs.text === 'string' ? fixedArgs.text : '',
+    fixedTarget: target,
+    fixedChannel:
+      fixedArgs.channelIdx !== undefined ? String(fixedArgs.channelIdx) : '',
+    fixedFlood: fixedArgs.flood === true,
+    system: editing?.action.kind === 'prompt' ? editing.action.system : '',
+    allowTools:
+      editing?.action.kind === 'prompt'
+        ? editing.action.allowTools
+        : (['send_direct_message'] as ToolName[]),
+    maxTurns: String(
+      editing?.action.kind === 'prompt' && editing.action.maxTurns != null
+        ? editing.action.maxTurns
+        : DEFAULT_MAX_TURNS,
+    ),
+    maxTokens: String(
+      editing?.action.kind === 'prompt' && editing.action.maxTokens != null
+        ? editing.action.maxTokens
+        : DEFAULT_MAX_TOKENS,
+    ),
+    autonomy: editing?.autonomy ?? ('approve' as 'approve' | 'auto'),
+  };
+}
+
+/**
+ * The rule form. Adds a new rule, or — when `editing` is supplied — loads that
+ * rule's values and saves changes back to it (preserving its enabled state).
+ * The parent remounts this via a `key` so switching rules re-initializes it.
+ */
+function RuleEditor({
+  editing,
+  onDone,
+}: {
+  editing: AutomationRule | null;
+  onDone: () => void;
+}) {
+  const { t } = useTranslation();
+  const addRule = useMeshStore((s) => s.addAutomationRule);
+  const updateRule = useMeshStore((s) => s.updateAutomationRule);
+  const contacts = useMeshStore((s) => s.contacts);
+  const channels = useMeshStore((s) => s.channels);
+  const adverts = useMeshStore((s) => s.adverts);
+
+  const init = deriveFields(editing);
+  const [name, setName] = useState(init.name);
+  const [triggerOn, setTriggerOn] = useState<RuleTrigger['on']>(init.triggerOn);
+  const [scope, setScope] = useState<'any' | 'direct' | 'channel'>(init.scope);
+  const [contains, setContains] = useState(init.contains);
+  const [actionKind, setActionKind] = useState<'fixed' | 'prompt'>(
+    init.actionKind,
+  );
+  const [fixedTool, setFixedTool] = useState<ToolName>(init.fixedTool);
+  const [fixedText, setFixedText] = useState(init.fixedText);
+  const [fixedTarget, setFixedTarget] = useState(init.fixedTarget);
+  const [fixedChannel, setFixedChannel] = useState(init.fixedChannel);
+  const [fixedFlood, setFixedFlood] = useState(init.fixedFlood);
+  const [system, setSystem] = useState(init.system);
+  const [allowTools, setAllowTools] = useState<ToolName[]>(init.allowTools);
+  const [maxTurns, setMaxTurns] = useState(init.maxTurns);
+  const [maxTokens, setMaxTokens] = useState(init.maxTokens);
+  const [autonomy, setAutonomy] = useState<'approve' | 'auto'>(init.autonomy);
+
+  const toggleTool = (tool: ToolName) => {
+    setAllowTools((prev) =>
+      prev.includes(tool) ? prev.filter((x) => x !== tool) : [...prev, tool],
+    );
+  };
+
+  // Tools whose target is a saved contact, driving which picker the fixed
+  // editor shows and which id the built args carry.
+  const contactTools: ToolName[] = [
+    'send_direct_message',
+    'remove_contact',
+    'toggle_favorite',
+    'reset_contact_path',
+  ];
+  const needsContact = contactTools.includes(fixedTool);
+  const needsChannel = fixedTool === 'send_channel_message';
+  const needsAdvert = fixedTool === 'add_contact';
+  const needsText =
+    fixedTool === 'send_direct_message' || fixedTool === 'send_channel_message';
+
+  const fixedArgs = (): Record<string, unknown> => {
+    switch (fixedTool) {
+      case 'send_direct_message':
+        return { to: fixedTarget, text: fixedText.trim() };
+      case 'send_channel_message':
+        return { channelIdx: Number(fixedChannel), text: fixedText.trim() };
+      case 'advertise':
+        return { flood: fixedFlood };
+      case 'remove_contact':
+      case 'toggle_favorite':
+      case 'reset_contact_path':
+        return { pubkeyPrefix: fixedTarget };
+      case 'add_contact':
+        return { pubkeyPrefix: fixedTarget };
+      default:
+        return {};
+    }
+  };
+
+  const fixedValid =
+    ((!needsContact && !needsAdvert) || fixedTarget !== '') &&
+    (!needsChannel || fixedChannel !== '') &&
+    (!needsText || fixedText.trim() !== '');
+
+  const canSave =
+    name.trim() !== '' &&
+    (actionKind === 'fixed'
+      ? fixedValid
+      : system.trim() !== '' && allowTools.length > 0);
+
+  const save = () => {
+    if (!canSave) return;
+    const trigger: RuleTrigger =
+      triggerOn === 'message'
+        ? { on: 'message', scope }
+        : triggerOn === 'advert'
+          ? { on: 'advert' }
+          : triggerOn === 'ack'
+            ? { on: 'ack' }
+            : { on: 'connection' };
+
+    const action: RuleAction =
+      actionKind === 'fixed'
+        ? { kind: 'fixed', tool: fixedTool, args: fixedArgs() }
+        : {
+            kind: 'prompt',
+            system: system.trim(),
+            allowTools,
+            maxTurns: clampInt(
+              maxTurns,
+              DEFAULT_MAX_TURNS,
+              MIN_MAX_TURNS,
+              MAX_MAX_TURNS,
+            ),
+            maxTokens: clampInt(
+              maxTokens,
+              DEFAULT_MAX_TOKENS,
+              MIN_MAX_TOKENS,
+              MAX_MAX_TOKENS,
+            ),
+          };
+
+    const allowlist: ToolName[] =
+      actionKind === 'fixed' ? [fixedTool] : allowTools;
+
+    const condition = contains.trim()
+      ? { contains: contains.trim() }
+      : undefined;
+
+    if (editing) {
+      // Preserve the rule's id and enabled state; overwrite everything else.
+      updateRule(editing.id, {
+        name: name.trim(),
+        trigger,
+        condition,
+        action,
+        autonomy,
+        allowlist,
+      });
+      onDone();
+      return;
+    }
+
+    const rule: AutomationRule = {
+      id: crypto.randomUUID(),
+      enabled: true,
+      name: name.trim(),
+      trigger,
+      condition,
+      action,
+      autonomy,
+      allowlist,
+    };
+    addRule(rule);
+    setName('');
+    setContains('');
+    setFixedText('');
+    setFixedTarget('');
+    setFixedChannel('');
+    setSystem('');
+  };
+
+  return (
+    <div className='flex flex-col gap-2.5 border-t border-(--border) pt-3'>
+      <span className='text-xs font-semibold text-(--text)'>
+        {editing ? t('automation.editRule') : t('automation.newRule')}
+      </span>
+
+      <label className='flex flex-col gap-1 text-xs'>
+        <span className='text-(--text2)'>{t('automation.name')}</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={t('automation.namePlaceholder')}
+          className={selectClass}
+        />
+      </label>
+
+      <div className='flex gap-2'>
+        <label className='flex flex-1 flex-col gap-1 text-xs'>
+          <span className='text-(--text2)'>{t('automation.when')}</span>
+          <select
+            value={triggerOn}
+            onChange={(e) => setTriggerOn(e.target.value as RuleTrigger['on'])}
+            className={selectClass}
+          >
+            {TRIGGER_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {t(`automation.trigger.${k}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {triggerOn === 'message' && (
+          <label className='flex flex-1 flex-col gap-1 text-xs'>
+            <span className='text-(--text2)'>{t('automation.scope')}</span>
+            <select
+              value={scope}
+              onChange={(e) =>
+                setScope(e.target.value as 'any' | 'direct' | 'channel')
+              }
+              className={selectClass}
+            >
+              <option value='any'>{t('automation.scopeAny')}</option>
+              <option value='direct'>{t('automation.scopeDirect')}</option>
+              <option value='channel'>{t('automation.scopeChannel')}</option>
+            </select>
+          </label>
+        )}
+      </div>
+
+      {triggerOn === 'message' && (
+        <label className='flex flex-col gap-1 text-xs'>
+          <span className='text-(--text2)'>{t('automation.contains')}</span>
+          <input
+            value={contains}
+            onChange={(e) => setContains(e.target.value)}
+            placeholder={t('automation.containsPlaceholder')}
+            className={selectClass}
+          />
+        </label>
+      )}
+
+      <label className='flex flex-col gap-1 text-xs'>
+        <span className='text-(--text2)'>{t('automation.do')}</span>
+        <select
+          value={actionKind}
+          onChange={(e) => setActionKind(e.target.value as 'fixed' | 'prompt')}
+          className={selectClass}
+        >
+          <option value='prompt'>{t('automation.actionPrompt')}</option>
+          <option value='fixed'>{t('automation.actionFixed')}</option>
+        </select>
+      </label>
+
+      {actionKind === 'fixed' ? (
+        <>
+          <label className='flex flex-col gap-1 text-xs'>
+            <span className='text-(--text2)'>{t('automation.tool')}</span>
+            <select
+              value={fixedTool}
+              onChange={(e) => setFixedTool(e.target.value as ToolName)}
+              className={selectClass}
+            >
+              {TOOL_NAMES.map((tool) => (
+                <option key={tool} value={tool}>
+                  {tool}
+                </option>
+              ))}
+            </select>
+          </label>
+          {needsContact && (
+            <label className='flex flex-col gap-1 text-xs'>
+              <span className='text-(--text2)'>{t('automation.contact')}</span>
+              <select
+                value={fixedTarget}
+                onChange={(e) => setFixedTarget(e.target.value)}
+                className={selectClass}
+              >
+                <option value=''>{t('automation.pick')}</option>
+                {Object.values(contacts).map((c) => (
+                  <option key={c.pubkeyPrefix} value={c.pubkeyPrefix}>
+                    {c.name || c.pubkeyPrefix}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {needsAdvert && (
+            <label className='flex flex-col gap-1 text-xs'>
+              <span className='text-(--text2)'>{t('automation.node')}</span>
+              <select
+                value={fixedTarget}
+                onChange={(e) => setFixedTarget(e.target.value)}
+                className={selectClass}
+              >
+                <option value=''>{t('automation.pick')}</option>
+                {Object.values(adverts).map((a) => (
+                  <option key={a.pubkeyPrefix} value={a.pubkeyPrefix}>
+                    {a.name || a.pubkeyPrefix}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {needsChannel && (
+            <label className='flex flex-col gap-1 text-xs'>
+              <span className='text-(--text2)'>{t('automation.channel')}</span>
+              <select
+                value={fixedChannel}
+                onChange={(e) => setFixedChannel(e.target.value)}
+                className={selectClass}
+              >
+                <option value=''>{t('automation.pick')}</option>
+                {Object.values(channels).map((ch) => (
+                  <option key={ch.idx} value={ch.idx}>
+                    {ch.name || t('common.channelName', { index: ch.idx })}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {needsText && (
+            <label className='flex flex-col gap-1 text-xs'>
+              <span className='text-(--text2)'>{t('automation.message')}</span>
+              <input
+                value={fixedText}
+                onChange={(e) => setFixedText(e.target.value)}
+                placeholder={t('automation.messagePlaceholder')}
+                className={selectClass}
+              />
+            </label>
+          )}
+          {fixedTool === 'advertise' && (
+            <button
+              role='switch'
+              aria-checked={fixedFlood}
+              onClick={() => setFixedFlood((v) => !v)}
+              className='flex items-center justify-between gap-2 text-left text-xs text-(--text)'
+            >
+              <span>{t('automation.flood')}</span>
+              <span
+                className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+                style={{
+                  background: fixedFlood ? 'var(--accent)' : 'var(--border)',
+                }}
+              >
+                <span
+                  className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+                    fixedFlood ? 'left-3.5' : 'left-0.5'
+                  }`}
+                />
+              </span>
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          <label className='flex flex-col gap-1 text-xs'>
+            <span className='text-(--text2)'>{t('automation.system')}</span>
+            <textarea
+              value={system}
+              onChange={(e) => setSystem(e.target.value)}
+              rows={3}
+              placeholder={t('automation.systemPlaceholder')}
+              className={`${selectClass} resize-y`}
+            />
+          </label>
+          <div className='flex flex-col gap-1 text-xs'>
+            <span className='text-(--text2)'>{t('automation.allowTools')}</span>
+            <div className='flex flex-wrap gap-1.5'>
+              {TOOL_NAMES.map((tool) => {
+                const on = allowTools.includes(tool);
+                return (
+                  <button
+                    key={tool}
+                    onClick={() => toggleTool(tool)}
+                    className={`rounded-md border px-2 py-1 text-[11px] ${
+                      on
+                        ? 'border-(--accent) bg-(--accent) text-white'
+                        : 'border-(--border-control) text-(--text2) hover:text-(--text)'
+                    }`}
+                    title={toolClass(tool)}
+                  >
+                    {tool}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className='flex gap-2'>
+            <label className='flex flex-1 flex-col gap-1 text-xs'>
+              <span className='text-(--text2)'>{t('automation.maxTurns')}</span>
+              <input
+                type='number'
+                min={MIN_MAX_TURNS}
+                max={MAX_MAX_TURNS}
+                value={maxTurns}
+                onChange={(e) => setMaxTurns(e.target.value)}
+                className={selectClass}
+              />
+              <span className='text-[11px] text-(--text2)'>
+                {t('automation.maxTurnsHint', {
+                  min: MIN_MAX_TURNS,
+                  max: MAX_MAX_TURNS,
+                })}
+              </span>
+            </label>
+            <label className='flex flex-1 flex-col gap-1 text-xs'>
+              <span className='text-(--text2)'>
+                {t('automation.maxTokens')}
+              </span>
+              <input
+                type='number'
+                min={MIN_MAX_TOKENS}
+                max={MAX_MAX_TOKENS}
+                step={256}
+                value={maxTokens}
+                onChange={(e) => setMaxTokens(e.target.value)}
+                className={selectClass}
+              />
+              <span className='text-[11px] text-(--text2)'>
+                {t('automation.maxTokensHint', {
+                  min: MIN_MAX_TOKENS,
+                  max: MAX_MAX_TOKENS,
+                })}
+              </span>
+            </label>
+          </div>
+        </>
+      )}
+
+      <label className='flex flex-col gap-1 text-xs'>
+        <span className='text-(--text2)'>{t('automation.autonomyLabel')}</span>
+        <select
+          value={autonomy}
+          onChange={(e) => setAutonomy(e.target.value as 'approve' | 'auto')}
+          className={selectClass}
+        >
+          <option value='approve'>{t('automation.autonomy.approve')}</option>
+          <option value='auto'>{t('automation.autonomy.auto')}</option>
+        </select>
+      </label>
+      {autonomy === 'auto' && (
+        <p className='rounded-md border border-(--border) px-2.5 py-2 text-[11px] text-(--text2)'>
+          {t('automation.autoWarning')}
+        </p>
+      )}
+
+      <div className='flex items-center justify-end gap-2'>
+        {editing && (
+          <button
+            onClick={onDone}
+            className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text2) hover:text-(--text)'
+          >
+            {t('common.cancel')}
+          </button>
+        )}
+        <button
+          onClick={save}
+          disabled={!canSave}
+          className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
+        >
+          {editing ? t('automation.saveRule') : t('automation.addRule')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** The append-only audit log of AI decisions (newest first). */
+function AuditLogView() {
+  const { t } = useTranslation();
+  const log = useMeshStore((s) => s.auditLog);
+  const clear = useMeshStore((s) => s.clearAuditLog);
+
+  return (
+    <div className='flex flex-col gap-2 border-t border-(--border) pt-3'>
+      <div className='flex items-center justify-between'>
+        <span className='text-xs font-semibold text-(--text)'>
+          {t('automation.audit.title')}
+        </span>
+        {log.length > 0 && (
+          <button
+            onClick={() => clear()}
+            className='text-[11px] text-(--text2) hover:text-(--text)'
+          >
+            {t('automation.audit.clear')}
+          </button>
+        )}
+      </div>
+      {log.length === 0 ? (
+        <p className='text-[11px] text-(--text2)'>
+          {t('automation.audit.empty')}
+        </p>
+      ) : (
+        <div className='flex max-h-64 flex-col gap-1 overflow-y-auto'>
+          {log.map((e) => (
+            <div
+              key={e.id}
+              className='flex flex-col rounded-md bg-(--surface) px-2.5 py-1.5 text-[11px]'
+            >
+              <div className='flex items-center justify-between gap-2'>
+                <span className='truncate font-semibold text-(--text)'>
+                  {e.ruleName}
+                </span>
+                <span className='shrink-0 text-(--text2)'>
+                  {t(`automation.outcome.${e.outcome}`)}
+                </span>
+              </div>
+              <span className='truncate text-(--text2)'>
+                {e.event}
+                {e.tool ? ` · ${e.tool}` : ''}
+                {e.detail ? ` · ${e.detail}` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

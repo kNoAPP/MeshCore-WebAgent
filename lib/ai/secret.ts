@@ -84,6 +84,18 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
 }
 
 /**
+ * The active per-radio storage context (pubkey + AES key), or null when no
+ * session is bound. Reused by automation-rule persistence so it shares the
+ * single {@link deriveStorageKey} path rather than inventing a second one.
+ */
+export function getStorageContext(): {
+  pubkey: string;
+  storageKey: CryptoKey;
+} | null {
+  return ctx;
+}
+
+/**
  * Sets the active API key in memory, optionally persisting an encrypted copy on
  * this device.
  *

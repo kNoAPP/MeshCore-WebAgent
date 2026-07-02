@@ -9,6 +9,7 @@
     "back": "Back",
     "copy": "Copy",
     "copied": "Copied",
+    "delete": "Delete",
     "channelName": "Channel {{index}}",
     "unknown": "Unknown",
     "device": "MeshCore Device"
@@ -193,6 +194,7 @@
       "radio": "Radio",
       "location": "Location",
       "ai": "AI",
+      "automation": "Automation",
       "danger": "Device actions"
     },
     "model": "Model",
@@ -272,6 +274,108 @@
         "server": "The provider had an error — try again later.",
         "unknown": "Something went wrong."
       }
+    }
+  },
+  "automation": {
+    "hint": "Automations react to live mesh events and can take radio actions on your behalf, optionally using your AI key. They default to suggesting actions for your approval; full autonomy is opt-in per rule and rate-limited.",
+    "liveOnly": "Automations run only while this tab is open and connected. Events that arrive while it is closed are dropped — there is no replay.",
+    "master": "Enable automation",
+    "on": "Armed — matching events run your rules",
+    "off": "Off — no rules run",
+    "kill": "Stop all",
+    "killHint": "Halt all automation immediately: abort any in-flight AI run, disable rules, and clear pending approvals.",
+    "killed": "Automation stopped",
+    "newRule": "New rule",
+    "editRule": "Edit rule",
+    "name": "Name",
+    "namePlaceholder": "e.g. Auto-draft replies",
+    "when": "When",
+    "scope": "Scope",
+    "scopeAny": "Any message",
+    "scopeDirect": "Direct messages",
+    "scopeChannel": "Channel messages",
+    "contains": "Only if text contains",
+    "containsPlaceholder": "keyword (optional)",
+    "do": "Then",
+    "actionPrompt": "Run an AI prompt (can call tools)",
+    "actionFixed": "Run a fixed tool",
+    "tool": "Tool",
+    "message": "Message",
+    "messagePlaceholder": "Text to send",
+    "contact": "Contact",
+    "node": "Node",
+    "channel": "Channel",
+    "flood": "Flood (whole mesh)",
+    "pick": "Select…",
+    "system": "AI instructions",
+    "systemPlaceholder": "Describe what the AI should do with the event…",
+    "allowTools": "Tools the AI may use",
+    "maxTurns": "Max AI turns",
+    "maxTurnsHint": "LLM round-trips before the rule must stop ({{min}}–{{max}}).",
+    "maxTokens": "Max response length",
+    "maxTokensHint": "Tokens per AI response ({{min}}–{{max}}).",
+    "autonomyLabel": "Autonomy",
+    "autoWarning": "Autonomous rules act without asking. They still obey the tool allowlist, the airtime rate limit, and the kill switch.",
+    "addRule": "Add rule",
+    "saveRule": "Save changes",
+    "edit": "Edit",
+    "rules": "Rules",
+    "noRules": "No rules yet. Create one below.",
+    "enableRule": "Enable rule",
+    "trigger": {
+      "message": "A message arrives",
+      "advert": "A node advertises",
+      "ack": "A delivery is acknowledged",
+      "connection": "The connection changes"
+    },
+    "autonomy": {
+      "approve": "Suggest (approve each action)",
+      "auto": "Autonomous (act automatically)"
+    },
+    "inbox": {
+      "title": "Pending approvals ({{count}})",
+      "approve": "Approve",
+      "deny": "Deny"
+    },
+    "action": {
+      "sendDirect": "Send to {{to}}: “{{text}}”",
+      "sendChannel": "Send to {{channel}}: “{{text}}”",
+      "advertiseFlood": "Advertise this node (flood)",
+      "advertiseZeroHop": "Advertise this node (zero-hop)",
+      "addContact": "Add contact {{name}}",
+      "removeContact": "Remove contact {{name}}",
+      "toggleFavorite": "Toggle favorite for {{name}}",
+      "resetPath": "Reset route to {{name}}"
+    },
+    "event": {
+      "message": "Message from {{who}}",
+      "channelMessage": "channel",
+      "advert": "Advert from {{name}}",
+      "ack": "Delivery acknowledged",
+      "connection": "Connection {{status}}",
+      "contactsUpdated": "Contacts updated",
+      "approved": "Approved action"
+    },
+    "outcome": {
+      "proposed": "Proposed",
+      "approved": "Approved",
+      "denied": "Denied",
+      "auto": "Auto",
+      "executed": "Executed",
+      "failed": "Failed",
+      "rateLimited": "Rate limited",
+      "blocked": "Blocked"
+    },
+    "audit": {
+      "title": "Audit log",
+      "empty": "No AI actions yet.",
+      "clear": "Clear",
+      "noKey": "No AI key loaded",
+      "llmError": "AI error: {{kind}}",
+      "notAllowed": "Tool not allowed: {{tool}}",
+      "rateLimited": "Airtime rate limit reached",
+      "maxSteps": "Reached the tool-step limit without acting",
+      "actionLimit": "Action limit reached for this event"
     }
   },
   "chat": {

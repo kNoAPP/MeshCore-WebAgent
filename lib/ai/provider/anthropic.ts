@@ -4,6 +4,7 @@
 import { getApiKey, forgetApiKey } from '@/lib/ai/secret';
 import {
   LLMError,
+  type LLMContentBlock,
   type LLMErrorKind,
   type LLMModel,
   type LLMProvider,
@@ -58,6 +59,24 @@ function messagesUrl(): string {
   return url;
 }
 
+/** Maps a vendor-neutral message content to the Anthropic content shape. */
+function toAnthropicContent(
+  content: string | LLMContentBlock[],
+): string | unknown[] {
+  if (typeof content === 'string') return content;
+  return content.map((b) => {
+    if (b.type === 'text') return { type: 'text', text: b.text };
+    if (b.type === 'toolUse') {
+      return { type: 'tool_use', id: b.id, name: b.name, input: b.input };
+    }
+    return {
+      type: 'tool_result',
+      tool_use_id: b.toolUseId,
+      content: b.content,
+    };
+  });
+}
+
 /** Shapes an {@link LLMRequest} into the Anthropic Messages request body. */
 function requestBody(req: LLMRequest): string {
   return JSON.stringify({
@@ -65,7 +84,10 @@ function requestBody(req: LLMRequest): string {
     max_tokens: req.maxTokens,
     stream: true,
     ...(req.system ? { system: req.system } : {}),
-    messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: req.messages.map((m) => ({
+      role: m.role,
+      content: toAnthropicContent(m.content),
+    })),
     ...(req.tools && req.tools.length > 0
       ? {
           tools: req.tools.map((tool) => ({
