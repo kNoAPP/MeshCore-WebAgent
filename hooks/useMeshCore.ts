@@ -140,6 +140,10 @@ function teardownSession(flush = false): void {
   const store = useMeshStore.getState();
   store.client?.destroy();
   clearSessionState();
+  // A real teardown (deliberate disconnect or a reconnect that gave up) is the
+  // point to overwrite the in-memory API key — not a transient drop, whose
+  // reconnect must keep a memory-only key alive for the same radio.
+  wipeApiKey();
   store.setClient(null);
   store.reset();
 }
@@ -196,9 +200,6 @@ function clearSessionState(): void {
   saveUnsub?.();
   saveUnsub = null;
   storageKey = null;
-  // Overwrite the in-memory API key so a torn-down session (disconnect, drop,
-  // or the start of the next connect) can't leave it readable.
-  wipeApiKey();
 }
 
 function closeEchoWindow(): void {
@@ -460,11 +461,14 @@ export function useMeshCore() {
       // can't resurrect the session the user just tore down.
       if (isReconnect && userInitiatedDisconnect) return false;
       setStatus(isReconnect ? 'reconnecting' : 'connecting');
-      // A fresh connect starts a clean session — reset intent and drop any
-      // reconnect loop still pending from a previous session.
+      // A fresh connect starts a clean session — reset intent, drop any
+      // reconnect loop still pending from a previous session, and overwrite any
+      // in-memory API key so a previous radio's key can't carry into this one.
+      // A reconnect deliberately skips the wipe so a memory-only key survives.
       if (!isReconnect) {
         userInitiatedDisconnect = false;
         clearReconnect();
+        wipeApiKey();
       }
       clearSessionState();
       const c = new MeshCoreClient(transport);

@@ -30,6 +30,23 @@ let ctx: { pubkey: string; storageKey: CryptoKey } | null = null;
 // clobbers a newer value.
 let generation = 0;
 
+// All at-rest secret I/O funnels through this promise chain so overlapping
+// mutations hit IndexedDB in call order. Without it, two rapid saves whose
+// encryption finishes out of order could land in the wrong order and leave a
+// stale key on disk to resurface on the next connect.
+let ioChain: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(op: () => Promise<T>): Promise<T> {
+  const run = ioChain.then(op, op);
+  // Keep the chain alive whether the op resolved or rejected, and drop the
+  // settled value so the tail doesn't retain it.
+  ioChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 function syncStatus(): void {
   useMeshStore
     .getState()
@@ -72,17 +89,22 @@ export async function setApiKey(
   apiKey = value;
   persisted = false;
   syncStatus();
-  if (!ctx) return;
+  // Capture the context so the queued write targets this radio even if the
+  // session is torn down (ctx nulled) before the op runs.
+  const active = ctx;
+  if (!active) return;
 
   let landed = false;
   if (remember) {
     // Only report the key as persisted if the encrypted write actually landed;
     // saveSecret is best-effort and can silently fail (quota, private mode).
-    landed = await saveSecret(ctx.pubkey, ctx.storageKey, API_KEY_NAME, value);
+    landed = await enqueue(() =>
+      saveSecret(active.pubkey, active.storageKey, API_KEY_NAME, value),
+    );
   } else {
     // Drop any previously remembered copy so a stale key can't silently
     // resurface on the next connect to this radio.
-    await clearSecret(ctx.pubkey, API_KEY_NAME);
+    await enqueue(() => clearSecret(active.pubkey, API_KEY_NAME));
   }
   // A wipe/forget/another setApiKey during the await supersedes this one; don't
   // report persistence state for a key that's no longer active.
@@ -100,16 +122,23 @@ export async function loadPersistedApiKey(): Promise<boolean> {
   const active = ctx;
   if (!active) return false;
   const mine = generation;
-  const value = await loadSecret(
-    active.pubkey,
-    active.storageKey,
-    API_KEY_NAME,
+  const value = await enqueue(() =>
+    loadSecret(active.pubkey, active.storageKey, API_KEY_NAME),
   );
   // Discard the restore if, during the await, the session was torn down /
   // switched radios (ctx changed) or the user explicitly set/forgot a key
   // (generation changed) — never resurrect a key onto a dead context or clobber
-  // a newer value the user just chose.
-  if (value === null || ctx !== active || generation !== mine) return false;
+  // a newer value the user just chose. Also stand down if a key is already in
+  // memory: a reconnect keeps the live key, and a key entered during the
+  // connect window must not be overwritten by the remembered one.
+  if (
+    value === null ||
+    ctx !== active ||
+    generation !== mine ||
+    apiKey !== null
+  ) {
+    return false;
+  }
   apiKey = value;
   persisted = true;
   syncStatus();
@@ -124,8 +153,9 @@ export async function forgetApiKey(): Promise<void> {
   generation++;
   apiKey = null;
   persisted = false;
-  if (ctx) await clearSecret(ctx.pubkey, API_KEY_NAME);
+  const active = ctx;
   syncStatus();
+  if (active) await enqueue(() => clearSecret(active.pubkey, API_KEY_NAME));
 }
 
 /**
