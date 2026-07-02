@@ -16,6 +16,7 @@ import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ADV_ICON, utf8ByteLength } from '@/lib/utils';
 import { formatDateDivider } from '@/lib/i18n/format';
+import { flashTarget } from '@/lib/ui/flash';
 import { MessageBubble } from './MessageBubble';
 import { RouteChip } from './RouteChip';
 import {
@@ -177,9 +178,7 @@ export function ChatArea() {
     setScrollToMsgId(null);
     if (!el) return;
     el.scrollIntoView({ behavior: 'auto', block: 'center' });
-    el.classList.add('msg-flash');
-    const timer = setTimeout(() => el.classList.remove('msg-flash'), 1600);
-    return () => clearTimeout(timer);
+    flashTarget(el);
   }, [scrollToMsgId, activeConvo?.id, setScrollToMsgId]);
 
   useEffect(() => {
