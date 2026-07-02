@@ -136,21 +136,39 @@ export function AutomationSettingsBody() {
 function ApprovalInbox() {
   const { t } = useTranslation();
   const staged = useMeshStore((s) => s.stagedActions);
-  const resolve = useMeshStore((s) => s.resolveStagedAction);
-  const showToast = useMeshStore((s) => s.showToast);
 
   return (
     <div className='flex flex-col gap-2 border-t border-(--border) pt-3'>
       <span className='text-xs font-semibold text-(--text)'>
         {t('automation.inbox.title', { count: staged.length })}
       </span>
+      <ApprovalInboxList />
+    </div>
+  );
+}
+
+/**
+ * The list of staged actions, each awaiting Approve or Deny. Shared by the
+ * settings-panel {@link ApprovalInbox} and the header's proposals popup so both
+ * render identical rows against the same store.
+ */
+export function ApprovalInboxList() {
+  const { t } = useTranslation();
+  const staged = useMeshStore((s) => s.stagedActions);
+  const resolve = useMeshStore((s) => s.resolveStagedAction);
+  const showToast = useMeshStore((s) => s.showToast);
+
+  return (
+    <div className='flex flex-col gap-2'>
       {staged.map((a) => (
         <div
           key={a.id}
           className='flex items-center justify-between gap-2 rounded-md bg-(--surface) px-2.5 py-2'
         >
           <div className='flex min-w-0 flex-col'>
-            <span className='truncate text-xs text-(--text)'>{a.summary}</span>
+            <span className='text-xs wrap-break-word text-(--text)'>
+              {a.summary}
+            </span>
             <span className='text-[11px] text-(--text2)'>{a.ruleName}</span>
           </div>
           <div className='flex shrink-0 gap-1.5'>
