@@ -5,13 +5,15 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ShieldAlert } from 'lucide-react';
+import { Plus, ShieldAlert } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
+import { ModalShell } from '@/components/ModalShell';
 import {
   automationEngine,
   DEFAULT_MAX_TURNS,
   MIN_MAX_TURNS,
   MAX_MAX_TURNS,
+  UNLIMITED_TURNS,
   DEFAULT_MAX_TOKENS,
   MIN_MAX_TOKENS,
   MAX_MAX_TOKENS,
@@ -49,6 +51,22 @@ export function AutomationSettingsBody() {
   // The rule currently loaded into the editor for changes, or null when adding
   // a new one. Lifted here so the list's Edit button and the editor share it.
   const [editing, setEditing] = useState<AutomationRule | null>(null);
+  // Whether the rule editor dialog is open. Kept separate from `editing` so a
+  // null `editing` means "new rule" rather than "closed".
+  const [editorOpen, setEditorOpen] = useState(false);
+
+  const openNew = () => {
+    setEditing(null);
+    setEditorOpen(true);
+  };
+  const openEdit = (rule: AutomationRule) => {
+    setEditing(rule);
+    setEditorOpen(true);
+  };
+  const closeEditor = () => {
+    setEditorOpen(false);
+    setEditing(null);
+  };
 
   return (
     <div className='flex flex-col gap-4'>
@@ -93,18 +111,21 @@ export function AutomationSettingsBody() {
 
       {staged.length > 0 && <ApprovalInbox />}
 
-      <RuleList
-        rules={rules}
-        editingId={editing?.id ?? null}
-        onEdit={setEditing}
-      />
+      <RuleList rules={rules} onEdit={openEdit} onNew={openNew} />
 
-      {/* Remount on the edited rule so the form re-initializes from it. */}
-      <RuleEditor
-        key={editing?.id ?? 'new'}
-        editing={editing}
-        onDone={() => setEditing(null)}
-      />
+      {editorOpen && (
+        <ModalShell
+          title={editing ? t('automation.editRule') : t('automation.newRule')}
+          onClose={closeEditor}
+        >
+          {/* Remount on the edited rule so the form re-initializes from it. */}
+          <RuleEditor
+            key={editing?.id ?? 'new'}
+            editing={editing}
+            onDone={closeEditor}
+          />
+        </ModalShell>
+      )}
 
       <AuditLogView />
     </div>
@@ -177,36 +198,38 @@ function ApprovalInbox() {
 /** The saved rules, each with an enable toggle and a delete control. */
 function RuleList({
   rules,
-  editingId,
   onEdit,
+  onNew,
 }: {
   rules: AutomationRule[];
-  editingId: string | null;
-  onEdit: (rule: AutomationRule | null) => void;
+  onEdit: (rule: AutomationRule) => void;
+  onNew: () => void;
 }) {
   const { t } = useTranslation();
   const update = useMeshStore((s) => s.updateAutomationRule);
   const remove = useMeshStore((s) => s.removeAutomationRule);
 
-  if (rules.length === 0) {
-    return (
-      <p className='text-[11px] text-(--text2)'>{t('automation.noRules')}</p>
-    );
-  }
-
   return (
     <div className='flex flex-col gap-2 border-t border-(--border) pt-3'>
-      <span className='text-xs font-semibold text-(--text)'>
-        {t('automation.rules')}
-      </span>
+      <div className='flex items-center justify-between gap-2'>
+        <span className='text-xs font-semibold text-(--text)'>
+          {t('automation.rules')}
+        </span>
+        <button
+          onClick={onNew}
+          className='flex items-center gap-1 rounded-md bg-(--accent) px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-(--accent-hover)'
+        >
+          <Plus size={12} />
+          {t('automation.newRule')}
+        </button>
+      </div>
+      {rules.length === 0 && (
+        <p className='text-[11px] text-(--text2)'>{t('automation.noRules')}</p>
+      )}
       {rules.map((r) => (
         <div
           key={r.id}
-          className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-2 ${
-            editingId === r.id
-              ? 'bg-(--surface) ring-1 ring-(--accent)'
-              : 'bg-(--surface)'
-          }`}
+          className='flex items-center justify-between gap-2 rounded-md bg-(--surface) px-2.5 py-2'
         >
           <div className='flex min-w-0 flex-col'>
             <span className='truncate text-xs font-semibold text-(--text)'>
@@ -235,7 +258,7 @@ function RuleList({
               />
             </button>
             <button
-              onClick={() => onEdit(editingId === r.id ? null : r)}
+              onClick={() => onEdit(r)}
               className='rounded-md border border-(--border-control) px-2 py-1 text-[11px] text-(--text2) hover:text-(--accent)'
             >
               {t('automation.edit')}
@@ -243,7 +266,6 @@ function RuleList({
             <button
               onClick={() => {
                 remove(r.id);
-                if (editingId === r.id) onEdit(null);
               }}
               className='rounded-md border border-(--border-control) px-2 py-1 text-[11px] text-(--text2) hover:text-(--red)'
             >
@@ -259,14 +281,20 @@ function RuleList({
 const selectClass =
   'min-w-0 rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent)';
 
-/** Parses a numeric-input string, clamping to a range, else the fallback. */
+/**
+ * The turn slider's far-right stop, one past the finite max. Selecting it saves
+ * the {@link UNLIMITED_TURNS} sentinel so the engine runs without a turn cap.
+ */
+const TURNS_UNLIMITED_POS = MAX_MAX_TURNS + 1;
+
+/** Clamps an integer to a range, else the fallback. */
 function clampInt(
-  value: string,
+  value: number,
   fallback: number,
   lo: number,
   hi: number,
 ): number {
-  const n = Math.floor(Number(value));
+  const n = Math.floor(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(hi, Math.max(lo, n));
 }
@@ -304,16 +332,16 @@ function deriveFields(editing: AutomationRule | null) {
       editing?.action.kind === 'prompt'
         ? editing.action.allowTools
         : (['send_direct_message'] as ToolName[]),
-    maxTurns: String(
+    maxTurns:
       editing?.action.kind === 'prompt' && editing.action.maxTurns != null
-        ? editing.action.maxTurns
+        ? editing.action.maxTurns === UNLIMITED_TURNS
+          ? TURNS_UNLIMITED_POS
+          : editing.action.maxTurns
         : DEFAULT_MAX_TURNS,
-    ),
-    maxTokens: String(
+    maxTokens:
       editing?.action.kind === 'prompt' && editing.action.maxTokens != null
         ? editing.action.maxTokens
         : DEFAULT_MAX_TOKENS,
-    ),
     autonomy: editing?.autonomy ?? ('approve' as 'approve' | 'auto'),
   };
 }
@@ -424,12 +452,15 @@ function RuleEditor({
             kind: 'prompt',
             system: system.trim(),
             allowTools,
-            maxTurns: clampInt(
-              maxTurns,
-              DEFAULT_MAX_TURNS,
-              MIN_MAX_TURNS,
-              MAX_MAX_TURNS,
-            ),
+            maxTurns:
+              maxTurns >= TURNS_UNLIMITED_POS
+                ? UNLIMITED_TURNS
+                : clampInt(
+                    maxTurns,
+                    DEFAULT_MAX_TURNS,
+                    MIN_MAX_TURNS,
+                    MAX_MAX_TURNS,
+                  ),
             maxTokens: clampInt(
               maxTokens,
               DEFAULT_MAX_TOKENS,
@@ -471,20 +502,11 @@ function RuleEditor({
       allowlist,
     };
     addRule(rule);
-    setName('');
-    setContains('');
-    setFixedText('');
-    setFixedTarget('');
-    setFixedChannel('');
-    setSystem('');
+    onDone();
   };
 
   return (
-    <div className='flex flex-col gap-2.5 border-t border-(--border) pt-3'>
-      <span className='text-xs font-semibold text-(--text)'>
-        {editing ? t('automation.editRule') : t('automation.newRule')}
-      </span>
-
+    <div className='flex flex-col gap-2.5'>
       <label className='flex flex-col gap-1 text-xs'>
         <span className='text-(--text2)'>{t('automation.name')}</span>
         <input
@@ -687,36 +709,41 @@ function RuleEditor({
               })}
             </div>
           </div>
-          <div className='flex gap-2'>
-            <label className='flex flex-1 flex-col gap-1 text-xs'>
-              <span className='text-(--text2)'>{t('automation.maxTurns')}</span>
+          <div className='flex flex-col gap-2.5'>
+            <label className='flex flex-col gap-1 text-xs'>
+              <span className='flex items-center justify-between text-(--text2)'>
+                <span>{t('automation.maxTurns')}</span>
+                <span className='font-semibold text-(--text)'>
+                  {maxTurns >= TURNS_UNLIMITED_POS
+                    ? t('automation.unlimited')
+                    : maxTurns}
+                </span>
+              </span>
               <input
-                type='number'
+                type='range'
                 min={MIN_MAX_TURNS}
-                max={MAX_MAX_TURNS}
+                max={TURNS_UNLIMITED_POS}
                 value={maxTurns}
-                onChange={(e) => setMaxTurns(e.target.value)}
-                className={selectClass}
+                onChange={(e) => setMaxTurns(Number(e.target.value))}
+                className='w-full accent-(--accent)'
               />
               <span className='text-[11px] text-(--text2)'>
-                {t('automation.maxTurnsHint', {
-                  min: MIN_MAX_TURNS,
-                  max: MAX_MAX_TURNS,
-                })}
+                {t('automation.maxTurnsHint')}
               </span>
             </label>
-            <label className='flex flex-1 flex-col gap-1 text-xs'>
-              <span className='text-(--text2)'>
-                {t('automation.maxTokens')}
+            <label className='flex flex-col gap-1 text-xs'>
+              <span className='flex items-center justify-between text-(--text2)'>
+                <span>{t('automation.maxTokens')}</span>
+                <span className='font-semibold text-(--text)'>{maxTokens}</span>
               </span>
               <input
-                type='number'
+                type='range'
                 min={MIN_MAX_TOKENS}
                 max={MAX_MAX_TOKENS}
                 step={256}
                 value={maxTokens}
-                onChange={(e) => setMaxTokens(e.target.value)}
-                className={selectClass}
+                onChange={(e) => setMaxTokens(Number(e.target.value))}
+                className='w-full accent-(--accent)'
               />
               <span className='text-[11px] text-(--text2)'>
                 {t('automation.maxTokensHint', {
@@ -747,14 +774,12 @@ function RuleEditor({
       )}
 
       <div className='flex items-center justify-end gap-2'>
-        {editing && (
-          <button
-            onClick={onDone}
-            className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text2) hover:text-(--text)'
-          >
-            {t('common.cancel')}
-          </button>
-        )}
+        <button
+          onClick={onDone}
+          className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text2) hover:text-(--text)'
+        >
+          {t('common.cancel')}
+        </button>
         <button
           onClick={save}
           disabled={!canSave}

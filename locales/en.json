@@ -312,7 +312,8 @@
     "systemPlaceholder": "Describe what the AI should do with the event…",
     "allowTools": "Tools the AI may use",
     "maxTurns": "Max AI turns",
-    "maxTurnsHint": "LLM round-trips before the rule must stop ({{min}}–{{max}}).",
+    "maxTurnsHint": "LLM round-trips before the rule must stop; slide fully right for unlimited.",
+    "unlimited": "Unlimited",
     "maxTokens": "Max response length",
     "maxTokensHint": "Tokens per AI response ({{min}}–{{max}}).",
     "autonomyLabel": "Autonomy",
@@ -321,7 +322,7 @@
     "saveRule": "Save changes",
     "edit": "Edit",
     "rules": "Rules",
-    "noRules": "No rules yet. Create one below.",
+    "noRules": "No rules yet. Create one with New rule.",
     "enableRule": "Enable rule",
     "trigger": {
       "message": "A message arrives",
