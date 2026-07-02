@@ -24,6 +24,12 @@ let persisted = false;
 // no second key-derivation path.
 let ctx: { pubkey: string; storageKey: CryptoKey } | null = null;
 
+// Bumped by every explicit key mutation (set/forget/wipe). A key mutation
+// racing an in-flight async op (persist, or a restore reading from disk) is
+// detected by comparing this counter across the await, so the slower op never
+// clobbers a newer value.
+let generation = 0;
+
 function syncStatus(): void {
   useMeshStore
     .getState()
@@ -62,18 +68,26 @@ export async function setApiKey(
   value: string,
   remember: boolean,
 ): Promise<void> {
+  const mine = ++generation;
   apiKey = value;
   persisted = false;
-  if (remember && ctx) {
+  syncStatus();
+  if (!ctx) return;
+
+  let landed = false;
+  if (remember) {
     // Only report the key as persisted if the encrypted write actually landed;
     // saveSecret is best-effort and can silently fail (quota, private mode).
-    persisted = await saveSecret(
-      ctx.pubkey,
-      ctx.storageKey,
-      API_KEY_NAME,
-      value,
-    );
+    landed = await saveSecret(ctx.pubkey, ctx.storageKey, API_KEY_NAME, value);
+  } else {
+    // Drop any previously remembered copy so a stale key can't silently
+    // resurface on the next connect to this radio.
+    await clearSecret(ctx.pubkey, API_KEY_NAME);
   }
+  // A wipe/forget/another setApiKey during the await supersedes this one; don't
+  // report persistence state for a key that's no longer active.
+  if (generation !== mine) return;
+  persisted = landed;
   syncStatus();
 }
 
@@ -85,15 +99,17 @@ export async function setApiKey(
 export async function loadPersistedApiKey(): Promise<boolean> {
   const active = ctx;
   if (!active) return false;
+  const mine = generation;
   const value = await loadSecret(
     active.pubkey,
     active.storageKey,
     API_KEY_NAME,
   );
-  // The session may have been torn down (wipeApiKey) or switched to another
-  // radio during the await; if the context changed, discard the result rather
-  // than resurrecting a key onto a dead — or a different radio's — context.
-  if (value === null || ctx !== active) return false;
+  // Discard the restore if, during the await, the session was torn down /
+  // switched radios (ctx changed) or the user explicitly set/forgot a key
+  // (generation changed) — never resurrect a key onto a dead context or clobber
+  // a newer value the user just chose.
+  if (value === null || ctx !== active || generation !== mine) return false;
   apiKey = value;
   persisted = true;
   syncStatus();
@@ -105,6 +121,7 @@ export async function loadPersistedApiKey(): Promise<boolean> {
  * radio. Use for an explicit "forget key" action.
  */
 export async function forgetApiKey(): Promise<void> {
+  generation++;
   apiKey = null;
   persisted = false;
   if (ctx) await clearSecret(ctx.pubkey, API_KEY_NAME);
@@ -117,6 +134,7 @@ export async function forgetApiKey(): Promise<void> {
  * Overwrites the variable rather than relying on GC timing.
  */
 export function wipeApiKey(): void {
+  generation++;
   apiKey = null;
   persisted = false;
   ctx = null;

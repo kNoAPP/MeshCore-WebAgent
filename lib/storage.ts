@@ -77,8 +77,12 @@ export async function deriveStorageKey(
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openDB(): Promise<IDBDatabase> {
-  dbPromise ??= new Promise((resolve, reject) => {
+  const promise = (dbPromise ??= new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
+    // Set once we give up on this open (blocked): the open request can't be
+    // aborted, so a success that arrives afterwards must close the connection
+    // rather than leak a second live handle to the DB.
+    let abandoned = false;
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -90,11 +94,17 @@ function openDB(): Promise<IDBDatabase> {
     };
     req.onsuccess = () => {
       const db = req.result;
+      if (abandoned) {
+        db.close();
+        return;
+      }
       // If another tab opens a newer DB version, close this connection so we
-      // don't block its upgrade (and drop the cache so the next call reopens).
+      // don't block its upgrade, dropping the cache so the next call reopens —
+      // but only if this promise is still the cached one, so a newer connection
+      // that already replaced it isn't evicted.
       db.onversionchange = () => {
         db.close();
-        dbPromise = null;
+        if (dbPromise === promise) dbPromise = null;
       };
       resolve(db);
     };
@@ -102,15 +112,16 @@ function openDB(): Promise<IDBDatabase> {
     // Fail fast instead of hanging forever; callers are best-effort and the
     // dropped cache lets a later call retry once that tab closes.
     req.onblocked = () => {
-      dbPromise = null;
+      abandoned = true;
+      if (dbPromise === promise) dbPromise = null;
       reject(new Error('IndexedDB upgrade blocked by another open connection'));
     };
     req.onerror = () => {
-      dbPromise = null;
+      if (dbPromise === promise) dbPromise = null;
       reject(req.error);
     };
-  });
-  return dbPromise;
+  }));
+  return promise;
 }
 
 async function idbGet(
