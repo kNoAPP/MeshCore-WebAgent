@@ -285,6 +285,7 @@
     "kill": "Alles stoppen",
     "killHint": "Alle Automatisierung sofort anhalten: laufende KI-Ausführung abbrechen, Regeln deaktivieren und ausstehende Genehmigungen löschen.",
     "killed": "Automatisierung gestoppt",
+    "rateLimitedToast": "Sendezeit-Limit erreicht — gleich erneut genehmigen, um zu senden.",
     "newRule": "Neue Regel",
     "editRule": "Regel bearbeiten",
     "name": "Name",
@@ -353,7 +354,6 @@
       "advert": "Ankündigung von {{name}}",
       "ack": "Zustellung bestätigt",
       "connection": "Verbindung {{status}}",
-      "contactsUpdated": "Kontakte aktualisiert",
       "approved": "Genehmigte Aktion"
     },
     "outcome": {

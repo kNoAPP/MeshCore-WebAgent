@@ -15,8 +15,8 @@ import type { ToolName } from '@/lib/ai/tools';
  * filters that narrow it before the (optional) {@link RuleCondition} runs.
  */
 export type RuleTrigger =
-  | { on: 'message'; scope: 'direct' | 'channel' | 'any'; from?: string }
-  | { on: 'advert'; newOnly?: boolean }
+  | { on: 'message'; scope: 'direct' | 'channel' | 'any' }
+  | { on: 'advert' }
   | { on: 'ack' }
   | { on: 'connection'; status?: ConnectionStatus };
 

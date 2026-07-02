@@ -151,8 +151,6 @@ function eventLabel(event: MeshEvent): string {
       return i18n.t('automation.event.ack');
     case 'connection':
       return i18n.t('automation.event.connection', { status: event.status });
-    case 'contactsUpdated':
-      return i18n.t('automation.event.contactsUpdated');
   }
 }
 
@@ -181,10 +179,9 @@ function triggerMatches(trigger: RuleTrigger, event: MeshEvent): boolean {
   switch (trigger.on) {
     case 'message': {
       if (event.type !== 'message') return false;
-      const { kind, pubkeyPrefix } = event.msg;
+      const { kind } = event.msg;
       if (trigger.scope === 'direct' && kind !== 'direct') return false;
       if (trigger.scope === 'channel' && kind !== 'channel') return false;
-      if (trigger.from && pubkeyPrefix !== trigger.from) return false;
       return true;
     }
     case 'advert':
@@ -206,6 +203,12 @@ function conditionMatches(rule: AutomationRule, event: MeshEvent): boolean {
 }
 
 /**
+ * The disposition of a user-approved staged action, so the inbox can keep a
+ * rate-limited proposal for retry instead of silently dropping it.
+ */
+export type ApprovalOutcome = 'executed' | 'rateLimited' | 'failed';
+
+/**
  * The singleton automation engine. Holds the latest {@link ActionContext} (from
  * `useAutomation`), the transmit airtime limiter, and the serial prompt queue.
  * A single instance survives re-renders; the hook only feeds it events and
@@ -218,23 +221,33 @@ class AutomationEngine {
   private queue: Promise<void> = Promise.resolve();
   // Aborts every in-flight prompt stream on the kill switch.
   private abort: AbortController | null = null;
+  // Set by the kill switch and checked before each turn and each tool. The
+  // abort signal only covers the streaming phase; during tool execution (a
+  // radio round-trip) `abort` is null, so this flag is what actually halts a
+  // run that is already past its stream.
+  private stopped = false;
 
   /** Points the engine at the current id-based action surface. */
   setContext(ctx: ActionContext): void {
     this.ctx = ctx;
   }
 
-  /** Re-arms the airtime bucket; called when the master switch turns on. */
+  /** Re-arms the engine; called when the master switch turns on. */
   arm(): void {
+    this.stopped = false;
     this.bucket.reset();
   }
 
   /**
-   * Kill switch: aborts any in-flight provider stream and drops the queued
-   * prompt work. The store's `killSwitch` clears the staged queue and disables
-   * the master switch; the hook then unsubscribes from the bus.
+   * Kill switch: halts everything immediately. Sets the `stopped` flag the run
+   * loop checks between every turn and tool (so a run already in its
+   * tool-execution phase, past the abortable stream, still stops), aborts any
+   * in-flight provider stream, and drops the queued prompt work. The store's
+   * `killSwitch` clears the staged queue and disables the master switch; the
+   * hook then unsubscribes from the bus.
    */
   stop(): void {
+    this.stopped = true;
     this.abort?.abort();
     this.abort = null;
     this.queue = Promise.resolve();
@@ -316,6 +329,9 @@ class AutomationEngine {
     let gatedActions = 0;
 
     for (let step = 0; step < maxTurns; step++) {
+      // Halt between turns if the kill switch fired during the previous turn's
+      // tool execution, when there was no stream left to abort.
+      if (this.stopped) return;
       const controller = new AbortController();
       this.abort = controller;
       const calls: { id: string; name: string; args: unknown }[] = [];
@@ -355,7 +371,7 @@ class AutomationEngine {
       } finally {
         if (this.abort === controller) this.abort = null;
       }
-      if (failed || controller.signal.aborted) return;
+      if (failed || controller.signal.aborted || this.stopped) return;
 
       // No tool call this turn — the model has signaled it is finished.
       if (calls.length === 0) return;
@@ -375,6 +391,9 @@ class AutomationEngine {
       }));
       const resultBlocks: LLMContentBlock[] = [];
       for (const c of calls) {
+        // Halt mid-batch the instant the kill switch fires — do not run the
+        // remaining tool calls in this turn.
+        if (this.stopped) return;
         const args =
           c.args && typeof c.args === 'object'
             ? (c.args as Record<string, unknown>)
@@ -652,16 +671,18 @@ class AutomationEngine {
 
   /**
    * Executes a staged action the user approved. Consumes an airtime token for
-   * transmit tools (approval is the execution point), audits the outcome, and
-   * returns whether it ran.
+   * transmit tools (approval is the execution point) and audits the outcome.
+   *
+   * @returns how it resolved, so the inbox can retain a `rateLimited` proposal
+   * for retry rather than dropping a transmit the user explicitly approved.
    */
   async runApproved(
     tool: ToolName,
     args: Record<string, unknown>,
     ruleId: string,
     ruleName: string,
-  ): Promise<void> {
-    if (!this.ctx) return;
+  ): Promise<ApprovalOutcome> {
+    if (!this.ctx) return 'failed';
     const event = i18n.t('automation.event.approved');
     if (toolClass(tool) === 'transmit' && !this.bucket.tryConsume()) {
       audit({
@@ -673,11 +694,12 @@ class AutomationEngine {
         outcome: 'rateLimited',
         detail: i18n.t('automation.audit.rateLimited'),
       });
-      return;
+      return 'rateLimited';
     }
     try {
       await callTool(tool, args, this.ctx);
       audit({ ruleId, ruleName, event, tool, args, outcome: 'approved' });
+      return 'executed';
     } catch (err) {
       audit({
         ruleId,
@@ -688,6 +710,7 @@ class AutomationEngine {
         outcome: 'failed',
         detail: (err as Error).message,
       });
+      return 'failed';
     }
   }
 

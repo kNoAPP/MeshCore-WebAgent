@@ -9,12 +9,7 @@
 // subscribed (automation off): emitters guard on hasSubscribers(). See
 // `docs/design/ai-automation.md` §3.
 
-import type {
-  Message,
-  Contact,
-  Advert,
-  ConnectionStatus,
-} from '@/types/meshcore';
+import type { Message, Advert, ConnectionStatus } from '@/types/meshcore';
 
 /**
  * A normalized mesh event, one per meaningful edge in the radio's activity.
@@ -22,16 +17,14 @@ import type {
  * protocol code):
  *
  * - `message` ← `onMessage` (direct or channel, already unified).
- * - `contactsUpdated` ← `onContactsUpdated`.
  * - `advert` ← `onAdvertsUpdated`, diffed to one event per new/changed advert.
  * - `ack` ← `onAck` (delivery confirmation with round-trip).
  * - `connection` — a synthetic `{ status: 'connected' }` fired by
- *   `useAutomation` when the engine arms; drop/reconnect states unsubscribe the
- *   engine rather than emitting an event (execution is live-only).
+ *   `useAutomation` when the engine arms; drop/reconnecting states unsubscribe
+ *   the engine rather than emitting an event (execution is live-only).
  */
 export type MeshEvent =
   | { type: 'message'; msg: Message }
-  | { type: 'contactsUpdated'; contacts: Record<string, Contact> }
   | { type: 'advert'; advert: Advert }
   | { type: 'ack'; ackCode: number; roundTripMs: number }
   | { type: 'connection'; status: ConnectionStatus };

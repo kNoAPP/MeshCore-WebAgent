@@ -404,11 +404,7 @@ export function useMeshCore() {
         onDeviceInfo: (info) => setDeviceInfo(info),
         onBattery: (b) => setBattery(b),
         onSyncProgress: (p) => setSyncProgress(p),
-        onContactsUpdated: (contacts) => {
-          const next = { ...contacts };
-          setContacts(next);
-          emit({ type: 'contactsUpdated', contacts: next });
-        },
+        onContactsUpdated: (contacts) => setContacts({ ...contacts }),
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
         onAdvertsUpdated: (adverts) => {
           const next = { ...adverts };

@@ -116,6 +116,7 @@ function ApprovalInbox() {
   const { t } = useTranslation();
   const staged = useMeshStore((s) => s.stagedActions);
   const resolve = useMeshStore((s) => s.resolveStagedAction);
+  const showToast = useMeshStore((s) => s.showToast);
 
   return (
     <div className='flex flex-col gap-2 border-t border-(--border) pt-3'>
@@ -133,13 +134,19 @@ function ApprovalInbox() {
           </div>
           <div className='flex shrink-0 gap-1.5'>
             <button
-              onClick={() => {
-                void automationEngine.runApproved(
+              onClick={async () => {
+                const outcome = await automationEngine.runApproved(
                   a.tool,
                   a.args,
                   a.ruleId,
                   a.ruleName,
                 );
+                // A rate-limited transmit was never sent — keep the proposal
+                // in the inbox to retry instead of dropping an approved action.
+                if (outcome === 'rateLimited') {
+                  showToast(t('automation.rateLimitedToast'), 'error');
+                  return;
+                }
                 resolve(a.id);
               }}
               className='rounded-md bg-(--accent) px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-(--accent-hover)'
@@ -434,9 +441,10 @@ function RuleEditor({
     const allowlist: ToolName[] =
       actionKind === 'fixed' ? [fixedTool] : allowTools;
 
-    const condition = contains.trim()
-      ? { contains: contains.trim() }
-      : undefined;
+    const condition =
+      triggerOn === 'message' && contains.trim()
+        ? { contains: contains.trim() }
+        : undefined;
 
     if (editing) {
       // Preserve the rule's id and enabled state; overwrite everything else.

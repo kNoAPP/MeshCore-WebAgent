@@ -285,6 +285,7 @@
     "kill": "Stop all",
     "killHint": "Halt all automation immediately: abort any in-flight AI run, disable rules, and clear pending approvals.",
     "killed": "Automation stopped",
+    "rateLimitedToast": "Airtime limit reached — approve again in a moment to send.",
     "newRule": "New rule",
     "editRule": "Edit rule",
     "name": "Name",
@@ -353,7 +354,6 @@
       "advert": "Advert from {{name}}",
       "ack": "Delivery acknowledged",
       "connection": "Connection {{status}}",
-      "contactsUpdated": "Contacts updated",
       "approved": "Approved action"
     },
     "outcome": {

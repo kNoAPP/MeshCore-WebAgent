@@ -285,6 +285,7 @@
     "kill": "Tout arrêter",
     "killHint": "Arrêter immédiatement toute l'automatisation : interrompre toute exécution IA en cours, désactiver les règles et vider les approbations en attente.",
     "killed": "Automatisation arrêtée",
+    "rateLimitedToast": "Limite de temps d'antenne atteinte — réapprouvez dans un instant pour envoyer.",
     "newRule": "Nouvelle règle",
     "editRule": "Modifier la règle",
     "name": "Nom",
@@ -353,7 +354,6 @@
       "advert": "Annonce de {{name}}",
       "ack": "Remise confirmée",
       "connection": "Connexion {{status}}",
-      "contactsUpdated": "Contacts mis à jour",
       "approved": "Action approuvée"
     },
     "outcome": {
