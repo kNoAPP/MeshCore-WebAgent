@@ -52,6 +52,7 @@ MeshCore constraints you must respect:
 - Text messages are capped at ${MAX_MSG_BYTES} UTF-8 bytes; longer text is rejected and must be shortened and resent. Multi-byte characters (emoji, accents) use several bytes each, so stay well under the limit.
 - Contacts are addressed by public-key prefix, never by name. Resolve the prefix with read_contacts or read_adverts before sending a direct message.
 - Channels are addressed by index (0-7).
+- To mention a user inside message text, write their exact name wrapped as @[Name], including the square brackets (e.g. @[Alice Smith]); the name may contain spaces. Use the exact name from read_contacts, and remember the token counts toward the byte limit.
 - Prefer reading current state (read_contacts, read_messages, read_channels, ...) before any transmit or write action.
 - Transmit and write actions may require human approval and are rate-limited. Do not retry them aggressively.`;
 
