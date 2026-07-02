@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.8.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.7.0...v1.8.0) (2026-07-02)
+
+
+### Features
+
+* add advertised location settings with map picker and sharing ([#115](https://github.com/kNoAPP/MeshCore-WebAgent/issues/115)) ([71faee7](https://github.com/kNoAPP/MeshCore-WebAgent/commit/71faee75f130972cca55d9d5d625b88e3d9713b6))
+* add global command palette (Find Anything) search ([#117](https://github.com/kNoAPP/MeshCore-WebAgent/issues/117)) ([d960578](https://github.com/kNoAPP/MeshCore-WebAgent/commit/d960578b55b60cfd23b8988ef403e5fba9e5f167))
+* **chat:** add date dividers and per-message copy ([#116](https://github.com/kNoAPP/MeshCore-WebAgent/issues/116)) ([da61594](https://github.com/kNoAPP/MeshCore-WebAgent/commit/da61594b83e6699408ba702b1baa7fb165c69ddf))
+* **map:** plot contacts as colored shapes with legend ([#112](https://github.com/kNoAPP/MeshCore-WebAgent/issues/112)) ([8b2def2](https://github.com/kNoAPP/MeshCore-WebAgent/commit/8b2def243131bb38ba89befdbaa785721fed4cea))
+
+
+### Bug Fixes
+
+* **manage:** show megaphone icon for Public channel in properties modal ([#114](https://github.com/kNoAPP/MeshCore-WebAgent/issues/114)) ([ec03d74](https://github.com/kNoAPP/MeshCore-WebAgent/commit/ec03d74d433249ea4172ea4145fa96fc34a93dfa))
+
 ## [1.7.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.6.0...v1.7.0) (2026-07-01)
 
 
