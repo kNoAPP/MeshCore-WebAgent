@@ -396,6 +396,7 @@ async function* stream(
 export const anthropicProvider: LLMProvider = {
   id: 'anthropic',
   label: 'Anthropic',
+  apiKeyUrl: 'https://console.anthropic.com/settings/keys',
   models: MODELS,
   stream,
 };

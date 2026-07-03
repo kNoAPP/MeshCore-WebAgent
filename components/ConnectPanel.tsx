@@ -82,7 +82,7 @@ export function ConnectPanel() {
   }
 
   return (
-    <div className='flex flex-1 items-center justify-center'>
+    <div className='relative flex flex-1 items-center justify-center'>
       {' '}
       <div
         className='w-105 max-w-[95vw] rounded-[10px] border p-8'
@@ -179,7 +179,30 @@ export function ConnectPanel() {
           </div>
         )}
       </div>
+      <ConnectFooter />
     </div>
+  );
+}
+
+/**
+ * Attribution, license, and contribution links pinned to the bottom-right of
+ * the connect screen.
+ */
+function ConnectFooter() {
+  const { t } = useTranslation();
+  return (
+    <footer className='absolute right-4 bottom-4 flex flex-col items-end gap-0.5 text-right text-[11px] text-(--text2)'>
+      <span>{t('connect.footer.createdBy')}</span>
+      <span>{t('connect.footer.license')}</span>
+      <a
+        href='https://github.com/kNoAPP/MeshCore-WebAgent'
+        target='_blank'
+        rel='noreferrer'
+        className='text-(--accent) hover:underline'
+      >
+        {t('connect.footer.contribute')}
+      </a>
+    </footer>
   );
 }
 

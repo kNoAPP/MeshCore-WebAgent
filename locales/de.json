@@ -99,7 +99,7 @@
     "ble": {
       "info": "Nutzt die Web Bluetooth API (Chrome). Sucht nach Geräten, die den Nordic-UART-Dienst anbieten.",
       "infoExtra": "Siehst du dein Companion nicht? Es ist möglicherweise bereits mit einem anderen Gerät verbunden, etwa der MeshCore-App auf deinem Handy. Trenne es dort zuerst.",
-      "unsupported": "Bluetooth wird in diesem Browser nicht unterstützt. Nutze einen unterstützten Browser wie Chrome, um per BLE zu verbinden."
+      "unsupported": "Bluetooth wird in diesem Browser nicht unterstützt. Firefox unterstützt USB, aber kein BLE — nutze einen Browser wie Chrome, um per BLE zu verbinden."
     },
     "wifi": {
       "info": "Verbindet per WebSocket. Gleiches Frame-Protokoll wie USB seriell.",
@@ -117,6 +117,11 @@
       "hint": "Ein neu startendes Funkgerät kann einen Moment brauchen, um zurückzukommen.",
       "resyncFrom": "Wieder verbunden mit {{device}} — stelle deine Kontakte und Nachrichten wieder her.",
       "resyncGeneric": "Wieder verbunden — stelle deine Kontakte und Nachrichten wieder her."
+    },
+    "footer": {
+      "createdBy": "Erstellt von Alden Bansemer / Knoban LLC",
+      "license": "PolyForm Noncommercial License 1.0.0",
+      "contribute": "Auf GitHub mitwirken"
     }
   },
   "sync": {
@@ -254,6 +259,7 @@
       "model": "Modell",
       "apiKey": "API-Schlüssel",
       "apiKeyPlaceholder": "Füge deinen API-Schlüssel ein",
+      "apiKeyLink": "API-Schlüssel bei {{provider}} erstellen",
       "remember": "Auf diesem Gerät merken",
       "rememberHint": "Verschlüsselt den Schlüssel für dieses Funkgerät, damit er bei der nächsten Verbindung wiederhergestellt wird. Erfordert ein verbundenes Funkgerät.",
       "save": "Schlüssel speichern",

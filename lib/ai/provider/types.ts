@@ -149,6 +149,11 @@ export interface LLMProvider {
   readonly id: ProviderId;
   /** Human-readable provider name (a proper noun, not localized). */
   readonly label: string;
+  /**
+   * The provider's developer console page where a user generates an API key.
+   * Shown as a link beneath the key entry in settings.
+   */
+  readonly apiKeyUrl: string;
   /** Models this provider offers, first is the sensible default. */
   readonly models: readonly LLMModel[];
   /**

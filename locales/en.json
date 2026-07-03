@@ -99,7 +99,7 @@
     "ble": {
       "info": "Uses Web Bluetooth API (Chrome). Scans for devices advertising the Nordic UART service.",
       "infoExtra": "Don't see your companion? It may already be connected to another device, like your phone's MeshCore app. Disconnect it there first.",
-      "unsupported": "Bluetooth is not supported in this browser. Use a supported browser like Chrome to connect over BLE."
+      "unsupported": "Bluetooth is not supported in this browser. Firefox supports USB but not BLE — use a browser like Chrome to connect over BLE."
     },
     "wifi": {
       "info": "Connects via WebSocket. Same frame protocol as USB serial.",
@@ -117,6 +117,11 @@
       "hint": "A rebooting radio can take a moment to come back.",
       "resyncFrom": "Reconnected to {{device}} — restoring your contacts and messages.",
       "resyncGeneric": "Reconnected — restoring your contacts and messages."
+    },
+    "footer": {
+      "createdBy": "Created by Alden Bansemer / Knoban LLC",
+      "license": "PolyForm Noncommercial License 1.0.0",
+      "contribute": "Contribute on GitHub"
     }
   },
   "sync": {
@@ -254,6 +259,7 @@
       "model": "Model",
       "apiKey": "API key",
       "apiKeyPlaceholder": "Paste your API key",
+      "apiKeyLink": "Get an API key from {{provider}}",
       "remember": "Remember on this device",
       "rememberHint": "Encrypts the key for this radio so it restores on the next connect. Requires a connected radio.",
       "save": "Save key",
