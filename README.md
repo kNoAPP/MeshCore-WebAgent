@@ -7,8 +7,7 @@ over USB serial, Bluetooth LE, or WiFi and send messages across the mesh without
 any internet or cellular infrastructure.
 
 Live at **[kn0.app](https://kn0.app)**
-
-<img width="1381" height="934" alt="MeshCore-WebAgent App Preview" src="https://github.com/user-attachments/assets/3062630b-89eb-4d88-aa0b-909c105e66a1" />
+<img width="1840" height="1103" alt="Screenshot 2026-07-03 at 10 28 51 AM" src="https://github.com/user-attachments/assets/72033a4d-c16b-41d3-abd2-ed4ee51b9f66" />
 
 ---
 
