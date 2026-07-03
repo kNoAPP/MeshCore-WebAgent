@@ -1,4 +1,3 @@
-
 # MeshCore-WebAgent
 
 A browser-based companion client for
@@ -18,8 +17,9 @@ Live at **[kn0.app](https://kn0.app)**
 
 - **Zero install, zero account** — Open a URL and you're talking to your radio.
   Nothing to download, no sign-up.
-- **Truly private** — Everything runs in your browser. Message history, contacts,
-  and API keys are encrypted at rest with AES-GCM and never leave your device.
+- **Truly private** — Everything runs in your browser. Message history,
+  contacts, and API keys are encrypted at rest with AES-GCM and never leave your
+  device.
 - **Off-grid first** — Works entirely client-side, so once the page is loaded it
   keeps working without internet or cell service.
 - **Batteries included** — Chat, contact and channel management, live maps,
@@ -64,9 +64,9 @@ Turn your radio into a helpful, autonomous mesh bot — an auto-responder, a rel
 assistant, a status announcer — driven by a large language model you control.
 
 - **Bring your own key (BYOK)** — Connect your own Anthropic API key and run
-  Claude models (Sonnet, Opus, Haiku). Your key is stored **per radio,
-  encrypted at rest**, held only in memory for the tab's lifetime, and sent
-  **directly from your browser to Anthropic** — never to any proxy or server.
+  Claude models (Sonnet, Opus, Haiku). Your key is stored **per radio, encrypted
+  at rest**, held only in memory for the tab's lifetime, and sent **directly
+  from your browser to Anthropic** — never to any proxy or server.
 - **Automation rules engine** — Build rules as `trigger → condition → action`.
   Fire on incoming direct or channel messages, adverts, ACKs, or connection
   events, optionally filtered by message content.
