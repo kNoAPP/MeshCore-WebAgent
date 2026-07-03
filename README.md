@@ -1,3 +1,4 @@
+
 # MeshCore-WebAgent
 
 A browser-based companion client for
@@ -8,7 +9,7 @@ any internet or cellular infrastructure.
 
 Live at **[kn0.app](https://kn0.app)**
 
-<img width="1840" height="1103" alt="Screenshot 2026-07-03 at 10 28 51 AM" src="https://github.com/user-attachments/assets/72033a4d-c16b-41d3-abd2-ed4ee51b9f66" />
+<img width="1840" height="1103" alt="Screenshot 2026-07-03 at 10 39 11 AM" src="https://github.com/user-attachments/assets/e5fb2f4e-2e02-4057-916a-9562d08b062d" />
 
 ---
 
