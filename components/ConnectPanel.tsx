@@ -7,6 +7,7 @@ import { useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useMeshStore } from '@/store/meshStore';
+import { version } from '@/package.json';
 import { SyncDialog } from './SyncDialog';
 
 type Tab = 'usb' | 'ble' | 'wifi';
@@ -194,14 +195,17 @@ function ConnectFooter() {
     <footer className='absolute right-4 bottom-4 flex flex-col items-end gap-0.5 text-right text-[11px] text-(--text2)'>
       <span>{t('connect.footer.createdBy')}</span>
       <span>{t('connect.footer.license')}</span>
-      <a
-        href='https://github.com/kNoAPP/MeshCore-WebAgent'
-        target='_blank'
-        rel='noreferrer'
-        className='text-(--accent) hover:underline'
-      >
-        {t('connect.footer.contribute')}
-      </a>
+      <span>
+        <a
+          href='https://github.com/kNoAPP/MeshCore-WebAgent'
+          target='_blank'
+          rel='noreferrer'
+          className='text-(--accent) hover:underline'
+        >
+          {t('connect.footer.contribute')}
+        </a>{' '}
+        · v{version}
+      </span>
     </footer>
   );
 }
