@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.12.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.11.0...v1.12.0) (2026-07-03)
+
+
+### Features
+
+* add connect attribution, provider key link, and Firefox BLE note ([#132](https://github.com/kNoAPP/MeshCore-WebAgent/issues/132)) ([2596512](https://github.com/kNoAPP/MeshCore-WebAgent/commit/259651212f3e01f63cdf0027ac9649d62592116f))
+* show app version in connect footer ([#134](https://github.com/kNoAPP/MeshCore-WebAgent/issues/134)) ([3b731e5](https://github.com/kNoAPP/MeshCore-WebAgent/commit/3b731e59b63c5bd43f682892120499ca6ed464c1))
+
 ## [1.11.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.10.0...v1.11.0) (2026-07-02)
 
 
