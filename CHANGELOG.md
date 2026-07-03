@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.11.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.10.0...v1.11.0) (2026-07-02)
+
+
+### Features
+
+* open pending approvals in a top-bar popup ([#129](https://github.com/kNoAPP/MeshCore-WebAgent/issues/129)) ([c69366d](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c69366de95c0eb299a7e29d98304f1dde32b0b36))
+
 ## [1.10.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.9.0...v1.10.0) (2026-07-02)
 
 
