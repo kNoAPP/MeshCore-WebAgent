@@ -181,6 +181,15 @@ export function AiSettingsBody() {
         />
       </label>
 
+      <a
+        href={provider.apiKeyUrl}
+        target='_blank'
+        rel='noreferrer'
+        className='-mt-1 self-start text-[11px] text-(--accent) hover:underline'
+      >
+        {t('settings.ai.apiKeyLink', { provider: provider.label })}
+      </a>
+
       <button
         role='switch'
         aria-checked={remember}

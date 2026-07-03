@@ -95,8 +95,9 @@ assistant, a status announcer — driven by a large language model you control.
 
 ## Browser Requirements
 
-Web Serial and Web Bluetooth are Chromium-only APIs. Use **Chrome** or **Edge**
-(desktop). Firefox and Safari are not supported.
+Web Serial (USB) and Web Bluetooth (BLE) are Chromium APIs, so **Chrome** or
+**Edge** (desktop) support everything. Firefox supports USB but not BLE. Safari
+is not supported.
 
 ## Getting Started
 

@@ -99,7 +99,7 @@
     "ble": {
       "info": "Utilise l'API Web Bluetooth (Chrome). Recherche les appareils annonçant le service Nordic UART.",
       "infoExtra": "Tu ne vois pas ton companion ? Il est peut-être déjà connecté à un autre appareil, comme l'app MeshCore de ton téléphone. Déconnecte-le là-bas d'abord.",
-      "unsupported": "Le Bluetooth n'est pas pris en charge par ce navigateur. Utilise un navigateur compatible comme Chrome pour te connecter en BLE."
+      "unsupported": "Le Bluetooth n'est pas pris en charge par ce navigateur. Firefox prend en charge l'USB mais pas le BLE — utilise un navigateur comme Chrome pour te connecter en BLE."
     },
     "wifi": {
       "info": "Se connecte via WebSocket. Même protocole de trame que le série USB.",
@@ -117,6 +117,11 @@
       "hint": "Une radio qui redémarre peut prendre un moment pour revenir.",
       "resyncFrom": "Reconnecté à {{device}} — restauration de tes contacts et messages.",
       "resyncGeneric": "Reconnecté — restauration de tes contacts et messages."
+    },
+    "footer": {
+      "createdBy": "Créé par Alden Bansemer / Knoban LLC",
+      "license": "PolyForm Noncommercial License 1.0.0",
+      "contribute": "Contribuer sur GitHub"
     }
   },
   "sync": {
@@ -254,6 +259,7 @@
       "model": "Modèle",
       "apiKey": "Clé API",
       "apiKeyPlaceholder": "Collez votre clé API",
+      "apiKeyLink": "Obtenez une clé API sur {{provider}}",
       "remember": "Mémoriser sur cet appareil",
       "rememberHint": "Chiffre la clé pour cette radio afin de la restaurer à la prochaine connexion. Nécessite une radio connectée.",
       "save": "Enregistrer la clé",
