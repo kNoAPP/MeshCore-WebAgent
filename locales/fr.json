@@ -407,7 +407,8 @@
       "notAllowed": "Outil non autorisé : {{tool}}",
       "rateLimited": "Limite de temps d'antenne atteinte",
       "maxSteps": "Limite de tours atteinte alors que des outils étaient encore appelés",
-      "actionLimit": "Limite d'actions atteinte pour cet événement"
+      "actionLimit": "Limite d'actions atteinte pour cet événement",
+      "queueFull": "Ignoré : trop d’exécutions d’IA en file d’attente"
     }
   },
   "chat": {

@@ -407,7 +407,8 @@
       "notAllowed": "Tool not allowed: {{tool}}",
       "rateLimited": "Airtime rate limit reached",
       "maxSteps": "Reached the turn limit while still calling tools",
-      "actionLimit": "Action limit reached for this event"
+      "actionLimit": "Action limit reached for this event",
+      "queueFull": "Skipped: too many AI runs already queued"
     }
   },
   "chat": {

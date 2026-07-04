@@ -407,7 +407,8 @@
       "notAllowed": "Tool nicht erlaubt: {{tool}}",
       "rateLimited": "Sendezeit-Limit erreicht",
       "maxSteps": "Rundenlimit erreicht, während noch Tools aufgerufen wurden",
-      "actionLimit": "Aktionslimit für dieses Ereignis erreicht"
+      "actionLimit": "Aktionslimit für dieses Ereignis erreicht",
+      "queueFull": "Übersprungen: zu viele KI-Durchläufe in der Warteschlange"
     }
   },
   "chat": {

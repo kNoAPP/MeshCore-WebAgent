@@ -407,7 +407,8 @@
       "notAllowed": "Herramienta no permitida: {{tool}}",
       "rateLimited": "Límite de tiempo de aire alcanzado",
       "maxSteps": "Se alcanzó el límite de turnos mientras aún se llamaban herramientas",
-      "actionLimit": "Límite de acciones alcanzado para este evento"
+      "actionLimit": "Límite de acciones alcanzado para este evento",
+      "queueFull": "Omitido: demasiadas ejecuciones de IA en cola"
     }
   },
   "chat": {
