@@ -14,6 +14,14 @@ import type { ActionContext } from '@/lib/ai/tools';
 import i18n from '@/lib/i18n';
 
 /**
+ * Upper bound on how many missed wall-clock minutes the schedule ticker replays
+ * after a throttled or suspended timer jumps forward. Caps a catch-up burst so
+ * a long sleep can't fire a backlog of scheduled rules; staler minutes are
+ * dropped, consistent with the live-only execution model.
+ */
+const MAX_SCHEDULE_CATCHUP = 5;
+
+/**
  * Drives the automation engine (task 6.4): builds the id-based
  * {@link ActionContext} over useMeshCore's actions, subscribes the engine to
  * the event bus while the master switch is on and the link is connected
@@ -102,17 +110,25 @@ export function useAutomation(): void {
     // Fire a connected edge so connection-status rules can react on arm.
     emit({ type: 'connection', status: 'connected' });
 
-    // Drive `schedule`-trigger rules: emit one tick per wall-clock minute so
-    // each rule can match its cron against the current time. We poll every few
-    // seconds and fire only when the minute rolls over, so drifting timers
-    // never double-fire or skip a minute. Seed with the current minute so
-    // arming mid-minute doesn't fire an extra tick for the minute in progress.
+    // Drive `schedule`-trigger rules: emit one tick per elapsed wall-clock
+    // minute so each rule can match its cron against that minute. We poll every
+    // few seconds; a normal tick advances exactly one minute. A throttled or
+    // suspended timer can jump several minutes, so we replay each missed one —
+    // bounded to the last MAX_SCHEDULE_CATCHUP minutes so a long sleep can't
+    // unleash a large catch-up burst; staler minutes are dropped, matching the
+    // live-only model. Each tick carries that minute's own timestamp so the
+    // cron is matched against the real wall clock rather than `Date.now()`.
+    // Seeded with the current minute so arming mid-minute doesn't fire for the
+    // minute already in progress.
     let lastMinute = Math.floor(Date.now() / 60_000);
     const ticker = setInterval(() => {
       const minute = Math.floor(Date.now() / 60_000);
-      if (minute === lastMinute) return;
+      if (minute <= lastMinute) return;
+      const from = Math.max(lastMinute + 1, minute - MAX_SCHEDULE_CATCHUP + 1);
+      for (let m = from; m <= minute; m++) {
+        emit({ type: 'schedule', at: m * 60_000 });
+      }
       lastMinute = minute;
-      emit({ type: 'schedule', at: Date.now() });
     }, 5_000);
 
     return () => {
