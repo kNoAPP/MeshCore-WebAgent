@@ -475,6 +475,9 @@ function LocationCard() {
       hasGps ||
       source === ADVERT_LOC_POLICY.SHARE,
   );
+  // A lone Fixed option (non-GPS radio) is a pointless picker, so hide the
+  // selector entirely and just show the coordinate editor.
+  const showSource = sources.length > 1;
   // Under the GPS source the radio supplies its own fix, so the
   // fixed-coordinate editor is irrelevant and disabled.
   const usingGps = source === ADVERT_LOC_POLICY.SHARE;
@@ -555,41 +558,43 @@ function LocationCard() {
           />
         </span>
       </button>
-      <div className='mt-3'>
-        <div className='mb-2 text-xs text-(--text2)'>
-          {t('settings.locationSource')}
+      {showSource && (
+        <div className='mt-3'>
+          <div className='mb-2 text-xs text-(--text2)'>
+            {t('settings.locationSource')}
+          </div>
+          <div
+            role='radiogroup'
+            aria-label={t('settings.locationSource')}
+            className='inline-flex rounded-md border border-(--border-control) p-0.5'
+          >
+            {sources.map(({ policy, label }) => {
+              const active = source === policy;
+              return (
+                <button
+                  key={policy}
+                  role='radio'
+                  aria-checked={active}
+                  disabled={!editable || savingSource}
+                  onClick={() => void selectSource(policy)}
+                  className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    active
+                      ? 'bg-(--accent) font-semibold text-white'
+                      : 'text-(--text2) hover:text-(--text)'
+                  }`}
+                >
+                  {t(label)}
+                </button>
+              );
+            })}
+          </div>
+          {usingGps && (
+            <p className='mt-2 text-xs text-(--text2)'>
+              {t('settings.locationGpsHint')}
+            </p>
+          )}
         </div>
-        <div
-          role='radiogroup'
-          aria-label={t('settings.locationSource')}
-          className='inline-flex rounded-md border border-(--border-control) p-0.5'
-        >
-          {sources.map(({ policy, label }) => {
-            const active = source === policy;
-            return (
-              <button
-                key={policy}
-                role='radio'
-                aria-checked={active}
-                disabled={!editable || savingSource}
-                onClick={() => void selectSource(policy)}
-                className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  active
-                    ? 'bg-(--accent) font-semibold text-white'
-                    : 'text-(--text2) hover:text-(--text)'
-                }`}
-              >
-                {t(label)}
-              </button>
-            );
-          })}
-        </div>
-        {usingGps && (
-          <p className='mt-2 text-xs text-(--text2)'>
-            {t('settings.locationGpsHint')}
-          </p>
-        )}
-      </div>
+      )}
       <div className='mt-3 flex gap-3'>
         <div className='flex flex-1 flex-col gap-1 text-xs'>
           <label className='text-(--text2)'>{t('settings.latitude')}</label>
