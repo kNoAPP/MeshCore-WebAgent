@@ -389,19 +389,40 @@ function NodeNameRow() {
 }
 
 /**
- * The Location section: sets this radio's advertised coordinate, either typed
- * directly or picked on the map. Values are decimal degrees; {@link SelfInfo}
- * already reports them in degrees (unlike contacts), so they seed the inputs
- * as-is and `0`/unset shows blank. The editor stays populated after a failed
- * write so the values aren't lost, and it consumes a coordinate handed back by
- * the map picker via the store's one-shot `pendingLocation`. Gated to a fully
- * connected link, matching every other radio write.
+ * The location sources offered in the Location section. `PREFS` advertises the
+ * fixed coordinate entered below; `SHARE` defers to the radio's own GPS module
+ * (only meaningful on GPS-capable hardware). Whether either is actually
+ * attached to adverts is governed separately by the advertise toggle, which
+ * flips the stored policy to `NONE`.
+ */
+const LOCATION_SOURCES = [
+  { policy: ADVERT_LOC_POLICY.PREFS, label: 'settings.locationSourceFixed' },
+  { policy: ADVERT_LOC_POLICY.SHARE, label: 'settings.locationSourceGps' },
+] as const;
+
+/**
+ * The Location section, built from two independent controls:
+ *
+ * - **Include location in adverts** toggles the advert location policy between
+ *   `NONE` (off) and the selected source's policy.
+ * - **Location source** picks `PREFS` (the fixed coordinate typed/picked below)
+ *   or `SHARE` (the radio's own GPS module) — the GPS option is offered only on
+ *   GPS-capable hardware, probed from `CUSTOM_VARS`.
+ *
+ * The fixed coordinate is stored via `SET_ADVERT_LATLON` independently of the
+ * policy, so it can be set without being advertised, and the lat/lon editor is
+ * enabled only under the Fixed source. Values are decimal degrees; {@link
+ * SelfInfo} already reports them in degrees (unlike contacts), so they seed the
+ * inputs as-is and `0`/unset shows blank. The editor stays populated after a
+ * failed write, and consumes a coordinate handed back by the map picker via the
+ * store's one-shot `pendingLocation`. Gated to a fully connected link.
  */
 function LocationCard() {
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);
   const advLocPolicy = useMeshStore((s) => s.selfInfo?.advLocPolicy);
-  const { setLocation, setSharePosition } = useMeshCore();
+  const hasGps = useMeshStore((s) => s.deviceInfo?.hasGps ?? false);
+  const { setLocation, setLocationPolicy } = useMeshCore();
 
   const fmtDeg = (v?: number) => (v ? String(v) : '');
   // Seed from a coordinate the map picker just handed back (the store's
@@ -416,7 +437,18 @@ function LocationCard() {
     return p ? String(p.lon) : fmtDeg(useMeshStore.getState().selfInfo?.advLon);
   });
   const [saving, setSaving] = useState(false);
-  const [savingShare, setSavingShare] = useState(false);
+  const [savingAdvertise, setSavingAdvertise] = useState(false);
+  const [savingSource, setSavingSource] = useState(false);
+
+  // The advert policy collapses to `NONE` when advertising is off, losing the
+  // intended source, so keep the Fixed/GPS choice locally — seeded from the
+  // current policy at mount, defaulting to Fixed — and apply it when
+  // advertising is (re)enabled.
+  const [source, setSource] = useState<number>(() =>
+    useMeshStore.getState().selfInfo?.advLocPolicy === ADVERT_LOC_POLICY.SHARE
+      ? ADVERT_LOC_POLICY.SHARE
+      : ADVERT_LOC_POLICY.PREFS,
+  );
 
   // Clear the consumed one-shot signal so a later remount seeds from the live
   // location, not a stale pick. Touches only the store, never local state.
@@ -429,6 +461,23 @@ function LocationCard() {
   // Writes only land on a fully connected link (the hook gates on it too); show
   // the affordance disabled while reconnecting rather than hiding it.
   const editable = status === 'connected';
+
+  // Whether the radio attaches any location to its adverts. An unknown policy
+  // (older firmware's short SELF_INFO) reads as off.
+  const advertising =
+    advLocPolicy !== undefined && advLocPolicy !== ADVERT_LOC_POLICY.NONE;
+
+  // Offer the GPS source only on GPS-capable radios; keep it listed if it's
+  // somehow the active source so the state isn't misrepresented.
+  const sources = LOCATION_SOURCES.filter(
+    (s) =>
+      s.policy !== ADVERT_LOC_POLICY.SHARE ||
+      hasGps ||
+      source === ADVERT_LOC_POLICY.SHARE,
+  );
+  // Under the GPS source the radio supplies its own fix, so the
+  // fixed-coordinate editor is irrelevant and disabled.
+  const usingGps = source === ADVERT_LOC_POLICY.SHARE;
 
   // `Number` (not `parseFloat`) so trailing junk like "12abc" is rejected as
   // NaN rather than silently parsed to 12, matching RadioSettings' inputs.
@@ -444,7 +493,7 @@ function LocationCard() {
     Number.isFinite(lonNum) &&
     lonNum >= ADVERT_LON_MIN &&
     lonNum <= ADVERT_LON_MAX;
-  const canSave = editable && latValid && lonValid && !saving;
+  const canSave = editable && !usingGps && latValid && lonValid && !saving;
 
   const save = async () => {
     if (!canSave) return;
@@ -453,17 +502,27 @@ function LocationCard() {
     setSaving(false);
   };
 
-  // Any non-`NONE` policy attaches a location; the app only ever writes the
-  // `PREFS` (stored coordinate) variant, matching the firmware default. An
-  // unknown policy (older firmware's short `SELF_INFO`) reads as not sharing so
-  // the toggle starts from the off baseline rather than falsely showing on.
-  const sharing =
-    advLocPolicy !== undefined && advLocPolicy !== ADVERT_LOC_POLICY.NONE;
-  const toggleShare = async () => {
-    if (!editable || savingShare) return;
-    setSavingShare(true);
-    await setSharePosition(!sharing);
-    setSavingShare(false);
+  // Flip the advert policy between off (`NONE`) and the selected source.
+  const toggleAdvertise = async () => {
+    if (!editable || savingAdvertise) return;
+    setSavingAdvertise(true);
+    await setLocationPolicy(advertising ? ADVERT_LOC_POLICY.NONE : source);
+    setSavingAdvertise(false);
+  };
+
+  // Switch the Fixed/GPS source. While advertising, this rewrites the live
+  // policy (and only commits the local choice once that succeeds); while off it
+  // just records the choice, applied when advertising is turned on.
+  const selectSource = async (next: number) => {
+    if (!editable || savingSource || next === source) return;
+    if (!advertising) {
+      setSource(next);
+      return;
+    }
+    setSavingSource(true);
+    const ok = await setLocationPolicy(next);
+    setSavingSource(false);
+    if (ok) setSource(next);
   };
 
   return (
@@ -475,16 +534,73 @@ function LocationCard() {
       <p className='mb-3 text-xs text-(--text2)'>
         {t('settings.locationHint')}
       </p>
-      <div className='flex gap-3'>
+      <button
+        role='switch'
+        aria-checked={advertising}
+        disabled={!editable || savingAdvertise}
+        onClick={() => void toggleAdvertise()}
+        className='flex w-full items-center justify-between gap-2 text-left text-xs text-(--text) disabled:cursor-not-allowed disabled:opacity-50'
+      >
+        <span>{t('settings.advertiseLocation')}</span>
+        <span
+          className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+          style={{
+            background: advertising ? 'var(--accent)' : 'var(--border)',
+          }}
+        >
+          <span
+            className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+              advertising ? 'left-3.5' : 'left-0.5'
+            }`}
+          />
+        </span>
+      </button>
+      <div className='mt-3'>
+        <div className='mb-2 text-xs text-(--text2)'>
+          {t('settings.locationSource')}
+        </div>
+        <div
+          role='radiogroup'
+          aria-label={t('settings.locationSource')}
+          className='inline-flex rounded-md border border-(--border-control) p-0.5'
+        >
+          {sources.map(({ policy, label }) => {
+            const active = source === policy;
+            return (
+              <button
+                key={policy}
+                role='radio'
+                aria-checked={active}
+                disabled={!editable || savingSource}
+                onClick={() => void selectSource(policy)}
+                className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  active
+                    ? 'bg-(--accent) font-semibold text-white'
+                    : 'text-(--text2) hover:text-(--text)'
+                }`}
+              >
+                {t(label)}
+              </button>
+            );
+          })}
+        </div>
+        {usingGps && (
+          <p className='mt-2 text-xs text-(--text2)'>
+            {t('settings.locationGpsHint')}
+          </p>
+        )}
+      </div>
+      <div className='mt-3 flex gap-3'>
         <div className='flex flex-1 flex-col gap-1 text-xs'>
           <label className='text-(--text2)'>{t('settings.latitude')}</label>
           <input
             value={latStr}
             onChange={(e) => setLatStr(e.target.value)}
+            disabled={usingGps}
             inputMode='decimal'
             placeholder='0.000000'
             aria-label={t('settings.latitude')}
-            className={`min-w-0 rounded-md border bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent) ${
+            className={`min-w-0 rounded-md border bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent) disabled:cursor-not-allowed disabled:opacity-50 ${
               latStr.trim() !== '' && !latValid
                 ? 'border-(--red)'
                 : 'border-(--border-control)'
@@ -496,10 +612,11 @@ function LocationCard() {
           <input
             value={lonStr}
             onChange={(e) => setLonStr(e.target.value)}
+            disabled={usingGps}
             inputMode='decimal'
             placeholder='0.000000'
             aria-label={t('settings.longitude')}
-            className={`min-w-0 rounded-md border bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent) ${
+            className={`min-w-0 rounded-md border bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent) disabled:cursor-not-allowed disabled:opacity-50 ${
               lonStr.trim() !== '' && !lonValid
                 ? 'border-(--red)'
                 : 'border-(--border-control)'
@@ -510,7 +627,8 @@ function LocationCard() {
       <div className='mt-3 flex items-center justify-between gap-2'>
         <button
           onClick={() => useMeshStore.getState().startLocationPick()}
-          className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text2) hover:text-(--text)'
+          disabled={usingGps}
+          className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
         >
           {t('settings.setOnMap')}
         </button>
@@ -522,25 +640,6 @@ function LocationCard() {
           {t('common.save')}
         </button>
       </div>
-      <button
-        role='switch'
-        aria-checked={sharing}
-        disabled={!editable || savingShare}
-        onClick={() => void toggleShare()}
-        className='mt-3 flex w-full items-center justify-between gap-2 border-t border-(--border) pt-3 text-left text-xs text-(--text) disabled:cursor-not-allowed disabled:opacity-50'
-      >
-        <span>{t('settings.sharePosition')}</span>
-        <span
-          className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
-          style={{ background: sharing ? 'var(--accent)' : 'var(--border)' }}
-        >
-          <span
-            className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
-              sharing ? 'left-3.5' : 'left-0.5'
-            }`}
-          />
-        </span>
-      </button>
     </Card>
   );
 }

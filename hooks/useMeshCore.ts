@@ -1209,16 +1209,17 @@ export function useMeshCore() {
   );
 
   /**
-   * Toggles whether the radio attaches its stored location to adverts.
+   * Sets where the radio's adverts take their location from — nothing, the
+   * stored fixed coordinate, or the radio's own GPS module.
    *
-   * @returns whether the write succeeded, so the caller can revert its toggle
-   * on failure.
+   * @returns whether the write succeeded, so the caller can revert its
+   * selection on failure.
    */
-  const setSharePosition = useCallback(
-    async (share: boolean): Promise<boolean> => {
+  const setLocationPolicy = useCallback(
+    async (policy: number): Promise<boolean> => {
       if (!canTransmit(client)) return false;
       try {
-        await client.setSharePosition(share);
+        await client.setLocationPolicy(policy);
         showToast(i18n.t('toast.sharePositionSaved'), 'success');
         return true;
       } catch (err) {
@@ -1344,7 +1345,7 @@ export function useMeshCore() {
     removeChannel,
     setNodeName,
     setLocation,
-    setSharePosition,
+    setLocationPolicy,
     applyRadioParams,
     applyAutoAddConfig,
     rebootDevice,

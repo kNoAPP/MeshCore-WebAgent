@@ -25,7 +25,6 @@ import {
   AUTOADD,
   MANUAL_ADD_OFF,
   MANUAL_ADD_ON,
-  ADVERT_LOC_POLICY,
 } from './constants';
 import {
   buildAppStart,
@@ -36,6 +35,7 @@ import {
   buildGetChannelInfo,
   buildSyncNextMessage,
   buildGetBattery,
+  buildGetCustomVars,
   buildGetStats,
   buildSendChannelMsg,
   buildSendDirectMsg,
@@ -58,6 +58,7 @@ import {
 import {
   parseSelfInfo,
   parseDeviceInfo,
+  parseCustomVars,
   parseBattAndStorage,
   parseContact,
   parseChannelInfo,
@@ -240,6 +241,12 @@ export class MeshCoreClient {
       () => this.cmd(buildDeviceQuery(), [RESP.DEVICE_INFO], 5000),
       true,
     );
+    // Probe hardware capabilities (GPS presence) right after DEVICE_QUERY, so
+    // the parsed deviceInfo is already in place to fold the flag into.
+    // Best-effort: firmware without CMD_GET_CUSTOM_VARS answers ERR and the
+    // radio still
+    // connects, leaving hasGps unset (treated as no GPS).
+    await this.syncStep(() => this.syncDeviceCapabilities(), true);
     // Best-effort clock sync runs right after DEVICE_QUERY, per the companion
     // protocol, so the radio's clock is corrected before the message drain —
     // inbound messages then get the right device timestamp instead of a stale
@@ -586,6 +593,20 @@ export class MeshCoreClient {
     this.callbacks.onChannelsUpdated?.(this.channels);
   }
 
+  // Probes the radio's hardware capabilities via CMD_GET_CUSTOM_VARS and folds
+  // the result into deviceInfo. Only GPS presence is used today: a GPS-equipped
+  // radio lists a `gps` sensor setting, boards without one list none. Fires
+  // onDeviceInfo again so Settings can offer the device-GPS location source
+  // only when it's real.
+  private async syncDeviceCapabilities(): Promise<void> {
+    const d = await this.cmd(buildGetCustomVars(), [RESP.CUSTOM_VARS], 5000);
+    const hasGps = 'gps' in parseCustomVars(d);
+    if (this.deviceInfo) {
+      this.deviceInfo = { ...this.deviceInfo, hasGps };
+      this.callbacks.onDeviceInfo?.(this.deviceInfo);
+    }
+  }
+
   // Best-effort device clock sync: read the radio's clock and, if it has
   // drifted past CLOCK_SKEW_THRESHOLD_SECS from the browser, correct it. A
   // radio that rejects GET_DEVICE_TIME (older firmware) returns null and is
@@ -839,15 +860,17 @@ export class MeshCoreClient {
   }
 
   /**
-   * Toggles whether this radio's stored location is attached to its adverts.
+   * Sets this radio's advert location policy — where (if anywhere) its adverts
+   * take their coordinate from.
    *
-   * @param share - `true` uses {@link ADVERT_LOC_POLICY.PREFS} (the coordinate
-   * set via {@link setLocation}); `false` uses {@link ADVERT_LOC_POLICY.NONE}.
+   * @param policy - one of the `ADVERT_LOC_POLICY` values: `NONE` (attach
+   * nothing), `PREFS` (the fixed coordinate set via {@link setLocation}), or
+   * `SHARE` (the live fix from the radio's own GPS module, on GPS-capable
+   * hardware).
    * @remarks The current `manual_add`, `telemetry_mode`, and `multi_acks` prefs
    * are echoed back so only the location policy changes.
    */
-  async setSharePosition(share: boolean): Promise<void> {
-    const policy = share ? ADVERT_LOC_POLICY.PREFS : ADVERT_LOC_POLICY.NONE;
+  async setLocationPolicy(policy: number): Promise<void> {
     const info = this.selfInfo;
     // SET_OTHER_PARAMS is positional: the location policy (byte 3) can only be
     // reached by resending the earlier prefs. If this radio's SELF_INFO was too
