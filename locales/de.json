@@ -82,9 +82,9 @@
     "title": "Mit MeshCore verbinden",
     "subtitle": "Verbinde dich per USB, Bluetooth oder WiFi mit deinem Companion-Funkgerät.",
     "tab": {
-      "usb": "🔌 USB",
-      "ble": "📡 BLE",
-      "wifi": "🌐 WiFi"
+      "usb": "USB",
+      "ble": "BLE",
+      "wifi": "WiFi"
     },
     "websocketUrl": "WebSocket-URL",
     "connecting": "Verbinde…",

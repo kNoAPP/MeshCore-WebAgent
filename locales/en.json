@@ -82,9 +82,9 @@
     "title": "Connect to MeshCore",
     "subtitle": "Connect via USB, Bluetooth, or WiFi to your Companion Radio.",
     "tab": {
-      "usb": "🔌 USB",
-      "ble": "📡 BLE",
-      "wifi": "🌐 WiFi"
+      "usb": "USB",
+      "ble": "BLE",
+      "wifi": "WiFi"
     },
     "websocketUrl": "WebSocket URL",
     "connecting": "Connecting…",
