@@ -72,6 +72,19 @@ function parseField(
   return values;
 }
 
+/**
+ * Parses the day-of-week field, accepting `7` as an alias for `0` (Sunday).
+ * The field is parsed against `[0, 7]` so `7` is legal wherever a number may
+ * appear — as a bare value, a range bound (e.g. `6-7`), or a step base — then
+ * any resulting `7` is folded into `0`, matching crontab semantics.
+ */
+function parseDowField(field: string): Set<number> | null {
+  const values = parseField(field, 0, 7);
+  if (!values) return null;
+  if (values.delete(7)) values.add(0);
+  return values;
+}
+
 /** Splits into whitespace-separated fields, or `null` unless there are five. */
 function splitFields(expr: string): string[] | null {
   const fields = expr.trim().split(/\s+/);
@@ -86,10 +99,9 @@ export function isValidCron(expr: string): boolean {
   const fields = splitFields(expr);
   if (!fields) return false;
   return fields.every((field, i) => {
+    if (i === 4) return parseDowField(field) !== null;
     const range = FIELDS[i];
-    // Normalize day-of-week 7 to 0 (Sunday) before validating that field.
-    const normalized = i === 4 ? field.replace(/(^|[^0-9])7/g, '$10') : field;
-    return parseField(normalized, range.min, range.max) !== null;
+    return parseField(field, range.min, range.max) !== null;
   });
 }
 
@@ -103,12 +115,11 @@ export function cronMatches(expr: string, date: Date): boolean {
   const fields = splitFields(expr);
   if (!fields) return false;
 
-  const dowField = fields[4].replace(/(^|[^0-9])7/g, '$10');
   const minute = parseField(fields[0], 0, 59);
   const hour = parseField(fields[1], 0, 23);
   const dom = parseField(fields[2], 1, 31);
   const month = parseField(fields[3], 1, 12);
-  const dow = parseField(dowField, 0, 6);
+  const dow = parseDowField(fields[4]);
   if (!minute || !hour || !dom || !month || !dow) return false;
 
   if (!minute.has(date.getMinutes())) return false;
