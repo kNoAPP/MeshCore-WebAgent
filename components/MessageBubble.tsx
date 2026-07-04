@@ -217,12 +217,20 @@ function metaParts(
   return parts;
 }
 
-/** Wraps a token in a tooltip-bearing span when a path title is available. */
+/** Wraps a token in an instant hover tooltip when a path title is available. */
 function withPathTitle(label: string, title?: string): React.ReactNode {
   if (!title) return label;
   return (
-    <span title={title} className='cursor-help underline decoration-dotted'>
+    <span className='group/path relative cursor-help underline decoration-dotted'>
       {label}
+      <span
+        role='tooltip'
+        className='pointer-events-none absolute bottom-full left-0 z-20 mb-1 hidden w-max max-w-[240px]
+          rounded-md border border-(--border) bg-(--surface2) px-2 py-1 font-mono text-(--text)
+          shadow-lg group-hover/path:block'
+      >
+        {title}
+      </span>
     </span>
   );
 }
