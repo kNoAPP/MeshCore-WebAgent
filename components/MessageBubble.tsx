@@ -3,6 +3,7 @@
 
 'use client';
 
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { Message } from '@/types/meshcore';
@@ -199,7 +200,10 @@ function metaParts(
         ? t('message.path', { path: msg.path.join(' → ') })
         : undefined;
       parts.push(
-        withPathTitle(t('message.hops', { count: msg.pathLen }), title),
+        <PathToken
+          label={t('message.hops', { count: msg.pathLen })}
+          title={title}
+        />,
       );
     }
   }
@@ -209,10 +213,10 @@ function metaParts(
       ? t('message.heardVia', { path: msg.heardVia.join(', ') })
       : undefined;
     parts.push(
-      withPathTitle(
-        t('message.heardBy', { count: msg.heardByRepeaters }),
-        title,
-      ),
+      <PathToken
+        label={t('message.heardBy', { count: msg.heardByRepeaters })}
+        title={title}
+      />,
     );
   }
 
@@ -222,19 +226,30 @@ function metaParts(
 
 /**
  * Wraps a token in an instant hover/focus tooltip when a title is available.
- * The trigger is keyboard-focusable so the path is reachable without a mouse.
+ * The trigger is keyboard-focusable and associated with the tooltip via
+ * `aria-describedby` so the path is announced by screen readers and reachable
+ * without a mouse.
  */
-function withPathTitle(label: string, title?: string): React.ReactNode {
+function PathToken({
+  label,
+  title,
+}: {
+  label: string;
+  title?: string;
+}): React.ReactNode {
+  const tooltipId = useId();
   if (!title) return label;
   return (
     <span
       tabIndex={0}
+      aria-describedby={tooltipId}
       className='group/path relative cursor-help underline decoration-dotted'
     >
       {label}
       <span
+        id={tooltipId}
         role='tooltip'
-        className='pointer-events-none absolute bottom-full left-0 z-20 mb-1 hidden w-max max-w-[240px]
+        className='pointer-events-none absolute bottom-full left-0 z-20 mb-1 hidden w-max max-w-60
           rounded-md border border-(--border) bg-(--surface2) px-2 py-1 font-mono text-(--text)
           shadow-lg group-hover/path:block group-focus/path:block'
       >
