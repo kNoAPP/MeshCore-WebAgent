@@ -521,11 +521,11 @@ function RuleEditor({
             on: 'message',
             scope,
             channels:
-              scope !== 'direct' && triggerChannels.length
+              scope === 'channel' && triggerChannels.length
                 ? triggerChannels
                 : undefined,
             contacts:
-              scope !== 'channel' && triggerContacts.length
+              scope === 'direct' && triggerContacts.length
                 ? triggerContacts
                 : undefined,
           }
