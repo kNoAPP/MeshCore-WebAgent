@@ -192,7 +192,9 @@ function triggerMatches(trigger: RuleTrigger, event: MeshEvent): boolean {
       return true;
     }
     case 'advert':
-      return event.type === 'advert';
+      if (event.type !== 'advert') return false;
+      if (!trigger.advTypes || trigger.advTypes.length === 0) return true;
+      return trigger.advTypes.includes(event.advert.advType);
     case 'ack':
       return event.type === 'ack';
     case 'connection':

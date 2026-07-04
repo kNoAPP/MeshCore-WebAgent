@@ -303,6 +303,14 @@
     "scopeAny": "Cualquier mensaje",
     "scopeDirect": "Mensajes directos",
     "scopeChannel": "Mensajes de canal",
+    "advTypes": "Solo estos tipos de nodo",
+    "advTypesHint": "Se activa solo cuando anuncia uno de los tipos seleccionados. Sin selección, se activa con cualquier tipo.",
+    "advType": {
+      "chat": "Usuarios de chat",
+      "repeater": "Repetidores",
+      "room": "Servidores de sala",
+      "sensor": "Sensores"
+    },
     "contains": "Solo si el texto contiene",
     "containsPlaceholder": "palabra clave (opcional)",
     "do": "Entonces",

@@ -303,6 +303,14 @@
     "scopeAny": "Any message",
     "scopeDirect": "Direct messages",
     "scopeChannel": "Channel messages",
+    "advTypes": "Only these node types",
+    "advTypesHint": "Fire only when one of the selected types advertises. None selected fires on any type.",
+    "advType": {
+      "chat": "Chat users",
+      "repeater": "Repeaters",
+      "room": "Room servers",
+      "sensor": "Sensors"
+    },
     "contains": "Only if text contains",
     "containsPlaceholder": "keyword (optional)",
     "do": "Then",
