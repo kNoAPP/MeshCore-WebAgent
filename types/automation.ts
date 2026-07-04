@@ -112,6 +112,13 @@ export interface AutomationRule {
   autonomy: RuleAutonomy;
   /** Tools this rule may call; a call outside it is rejected pre-staging. */
   allowlist: ToolName[];
+  /**
+   * Optional per-rule cooldown in seconds. Once the rule fires it is skipped
+   * until this many seconds elapse, breaking bot-to-bot reply loops (e.g. two
+   * radios that each auto-reply "Good morning"). Keyed by rule id, so other
+   * rules are unaffected. Omitted or `0` disables the cooldown.
+   */
+  cooldownSec?: number;
 }
 
 /**

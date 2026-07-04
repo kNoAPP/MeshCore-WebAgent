@@ -100,6 +100,12 @@ export const AIRTIME_BURST = 3;
 export const AIRTIME_REFILL_MS = 15_000;
 
 /**
+ * Upper bound (seconds) a rule's optional cooldown is clamped to — 5 minutes.
+ * Long enough to break a reply loop; the UI slider enforces the same cap.
+ */
+export const MAX_COOLDOWN_SEC = 300;
+
+/**
  * A leaky token bucket bounding transmit airtime. Bursts up to {@link capacity}
  * then throttles to one token per {@link refillMs}. Purely time-based — no
  * timers to leak.
@@ -263,6 +269,10 @@ export type ApprovalOutcome = 'executed' | 'rateLimited' | 'failed';
 class AutomationEngine {
   private ctx: ActionContext | null = null;
   private readonly bucket = new TokenBucket(AIRTIME_BURST, AIRTIME_REFILL_MS);
+  // Wall-clock time each rule last fired, keyed by rule id, for the per-rule
+  // cooldown gate. Cleared on (re)arm so a fresh session starts with no rule
+  // held down by a stale cooldown.
+  private readonly lastFired = new Map<string, number>();
   // Serializes LLM runs so two rules can't race the provider or the radio.
   private queue: Promise<void> = Promise.resolve();
   // Prompt runs currently queued or in-flight, bounded by MAX_PENDING_PROMPTS.
@@ -284,6 +294,7 @@ class AutomationEngine {
   arm(): void {
     this.stopped = false;
     this.bucket.reset();
+    this.lastFired.clear();
   }
 
   /**
@@ -304,10 +315,22 @@ class AutomationEngine {
   /** Entry point from the event bus: evaluates every enabled rule in order. */
   handleEvent(event: MeshEvent): void {
     const rules = useMeshStore.getState().automationRules;
+    const now = Date.now();
     for (const rule of rules) {
       if (!rule.enabled) continue;
       if (!triggerMatches(rule.trigger, event)) continue;
       if (!conditionMatches(rule, event)) continue;
+      // Per-rule cooldown: once a rule fires it stays inert until its cooldown
+      // elapses, breaking bot-to-bot reply loops (e.g. two radios that each
+      // auto-reply to the other). Keyed by rule id, so other rules are
+      // unaffected. Skips aren't audited — a loop would otherwise flood the
+      // capped log with the very repetition the cooldown exists to suppress.
+      const cooldownMs = (rule.cooldownSec ?? 0) * 1000;
+      if (cooldownMs > 0) {
+        const last = this.lastFired.get(rule.id);
+        if (last !== undefined && now - last < cooldownMs) continue;
+        this.lastFired.set(rule.id, now);
+      }
       this.runRule(rule, event);
     }
   }

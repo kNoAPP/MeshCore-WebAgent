@@ -17,6 +17,7 @@ import {
   DEFAULT_MAX_TOKENS,
   MIN_MAX_TOKENS,
   MAX_MAX_TOKENS,
+  MAX_COOLDOWN_SEC,
 } from '@/lib/ai/engine';
 import { TOOL_NAMES, toolClass, type ToolName } from '@/lib/ai/tools';
 import { isValidCron } from '@/lib/ai/cron';
@@ -390,6 +391,7 @@ function deriveFields(editing: AutomationRule | null) {
         ? editing.action.maxTokens
         : DEFAULT_MAX_TOKENS,
     autonomy: editing?.autonomy ?? ('approve' as 'approve' | 'auto'),
+    cooldownSec: editing?.cooldownSec ?? 0,
   };
 }
 
@@ -439,6 +441,7 @@ function RuleEditor({
   const [maxTurns, setMaxTurns] = useState(init.maxTurns);
   const [maxTokens, setMaxTokens] = useState(init.maxTokens);
   const [autonomy, setAutonomy] = useState<'approve' | 'auto'>(init.autonomy);
+  const [cooldownSec, setCooldownSec] = useState(init.cooldownSec);
 
   const toggleTool = (tool: ToolName) => {
     setAllowTools((prev) =>
@@ -574,6 +577,11 @@ function RuleEditor({
         ? { contains: contains.trim() }
         : undefined;
 
+    const cooldown =
+      cooldownSec > 0
+        ? clampInt(cooldownSec, 0, 0, MAX_COOLDOWN_SEC)
+        : undefined;
+
     if (editing) {
       // Preserve the rule's id and enabled state; overwrite everything else.
       updateRule(editing.id, {
@@ -583,6 +591,7 @@ function RuleEditor({
         action,
         autonomy,
         allowlist,
+        cooldownSec: cooldown,
       });
       onDone();
       return;
@@ -597,6 +606,7 @@ function RuleEditor({
       action,
       autonomy,
       allowlist,
+      cooldownSec: cooldown,
     };
     addRule(rule);
     onDone();
@@ -1055,6 +1065,32 @@ function RuleEditor({
           {t('automation.autoWarning')}
         </p>
       )}
+
+      <label className='flex flex-col gap-1 text-xs'>
+        <span className='flex items-center justify-between text-(--text2)'>
+          <span>{t('automation.cooldown')}</span>
+          <span className='font-semibold text-(--text)'>
+            {cooldownSec >= 60
+              ? t('automation.cooldownValue', {
+                  minutes: Math.floor(cooldownSec / 60),
+                  seconds: cooldownSec % 60,
+                })
+              : t('automation.cooldownValueSeconds', { seconds: cooldownSec })}
+          </span>
+        </span>
+        <input
+          type='range'
+          min={0}
+          max={MAX_COOLDOWN_SEC}
+          step={5}
+          value={cooldownSec}
+          onChange={(e) => setCooldownSec(Number(e.target.value))}
+          className='w-full accent-(--accent)'
+        />
+        <span className='text-[11px] text-(--text2)'>
+          {t('automation.cooldownHint')}
+        </span>
+      </label>
 
       <div className='flex items-center justify-end gap-2'>
         <button
