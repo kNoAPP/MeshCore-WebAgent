@@ -159,25 +159,70 @@ export function MessageBubble({
             {tick.glyph}
           </span>
         )}
-        {[
-          msg.snr != null
-            ? t('message.snr', {
-                value: `${msg.snr > 0 ? '+' : ''}${msg.snr.toFixed(2)}`,
-              })
-            : null,
-          !msg.own && msg.pathLen != null
-            ? msg.pathLen === 0
-              ? t('message.direct')
-              : t('message.hops', { count: msg.pathLen })
-            : null,
-          msg.own && msg.heardByRepeaters
-            ? t('message.heardBy', { count: msg.heardByRepeaters })
-            : null,
-          time,
-        ]
-          .filter(Boolean)
-          .join(' · ')}
+        {metaParts(t, msg, time).map((part, i) => (
+          <span key={i}>
+            {i > 0 && ' · '}
+            {part}
+          </span>
+        ))}
       </div>
     </>
+  );
+}
+
+/**
+ * Builds the metadata tokens shown under a bubble (SNR, hop count / heard-by,
+ * time). When the repeater path is known, the hop token carries it as a hover
+ * tooltip of `→`-joined per-hop hashes.
+ */
+function metaParts(
+  t: TFunction,
+  msg: Message,
+  time: string,
+): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const pathTitle =
+    msg.path && msg.path.length > 0
+      ? t('message.path', { path: msg.path.join(' → ') })
+      : undefined;
+
+  if (msg.snr != null) {
+    parts.push(
+      t('message.snr', {
+        value: `${msg.snr > 0 ? '+' : ''}${msg.snr.toFixed(2)}`,
+      }),
+    );
+  }
+
+  if (!msg.own && msg.pathLen != null) {
+    if (msg.pathLen === 0) {
+      parts.push(t('message.direct'));
+    } else {
+      parts.push(
+        withPathTitle(t('message.hops', { count: msg.pathLen }), pathTitle),
+      );
+    }
+  }
+
+  if (msg.own && msg.heardByRepeaters) {
+    parts.push(
+      withPathTitle(
+        t('message.heardBy', { count: msg.heardByRepeaters }),
+        pathTitle,
+      ),
+    );
+  }
+
+  if (time) parts.push(time);
+  return parts;
+}
+
+/** Wraps a token in a tooltip-bearing span when a path title is available. */
+function withPathTitle(label: string, title?: string): React.ReactNode {
+  if (!title) return label;
+  return (
+    <span title={title} className='cursor-help underline decoration-dotted'>
+      {label}
+    </span>
   );
 }

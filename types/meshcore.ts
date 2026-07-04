@@ -91,6 +91,7 @@ export interface Message {
   senderName?: string;
   snr?: number | null;
   pathLen?: number; // hops the received message traveled (0 = heard directly)
+  path?: string[]; // per-hop repeater hash(es) as hex, when the raw RX log could be correlated
   system?: boolean;
   status?: DeliveryStatus;
   routeFlood?: boolean;

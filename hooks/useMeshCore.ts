@@ -68,7 +68,12 @@ const MIN_ACK_TIMEOUT_MS = 5000;
 const DEFAULT_ACK_TIMEOUT_MS = 30000;
 const ECHO_WINDOW_MS = 15000;
 const SAVE_DEBOUNCE_MS = 1000;
-
+// Raw RX-log packets are buffered briefly so an inbound channel message can be
+// correlated to the repeater path it traveled (the decoded message frame only
+// carries the hop count, never the path bytes). Best-effort: matched by hop
+// count within this window.
+const RX_PATH_BUFFER_MS = 15000;
+const RX_PATH_BUFFER_MAX = 32;
 // Auto-reconnect backoff (ms), capped at the last entry. Tuned for LoRa radios
 // that reboot slowly; we give up after MAX_RECONNECT_ATTEMPTS tries.
 const RECONNECT_BACKOFF_MS = [1000, 2000, 5000, 10000, 15000];
@@ -87,6 +92,9 @@ const pendingAcks = new Map<number, PendingAck>();
 const expiredAcks = new Map<number, Omit<PendingAck, 'timer'>>();
 const EXPIRED_ACK_LIMIT = 50;
 let echoWindow: EchoWindow | null = null;
+// Recent group-text RX-log packets awaiting correlation to a decoded inbound
+// channel message. Each entry holds the ordered per-hop repeater hashes.
+const rxPathBuffer: { hopCount: number; path: string[]; at: number }[] = [];
 let saveUnsub: (() => void) | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let storageKey: CryptoKey | null = null;
@@ -202,6 +210,7 @@ function clearSessionState(): void {
   clearPendingAcks();
   expiredAcks.clear();
   closeEchoWindow();
+  rxPathBuffer.length = 0;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = null;
   saveUnsub?.();
@@ -245,10 +254,60 @@ function handleEchoPacket(pkt: RawRxPacket): void {
   const lastHop = toHex(pkt.path.slice(-pkt.hashSize));
   if (!w.heard.has(lastHop)) {
     w.heard.add(lastHop);
-    useMeshStore
-      .getState()
-      .updateMessage(w.convoId, w.msgId, { heardByRepeaters: w.heard.size });
+    useMeshStore.getState().updateMessage(w.convoId, w.msgId, {
+      heardByRepeaters: w.heard.size,
+      path: Array.from(w.heard),
+    });
   }
+}
+
+// Splits a raw path buffer into ordered per-hop repeater hashes (each hashSize
+// bytes wide), rendered as hex.
+function splitPathHashes(path: Uint8Array, hashSize: number): string[] {
+  if (hashSize < 1) return [];
+  const hashes: string[] = [];
+  for (let i = 0; i + hashSize <= path.length; i += hashSize) {
+    hashes.push(toHex(path.slice(i, i + hashSize)));
+  }
+  return hashes;
+}
+
+// Records a flood group-text RX-log packet so a soon-to-arrive decoded channel
+// message can adopt its repeater path. Old entries are pruned by age and count.
+function bufferRxPath(pkt: RawRxPacket): void {
+  if (pkt.payloadType !== PAYLOAD_TYPE_GRP_TXT || pkt.hopCount < 1) return;
+  const now = Date.now();
+  while (rxPathBuffer.length && now - rxPathBuffer[0].at > RX_PATH_BUFFER_MS) {
+    rxPathBuffer.shift();
+  }
+  rxPathBuffer.push({
+    hopCount: pkt.hopCount,
+    path: splitPathHashes(pkt.path, pkt.hashSize),
+    at: now,
+  });
+  if (rxPathBuffer.length > RX_PATH_BUFFER_MAX) rxPathBuffer.shift();
+}
+
+// Best-effort: pops the most recent buffered path whose hop count matches the
+// decoded message. Returns undefined when nothing correlates.
+function matchRxPath(hopCount: number): string[] | undefined {
+  const now = Date.now();
+  for (let i = rxPathBuffer.length - 1; i >= 0; i--) {
+    const e = rxPathBuffer[i];
+    if (now - e.at > RX_PATH_BUFFER_MS) continue;
+    if (e.hopCount === hopCount) {
+      rxPathBuffer.splice(i, 1);
+      return e.path.length ? e.path : undefined;
+    }
+  }
+  return undefined;
+}
+
+// Single onLogRx sink: buffer the packet for inbound correlation and feed the
+// outbound echo window.
+function handleLogRx(pkt: RawRxPacket): void {
+  bufferRxPath(pkt);
+  handleEchoPacket(pkt);
 }
 
 function rememberExpiredAck(
@@ -413,7 +472,7 @@ export function useMeshCore() {
           // when nobody is subscribed (automation off).
           emitAdvertDiff(next);
         },
-        onLogRx: handleEchoPacket,
+        onLogRx: handleLogRx,
         onAck: (ackCode, roundTripMs) => {
           handleAck(ackCode, roundTripMs);
           emit({ type: 'ack', ackCode, roundTripMs });
@@ -421,7 +480,11 @@ export function useMeshCore() {
         onMessage: (msg) => {
           if (msg.kind === 'channel' && msg.channelIdx !== undefined) {
             const id = channelConvoId(msg.channelIdx);
-            const enriched: Message = { ...msg, senderName: undefined };
+            const path =
+              msg.pathLen != null && msg.pathLen > 0
+                ? matchRxPath(msg.pathLen)
+                : undefined;
+            const enriched: Message = { ...msg, senderName: undefined, path };
             addMessage(id, enriched);
             const chName =
               c.channels[msg.channelIdx]?.name ||
