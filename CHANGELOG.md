@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.15.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.14.0...v1.15.0) (2026-07-04)
+
+
+### Features
+
+* **message:** show repeater path on hover over hop count ([#143](https://github.com/kNoAPP/MeshCore-WebAgent/issues/143)) ([4e59a2f](https://github.com/kNoAPP/MeshCore-WebAgent/commit/4e59a2fd0605a774c748974f5520fbf8c2af8872))
+
+
+### Bug Fixes
+
+* **client:** wait for BLE pairing before initial sync ([#141](https://github.com/kNoAPP/MeshCore-WebAgent/issues/141)) ([513cd5e](https://github.com/kNoAPP/MeshCore-WebAgent/commit/513cd5e03508fa3c8c361a92c098a9485e120c1e))
+
 ## [1.14.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.13.0...v1.14.0) (2026-07-04)
 
 
