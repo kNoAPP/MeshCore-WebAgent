@@ -22,12 +22,15 @@ import type { Message, Advert, ConnectionStatus } from '@/types/meshcore';
  * - `connection` — a synthetic `{ status: 'connected' }` fired by
  *   `useAutomation` when the engine arms; drop/reconnecting states unsubscribe
  *   the engine rather than emitting an event (execution is live-only).
+ * - `schedule` — a synthetic tick fired by `useAutomation` once per wall-clock
+ *   minute while armed; `schedule`-trigger rules match their cron against `at`.
  */
 export type MeshEvent =
   | { type: 'message'; msg: Message }
   | { type: 'advert'; advert: Advert }
   | { type: 'ack'; ackCode: number; roundTripMs: number }
-  | { type: 'connection'; status: ConnectionStatus };
+  | { type: 'connection'; status: ConnectionStatus }
+  | { type: 'schedule'; at: number };
 
 /** A bus subscriber; gets each {@link MeshEvent} in arrival order. */
 export type MeshEventListener = (event: MeshEvent) => void;

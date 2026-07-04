@@ -101,7 +101,22 @@ export function useAutomation(): void {
     const unsub = subscribe((event) => automationEngine.handleEvent(event));
     // Fire a connected edge so connection-status rules can react on arm.
     emit({ type: 'connection', status: 'connected' });
+
+    // Drive `schedule`-trigger rules: emit one tick per wall-clock minute so
+    // each rule can match its cron against the current time. We poll every few
+    // seconds and fire only when the minute rolls over, so drifting timers
+    // never double-fire or skip a minute. Seed with the current minute so
+    // arming mid-minute doesn't fire an extra tick for the minute in progress.
+    let lastMinute = Math.floor(Date.now() / 60_000);
+    const ticker = setInterval(() => {
+      const minute = Math.floor(Date.now() / 60_000);
+      if (minute === lastMinute) return;
+      lastMinute = minute;
+      emit({ type: 'schedule', at: Date.now() });
+    }, 5_000);
+
     return () => {
+      clearInterval(ticker);
       unsub();
       automationEngine.stop();
     };

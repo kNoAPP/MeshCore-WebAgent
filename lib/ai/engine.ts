@@ -31,6 +31,7 @@ import {
   type ToolName,
 } from '@/lib/ai/tools';
 import type { MeshEvent } from '@/lib/ai/eventBus';
+import { cronMatches } from '@/lib/ai/cron';
 import type {
   AuditEntry,
   AuditOutcome,
@@ -158,6 +159,8 @@ function eventLabel(event: MeshEvent): string {
       return i18n.t('automation.event.ack');
     case 'connection':
       return i18n.t('automation.event.connection', { status: event.status });
+    case 'schedule':
+      return i18n.t('automation.event.schedule');
   }
 }
 
@@ -217,6 +220,9 @@ function triggerMatches(trigger: RuleTrigger, event: MeshEvent): boolean {
     case 'connection':
       if (event.type !== 'connection') return false;
       return !trigger.status || trigger.status === event.status;
+    case 'schedule':
+      if (event.type !== 'schedule') return false;
+      return cronMatches(trigger.cron, new Date(event.at));
   }
 }
 

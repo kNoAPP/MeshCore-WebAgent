@@ -305,6 +305,10 @@
     "scopeChannel": "Mensajes de canal",
     "advTypes": "Solo estos tipos de nodo",
     "advTypesHint": "Se activa solo cuando anuncia uno de los tipos seleccionados. Sin selección, se activa con cualquier tipo.",
+    "cron": "Programación (cron)",
+    "cronPlaceholder": "p. ej. */15 * * * *",
+    "cronHint": "Cron estándar de 5 campos (minuto, hora, día del mes, mes, día de la semana), evaluado en tu hora local una vez por minuto. Créalo en",
+    "cronInvalid": "No es una expresión cron de 5 campos válida.",
     "triggerChannels": "Solo estos canales",
     "triggerChannelsHint": "Se activa solo en los canales seleccionados. Sin selección, se activa en cualquier canal.",
     "noChannels": "Aún no hay canales disponibles.",
@@ -353,7 +357,8 @@
       "message": "Llega un mensaje",
       "advert": "Un nodo se anuncia",
       "ack": "Se confirma una entrega",
-      "connection": "La conexión cambia"
+      "connection": "La conexión cambia",
+      "schedule": "Según una programación"
     },
     "autonomy": {
       "approve": "Sugerir (aprobar cada acción)",
@@ -380,7 +385,8 @@
       "advert": "Anuncio de {{name}}",
       "ack": "Entrega confirmada",
       "connection": "Conexión {{status}}",
-      "approved": "Acción aprobada"
+      "approved": "Acción aprobada",
+      "schedule": "Disparador programado"
     },
     "outcome": {
       "proposed": "Propuesto",

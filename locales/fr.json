@@ -305,6 +305,10 @@
     "scopeChannel": "Messages de canal",
     "advTypes": "Seulement ces types de nœud",
     "advTypesHint": "Se déclenche uniquement quand l’un des types sélectionnés s’annonce. Sans sélection, tout type déclenche.",
+    "cron": "Planification (cron)",
+    "cronPlaceholder": "p. ex. */15 * * * *",
+    "cronHint": "Cron standard à 5 champs (minute, heure, jour du mois, mois, jour de la semaine), évalué à votre heure locale une fois par minute. Créez-le sur",
+    "cronInvalid": "Expression cron à 5 champs non valide.",
     "triggerChannels": "Seulement ces canaux",
     "triggerChannelsHint": "Se déclenche uniquement sur les canaux sélectionnés. Sans sélection, tout canal déclenche.",
     "noChannels": "Aucun canal disponible pour l’instant.",
@@ -353,7 +357,8 @@
       "message": "Un message arrive",
       "advert": "Un nœud s'annonce",
       "ack": "Une remise est confirmée",
-      "connection": "La connexion change"
+      "connection": "La connexion change",
+      "schedule": "Selon une planification"
     },
     "autonomy": {
       "approve": "Suggérer (approuver chaque action)",
@@ -380,7 +385,8 @@
       "advert": "Annonce de {{name}}",
       "ack": "Remise confirmée",
       "connection": "Connexion {{status}}",
-      "approved": "Action approuvée"
+      "approved": "Action approuvée",
+      "schedule": "Déclencheur planifié"
     },
     "outcome": {
       "proposed": "Proposé",

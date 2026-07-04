@@ -305,6 +305,10 @@
     "scopeChannel": "Channel messages",
     "advTypes": "Only these node types",
     "advTypesHint": "Fire only when one of the selected types advertises. None selected fires on any type.",
+    "cron": "Schedule (cron)",
+    "cronPlaceholder": "e.g. */15 * * * *",
+    "cronHint": "Standard 5-field cron (minute, hour, day-of-month, month, day-of-week), evaluated in your local time once a minute. Build one at",
+    "cronInvalid": "Not a valid 5-field cron expression.",
     "triggerChannels": "Only these channels",
     "triggerChannelsHint": "Fire only on the selected channels. None selected fires on any channel.",
     "noChannels": "No channels available yet.",
@@ -353,7 +357,8 @@
       "message": "A message arrives",
       "advert": "A node advertises",
       "ack": "A delivery is acknowledged",
-      "connection": "The connection changes"
+      "connection": "The connection changes",
+      "schedule": "On a schedule"
     },
     "autonomy": {
       "approve": "Suggest (approve each action)",
@@ -380,7 +385,8 @@
       "advert": "Advert from {{name}}",
       "ack": "Delivery acknowledged",
       "connection": "Connection {{status}}",
-      "approved": "Approved action"
+      "approved": "Approved action",
+      "schedule": "Scheduled trigger"
     },
     "outcome": {
       "proposed": "Proposed",
