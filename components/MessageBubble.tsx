@@ -27,9 +27,41 @@ interface Props {
   statusActions?: React.ReactNode;
 }
 
+/** Matches http(s) URLs, stopping at whitespace. */
+const URL_SPLIT_REGEX = /(https?:\/\/[^\s]+)/g;
+const URL_TEST_REGEX = /^https?:\/\/[^\s]+$/;
+
+/**
+ * Splits a plain text run into nodes, turning http(s) URLs into links that
+ * open in a new tab.
+ */
+function renderLinks(text: string, keyPrefix: string): React.ReactNode[] {
+  const parts = text.split(URL_SPLIT_REGEX);
+  return parts.map((part, i) => {
+    if (!URL_TEST_REGEX.test(part)) return part;
+    // Trailing punctuation is commonly not part of the intended URL.
+    const trailingMatch = part.match(/[.,!?;:)\]]+$/);
+    const trailing = trailingMatch ? trailingMatch[0] : '';
+    const href = trailing ? part.slice(0, -trailing.length) : part;
+    return (
+      <span key={`${keyPrefix}-${i}`}>
+        <a
+          href={href}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='underline decoration-current/50 underline-offset-2 hover:decoration-current'
+        >
+          {href}
+        </a>
+        {trailing}
+      </span>
+    );
+  });
+}
+
 /**
  * Splits message text into nodes, styling bracketed name-mention tokens
- * (self/own/other get distinct colors).
+ * (self/own/other get distinct colors) and turning URLs into new-tab links.
  */
 function renderText(
   text: string,
@@ -37,8 +69,8 @@ function renderText(
   own: boolean,
 ): React.ReactNode[] {
   const parts = text.split(/(@\[[^\]]+\])/g);
-  return parts.map((part, i) => {
-    if (!part.startsWith('@[')) return part;
+  return parts.flatMap((part, i) => {
+    if (!part.startsWith('@[')) return renderLinks(part, String(i));
     const isSelf =
       deviceName.length > 0 &&
       part.toLowerCase() === `@[${deviceName.toLowerCase()}]`;
