@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.14.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.13.0...v1.14.0) (2026-07-04)
+
+
+### Features
+
+* **automation:** add per-rule cooldown timer ([#139](https://github.com/kNoAPP/MeshCore-WebAgent/issues/139)) ([4732703](https://github.com/kNoAPP/MeshCore-WebAgent/commit/473270354a302d41d1b43b4e224901512e763861))
+
 ## [1.13.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.12.0...v1.13.0) (2026-07-04)
 
 
