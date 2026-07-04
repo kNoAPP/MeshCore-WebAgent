@@ -303,6 +303,14 @@
     "scopeAny": "Tout message",
     "scopeDirect": "Messages directs",
     "scopeChannel": "Messages de canal",
+    "advTypes": "Seulement ces types de nœud",
+    "advTypesHint": "Se déclenche uniquement quand l’un des types sélectionnés s’annonce. Sans sélection, tout type déclenche.",
+    "advType": {
+      "chat": "Utilisateurs de chat",
+      "repeater": "Répéteurs",
+      "room": "Serveurs de salon",
+      "sensor": "Capteurs"
+    },
     "contains": "Seulement si le texte contient",
     "containsPlaceholder": "mot-clé (facultatif)",
     "do": "Alors",

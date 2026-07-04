@@ -19,6 +19,11 @@ import {
   MAX_MAX_TOKENS,
 } from '@/lib/ai/engine';
 import { TOOL_NAMES, toolClass, type ToolName } from '@/lib/ai/tools';
+import {
+  ADV_TYPE_REPEATER,
+  ADV_TYPE_ROOM,
+  ADV_TYPE_SENSOR,
+} from '@/lib/meshcore/constants';
 import type {
   AutomationRule,
   RuleAction,
@@ -31,6 +36,21 @@ const TRIGGER_KINDS: RuleTrigger['on'][] = [
   'advert',
   'ack',
   'connection',
+];
+
+/**
+ * Node-type checkboxes offered when the trigger is `advert`, each mapping a
+ * localized label to the `advType` value(s) it matches. "Chat" covers both the
+ * companion type and the "none" default (advType 0/1); the rest are one-to-one.
+ */
+const ADV_TYPE_FILTERS: {
+  key: 'chat' | 'repeater' | 'room' | 'sensor';
+  types: number[];
+}[] = [
+  { key: 'chat', types: [0, 1] },
+  { key: 'repeater', types: [ADV_TYPE_REPEATER] },
+  { key: 'room', types: [ADV_TYPE_ROOM] },
+  { key: 'sensor', types: [ADV_TYPE_SENSOR] },
 ];
 
 /**
@@ -334,6 +354,8 @@ function deriveFields(editing: AutomationRule | null) {
       editing?.trigger.on === 'message'
         ? editing.trigger.scope
         : ('any' as 'any' | 'direct' | 'channel'),
+    advTypes:
+      editing?.trigger.on === 'advert' ? (editing.trigger.advTypes ?? []) : [],
     contains: editing?.condition?.contains ?? '',
     actionKind: editing?.action.kind ?? ('prompt' as 'fixed' | 'prompt'),
     fixedTool:
@@ -387,6 +409,7 @@ function RuleEditor({
   const [name, setName] = useState(init.name);
   const [triggerOn, setTriggerOn] = useState<RuleTrigger['on']>(init.triggerOn);
   const [scope, setScope] = useState<'any' | 'direct' | 'channel'>(init.scope);
+  const [advTypes, setAdvTypes] = useState<number[]>(init.advTypes);
   const [contains, setContains] = useState(init.contains);
   const [actionKind, setActionKind] = useState<'fixed' | 'prompt'>(
     init.actionKind,
@@ -405,6 +428,16 @@ function RuleEditor({
   const toggleTool = (tool: ToolName) => {
     setAllowTools((prev) =>
       prev.includes(tool) ? prev.filter((x) => x !== tool) : [...prev, tool],
+    );
+  };
+
+  // Toggles an advert node-type filter: a filter is on when all of its advType
+  // values are selected, so clicking removes them all, else adds the missing.
+  const toggleAdvType = (types: number[]) => {
+    setAdvTypes((prev) =>
+      types.every((t) => prev.includes(t))
+        ? prev.filter((t) => !types.includes(t))
+        : [...prev, ...types.filter((t) => !prev.includes(t))],
     );
   };
 
@@ -458,7 +491,7 @@ function RuleEditor({
       triggerOn === 'message'
         ? { on: 'message', scope }
         : triggerOn === 'advert'
-          ? { on: 'advert' }
+          ? { on: 'advert', advTypes: advTypes.length ? advTypes : undefined }
           : triggerOn === 'ack'
             ? { on: 'ack' }
             : { on: 'connection' };
@@ -578,6 +611,34 @@ function RuleEditor({
             className={selectClass}
           />
         </label>
+      )}
+
+      {triggerOn === 'advert' && (
+        <div className='flex flex-col gap-1 text-xs'>
+          <span className='text-(--text2)'>{t('automation.advTypes')}</span>
+          <div className='flex flex-wrap gap-1.5'>
+            {ADV_TYPE_FILTERS.map(({ key, types }) => {
+              const on = types.every((type) => advTypes.includes(type));
+              return (
+                <button
+                  key={key}
+                  type='button'
+                  onClick={() => toggleAdvType(types)}
+                  className={`rounded-md border px-2 py-1 text-[11px] ${
+                    on
+                      ? 'border-(--accent) bg-(--accent) text-white'
+                      : 'border-(--border-control) text-(--text2) hover:text-(--text)'
+                  }`}
+                >
+                  {t(`automation.advType.${key}`)}
+                </button>
+              );
+            })}
+          </div>
+          <span className='text-[11px] text-(--text2)'>
+            {t('automation.advTypesHint')}
+          </span>
+        </div>
       )}
 
       <label className='flex flex-col gap-1 text-xs'>

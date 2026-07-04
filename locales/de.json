@@ -303,6 +303,14 @@
     "scopeAny": "Jede Nachricht",
     "scopeDirect": "Direktnachrichten",
     "scopeChannel": "Kanalnachrichten",
+    "advTypes": "Nur diese Knotentypen",
+    "advTypesHint": "Nur auslösen, wenn einer der gewählten Typen advertised. Ohne Auswahl bei jedem Typ.",
+    "advType": {
+      "chat": "Chat-Nutzer",
+      "repeater": "Repeater",
+      "room": "Room-Server",
+      "sensor": "Sensoren"
+    },
     "contains": "Nur wenn Text enthält",
     "containsPlaceholder": "Schlüsselwort (optional)",
     "do": "Dann",

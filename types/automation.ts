@@ -16,7 +16,14 @@ import type { ToolName } from '@/lib/ai/tools';
  */
 export type RuleTrigger =
   | { on: 'message'; scope: 'direct' | 'channel' | 'any' }
-  | { on: 'advert' }
+  | {
+      on: 'advert';
+      /**
+       * Advert node types (`advType`) to fire on. Omitted or empty matches any
+       * type; otherwise the advertising node's type must be in the list.
+       */
+      advTypes?: number[];
+    }
   | { on: 'ack' }
   | { on: 'connection'; status?: ConnectionStatus };
 
