@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, ShieldAlert } from 'lucide-react';
+import { Plus, ShieldAlert, Check, X } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { ModalShell } from '@/components/ModalShell';
 import {
@@ -354,6 +354,10 @@ function deriveFields(editing: AutomationRule | null) {
       editing?.trigger.on === 'message'
         ? editing.trigger.scope
         : ('any' as 'any' | 'direct' | 'channel'),
+    triggerChannels:
+      editing?.trigger.on === 'message' ? (editing.trigger.channels ?? []) : [],
+    triggerContacts:
+      editing?.trigger.on === 'message' ? (editing.trigger.contacts ?? []) : [],
     advTypes:
       editing?.trigger.on === 'advert' ? (editing.trigger.advTypes ?? []) : [],
     contains: editing?.condition?.contains ?? '',
@@ -409,6 +413,13 @@ function RuleEditor({
   const [name, setName] = useState(init.name);
   const [triggerOn, setTriggerOn] = useState<RuleTrigger['on']>(init.triggerOn);
   const [scope, setScope] = useState<'any' | 'direct' | 'channel'>(init.scope);
+  const [triggerChannels, setTriggerChannels] = useState<number[]>(
+    init.triggerChannels,
+  );
+  const [triggerContacts, setTriggerContacts] = useState<string[]>(
+    init.triggerContacts,
+  );
+  const [contactQuery, setContactQuery] = useState('');
   const [advTypes, setAdvTypes] = useState<number[]>(init.advTypes);
   const [contains, setContains] = useState(init.contains);
   const [actionKind, setActionKind] = useState<'fixed' | 'prompt'>(
@@ -438,6 +449,23 @@ function RuleEditor({
       types.every((t) => prev.includes(t))
         ? prev.filter((t) => !types.includes(t))
         : [...prev, ...types.filter((t) => !prev.includes(t))],
+    );
+  };
+
+  // Toggles a channel in the channel-message filter (channels are few, so all
+  // are shown as inline chips).
+  const toggleChannel = (idx: number) => {
+    setTriggerChannels((prev) =>
+      prev.includes(idx) ? prev.filter((c) => c !== idx) : [...prev, idx],
+    );
+  };
+
+  // Toggles a contact in the direct-message filter, keyed by pubkeyPrefix.
+  const toggleContact = (prefix: string) => {
+    setTriggerContacts((prev) =>
+      prev.includes(prefix)
+        ? prev.filter((c) => c !== prefix)
+        : [...prev, prefix],
     );
   };
 
@@ -489,7 +517,18 @@ function RuleEditor({
     if (!canSave) return;
     const trigger: RuleTrigger =
       triggerOn === 'message'
-        ? { on: 'message', scope }
+        ? {
+            on: 'message',
+            scope,
+            channels:
+              scope !== 'direct' && triggerChannels.length
+                ? triggerChannels
+                : undefined,
+            contacts:
+              scope !== 'channel' && triggerContacts.length
+                ? triggerContacts
+                : undefined,
+          }
         : triggerOn === 'advert'
           ? { on: 'advert', advTypes: advTypes.length ? advTypes : undefined }
           : triggerOn === 'ack'
@@ -601,6 +640,123 @@ function RuleEditor({
         )}
       </div>
 
+      {triggerOn === 'message' && scope === 'channel' && (
+        <div className='flex flex-col gap-1 text-xs'>
+          <span className='text-(--text2)'>
+            {t('automation.triggerChannels')}
+          </span>
+          {Object.keys(channels).length === 0 ? (
+            <span className='text-[11px] text-(--text2)'>
+              {t('automation.noChannels')}
+            </span>
+          ) : (
+            <div className='flex flex-wrap gap-1.5'>
+              {Object.values(channels).map((ch) => {
+                const on = triggerChannels.includes(ch.idx);
+                return (
+                  <button
+                    key={ch.idx}
+                    type='button'
+                    onClick={() => toggleChannel(ch.idx)}
+                    className={`rounded-md border px-2 py-1 text-[11px] ${
+                      on
+                        ? 'border-(--accent) bg-(--accent) text-white'
+                        : 'border-(--border-control) text-(--text2) hover:text-(--text)'
+                    }`}
+                  >
+                    {ch.name || t('common.channelName', { index: ch.idx })}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <span className='text-[11px] text-(--text2)'>
+            {t('automation.triggerChannelsHint')}
+          </span>
+        </div>
+      )}
+
+      {triggerOn === 'message' && scope === 'direct' && (
+        <div className='flex flex-col gap-1 text-xs'>
+          <span className='text-(--text2)'>
+            {t('automation.triggerContacts')}
+          </span>
+          {triggerContacts.length > 0 && (
+            <div className='flex flex-wrap gap-1.5'>
+              {triggerContacts.map((prefix) => {
+                const c = contacts[prefix];
+                return (
+                  <button
+                    key={prefix}
+                    type='button'
+                    onClick={() => toggleContact(prefix)}
+                    className='flex items-center gap-1 rounded-md border border-(--accent) bg-(--accent) px-2 py-1 text-[11px] text-white'
+                  >
+                    <span>{c?.name || prefix}</span>
+                    <X size={11} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <input
+            value={contactQuery}
+            onChange={(e) => setContactQuery(e.target.value)}
+            placeholder={t('automation.searchContacts')}
+            className={selectClass}
+          />
+          {(() => {
+            const q = contactQuery.trim().toLowerCase();
+            const matches = Object.values(contacts).filter(
+              (c) =>
+                q === '' ||
+                c.name.toLowerCase().includes(q) ||
+                c.pubkeyPrefix.toLowerCase().includes(q),
+            );
+            if (Object.keys(contacts).length === 0) {
+              return (
+                <span className='text-[11px] text-(--text2)'>
+                  {t('automation.noContacts')}
+                </span>
+              );
+            }
+            return (
+              <div className='flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-(--border-control) p-1'>
+                {matches.length === 0 ? (
+                  <span className='px-1.5 py-1 text-[11px] text-(--text2)'>
+                    {t('automation.noContactMatches')}
+                  </span>
+                ) : (
+                  matches.map((c) => {
+                    const on = triggerContacts.includes(c.pubkeyPrefix);
+                    return (
+                      <button
+                        key={c.pubkeyPrefix}
+                        type='button'
+                        onClick={() => toggleContact(c.pubkeyPrefix)}
+                        className={`flex items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-[11px] ${
+                          on
+                            ? 'bg-(--accent) text-white'
+                            : 'text-(--text) hover:bg-(--surface)'
+                        }`}
+                      >
+                        <span className='truncate'>
+                          {c.name || c.pubkeyPrefix}
+                        </span>
+                        {on && <Check size={12} className='shrink-0' />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            );
+          })()}
+          <span className='text-[11px] text-(--text2)'>
+            {t('automation.triggerContactsHint')}
+          </span>
+        </div>
+      )}
+
       {triggerOn === 'message' && (
         <label className='flex flex-col gap-1 text-xs'>
           <span className='text-(--text2)'>{t('automation.contains')}</span>
@@ -610,6 +766,17 @@ function RuleEditor({
             placeholder={t('automation.containsPlaceholder')}
             className={selectClass}
           />
+          <span className='text-[11px] text-(--text2)'>
+            {t('automation.containsHint')}{' '}
+            <a
+              href='https://regex101.com'
+              target='_blank'
+              rel='noreferrer'
+              className='text-(--accent) hover:underline'
+            >
+              regex101.com
+            </a>
+          </span>
         </label>
       )}
 
