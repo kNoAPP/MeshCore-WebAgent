@@ -20,7 +20,9 @@ const FIELDS: { min: number; max: number }[] = [
  * Parses one cron field into the set of integers it matches, or returns `null`
  * if the field is malformed. `*` yields every value in `[min, max]`; commas
  * join sub-expressions; `a-b` is an inclusive range; a trailing `/n` steps
- * through the range (or through `[min, max]` when the base is `*`).
+ * through the base range, where the base is `[min, max]` for `*`, the given
+ * range for `a-b`, and `[k, max]` for a bare number `k` (matching crontab
+ * semantics, so `5/10` means 5, 15, 25, …). Any extra `-` or `/` is rejected.
  */
 function parseField(
   field: string,
@@ -30,10 +32,14 @@ function parseField(
   const values = new Set<number>();
   for (const part of field.split(',')) {
     if (part === '') return null;
-    const [rangePart, stepPart] = part.split('/');
+    const slashParts = part.split('/');
+    // At most one step is allowed — reject forms like `*/5/2`.
+    if (slashParts.length > 2) return null;
+    const [rangePart, stepPart] = slashParts;
     // A step must be a positive integer when present.
     let step = 1;
-    if (stepPart !== undefined) {
+    const hasStep = stepPart !== undefined;
+    if (hasStep) {
       if (!/^\d+$/.test(stepPart)) return null;
       step = Number(stepPart);
       if (step < 1) return null;
@@ -45,13 +51,19 @@ function parseField(
       lo = min;
       hi = max;
     } else if (rangePart.includes('-')) {
-      const [a, b] = rangePart.split('-');
+      const dashParts = rangePart.split('-');
+      // A range is exactly two bounds — reject forms like `1-2-3`.
+      if (dashParts.length !== 2) return null;
+      const [a, b] = dashParts;
       if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) return null;
       lo = Number(a);
       hi = Number(b);
     } else {
       if (!/^\d+$/.test(rangePart)) return null;
-      lo = hi = Number(rangePart);
+      lo = Number(rangePart);
+      // A bare number with a step runs from it through `max` (`k/n`); without a
+      // step it is the single value `k`.
+      hi = hasStep ? max : lo;
     }
 
     if (lo < min || hi > max || lo > hi) return null;
