@@ -99,6 +99,17 @@ export const CLOCK_SKEW_THRESHOLD_SECS = 30;
  */
 export const CONTACTS_IDLE_TIMEOUT_MS = 8000;
 
+/**
+ * How long the initial `APP_START` waits for `SELF_INFO`, sized to outlast a
+ * first-time BLE pairing. Chrome accepts the write but queues it *in progress*
+ * behind the OS pairing dialog, delivering it only once bonding completes and
+ * the radio answers — a short 6s wait expired mid-pairing and tore the link
+ * down. Not retried: a second write during pairing is rejected with "GATT
+ * operation already in progress", so we wait once and let the queued write
+ * flush. USB/WiFi and bonded BLE links answer in well under a second.
+ */
+export const APP_START_TIMEOUT_MS = 40000;
+
 type RespCode = number;
 
 interface PendingCmd {
@@ -213,7 +224,7 @@ export class MeshCoreClient {
     // the step, so a mid-sync drop fails the connect instead of finishing
     // partial.
     await this.syncStep(
-      () => this.cmd(buildAppStart(), [RESP.SELF_INFO], 6000),
+      () => this.cmd(buildAppStart(), [RESP.SELF_INFO], APP_START_TIMEOUT_MS),
       true,
     );
     // AppStart must yield SELF_INFO for a usable link. A radio that's powered
