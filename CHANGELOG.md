@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.13.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.12.0...v1.13.0) (2026-07-04)
+
+
+### Features
+
+* **automation:** add cron scheduler trigger ([#138](https://github.com/kNoAPP/MeshCore-WebAgent/issues/138)) ([0f42995](https://github.com/kNoAPP/MeshCore-WebAgent/commit/0f42995e0717d80b7c8c05159a78a50e2f7a320d))
+* **automation:** filter advert triggers by node type ([#135](https://github.com/kNoAPP/MeshCore-WebAgent/issues/135)) ([97d2c36](https://github.com/kNoAPP/MeshCore-WebAgent/commit/97d2c36af65a4b57742cec4e4bb0d1538b22c7d2))
+* **automation:** filter message triggers by channel and contact ([#137](https://github.com/kNoAPP/MeshCore-WebAgent/issues/137)) ([d7df89c](https://github.com/kNoAPP/MeshCore-WebAgent/commit/d7df89c8c3b2d8fe44a32e3b3d0a3cb4d8766344))
+
 ## [1.12.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.11.0...v1.12.0) (2026-07-03)
 
 
