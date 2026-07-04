@@ -4,6 +4,7 @@
 'use client';
 
 import { useState, useSyncExternalStore } from 'react';
+import { Bluetooth, Usb, Wifi } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useMeshStore } from '@/store/meshStore';
@@ -97,22 +98,26 @@ export function ConnectPanel() {
           className='mb-5 flex overflow-hidden rounded-lg border'
           style={{ borderColor: 'var(--border)' }}
         >
-          {(['usb', 'ble', 'wifi'] as Tab[]).map((tb, i) => (
-            <button
-              key={tb}
-              onClick={() => setTab(tb)}
-              className={`flex-1 py-2 text-[13px] font-medium transition-all
+          {(['usb', 'ble', 'wifi'] as Tab[]).map((tb, i) => {
+            const Icon = tb === 'usb' ? Usb : tb === 'ble' ? Bluetooth : Wifi;
+            return (
+              <button
+                key={tb}
+                onClick={() => setTab(tb)}
+                className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[13px] font-medium transition-all
                 ${i > 0 ? 'border-l' : ''}
                 ${tab === tb ? 'bg-(--accent) text-white' : 'text-(--text2) hover:text-(--text)'}`}
-              style={i > 0 ? { borderColor: 'var(--border)' } : {}}
-            >
-              {tb === 'usb'
-                ? t('connect.tab.usb')
-                : tb === 'ble'
-                  ? t('connect.tab.ble')
-                  : t('connect.tab.wifi')}
-            </button>
-          ))}
+                style={i > 0 ? { borderColor: 'var(--border)' } : {}}
+              >
+                <Icon size={15} aria-hidden='true' />
+                {tb === 'usb'
+                  ? t('connect.tab.usb')
+                  : tb === 'ble'
+                    ? t('connect.tab.ble')
+                    : t('connect.tab.wifi')}
+              </button>
+            );
+          })}
         </div>
 
         {/* USB */}
