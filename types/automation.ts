@@ -15,7 +15,22 @@ import type { ToolName } from '@/lib/ai/tools';
  * filters that narrow it before the (optional) {@link RuleCondition} runs.
  */
 export type RuleTrigger =
-  | { on: 'message'; scope: 'direct' | 'channel' | 'any' }
+  | {
+      on: 'message';
+      scope: 'direct' | 'channel' | 'any';
+      /**
+       * For `channel` scope: channel indices to fire on. Omitted or empty
+       * matches any channel; otherwise the message's `channelIdx` must be in
+       * the list.
+       */
+      channels?: number[];
+      /**
+       * For `direct` scope: contact `pubkeyPrefix`es to fire on. Omitted or
+       * empty matches any sender; otherwise the message's `pubkeyPrefix` must
+       * be in the list.
+       */
+      contacts?: string[];
+    }
   | {
       on: 'advert';
       /**
@@ -32,7 +47,9 @@ export type RuleTrigger =
  * Kept deliberately small — richer matching belongs in an LLM `prompt` action.
  */
 export interface RuleCondition {
-  /** Case-insensitive substring the event's message text must contain. */
+  /**
+   * Case-insensitive regular expression the event's message text must match.
+   */
   contains?: string;
 }
 

@@ -189,6 +189,23 @@ function triggerMatches(trigger: RuleTrigger, event: MeshEvent): boolean {
       const { kind } = event.msg;
       if (trigger.scope === 'direct' && kind !== 'direct') return false;
       if (trigger.scope === 'channel' && kind !== 'channel') return false;
+      // Narrow channel messages to the selected channels, if any were chosen.
+      if (
+        kind === 'channel' &&
+        trigger.channels &&
+        trigger.channels.length > 0 &&
+        !trigger.channels.includes(event.msg.channelIdx ?? -1)
+      )
+        return false;
+      // Narrow direct messages to the selected contacts, if any were chosen.
+      if (
+        kind === 'direct' &&
+        trigger.contacts &&
+        trigger.contacts.length > 0 &&
+        (event.msg.pubkeyPrefix == null ||
+          !trigger.contacts.includes(event.msg.pubkeyPrefix))
+      )
+        return false;
       return true;
     }
     case 'advert':
@@ -204,11 +221,16 @@ function triggerMatches(trigger: RuleTrigger, event: MeshEvent): boolean {
 }
 
 function conditionMatches(rule: AutomationRule, event: MeshEvent): boolean {
-  const contains = rule.condition?.contains?.trim();
-  if (!contains) return true;
+  const pattern = rule.condition?.contains?.trim();
+  if (!pattern) return true;
   const text = messageText(event);
   if (text === null) return false;
-  return text.toLowerCase().includes(contains.toLowerCase());
+  try {
+    return new RegExp(pattern, 'i').test(text);
+  } catch {
+    // An invalid pattern can never match, so the rule stays inert.
+    return false;
+  }
 }
 
 /**
