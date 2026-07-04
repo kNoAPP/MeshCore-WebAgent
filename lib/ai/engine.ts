@@ -31,6 +31,7 @@ import {
   type ToolName,
 } from '@/lib/ai/tools';
 import type { MeshEvent } from '@/lib/ai/eventBus';
+import { cronMatches } from '@/lib/ai/cron';
 import type {
   AuditEntry,
   AuditOutcome,
@@ -66,6 +67,15 @@ export const UNLIMITED_TURNS = -1;
 // a runaway prompt can't flood the approval inbox or the radio. Reads are
 // unlimited; this is sized above a typical fan-out but well short of abuse.
 const MAX_GATED_ACTIONS_PER_RUN = 25;
+
+// Backstop on how many prompt runs may be pending (queued or in-flight) at
+// once. Prompt actions are serialized through a single queue; a high-frequency
+// trigger (e.g. an every-minute `schedule` rule) whose provider is slower than
+// the arrival rate would otherwise grow the queue without bound and fire runs
+// long after their moment. Past this depth new runs are dropped rather than
+// piling up, consistent with the live-only model. Reads and fixed actions never
+// queue, so they are unaffected.
+const MAX_PENDING_PROMPTS = 8;
 
 /** Clamps an optional user-supplied integer to a range, else the fallback. */
 function clampInt(
@@ -158,6 +168,8 @@ function eventLabel(event: MeshEvent): string {
       return i18n.t('automation.event.ack');
     case 'connection':
       return i18n.t('automation.event.connection', { status: event.status });
+    case 'schedule':
+      return i18n.t('automation.event.schedule');
   }
 }
 
@@ -217,6 +229,9 @@ function triggerMatches(trigger: RuleTrigger, event: MeshEvent): boolean {
     case 'connection':
       if (event.type !== 'connection') return false;
       return !trigger.status || trigger.status === event.status;
+    case 'schedule':
+      if (event.type !== 'schedule') return false;
+      return cronMatches(trigger.cron, new Date(event.at));
   }
 }
 
@@ -250,6 +265,8 @@ class AutomationEngine {
   private readonly bucket = new TokenBucket(AIRTIME_BURST, AIRTIME_REFILL_MS);
   // Serializes LLM runs so two rules can't race the provider or the radio.
   private queue: Promise<void> = Promise.resolve();
+  // Prompt runs currently queued or in-flight, bounded by MAX_PENDING_PROMPTS.
+  private pendingPrompts = 0;
   // Aborts every in-flight prompt stream on the kill switch.
   private abort: AbortController | null = null;
   // Set by the kill switch and checked before each turn and each tool. The
@@ -300,15 +317,34 @@ class AutomationEngine {
       this.dispatchTool(rule, event, rule.action.tool, rule.action.args);
       return;
     }
+    // Drop the run rather than queue it once the backlog is full, so a trigger
+    // that outpaces the provider can't grow the queue without bound or fire
+    // runs long after their moment. Every increment below has a matching
+    // decrement in the trailing `finally` (which runs even after stop() drops
+    // the chain), so the counter can never drift.
+    if (this.pendingPrompts >= MAX_PENDING_PROMPTS) {
+      audit({
+        ruleId: rule.id,
+        ruleName: rule.name,
+        event: eventLabel(event),
+        outcome: 'blocked',
+        detail: i18n.t('automation.audit.queueFull'),
+      });
+      return;
+    }
     // Prompt actions are serialized through the queue so the provider and radio
     // are never raced. Each run gets its own AbortController the kill switch
     // can trip. The trailing catch isolates a run's rejection: an unexpected
     // throw (outside the provider's error-event contract) must not leave the
     // queue permanently rejected, which would silently skip every later prompt
     // rule until stop() resets it.
+    this.pendingPrompts++;
     this.queue = this.queue
       .then(() => this.runPrompt(rule, event))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        this.pendingPrompts--;
+      });
   }
 
   private async runPrompt(

@@ -305,6 +305,10 @@
     "scopeChannel": "Kanalnachrichten",
     "advTypes": "Nur diese Knotentypen",
     "advTypesHint": "Nur auslösen, wenn einer der gewählten Typen advertised. Ohne Auswahl bei jedem Typ.",
+    "cron": "Zeitplan (Cron)",
+    "cronPlaceholder": "z. B. */15 * * * *",
+    "cronHint": "Standard-Cron mit 5 Feldern (Minute, Stunde, Tag des Monats, Monat, Wochentag), einmal pro Minute in deiner lokalen Zeit ausgewertet. Erstellen unter",
+    "cronInvalid": "Kein gültiger Cron-Ausdruck mit 5 Feldern.",
     "triggerChannels": "Nur diese Kanäle",
     "triggerChannelsHint": "Nur bei den gewählten Kanälen auslösen. Ohne Auswahl bei jedem Kanal.",
     "noChannels": "Noch keine Kanäle verfügbar.",
@@ -353,7 +357,8 @@
       "message": "Eine Nachricht trifft ein",
       "advert": "Ein Knoten kündigt sich an",
       "ack": "Eine Zustellung wird bestätigt",
-      "connection": "Die Verbindung ändert sich"
+      "connection": "Die Verbindung ändert sich",
+      "schedule": "Nach einem Zeitplan"
     },
     "autonomy": {
       "approve": "Vorschlagen (jede Aktion genehmigen)",
@@ -380,7 +385,8 @@
       "advert": "Ankündigung von {{name}}",
       "ack": "Zustellung bestätigt",
       "connection": "Verbindung {{status}}",
-      "approved": "Genehmigte Aktion"
+      "approved": "Genehmigte Aktion",
+      "schedule": "Geplanter Auslöser"
     },
     "outcome": {
       "proposed": "Vorgeschlagen",
@@ -401,7 +407,8 @@
       "notAllowed": "Tool nicht erlaubt: {{tool}}",
       "rateLimited": "Sendezeit-Limit erreicht",
       "maxSteps": "Rundenlimit erreicht, während noch Tools aufgerufen wurden",
-      "actionLimit": "Aktionslimit für dieses Ereignis erreicht"
+      "actionLimit": "Aktionslimit für dieses Ereignis erreicht",
+      "queueFull": "Übersprungen: zu viele KI-Durchläufe in der Warteschlange"
     }
   },
   "chat": {

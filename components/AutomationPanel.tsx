@@ -19,6 +19,7 @@ import {
   MAX_MAX_TOKENS,
 } from '@/lib/ai/engine';
 import { TOOL_NAMES, toolClass, type ToolName } from '@/lib/ai/tools';
+import { isValidCron } from '@/lib/ai/cron';
 import {
   ADV_TYPE_REPEATER,
   ADV_TYPE_ROOM,
@@ -36,6 +37,7 @@ const TRIGGER_KINDS: RuleTrigger['on'][] = [
   'advert',
   'ack',
   'connection',
+  'schedule',
 ];
 
 /**
@@ -360,6 +362,7 @@ function deriveFields(editing: AutomationRule | null) {
       editing?.trigger.on === 'message' ? (editing.trigger.contacts ?? []) : [],
     advTypes:
       editing?.trigger.on === 'advert' ? (editing.trigger.advTypes ?? []) : [],
+    cron: editing?.trigger.on === 'schedule' ? editing.trigger.cron : '',
     contains: editing?.condition?.contains ?? '',
     actionKind: editing?.action.kind ?? ('prompt' as 'fixed' | 'prompt'),
     fixedTool:
@@ -421,6 +424,7 @@ function RuleEditor({
   );
   const [contactQuery, setContactQuery] = useState('');
   const [advTypes, setAdvTypes] = useState<number[]>(init.advTypes);
+  const [cron, setCron] = useState(init.cron);
   const [contains, setContains] = useState(init.contains);
   const [actionKind, setActionKind] = useState<'fixed' | 'prompt'>(
     init.actionKind,
@@ -509,6 +513,7 @@ function RuleEditor({
 
   const canSave =
     name.trim() !== '' &&
+    (triggerOn !== 'schedule' || isValidCron(cron)) &&
     (actionKind === 'fixed'
       ? fixedValid
       : system.trim() !== '' && allowTools.length > 0);
@@ -533,7 +538,9 @@ function RuleEditor({
           ? { on: 'advert', advTypes: advTypes.length ? advTypes : undefined }
           : triggerOn === 'ack'
             ? { on: 'ack' }
-            : { on: 'connection' };
+            : triggerOn === 'schedule'
+              ? { on: 'schedule', cron: cron.trim() }
+              : { on: 'connection' };
 
     const action: RuleAction =
       actionKind === 'fixed'
@@ -806,6 +813,36 @@ function RuleEditor({
             {t('automation.advTypesHint')}
           </span>
         </div>
+      )}
+
+      {triggerOn === 'schedule' && (
+        <label className='flex flex-col gap-1 text-xs'>
+          <span className='text-(--text2)'>{t('automation.cron')}</span>
+          <input
+            value={cron}
+            onChange={(e) => setCron(e.target.value)}
+            placeholder={t('automation.cronPlaceholder')}
+            className={`${selectClass} font-mono ${
+              cron.trim() !== '' && !isValidCron(cron) ? 'border-(--red)' : ''
+            }`}
+          />
+          <span className='text-[11px] text-(--text2)'>
+            {t('automation.cronHint')}{' '}
+            <a
+              href='https://crontab.guru'
+              target='_blank'
+              rel='noreferrer'
+              className='text-(--accent) hover:underline'
+            >
+              crontab.guru
+            </a>
+          </span>
+          {cron.trim() !== '' && !isValidCron(cron) && (
+            <span className='text-[11px] text-(--red)'>
+              {t('automation.cronInvalid')}
+            </span>
+          )}
+        </label>
       )}
 
       <label className='flex flex-col gap-1 text-xs'>

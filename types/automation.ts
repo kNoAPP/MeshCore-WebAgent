@@ -40,7 +40,16 @@ export type RuleTrigger =
       advTypes?: number[];
     }
   | { on: 'ack' }
-  | { on: 'connection'; status?: ConnectionStatus };
+  | { on: 'connection'; status?: ConnectionStatus }
+  | {
+      on: 'schedule';
+      /**
+       * A standard 5-field cron expression (minute, hour, day-of-month, month,
+       * day-of-week) evaluated against the local clock once per minute while
+       * automation is armed and connected. A malformed expression never fires.
+       */
+      cron: string;
+    };
 
 /**
  * An optional content filter applied after the {@link RuleTrigger} matches.
