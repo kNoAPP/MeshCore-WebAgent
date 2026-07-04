@@ -172,8 +172,9 @@ export function MessageBubble({
 
 /**
  * Builds the metadata tokens shown under a bubble (SNR, hop count / heard-by,
- * time). When the repeater path is known, the hop token carries it as a hover
- * tooltip of `→`-joined per-hop hashes.
+ * time). When repeater hashes are known, the relevant token carries them as a
+ * hover/focus tooltip: an ordered `→`-joined route for a received message, or
+ * a comma-separated set of rebroadcasters for an own message.
  */
 function metaParts(
   t: TFunction,
@@ -181,10 +182,6 @@ function metaParts(
   time: string,
 ): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  const pathTitle =
-    msg.path && msg.path.length > 0
-      ? t('message.path', { path: msg.path.join(' → ') })
-      : undefined;
 
   if (msg.snr != null) {
     parts.push(
@@ -198,17 +195,23 @@ function metaParts(
     if (msg.pathLen === 0) {
       parts.push(t('message.direct'));
     } else {
+      const title = msg.path?.length
+        ? t('message.path', { path: msg.path.join(' → ') })
+        : undefined;
       parts.push(
-        withPathTitle(t('message.hops', { count: msg.pathLen }), pathTitle),
+        withPathTitle(t('message.hops', { count: msg.pathLen }), title),
       );
     }
   }
 
   if (msg.own && msg.heardByRepeaters) {
+    const title = msg.heardVia?.length
+      ? t('message.heardVia', { path: msg.heardVia.join(', ') })
+      : undefined;
     parts.push(
       withPathTitle(
         t('message.heardBy', { count: msg.heardByRepeaters }),
-        pathTitle,
+        title,
       ),
     );
   }
@@ -217,17 +220,23 @@ function metaParts(
   return parts;
 }
 
-/** Wraps a token in an instant hover tooltip when a path title is available. */
+/**
+ * Wraps a token in an instant hover/focus tooltip when a title is available.
+ * The trigger is keyboard-focusable so the path is reachable without a mouse.
+ */
 function withPathTitle(label: string, title?: string): React.ReactNode {
   if (!title) return label;
   return (
-    <span className='group/path relative cursor-help underline decoration-dotted'>
+    <span
+      tabIndex={0}
+      className='group/path relative cursor-help underline decoration-dotted'
+    >
       {label}
       <span
         role='tooltip'
         className='pointer-events-none absolute bottom-full left-0 z-20 mb-1 hidden w-max max-w-[240px]
           rounded-md border border-(--border) bg-(--surface2) px-2 py-1 font-mono text-(--text)
-          shadow-lg group-hover/path:block'
+          shadow-lg group-hover/path:block group-focus/path:block'
       >
         {title}
       </span>

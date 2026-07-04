@@ -600,6 +600,7 @@
     "snr": "SNR: {{value}} dB",
     "direct": "Direct",
     "path": "Path: {{path}}",
+    "heardVia": "Heard via: {{path}}",
     "hops_one": "{{count}} hop",
     "hops_other": "{{count}} hops",
     "heardBy_one": "Heard by {{count}} repeater",
