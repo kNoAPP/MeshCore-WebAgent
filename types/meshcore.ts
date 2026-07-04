@@ -91,6 +91,8 @@ export interface Message {
   senderName?: string;
   snr?: number | null;
   pathLen?: number; // hops the received message traveled (0 = heard directly)
+  path?: string[]; // ordered per-hop repeater hashes (hex) of a received message's flood route, when correlated
+  heardVia?: string[]; // distinct repeaters (hex) that rebroadcast an own message; unordered (arrival order)
   system?: boolean;
   status?: DeliveryStatus;
   routeFlood?: boolean;

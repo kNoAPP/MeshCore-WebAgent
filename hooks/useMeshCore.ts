@@ -31,6 +31,7 @@ import {
   FAVORITE_FLAG,
   ERR_CODE,
 } from '@/lib/meshcore/constants';
+import { splitPathHashes } from '@/lib/meshcore/parsers';
 import { toHex, fromHex, bytesEqual } from '@/lib/utils';
 import i18n from '@/lib/i18n';
 import type {
@@ -68,7 +69,12 @@ const MIN_ACK_TIMEOUT_MS = 5000;
 const DEFAULT_ACK_TIMEOUT_MS = 30000;
 const ECHO_WINDOW_MS = 15000;
 const SAVE_DEBOUNCE_MS = 1000;
-
+// Raw RX-log packets are buffered briefly so an inbound channel message can be
+// correlated to the repeater path it traveled (the decoded message frame only
+// carries the hop count, never the path bytes). Best-effort: matched by hop
+// count within this window.
+const RX_PATH_BUFFER_MS = 15000;
+const RX_PATH_BUFFER_MAX = 32;
 // Auto-reconnect backoff (ms), capped at the last entry. Tuned for LoRa radios
 // that reboot slowly; we give up after MAX_RECONNECT_ATTEMPTS tries.
 const RECONNECT_BACKOFF_MS = [1000, 2000, 5000, 10000, 15000];
@@ -87,6 +93,9 @@ const pendingAcks = new Map<number, PendingAck>();
 const expiredAcks = new Map<number, Omit<PendingAck, 'timer'>>();
 const EXPIRED_ACK_LIMIT = 50;
 let echoWindow: EchoWindow | null = null;
+// Recent group-text RX-log packets awaiting correlation to a decoded inbound
+// channel message. Each entry holds the ordered per-hop repeater hashes.
+const rxPathBuffer: { hopCount: number; path: string[]; at: number }[] = [];
 let saveUnsub: (() => void) | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let storageKey: CryptoKey | null = null;
@@ -202,6 +211,7 @@ function clearSessionState(): void {
   clearPendingAcks();
   expiredAcks.clear();
   closeEchoWindow();
+  rxPathBuffer.length = 0;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = null;
   saveUnsub?.();
@@ -228,27 +238,77 @@ function openEchoWindow(convoId: string, msgId: string): void {
   };
 }
 
-function handleEchoPacket(pkt: RawRxPacket): void {
+// Channel messages are flood-routed group text; only such packets carry a
+// meaningful repeater path (a transport-routed packet would surface a wrong
+// one). Shared by the echo window and the inbound-correlation buffer.
+function isFloodGrpTxt(pkt: RawRxPacket): boolean {
+  return (
+    pkt.routeType === ROUTE_TYPE_FLOOD &&
+    pkt.payloadType === PAYLOAD_TYPE_GRP_TXT &&
+    pkt.hopCount >= 1
+  );
+}
+
+// Correlates a flood group-text RX-log packet to the outbound message whose
+// echo window is open, tracking which repeaters rebroadcast it. Returns true
+// when the packet is that own-message echo (so it must not also be treated as
+// an inbound path candidate).
+function handleEchoPacket(pkt: RawRxPacket): boolean {
   const w = echoWindow;
-  if (!w) return;
-  if (
-    pkt.routeType !== ROUTE_TYPE_FLOOD ||
-    pkt.payloadType !== PAYLOAD_TYPE_GRP_TXT ||
-    pkt.hopCount < 1
-  ) {
-    return;
-  }
+  if (!w || !isFloodGrpTxt(pkt)) return false;
   const key = toHex(pkt.payload);
   if (w.payloadKey === null) w.payloadKey = key;
-  else if (w.payloadKey !== key) return;
+  else if (w.payloadKey !== key) return false;
   // The repeater that just rebroadcast is the last hash appended to the path
   const lastHop = toHex(pkt.path.slice(-pkt.hashSize));
   if (!w.heard.has(lastHop)) {
     w.heard.add(lastHop);
-    useMeshStore
-      .getState()
-      .updateMessage(w.convoId, w.msgId, { heardByRepeaters: w.heard.size });
+    useMeshStore.getState().updateMessage(w.convoId, w.msgId, {
+      heardByRepeaters: w.heard.size,
+      heardVia: Array.from(w.heard),
+    });
   }
+  return true;
+}
+
+// Records a flood group-text RX-log packet so a soon-to-arrive decoded channel
+// message can adopt its repeater path. Old entries are pruned by age and count.
+function bufferRxPath(pkt: RawRxPacket): void {
+  if (!isFloodGrpTxt(pkt)) return;
+  const now = Date.now();
+  while (rxPathBuffer.length && now - rxPathBuffer[0].at > RX_PATH_BUFFER_MS) {
+    rxPathBuffer.shift();
+  }
+  rxPathBuffer.push({
+    hopCount: pkt.hopCount,
+    path: splitPathHashes(pkt.path, pkt.hashSize),
+    at: now,
+  });
+  if (rxPathBuffer.length > RX_PATH_BUFFER_MAX) rxPathBuffer.shift();
+}
+
+// Best-effort: pops the most recent buffered path whose hop count matches the
+// decoded message. Returns undefined when nothing correlates.
+function matchRxPath(hopCount: number): string[] | undefined {
+  const now = Date.now();
+  for (let i = rxPathBuffer.length - 1; i >= 0; i--) {
+    const e = rxPathBuffer[i];
+    if (now - e.at > RX_PATH_BUFFER_MS) continue;
+    if (e.hopCount === hopCount) {
+      rxPathBuffer.splice(i, 1);
+      return e.path.length ? e.path : undefined;
+    }
+  }
+  return undefined;
+}
+
+// Single onLogRx sink: an own-message echo is consumed by the echo window and
+// stops there; anything else is buffered as an inbound path candidate. Routing
+// echoes away from the buffer keeps our own send's repeaters from being
+// mis-attributed to an inbound message that happens to share its hop count.
+function handleLogRx(pkt: RawRxPacket): void {
+  if (handleEchoPacket(pkt)) return;
+  bufferRxPath(pkt);
 }
 
 function rememberExpiredAck(
@@ -413,7 +473,7 @@ export function useMeshCore() {
           // when nobody is subscribed (automation off).
           emitAdvertDiff(next);
         },
-        onLogRx: handleEchoPacket,
+        onLogRx: handleLogRx,
         onAck: (ackCode, roundTripMs) => {
           handleAck(ackCode, roundTripMs);
           emit({ type: 'ack', ackCode, roundTripMs });
@@ -421,7 +481,11 @@ export function useMeshCore() {
         onMessage: (msg) => {
           if (msg.kind === 'channel' && msg.channelIdx !== undefined) {
             const id = channelConvoId(msg.channelIdx);
-            const enriched: Message = { ...msg, senderName: undefined };
+            const path =
+              msg.pathLen != null && msg.pathLen > 0
+                ? matchRxPath(msg.pathLen)
+                : undefined;
+            const enriched: Message = { ...msg, senderName: undefined, path };
             addMessage(id, enriched);
             const chName =
               c.channels[msg.channelIdx]?.name ||

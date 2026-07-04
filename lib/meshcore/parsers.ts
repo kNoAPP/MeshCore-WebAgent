@@ -346,6 +346,20 @@ export function parseLogRxData(d: Uint8Array): RawRxPacket | null {
 }
 
 /**
+ * Splits a raw packet path buffer into ordered per-hop repeater hashes, each
+ * `hashSize` bytes wide, rendered as hex (first hop first). Trailing bytes that
+ * don't fill a whole hash are ignored.
+ */
+export function splitPathHashes(path: Uint8Array, hashSize: number): string[] {
+  if (hashSize < 1) return [];
+  const hashes: string[] = [];
+  for (let i = 0; i + hashSize <= path.length; i += hashSize) {
+    hashes.push(toHex(path.slice(i, i + hashSize)));
+  }
+  return hashes;
+}
+
+/**
  * Parses the core `STATS` page (subtype 0): battery, uptime, error count, queue
  * depth.
  */

@@ -3,6 +3,7 @@
 
 'use client';
 
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { Message } from '@/types/meshcore';
@@ -159,25 +160,101 @@ export function MessageBubble({
             {tick.glyph}
           </span>
         )}
-        {[
-          msg.snr != null
-            ? t('message.snr', {
-                value: `${msg.snr > 0 ? '+' : ''}${msg.snr.toFixed(2)}`,
-              })
-            : null,
-          !msg.own && msg.pathLen != null
-            ? msg.pathLen === 0
-              ? t('message.direct')
-              : t('message.hops', { count: msg.pathLen })
-            : null,
-          msg.own && msg.heardByRepeaters
-            ? t('message.heardBy', { count: msg.heardByRepeaters })
-            : null,
-          time,
-        ]
-          .filter(Boolean)
-          .join(' · ')}
+        {metaParts(t, msg, time).map((part, i) => (
+          <span key={i}>
+            {i > 0 && ' · '}
+            {part}
+          </span>
+        ))}
       </div>
     </>
+  );
+}
+
+/**
+ * Builds the metadata tokens shown under a bubble (SNR, hop count / heard-by,
+ * time). When repeater hashes are known, the relevant token carries them as a
+ * hover/focus tooltip: an ordered `→`-joined route for a received message, or
+ * a comma-separated set of rebroadcasters for an own message.
+ */
+function metaParts(
+  t: TFunction,
+  msg: Message,
+  time: string,
+): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+
+  if (msg.snr != null) {
+    parts.push(
+      t('message.snr', {
+        value: `${msg.snr > 0 ? '+' : ''}${msg.snr.toFixed(2)}`,
+      }),
+    );
+  }
+
+  if (!msg.own && msg.pathLen != null) {
+    if (msg.pathLen === 0) {
+      parts.push(t('message.direct'));
+    } else {
+      const title = msg.path?.length
+        ? t('message.path', { path: msg.path.join(' → ') })
+        : undefined;
+      parts.push(
+        <PathToken
+          label={t('message.hops', { count: msg.pathLen })}
+          title={title}
+        />,
+      );
+    }
+  }
+
+  if (msg.own && msg.heardByRepeaters) {
+    const title = msg.heardVia?.length
+      ? t('message.heardVia', { path: msg.heardVia.join(', ') })
+      : undefined;
+    parts.push(
+      <PathToken
+        label={t('message.heardBy', { count: msg.heardByRepeaters })}
+        title={title}
+      />,
+    );
+  }
+
+  if (time) parts.push(time);
+  return parts;
+}
+
+/**
+ * Wraps a token in an instant hover/focus tooltip when a title is available.
+ * The trigger is keyboard-focusable and associated with the tooltip via
+ * `aria-describedby` so the path is announced by screen readers and reachable
+ * without a mouse.
+ */
+function PathToken({
+  label,
+  title,
+}: {
+  label: string;
+  title?: string;
+}): React.ReactNode {
+  const tooltipId = useId();
+  if (!title) return label;
+  return (
+    <span
+      tabIndex={0}
+      aria-describedby={tooltipId}
+      className='group/path relative cursor-help underline decoration-dotted'
+    >
+      {label}
+      <span
+        id={tooltipId}
+        role='tooltip'
+        className='pointer-events-none absolute bottom-full left-0 z-20 mb-1 hidden w-max max-w-60
+          rounded-md border border-(--border) bg-(--surface2) px-2 py-1 font-mono text-(--text)
+          shadow-lg group-hover/path:block group-focus/path:block'
+      >
+        {title}
+      </span>
+    </span>
   );
 }
