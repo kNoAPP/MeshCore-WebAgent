@@ -244,8 +244,7 @@ export class MeshCoreClient {
     // Probe hardware capabilities (GPS presence) right after DEVICE_QUERY, so
     // the parsed deviceInfo is already in place to fold the flag into.
     // Best-effort: firmware without CMD_GET_CUSTOM_VARS answers ERR and the
-    // radio still
-    // connects, leaving hasGps unset (treated as no GPS).
+    // radio still connects, leaving hasGps unset (treated as no GPS).
     await this.syncStep(() => this.syncDeviceCapabilities(), true);
     // Best-effort clock sync runs right after DEVICE_QUERY, per the companion
     // protocol, so the radio's clock is corrected before the message drain —
