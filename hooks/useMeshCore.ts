@@ -275,7 +275,16 @@ function splitPathHashes(path: Uint8Array, hashSize: number): string[] {
 // Records a flood group-text RX-log packet so a soon-to-arrive decoded channel
 // message can adopt its repeater path. Old entries are pruned by age and count.
 function bufferRxPath(pkt: RawRxPacket): void {
-  if (pkt.payloadType !== PAYLOAD_TYPE_GRP_TXT || pkt.hopCount < 1) return;
+  // Channel messages are flood-routed, so only flood packets are valid path
+  // candidates — correlating a transport-routed packet would surface a wrong
+  // path (matches the routeType guard in handleEchoPacket).
+  if (
+    pkt.routeType !== ROUTE_TYPE_FLOOD ||
+    pkt.payloadType !== PAYLOAD_TYPE_GRP_TXT ||
+    pkt.hopCount < 1
+  ) {
+    return;
+  }
   const now = Date.now();
   while (rxPathBuffer.length && now - rxPathBuffer[0].at > RX_PATH_BUFFER_MS) {
     rxPathBuffer.shift();

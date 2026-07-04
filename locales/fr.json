@@ -599,6 +599,7 @@
     "deliveredIn": "Livré en {{seconds}}s",
     "snr": "SNR : {{value}} dB",
     "direct": "Direct",
+    "path": "Chemin : {{path}}",
     "hops_one": "{{count}} saut",
     "hops_other": "{{count}} sauts",
     "heardBy_one": "Entendu par {{count}} répéteur",
