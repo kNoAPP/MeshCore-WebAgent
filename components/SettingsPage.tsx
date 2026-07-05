@@ -466,11 +466,14 @@ function LocationCard() {
 
   // The radio's location source, read straight from its GPS module state: on
   // means the live fix is advertised, off means the fixed coordinate below is.
-  const usingGps = gpsEnabled;
+  // A radio already advertising `SHARE` counts as GPS even if its `gps` var
+  // never read back, so the source is never misrepresented as Fixed.
+  const usingGps = gpsEnabled || advLocPolicy === ADVERT_LOC_POLICY.SHARE;
 
-  // Offer the Fixed/GPS picker only on GPS-capable radios; a lone Fixed option
-  // is a pointless picker, so hide it and just show the coordinate editor.
-  const showSource = hasGps;
+  // Offer the Fixed/GPS picker on GPS-capable radios, or on one already
+  // sourcing from GPS; otherwise a lone Fixed option is a pointless picker, so
+  // hide it and just show the coordinate editor.
+  const showSource = hasGps || usingGps;
 
   // `Number` (not `parseFloat`) so trailing junk like "12abc" is rejected as
   // NaN rather than silently parsed to 12, matching RadioSettings' inputs.

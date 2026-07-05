@@ -1246,20 +1246,25 @@ export function useMeshCore() {
    * round-trips on repeater/sensor firmware, where those values differ. When
    * off, only the GPS var is written so the source is remembered for next time.
    *
-   * @returns whether every needed write succeeded, so the caller can revert its
-   * selection on failure.
+   * The policy realignment runs first: its prefs-guard throw (older firmware
+   * whose `SELF_INFO` was too short to echo the other prefs) is the one
+   * deterministic failure here, so surfacing it before the GPS module is
+   * touched keeps a rejected write from leaving the source and policy out of
+   * sync.
+   *
+   * @returns whether every needed write succeeded.
    */
   const setLocationSource = useCallback(
     async (useGps: boolean): Promise<boolean> => {
       if (!canTransmit(client)) return false;
       try {
-        await client.setGpsEnabled(useGps);
         const policy = client.selfInfo?.advLocPolicy;
         if (policy !== undefined && policy !== ADVERT_LOC_POLICY.NONE) {
           await client.setLocationPolicy(
             useGps ? ADVERT_LOC_POLICY.SHARE : ADVERT_LOC_POLICY.PREFS,
           );
         }
+        await client.setGpsEnabled(useGps);
         showToast(i18n.t('toast.locationSourceSaved'), 'success');
         return true;
       } catch (err) {
