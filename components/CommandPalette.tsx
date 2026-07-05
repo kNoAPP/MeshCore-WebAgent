@@ -5,7 +5,15 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Hash, MessageSquare, Search, User, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Hash,
+  MessageSquare,
+  Radio,
+  Search,
+  User,
+  X,
+} from 'lucide-react';
 import { useMeshStore, openConvo } from '@/store/meshStore';
 import { formatRelative } from '@/lib/i18n/format';
 import type { CommandKind, CommandResult } from '@/lib/search/commandSearch';
@@ -16,6 +24,7 @@ import { ModalShell } from './ModalShell';
 const KIND_ICON: Record<CommandKind, typeof Search> = {
   message: MessageSquare,
   contact: User,
+  advert: Radio,
   channel: Hash,
   page: ArrowRight,
 };
@@ -118,6 +127,7 @@ export function CommandPalette(): React.ReactElement {
   const setView = useMeshStore((s) => s.setView);
   const openSettingsSection = useMeshStore((s) => s.openSettingsSection);
   const setScrollToMsgId = useMeshStore((s) => s.setScrollToMsgId);
+  const setManagePanel = useMeshStore((s) => s.setManagePanel);
 
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -147,6 +157,10 @@ export function CommandPalette(): React.ReactElement {
     if (action.type === 'page') {
       if (action.section) openSettingsSection(action.section);
       else setView(action.view);
+    } else if (action.type === 'advert') {
+      // Cached adverts open the same detail popup as the map marker, from which
+      // the node can be viewed or added as a contact.
+      setManagePanel({ kind: 'advert', id: action.prefix });
     } else {
       setView('chat');
       openConvo(action.convo);

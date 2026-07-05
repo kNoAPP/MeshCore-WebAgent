@@ -42,6 +42,7 @@
       "recent": "Zuletzt",
       "messages": "Nachrichten",
       "contacts": "Kontakte",
+      "adverts": "Entdeckte Knoten",
       "channels": "Kanäle",
       "pages": "Gehe zu…"
     },
@@ -438,6 +439,8 @@
     "publicChannelCantRemove": "Der öffentliche Kanal kann nicht entfernt werden",
     "removeChannel": "Kanal entfernen",
     "removeContactConfirm": "Diesen Kontakt vom Funkgerät entfernen?",
+    "advertHint": "Aus seiner Aussendung erkannt und in diesem Browser zwischengespeichert – nicht auf dem Funkgerät gespeichert.",
+    "addContact": "Kontakt hinzufügen",
     "type": "Typ",
     "publicKey": "Öffentlicher Schlüssel",
     "route": "Route",
@@ -501,7 +504,10 @@
     "empty": "Noch keine Ankündigungen gehört. Entdeckte Knoten erscheinen hier, sobald ihre Ankündigungen eintreffen.",
     "node": "Knoten",
     "added": "✓ Hinzugefügt",
-    "add": "Hinzufügen"
+    "add": "Hinzufügen",
+    "searchPlaceholder": "Entdeckte Knoten suchen",
+    "noMatches": "Keine Knoten passen zu deiner Suche",
+    "showing": "{{shown}} von {{total}} werden angezeigt"
   },
   "map": {
     "self": "Dieser Knoten",

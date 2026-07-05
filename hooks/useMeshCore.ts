@@ -437,6 +437,7 @@ export function useMeshCore() {
     setContacts,
     setChannels,
     setAdverts,
+    cacheAdverts,
     setAutoAddConfig,
     addMessage,
     updateMessage,
@@ -470,6 +471,9 @@ export function useMeshCore() {
         onAdvertsUpdated: (adverts) => {
           const next = { ...adverts };
           setAdverts(next);
+          // Persist advert metadata so the map keeps discovered nodes across
+          // reloads/reconnects, even ones the radio can't hold as contacts.
+          cacheAdverts(next);
           // Diffed to per-advert edge events for the automation engine; a no-op
           // when nobody is subscribed (automation off).
           emitAdvertDiff(next);
@@ -534,6 +538,7 @@ export function useMeshCore() {
       setContacts,
       setChannels,
       setAdverts,
+      cacheAdverts,
       addMessage,
       showToast,
     ],

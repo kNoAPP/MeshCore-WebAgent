@@ -3,18 +3,26 @@
 
 import type { IFuseOptions } from 'fuse.js';
 import type { AppView, SettingsSection } from '@/store/meshStore';
-import type { ActiveConvo, Channel, Contact, Message } from '@/types/meshcore';
+import type {
+  ActiveConvo,
+  Advert,
+  Channel,
+  Contact,
+  Message,
+} from '@/types/meshcore';
 
-/** The four kinds of thing the command palette can surface. */
-export type CommandKind = 'message' | 'contact' | 'channel' | 'page';
+/** The kinds of thing the command palette can surface. */
+export type CommandKind = 'message' | 'contact' | 'advert' | 'channel' | 'page';
 
 /**
  * What selecting a result does: open a conversation (optionally scrolled to a
- * message) or navigate to a page/settings section.
+ * message), open a cached advert's detail popup, or navigate to a page/settings
+ * section.
  */
 export type CommandAction =
   | { type: 'message'; convo: ActiveConvo; msgId: string }
   | { type: 'convo'; convo: ActiveConvo }
+  | { type: 'advert'; prefix: string }
   | { type: 'page'; view: AppView; section?: SettingsSection };
 
 /**
@@ -45,6 +53,15 @@ export interface ContactRecord {
   convo: ActiveConvo;
   name: string;
   prefix: string;
+}
+
+/**
+ * A cached advert (a discovered node not saved on the radio), indexed by
+ * display name and public-key prefix.
+ */
+export interface AdvertRecord {
+  prefix: string;
+  name: string;
 }
 
 /** A channel slot, indexed by name and its `Channel N` label. */
@@ -101,6 +118,17 @@ export const MESSAGE_FUSE_OPTIONS: IFuseOptions<MessageRecord> = {
 
 /** Fuse options for contacts: name weighted over key prefix. */
 export const CONTACT_FUSE_OPTIONS: IFuseOptions<ContactRecord> = {
+  keys: [
+    { name: 'name', weight: 0.7 },
+    { name: 'prefix', weight: 0.3 },
+  ],
+  ignoreLocation: true,
+  threshold: 0.4,
+  minMatchCharLength: 2,
+};
+
+/** Fuse options for cached adverts: name weighted over key prefix. */
+export const ADVERT_FUSE_OPTIONS: IFuseOptions<AdvertRecord> = {
   keys: [
     { name: 'name', weight: 0.7 },
     { name: 'prefix', weight: 0.3 },
@@ -194,6 +222,22 @@ export function buildContactRecords(
       prefix: c.pubkeyPrefix,
     };
   });
+}
+
+/**
+ * Builds searchable records for cached adverts (discovered nodes), skipping any
+ * already saved as a contact so they don't duplicate the contacts group.
+ */
+export function buildAdvertRecords(
+  advertCache: Record<string, Advert>,
+  contacts: Record<string, Contact>,
+): AdvertRecord[] {
+  return Object.values(advertCache)
+    .filter((a) => contacts[a.pubkeyPrefix] === undefined)
+    .map((a) => ({
+      prefix: a.pubkeyPrefix,
+      name: a.name || a.pubkeyPrefix.slice(0, 8),
+    }));
 }
 
 /** Builds searchable channel records from the store's channel slots. */

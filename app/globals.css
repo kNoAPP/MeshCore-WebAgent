@@ -206,6 +206,11 @@ html {
   border: 2px solid var(--accent);
   box-shadow: 0 0 8px var(--accent);
 }
+/* Cached adverts (discovered nodes not held in the radio's contact table) are
+ * faded to read as secondary next to solid, radio-backed contacts. */
+.map-marker-cached {
+  opacity: 0.5;
+}
 .meshcore-map .leaflet-bar a,
 .meshcore-map .leaflet-bar a:hover {
   background: var(--surface);

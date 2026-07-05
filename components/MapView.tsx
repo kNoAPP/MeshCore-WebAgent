@@ -59,7 +59,11 @@ function escapeHtml(value: string): string {
 function nodeIcon(node: MapNode): L.DivIcon {
   const { shape, color } = markerStyle(node.advType);
   const cls =
-    node.kind === 'self' ? 'map-marker map-marker-self' : 'map-marker';
+    node.kind === 'self'
+      ? 'map-marker map-marker-self'
+      : node.kind === 'advert'
+        ? 'map-marker map-marker-cached'
+        : 'map-marker';
   const size = MAP_MARKER_SIZE_PX;
   const svg = node.favorite
     ? shapeSvg(shape, color, size, FAVORITE_OUTLINE, FAVORITE_OUTLINE_WIDTH)
@@ -120,7 +124,7 @@ function initialView(
 export function MapView() {
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const contacts = useMeshStore((s) => s.contacts);
-  const adverts = useMeshStore((s) => s.adverts);
+  const adverts = useMeshStore((s) => s.advertCache);
 
   const self = useMemo(() => selfMapNode(selfInfo), [selfInfo]);
   const nodes = useMemo(
@@ -262,10 +266,11 @@ function LeafletMap({
       const label =
         node.kind === 'self' ? t('map.self') : escapeHtml(node.name);
       marker.bindTooltip(label, { direction: 'top' });
-      if (node.kind === 'contact' && !mapPicking) {
+      if ((node.kind === 'contact' || node.kind === 'advert') && !mapPicking) {
+        const kind = node.kind;
         const id = node.pubkeyPrefix;
         marker.on('click', () =>
-          useMeshStore.getState().setManagePanel({ kind: 'contact', id }),
+          useMeshStore.getState().setManagePanel({ kind, id }),
         );
       }
       marker.addTo(layer);

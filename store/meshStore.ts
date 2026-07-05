@@ -37,6 +37,11 @@ import {
   type Theme,
 } from '@/lib/theme/config';
 import { loadMapPrefs, saveMapPrefs, type MapPrefs } from '@/lib/map/config';
+import {
+  loadAdvertCache,
+  saveAdvertCache,
+  mergeAdvertCache,
+} from '@/lib/map/advertCache';
 
 /** localStorage key for the persisted {@link AutoAddConfig}. */
 const AUTOADD_STORAGE_KEY = 'meshcore.autoAddConfig';
@@ -210,6 +215,13 @@ interface MeshState {
   contacts: Record<string, Contact>;
   channels: Record<number, Channel>;
   adverts: Record<string, Advert>;
+  /**
+   * Browser-persisted metadata for every advert ever heard, keyed by
+   * `pubkeyPrefix`. A superset of {@link adverts} that survives reloads and
+   * reconnects, so the map can plot discovered nodes the radio's bounded
+   * contact table can't hold. See `lib/map/advertCache.ts`.
+   */
+  advertCache: Record<string, Advert>;
   autoAddConfig: AutoAddConfig;
 
   // Conversations
@@ -249,7 +261,7 @@ interface MeshState {
    * consumption by the Location card. One-shot: cleared once read.
    */
   pendingLocation: { lat: number; lon: number } | null;
-  managePanel: { kind: 'contact' | 'channel'; id: string } | null;
+  managePanel: { kind: 'contact' | 'channel' | 'advert'; id: string } | null;
   autoAddOpen: boolean;
   addChannelOpen: boolean;
   addContactOpen: boolean;
@@ -291,6 +303,8 @@ interface MeshActions {
   setContacts: (c: Record<string, Contact>) => void;
   setChannels: (ch: Record<number, Channel>) => void;
   setAdverts: (a: Record<string, Advert>) => void;
+  /** Folds freshly heard adverts into the persisted advert cache. */
+  cacheAdverts: (a: Record<string, Advert>) => void;
   setAutoAddConfig: (cfg: AutoAddConfig) => void;
   setContactView: (view: ContactView) => void;
   setLocale: (locale: SupportedLocale) => void;
@@ -319,7 +333,7 @@ interface MeshActions {
   /** Clears the one-shot {@link MeshState.pendingLocation} after it's read. */
   clearPendingLocation: () => void;
   setManagePanel: (
-    panel: { kind: 'contact' | 'channel'; id: string } | null,
+    panel: { kind: 'contact' | 'channel' | 'advert'; id: string } | null,
   ) => void;
   setAutoAddOpen: (open: boolean) => void;
   setAddChannelOpen: (open: boolean) => void;
@@ -363,6 +377,7 @@ const initialState: MeshState = {
   contacts: {},
   channels: {},
   adverts: {},
+  advertCache: loadAdvertCache(),
   autoAddConfig: loadAutoAddConfig(),
   msgHistory: {},
   activeConvo: null,
@@ -410,6 +425,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setContacts: (contacts) => set({ contacts }),
   setChannels: (channels) => set({ channels }),
   setAdverts: (adverts) => set({ adverts }),
+
+  cacheAdverts: (adverts) =>
+    set((state) => {
+      const advertCache = mergeAdvertCache(state.advertCache, adverts);
+      saveAdvertCache(advertCache);
+      return { advertCache };
+    }),
 
   setAutoAddConfig: (autoAddConfig) => {
     if (typeof window !== 'undefined') {
@@ -648,6 +670,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       theme: get().theme,
       // Map preferences are a persistent user preference, not session state
       mapPrefs: get().mapPrefs,
+      // The advert cache persists across sessions so discovered nodes stay on
+      // the map after a disconnect or reconnect
+      advertCache: get().advertCache,
       // The automation master switch persists across sessions/reconnects
       automationEnabled: get().automationEnabled,
     }),
