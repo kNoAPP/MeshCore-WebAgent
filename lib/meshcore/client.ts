@@ -927,6 +927,20 @@ export class MeshCoreClient {
   }
 
   /**
+   * Re-reads this radio's `SELF_INFO` by re-issuing `APP_START`. The frame
+   * handler parses the reply, refreshes the local `selfInfo` mirror, and fires
+   * {@link MeshCoreCallbacks.onSelfInfo}. Used after switching the location
+   * source (Fixed↔GPS): the newly-active advertised coordinate — a GPS module's
+   * live fix, say — is only observable on a fresh read, so unlike a written
+   * value it can't be echoed back optimistically.
+   *
+   * @throws if the radio doesn't answer with `SELF_INFO` before the timeout.
+   */
+  async refreshSelfInfo(): Promise<void> {
+    await this.cmd(buildAppStart(), [RESP.SELF_INFO], 5000);
+  }
+
+  /**
    * Writes the auto-add preferences to the radio (`SET_OTHER_PARAMS` for the
    * mode, then `SET_AUTOADD_CONFIG` for the filter + hop limit).
    *
