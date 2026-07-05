@@ -1265,6 +1265,11 @@ export function useMeshCore() {
           );
         }
         await client.setGpsEnabled(useGps);
+        // Re-read SELF_INFO so the map's self marker reflects the source just
+        // picked: the newly-active advertised coordinate (a GPS module's live
+        // fix, or the stored fixed one) is only reported on a fresh read, not
+        // echoed from the write. Best-effort — the switch itself succeeded.
+        await client.refreshSelfInfo().catch(() => {});
         showToast(i18n.t('toast.locationSourceSaved'), 'success');
         return true;
       } catch (err) {
