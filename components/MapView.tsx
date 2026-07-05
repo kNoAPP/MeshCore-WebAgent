@@ -255,13 +255,31 @@ function LeafletMap({
     tileLayerRef.current?.setUrl(TILE_URLS[theme]);
   }, [theme]);
 
-  // Rebuild markers when the located node set changes.
+  // Rebuild markers when the plotted node set changes. The advert cache can
+  // hold thousands of nodes and refresh several times a second on a busy mesh,
+  // so skip the (up to MAX_MAP_MARKERS) DOM rebuild when nothing actually
+  // plotted changed — a refresh that only bumps `lastHeard`, or touches an
+  // off-map/over-cap node, moves no marker and must not churn the layer.
+  const markerSigRef = useRef<string>('');
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
-    layer.clearLayers();
     const all = self ? [self, ...visible] : visible;
-    for (const node of all.slice(0, MAX_MAP_MARKERS)) {
+    const rendered = all.slice(0, MAX_MAP_MARKERS);
+    const sig = rendered
+      .map(
+        (n) =>
+          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.name}`,
+      )
+      .join('|');
+    // `t` (locale) drives the self tooltip and `mapPicking` gates click wiring,
+    // so both belong in the signature that decides whether a rebuild is needed.
+    const fullSig = `${mapPicking ? 'pick' : ''}|${t('map.self')}|${sig}`;
+    if (fullSig === markerSigRef.current) return;
+    markerSigRef.current = fullSig;
+
+    layer.clearLayers();
+    for (const node of rendered) {
       const marker = L.marker([node.lat, node.lon], { icon: nodeIcon(node) });
       const label =
         node.kind === 'self' ? t('map.self') : escapeHtml(node.name);

@@ -45,6 +45,10 @@ export function mergeAdvertCache(
           ...existing,
           ...advert,
           lastHeard: Math.max(existing.lastHeard, advert.lastHeard),
+          // An empty name is the "unset" case (not undefined), so a re-advert
+          // that arrives without one must not clobber a known name — fall back
+          // to the cached value, mirroring the location handling below.
+          name: advert.name || existing.name,
           // `0` is the firmware's "unset" sentinel (not undefined), so a
           // re-advert without a fix must not clobber a known location — fall
           // back to the cached coordinates in that case.

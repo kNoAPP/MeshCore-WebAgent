@@ -440,6 +440,7 @@
     "removeChannel": "Eliminar canal",
     "removeContactConfirm": "¿Eliminar este contacto de la radio?",
     "advertHint": "Descubierto por su anuncio y almacenado en este navegador; no está guardado en tu radio.",
+    "advertConnectHint": "Conéctate a una radio para añadir este nodo descubierto como contacto.",
     "addContact": "Añadir contacto",
     "type": "Tipo",
     "publicKey": "Clave pública",

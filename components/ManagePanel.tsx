@@ -60,6 +60,9 @@ function ManagePanelView() {
     autoAddConfig,
   } = useMeshStore();
   const selfInfo = useMeshStore((s) => s.selfInfo);
+  // Adding a cached advert writes to the radio, so it needs a live link. The
+  // cache can be viewed while disconnected (map/palette), so gate the action.
+  const connected = useMeshStore((s) => s.status === 'connected');
   const {
     toggleFavorite,
     removeContact,
@@ -159,13 +162,16 @@ function ManagePanelView() {
           )}
         </div>
         <div className='mt-4 flex items-center justify-between gap-3 border-t border-(--border) pt-4'>
-          <p className='text-xs text-(--text2)'>{t('manage.advertHint')}</p>
+          <p className='text-xs text-(--text2)'>
+            {connected ? t('manage.advertHint') : t('manage.advertConnectHint')}
+          </p>
           <button
+            disabled={!connected}
             onClick={() => {
               void addDiscoveredContact(advert);
               close();
             }}
-            className='shrink-0 rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90'
+            className='shrink-0 rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
           >
             {t('manage.addContact')}
           </button>

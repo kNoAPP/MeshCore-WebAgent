@@ -84,6 +84,9 @@ export function AddContactModal() {
     autoAddConfig,
   } = useMeshStore();
   const selfInfo = useMeshStore((s) => s.selfInfo);
+  // The cache can be viewed while disconnected, but adding a contact writes to
+  // the radio — gate the per-row Add so it can't silently no-op offline.
+  const connected = useMeshStore((s) => s.status === 'connected');
   const { importContact, addDiscoveredContact } = useMeshCore();
   const [mode, setMode] = useState<Mode>('discover');
   const [link, setLink] = useState('');
@@ -252,8 +255,9 @@ export function AddContactModal() {
                           </span>
                         ) : (
                           <button
+                            disabled={!connected}
                             onClick={() => addDiscoveredContact(a)}
-                            className='rounded-md px-3 py-1 text-xs font-semibold text-white'
+                            className='rounded-md px-3 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
                             style={{ background: 'var(--accent)' }}
                           >
                             {t('discover.add')}

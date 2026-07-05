@@ -440,6 +440,7 @@
     "removeChannel": "Remove channel",
     "removeContactConfirm": "Remove this contact from the radio?",
     "advertHint": "Discovered from its advert and cached in this browser — it isn't saved on your radio.",
+    "advertConnectHint": "Connect to a radio to add this discovered node as a contact.",
     "addContact": "Add contact",
     "type": "Type",
     "publicKey": "Public key",

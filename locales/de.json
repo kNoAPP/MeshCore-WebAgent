@@ -440,6 +440,7 @@
     "removeChannel": "Kanal entfernen",
     "removeContactConfirm": "Diesen Kontakt vom Funkgerät entfernen?",
     "advertHint": "Aus seiner Aussendung erkannt und in diesem Browser zwischengespeichert – nicht auf dem Funkgerät gespeichert.",
+    "advertConnectHint": "Verbinde dich mit einem Funkgerät, um diesen entdeckten Knoten als Kontakt hinzuzufügen.",
     "addContact": "Kontakt hinzufügen",
     "type": "Typ",
     "publicKey": "Öffentlicher Schlüssel",
