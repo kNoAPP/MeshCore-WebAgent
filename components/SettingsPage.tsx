@@ -188,9 +188,9 @@ export function SettingsPage() {
             />
           </Card>
 
-          <LocationCard />
-
           <DisplayCard />
+
+          <LocationCard />
 
           <Card
             title={t('settings.section.ai')}
