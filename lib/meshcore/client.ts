@@ -577,7 +577,11 @@ export class MeshCoreClient {
       };
       this.contactsResolve = finish;
       this.rearmContactsIdle();
-      this.transport.send(buildGetContacts(0));
+      // This write bypasses the serialized `cmd` chain, so guard it: a failed
+      // initial GetContacts (a dropped link or a GATT collision) must end
+      // collection here instead of hanging on the idle timeout or surfacing as
+      // an unhandled rejection.
+      this.transport.send(buildGetContacts(0)).catch(() => finish());
     });
     this.callbacks.onContactsUpdated?.(this.contacts);
   }
