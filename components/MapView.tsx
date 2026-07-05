@@ -59,7 +59,11 @@ function escapeHtml(value: string): string {
 function nodeIcon(node: MapNode): L.DivIcon {
   const { shape, color } = markerStyle(node.advType);
   const cls =
-    node.kind === 'self' ? 'map-marker map-marker-self' : 'map-marker';
+    node.kind === 'self'
+      ? 'map-marker map-marker-self'
+      : node.kind === 'advert'
+        ? 'map-marker map-marker-cached'
+        : 'map-marker';
   const size = MAP_MARKER_SIZE_PX;
   const svg = node.favorite
     ? shapeSvg(shape, color, size, FAVORITE_OUTLINE, FAVORITE_OUTLINE_WIDTH)
@@ -120,12 +124,12 @@ function initialView(
 export function MapView() {
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const contacts = useMeshStore((s) => s.contacts);
-  const adverts = useMeshStore((s) => s.adverts);
+  const advertCache = useMeshStore((s) => s.advertCache);
 
   const self = useMemo(() => selfMapNode(selfInfo), [selfInfo]);
   const nodes = useMemo(
-    () => collectMapNodes(contacts, adverts, self?.pubkeyPrefix),
-    [contacts, adverts, self?.pubkeyPrefix],
+    () => collectMapNodes(contacts, advertCache, self?.pubkeyPrefix),
+    [contacts, advertCache, self?.pubkeyPrefix],
   );
 
   return <LeafletMap self={self} nodes={nodes} />;
@@ -145,6 +149,10 @@ function LeafletMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
+  // Signature of the currently plotted markers; lets the marker effect skip a
+  // rebuild when nothing changed. Reset whenever the layer is (re)created so a
+  // fresh, empty layer is always repopulated (e.g. StrictMode's remount).
+  const markerSigRef = useRef<string>('');
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   // When set (from Settings' Location card), the map runs in location-pick
   // mode: a confirm/cancel banner and a draggable click-to-place pin.
@@ -211,6 +219,9 @@ function LeafletMap({
     }
 
     markerLayerRef.current = L.layerGroup().addTo(map);
+    // A brand-new, empty layer: force the next marker effect to rebuild rather
+    // than short-circuit on a signature left over from the previous layer.
+    markerSigRef.current = '';
 
     // `noWrap` keeps the basemap to one world (matching the bounded view);
     // `detectRetina` swaps in `@2x` tiles (via the `{r}` token) on hi-DPI
@@ -251,21 +262,39 @@ function LeafletMap({
     tileLayerRef.current?.setUrl(TILE_URLS[theme]);
   }, [theme]);
 
-  // Rebuild markers when the located node set changes.
+  // Rebuild markers when the plotted node set changes. The advert cache can
+  // hold thousands of nodes and refresh several times a second on a busy mesh,
+  // so skip the (up to MAX_MAP_MARKERS) DOM rebuild when nothing actually
+  // plotted changed — a refresh that only bumps `lastHeard`, or touches an
+  // off-map/over-cap node, moves no marker and must not churn the layer.
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
-    layer.clearLayers();
     const all = self ? [self, ...visible] : visible;
-    for (const node of all.slice(0, MAX_MAP_MARKERS)) {
+    const rendered = all.slice(0, MAX_MAP_MARKERS);
+    const sig = rendered
+      .map(
+        (n) =>
+          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.name}`,
+      )
+      .join('|');
+    // `t` (locale) drives the self tooltip and `mapPicking` gates click wiring,
+    // so both belong in the signature that decides whether a rebuild is needed.
+    const fullSig = `${mapPicking ? 'pick' : ''}|${t('map.self')}|${sig}`;
+    if (fullSig === markerSigRef.current) return;
+    markerSigRef.current = fullSig;
+
+    layer.clearLayers();
+    for (const node of rendered) {
       const marker = L.marker([node.lat, node.lon], { icon: nodeIcon(node) });
       const label =
         node.kind === 'self' ? t('map.self') : escapeHtml(node.name);
       marker.bindTooltip(label, { direction: 'top' });
-      if (node.kind === 'contact' && !mapPicking) {
+      if ((node.kind === 'contact' || node.kind === 'advert') && !mapPicking) {
+        const kind = node.kind;
         const id = node.pubkeyPrefix;
         marker.on('click', () =>
-          useMeshStore.getState().setManagePanel({ kind: 'contact', id }),
+          useMeshStore.getState().setManagePanel({ kind, id }),
         );
       }
       marker.addTo(layer);

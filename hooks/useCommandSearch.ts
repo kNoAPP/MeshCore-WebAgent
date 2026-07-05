@@ -9,14 +9,17 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore, channelConvoId, directConvoId } from '@/store/meshStore';
 import type { ActiveConvo } from '@/types/meshcore';
 import {
+  buildAdvertRecords,
   buildChannelRecords,
   buildContactRecords,
   buildMessageRecords,
+  ADVERT_FUSE_OPTIONS,
   CHANNEL_FUSE_OPTIONS,
   CONTACT_FUSE_OPTIONS,
   MESSAGE_FUSE_OPTIONS,
   PAGE_FUSE_OPTIONS,
   PAGE_TARGETS,
+  type AdvertRecord,
   type ChannelRecord,
   type CommandResult,
   type ContactRecord,
@@ -37,12 +40,13 @@ const RECENT_LIMIT = 6;
 /** A titled block of results the palette renders as one section. */
 export interface CommandGroup {
   /** Stable key and heading discriminator. */
-  key: 'recent' | 'messages' | 'contacts' | 'channels' | 'pages';
+  key: 'recent' | 'messages' | 'contacts' | 'adverts' | 'channels' | 'pages';
   /** i18n key for the group heading. */
   headingKey:
     | 'command.group.recent'
     | 'command.group.messages'
     | 'command.group.contacts'
+    | 'command.group.adverts'
     | 'command.group.channels'
     | 'command.group.pages';
   results: CommandResult[];
@@ -78,6 +82,7 @@ export function useCommandSearch(query: string): CommandGroup[] {
   const msgHistory = useMeshStore((s) => s.msgHistory);
   const contacts = useMeshStore((s) => s.contacts);
   const channels = useMeshStore((s) => s.channels);
+  const advertCache = useMeshStore((s) => s.advertCache);
 
   // Rebuild indexes only when the underlying slices (or language, which drives
   // fallback labels) change — not on every keystroke.
@@ -115,6 +120,26 @@ export function useCommandSearch(query: string): CommandGroup[] {
     }));
     return new Fuse<ContactRecord>(records, CONTACT_FUSE_OPTIONS);
   }, [contacts]);
+
+  // The advert cache gets a fresh reference on every heard batch (many per
+  // second on a busy mesh), but a batch that only bumps `lastHeard` changes
+  // neither the searchable name nor the key set. Key the (comparatively
+  // expensive) Fuse rebuild on the record content so the index isn't
+  // reconstructed under the user mid-search — only when a name or the node set
+  // actually changes.
+  const advertRecords = useMemo(
+    () => buildAdvertRecords(advertCache, contacts),
+    [advertCache, contacts],
+  );
+  const advertSig = useMemo(
+    () => advertRecords.map((r) => `${r.prefix}:${r.name}`).join('|'),
+    [advertRecords],
+  );
+  const advertFuse = useMemo(
+    () => new Fuse<AdvertRecord>(advertRecords, ADVERT_FUSE_OPTIONS),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [advertSig],
+  );
 
   const channelFuse = useMemo(() => {
     const records = buildChannelRecords(
@@ -259,6 +284,23 @@ export function useCommandSearch(query: string): CommandGroup[] {
       });
     }
 
+    const advertResults = advertFuse
+      .search(trimmed, { limit: GROUP_LIMIT })
+      .map<CommandResult>((r) => ({
+        kind: 'advert',
+        id: `advert:${r.item.prefix}`,
+        primary: r.item.name,
+        secondary: r.item.prefix.slice(0, 12),
+        action: { type: 'advert', prefix: r.item.prefix },
+      }));
+    if (advertResults.length) {
+      groups.push({
+        key: 'adverts',
+        headingKey: 'command.group.adverts',
+        results: advertResults,
+      });
+    }
+
     const channelResults = channelFuse
       .search(trimmed, { limit: GROUP_LIMIT })
       .map<CommandResult>((r) => ({
@@ -297,6 +339,7 @@ export function useCommandSearch(query: string): CommandGroup[] {
     query,
     messageFuse,
     contactFuse,
+    advertFuse,
     channelFuse,
     pageFuse,
     pageRecords,

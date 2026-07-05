@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Search } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
@@ -28,6 +29,12 @@ import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
  * for review; `manual` takes a name, public key, and type directly.
  */
 type Mode = 'discover' | 'paste' | 'manual';
+
+/**
+ * Cap on discovered rows rendered at once. The advert cache can hold hundreds
+ * of nodes; the search bar narrows the rest.
+ */
+const DISCOVER_RENDER_CAP = 200;
 
 const MODES = [
   {
@@ -72,17 +79,21 @@ export function AddContactModal() {
   const {
     addContactOpen,
     setAddContactOpen,
-    adverts,
+    advertCache,
     contacts,
     autoAddConfig,
   } = useMeshStore();
   const selfInfo = useMeshStore((s) => s.selfInfo);
+  // The cache can be viewed while disconnected, but adding a contact writes to
+  // the radio — gate the per-row Add so it can't silently no-op offline.
+  const connected = useMeshStore((s) => s.status === 'connected');
   const { importContact, addDiscoveredContact } = useMeshCore();
   const [mode, setMode] = useState<Mode>('discover');
   const [link, setLink] = useState('');
   const [name, setName] = useState('');
   const [pubkey, setPubkey] = useState('');
   const [advType, setAdvType] = useState<number>(1);
+  const [discoverQuery, setDiscoverQuery] = useState('');
   const [error, setError] = useState('');
 
   if (!addContactOpen) return null;
@@ -93,6 +104,7 @@ export function AddContactModal() {
     setName('');
     setPubkey('');
     setAdvType(1);
+    setDiscoverQuery('');
     setError('');
     setAddContactOpen(false);
   };
@@ -127,9 +139,19 @@ export function AddContactModal() {
   };
 
   const hint = t(MODES.find((m) => m.id === mode)!.hintKey);
-  const heard = Object.values(adverts).sort(
-    (a, b) => b.lastHeard - a.lastHeard,
-  );
+  // Discovered nodes come from the browser advert cache (persisted across
+  // sessions), narrowed by the search box and ordered by most recently heard so
+  // the freshest nodes surface first.
+  const cachedAdverts = Object.values(advertCache);
+  const discoverTerm = discoverQuery.trim().toLowerCase();
+  const heard = cachedAdverts
+    .filter(
+      (a) =>
+        !discoverTerm ||
+        a.name.toLowerCase().includes(discoverTerm) ||
+        a.pubkeyPrefix.toLowerCase().includes(discoverTerm),
+    )
+    .sort((a, b) => b.lastHeard - a.lastHeard);
 
   return (
     <ModalShell
@@ -158,70 +180,103 @@ export function AddContactModal() {
           </button>
         ))}
       </div>
-      {(mode !== 'discover' || heard.length > 0) && (
+      {(mode !== 'discover' || cachedAdverts.length > 0) && (
         <p className='mb-4 text-xs text-(--text2)'>{hint}</p>
       )}
 
       {mode === 'discover' ? (
-        heard.length === 0 ? (
+        cachedAdverts.length === 0 ? (
           <p className='py-8 text-center text-sm text-(--text2)'>
             {t('discover.empty')}
           </p>
         ) : (
-          <div className='space-y-1'>
-            {heard.map((a) => {
-              const added = contacts[a.pubkeyPrefix] !== undefined;
-              const location = formatLatLon(a.advLat, a.advLon);
-              const distance = formatDistanceBearing(
-                selfInfo?.advLat,
-                selfInfo?.advLon,
-                a.advLat,
-                a.advLon,
-              );
-              return (
-                <div
-                  key={a.pubkeyPrefix}
-                  className='flex items-center gap-3 rounded-md px-2 py-2 hover:bg-(--surface2)'
-                >
-                  <span className='text-base'>
-                    {ADV_ICON[a.advType] ?? '👤'}
-                  </span>
-                  <div className='min-w-0 flex-1'>
-                    <div className='truncate text-sm'>
-                      {a.name || a.pubkeyPrefix.slice(0, 8)}
-                    </div>
-                    <div className='truncate text-xs text-(--text2)'>
-                      {t(
-                        ADV_LABEL_KEY[
-                          a.advType as keyof typeof ADV_LABEL_KEY
-                        ] ?? 'discover.node',
-                      )}{' '}
-                      · {formatRelative(a.lastHeard)}
-                      {autoAddConfig.showPublicKeys && ` · ${a.pubkeyPrefix}`}
-                    </div>
-                    {location && (
-                      <div className='truncate text-xs text-(--text2)'>
-                        {location}
-                        {distance && ` · ${distance}`}
+          <div>
+            <div className='relative mb-3'>
+              <Search
+                size={16}
+                className='absolute top-1/2 left-3 -translate-y-1/2 text-(--text2)'
+              />
+              <input
+                value={discoverQuery}
+                onChange={(e) => setDiscoverQuery(e.target.value)}
+                placeholder={t('discover.searchPlaceholder')}
+                aria-label={t('discover.searchPlaceholder')}
+                className='w-full rounded-md border border-(--border) bg-(--bg) px-9 py-2 text-sm outline-none focus:border-(--accent)'
+              />
+            </div>
+            {heard.length === 0 ? (
+              <p className='py-8 text-center text-sm text-(--text2)'>
+                {t('discover.noMatches')}
+              </p>
+            ) : (
+              <>
+                <div className='max-h-[45vh] space-y-1 overflow-y-auto'>
+                  {heard.slice(0, DISCOVER_RENDER_CAP).map((a) => {
+                    const added = contacts[a.pubkeyPrefix] !== undefined;
+                    const location = formatLatLon(a.advLat, a.advLon);
+                    const distance = formatDistanceBearing(
+                      selfInfo?.advLat,
+                      selfInfo?.advLon,
+                      a.advLat,
+                      a.advLon,
+                    );
+                    return (
+                      <div
+                        key={a.pubkeyPrefix}
+                        className='flex items-center gap-3 rounded-md px-2 py-2 hover:bg-(--surface2)'
+                      >
+                        <span className='text-base'>
+                          {ADV_ICON[a.advType] ?? '👤'}
+                        </span>
+                        <div className='min-w-0 flex-1'>
+                          <div className='truncate text-sm'>
+                            {a.name || a.pubkeyPrefix.slice(0, 8)}
+                          </div>
+                          <div className='truncate text-xs text-(--text2)'>
+                            {t(
+                              ADV_LABEL_KEY[
+                                a.advType as keyof typeof ADV_LABEL_KEY
+                              ] ?? 'discover.node',
+                            )}{' '}
+                            · {formatRelative(a.lastHeard)}
+                            {autoAddConfig.showPublicKeys &&
+                              ` · ${a.pubkeyPrefix}`}
+                          </div>
+                          {location && (
+                            <div className='truncate text-xs text-(--text2)'>
+                              {location}
+                              {distance && ` · ${distance}`}
+                            </div>
+                          )}
+                        </div>
+                        {added ? (
+                          <span className='text-xs text-(--green)'>
+                            {t('discover.added')}
+                          </span>
+                        ) : (
+                          <button
+                            disabled={!connected}
+                            onClick={() => addDiscoveredContact(a)}
+                            className='rounded-md px-3 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
+                            style={{ background: 'var(--accent)' }}
+                          >
+                            {t('discover.add')}
+                          </button>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  {added ? (
-                    <span className='text-xs text-(--green)'>
-                      {t('discover.added')}
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => addDiscoveredContact(a)}
-                      className='rounded-md px-3 py-1 text-xs font-semibold text-white'
-                      style={{ background: 'var(--accent)' }}
-                    >
-                      {t('discover.add')}
-                    </button>
-                  )}
+                    );
+                  })}
                 </div>
-              );
-            })}
+                {heard.length > DISCOVER_RENDER_CAP && (
+                  <p className='mt-3 text-center text-xs text-(--text2)'>
+                    {t('discover.showing', {
+                      shown: DISCOVER_RENDER_CAP,
+                      total: heard.length,
+                    })}
+                  </p>
+                )}
+              </>
+            )}
           </div>
         )
       ) : mode === 'paste' ? (

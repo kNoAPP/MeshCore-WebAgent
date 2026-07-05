@@ -42,6 +42,7 @@
       "recent": "Récents",
       "messages": "Messages",
       "contacts": "Contacts",
+      "adverts": "Nœuds découverts",
       "channels": "Canaux",
       "pages": "Aller à…"
     },
@@ -438,6 +439,9 @@
     "publicChannelCantRemove": "Le canal Public ne peut pas être supprimé",
     "removeChannel": "Supprimer le canal",
     "removeContactConfirm": "Supprimer ce contact de la radio ?",
+    "advertHint": "Découvert via son annonce et mis en cache dans ce navigateur — il n'est pas enregistré sur votre radio.",
+    "advertConnectHint": "Connectez-vous à une radio pour ajouter ce nœud découvert comme contact.",
+    "addContact": "Ajouter le contact",
     "type": "Type",
     "publicKey": "Clé publique",
     "route": "Route",
@@ -501,7 +505,10 @@
     "empty": "Aucune annonce entendue pour l'instant. Les nœuds découverts apparaissent ici à mesure que leurs annonces arrivent.",
     "node": "Nœud",
     "added": "✓ Ajouté",
-    "add": "Ajouter"
+    "add": "Ajouter",
+    "searchPlaceholder": "Rechercher des nœuds découverts",
+    "noMatches": "Aucun nœud ne correspond à votre recherche",
+    "showing": "Affichage de {{shown}} sur {{total}}"
   },
   "map": {
     "self": "Ce nœud",

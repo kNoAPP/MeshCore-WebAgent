@@ -42,6 +42,7 @@
       "recent": "Recientes",
       "messages": "Mensajes",
       "contacts": "Contactos",
+      "adverts": "Nodos descubiertos",
       "channels": "Canales",
       "pages": "Ir a…"
     },
@@ -438,6 +439,9 @@
     "publicChannelCantRemove": "El canal Público no se puede eliminar",
     "removeChannel": "Eliminar canal",
     "removeContactConfirm": "¿Eliminar este contacto de la radio?",
+    "advertHint": "Descubierto por su anuncio y almacenado en este navegador; no está guardado en tu radio.",
+    "advertConnectHint": "Conéctate a una radio para añadir este nodo descubierto como contacto.",
+    "addContact": "Añadir contacto",
     "type": "Tipo",
     "publicKey": "Clave pública",
     "route": "Ruta",
@@ -501,7 +505,10 @@
     "empty": "Aún no se han escuchado anuncios. Los nodos descubiertos aparecen aquí a medida que llegan sus anuncios.",
     "node": "Nodo",
     "added": "✓ Añadido",
-    "add": "Añadir"
+    "add": "Añadir",
+    "searchPlaceholder": "Buscar nodos descubiertos",
+    "noMatches": "Ningún nodo coincide con tu búsqueda",
+    "showing": "Mostrando {{shown}} de {{total}}"
   },
   "map": {
     "self": "Este nodo",

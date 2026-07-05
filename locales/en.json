@@ -42,6 +42,7 @@
       "recent": "Recent",
       "messages": "Messages",
       "contacts": "Contacts",
+      "adverts": "Discovered nodes",
       "channels": "Channels",
       "pages": "Go to…"
     },
@@ -438,6 +439,9 @@
     "publicChannelCantRemove": "The Public channel cannot be removed",
     "removeChannel": "Remove channel",
     "removeContactConfirm": "Remove this contact from the radio?",
+    "advertHint": "Discovered from its advert and cached in this browser — it isn't saved on your radio.",
+    "advertConnectHint": "Connect to a radio to add this discovered node as a contact.",
+    "addContact": "Add contact",
     "type": "Type",
     "publicKey": "Public key",
     "route": "Route",
@@ -501,7 +505,10 @@
     "empty": "No adverts heard yet. Discovered nodes appear here as their adverts arrive.",
     "node": "Node",
     "added": "✓ Added",
-    "add": "Add"
+    "add": "Add",
+    "searchPlaceholder": "Search discovered nodes",
+    "noMatches": "No nodes match your search",
+    "showing": "Showing {{shown}} of {{total}}"
   },
   "map": {
     "self": "This node",

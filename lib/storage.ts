@@ -1,7 +1,7 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-import type { Message } from '@/types/meshcore';
+import type { Advert, Message } from '@/types/meshcore';
 
 // Per-radio message history persisted in IndexedDB, encrypted at rest with
 // AES-256-GCM under a key derived from the radio's own secrets (see
@@ -344,6 +344,70 @@ export async function loadAutomationRules<T>(
       record.data,
     );
     return JSON.parse(new TextDecoder().decode(plaintext)) as T;
+  } catch {
+    return null;
+  }
+}
+
+// The advert cache (discovered nodes not held in the radio's contact table) is
+// stored per-radio, encrypted under the same per-radio key as message history,
+// in its own namespaced record so it never entangles with the msgHistory blob
+// (keyed by bare pubkey).
+function advertCacheRecordKey(pubkey: string): string {
+  return `${pubkey}:advert-cache`;
+}
+
+/**
+ * Encrypts and stores a radio's advert cache. Best-effort — any failure is
+ * swallowed, exactly like {@link saveRadioData}.
+ *
+ * @param key - the key from {@link deriveStorageKey} for this radio.
+ * @param cache - the advert map (keyed by `pubkeyPrefix`) to persist.
+ */
+export async function saveAdvertCache(
+  pubkey: string,
+  key: CryptoKey,
+  cache: Record<string, Advert>,
+): Promise<void> {
+  try {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = new TextEncoder().encode(JSON.stringify(cache));
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      plaintext.buffer as ArrayBuffer,
+    );
+    await idbPut(STORE_NAME, advertCacheRecordKey(pubkey), {
+      iv,
+      data: ciphertext,
+    });
+  } catch {}
+}
+
+/**
+ * Loads and decrypts a radio's advert cache.
+ *
+ * @param key - the key from {@link deriveStorageKey} for this radio.
+ * @returns the advert map, or null if nothing is stored or decryption fails
+ * (wrong key / different radio / corrupt record) — a different radio is
+ * indistinguishable from an absent cache, which is the intended property.
+ */
+export async function loadAdvertCache(
+  pubkey: string,
+  key: CryptoKey,
+): Promise<Record<string, Advert> | null> {
+  try {
+    const record = await idbGet(STORE_NAME, advertCacheRecordKey(pubkey));
+    if (!record) return null;
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: record.iv },
+      key,
+      record.data,
+    );
+    return JSON.parse(new TextDecoder().decode(plaintext)) as Record<
+      string,
+      Advert
+    >;
   } catch {
     return null;
   }

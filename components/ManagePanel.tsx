@@ -32,11 +32,13 @@ import {
 import type { Contact, Channel } from '@/types/meshcore';
 
 /**
- * The detail/management modal for a contact or channel, driven by the store's
- * `managePanel` selection. Contacts expose favorite/reset-route/share/remove;
- * the Share action swaps the detail view for a {@link ContactShare} sub-page.
- * Channels show their properties and a remove action. Removal is confirmed
- * inline. Renders nothing when no item is selected.
+ * The detail/management modal for a contact, channel, or cached advert, driven
+ * by the store's `managePanel` selection. Contacts expose
+ * favorite/reset-route/share/remove; the Share action swaps the detail view for
+ * a {@link ContactShare} sub-page. Channels show their properties and a remove
+ * action. A cached advert (a discovered node not in the radio's contact table)
+ * shows a read-only summary of the metadata heard in its advert. Removal is
+ * confirmed inline. Renders nothing when no item is selected.
  */
 export function ManagePanel() {
   const managePanel = useMeshStore((s) => s.managePanel);
@@ -49,15 +51,25 @@ export function ManagePanel() {
 
 function ManagePanelView() {
   const { t } = useTranslation();
-  const { managePanel, setManagePanel, contacts, channels, autoAddConfig } =
-    useMeshStore();
+  const {
+    managePanel,
+    setManagePanel,
+    contacts,
+    channels,
+    advertCache,
+    autoAddConfig,
+  } = useMeshStore();
   const selfInfo = useMeshStore((s) => s.selfInfo);
+  // Adding a cached advert writes to the radio, so it needs a live link. The
+  // cache can be viewed while disconnected (map/palette), so gate the action.
+  const connected = useMeshStore((s) => s.status === 'connected');
   const {
     toggleFavorite,
     removeContact,
     resetContactPath,
     shareContact,
     removeChannel,
+    addDiscoveredContact,
   } = useMeshCore();
   const [confirming, setConfirming] = useState(false);
   // `sharing` selects the contact share sub-page in place of the detail view.
@@ -103,6 +115,67 @@ function ManagePanelView() {
             </button>
           </div>
         )}
+      </ModalShell>
+    );
+  }
+
+  if (managePanel.kind === 'advert') {
+    const advert = advertCache[managePanel.id];
+    if (!advert) return null;
+    const location = formatLatLon(advert.advLat, advert.advLon);
+    const distance = formatDistanceBearing(
+      selfInfo?.advLat,
+      selfInfo?.advLon,
+      advert.advLat,
+      advert.advLon,
+    );
+    const advertTitle = `${ADV_ICON[advert.advType] ?? '👤'} ${advert.name || advert.pubkeyPrefix.slice(0, 8)}`;
+    return (
+      <ModalShell title={advertTitle} onClose={close}>
+        <div className='space-y-2'>
+          <DetailRow
+            label={t('manage.type')}
+            value={t(
+              ADV_LABEL_KEY[advert.advType as keyof typeof ADV_LABEL_KEY] ??
+                'common.unknown',
+            )}
+          />
+          <DetailRow
+            label={t('manage.publicKey')}
+            value={
+              autoAddConfig.showPublicKeys
+                ? advert.pubkey
+                : `${advert.pubkeyPrefix}…`
+            }
+            mono
+            copy={advert.pubkey}
+          />
+          <DetailRow
+            label={t('manage.lastAdvert')}
+            value={formatRelative(advert.lastHeard)}
+          />
+          {location && (
+            <DetailRow label={t('manage.location')} value={location} />
+          )}
+          {distance && (
+            <DetailRow label={t('manage.distance')} value={distance} />
+          )}
+        </div>
+        <div className='mt-4 flex items-center justify-between gap-3 border-t border-(--border) pt-4'>
+          <p className='text-xs text-(--text2)'>
+            {connected ? t('manage.advertHint') : t('manage.advertConnectHint')}
+          </p>
+          <button
+            disabled={!connected}
+            onClick={() => {
+              void addDiscoveredContact(advert);
+              close();
+            }}
+            className='shrink-0 rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
+          >
+            {t('manage.addContact')}
+          </button>
+        </div>
       </ModalShell>
     );
   }
