@@ -666,6 +666,8 @@
     "locationSaved": "Ubicación actualizada",
     "locationSaveFailed": "Fallo al actualizar la ubicación: {{error}}",
     "sharePositionSaved": "Compartir ubicación en el anuncio actualizado",
+    "locationSourceSaved": "Fuente de ubicación actualizada",
+    "locationSourceSaveFailed": "No se pudo actualizar la fuente de ubicación: {{error}}",
     "sharePositionSaveFailed": "Fallo al actualizar el compartir ubicación en el anuncio: {{error}}",
     "radioParamsSaved": "Configuración de radio actualizada",
     "radioParamsSaveFailed": "Fallo al actualizar la configuración de radio: {{error}}",

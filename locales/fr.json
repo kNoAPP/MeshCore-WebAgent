@@ -666,6 +666,8 @@
     "locationSaved": "Position mise à jour",
     "locationSaveFailed": "Échec de la mise à jour de la position : {{error}}",
     "sharePositionSaved": "Partage de position dans l'annonce mis à jour",
+    "locationSourceSaved": "Source de localisation mise à jour",
+    "locationSourceSaveFailed": "Échec de la mise à jour de la source de localisation : {{error}}",
     "sharePositionSaveFailed": "Échec de la mise à jour du partage de position dans l'annonce : {{error}}",
     "radioParamsSaved": "Paramètres radio mis à jour",
     "radioParamsSaveFailed": "Échec de la mise à jour des paramètres radio : {{error}}",

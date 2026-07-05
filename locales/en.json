@@ -667,6 +667,8 @@
     "locationSaveFailed": "Failed to update location: {{error}}",
     "sharePositionSaved": "Advert location sharing updated",
     "sharePositionSaveFailed": "Failed to update advert location sharing: {{error}}",
+    "locationSourceSaved": "Location source updated",
+    "locationSourceSaveFailed": "Failed to update location source: {{error}}",
     "radioParamsSaved": "Radio settings updated",
     "radioParamsSaveFailed": "Failed to update radio settings: {{error}}",
     "advertSent": "Advert sent to nearby nodes",

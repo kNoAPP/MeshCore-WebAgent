@@ -666,6 +666,8 @@
     "locationSaved": "Standort aktualisiert",
     "locationSaveFailed": "Aktualisieren des Standorts fehlgeschlagen: {{error}}",
     "sharePositionSaved": "Standortfreigabe im Advert aktualisiert",
+    "locationSourceSaved": "Standortquelle aktualisiert",
+    "locationSourceSaveFailed": "Standortquelle konnte nicht aktualisiert werden: {{error}}",
     "sharePositionSaveFailed": "Aktualisieren der Standortfreigabe im Advert fehlgeschlagen: {{error}}",
     "radioParamsSaved": "Funkeinstellungen aktualisiert",
     "radioParamsSaveFailed": "Aktualisieren der Funkeinstellungen fehlgeschlagen: {{error}}",

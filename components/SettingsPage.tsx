@@ -389,28 +389,34 @@ function NodeNameRow() {
 }
 
 /**
- * The location sources offered in the Location section. `PREFS` advertises the
- * fixed coordinate entered below; `SHARE` defers to the radio's own GPS module
- * (only meaningful on GPS-capable hardware). Whether either is actually
- * attached to adverts is governed separately by the advertise toggle, which
- * flips the stored policy to `NONE`.
+ * The location sources offered in the Location section. `Fixed` advertises the
+ * coordinate entered below (the radio's GPS module off); `GPS` enables the
+ * radio's GPS module so its adverts carry the live fix (only meaningful on
+ * GPS-capable hardware). The source is stored on the radio as its `gps` custom
+ * var — the same field the official app's Position Settings → GPS Mode uses —
+ * so it round-trips independently of whether location is currently advertised.
  */
 const LOCATION_SOURCES = [
-  { policy: ADVERT_LOC_POLICY.PREFS, label: 'settings.locationSourceFixed' },
-  { policy: ADVERT_LOC_POLICY.SHARE, label: 'settings.locationSourceGps' },
+  { useGps: false, label: 'settings.locationSourceFixed' },
+  { useGps: true, label: 'settings.locationSourceGps' },
 ] as const;
 
 /**
  * The Location section, built from two independent controls:
  *
  * - **Include location in adverts** toggles the advert location policy between
- *   `NONE` (off) and the selected source's policy.
- * - **Location source** picks `PREFS` (the fixed coordinate typed/picked below)
- *   or `SHARE` (the radio's own GPS module) — the GPS option is offered only on
- *   GPS-capable hardware, probed from `CUSTOM_VARS`.
+ *   `NONE` (off) and a location-bearing policy. Maps to the official app's
+ *   "Share position in advert".
+ * - **Location source** picks `Fixed` (the coordinate typed/picked below, GPS
+ *   module off) or `GPS` (the radio's own GPS module, whose live fix is then
+ *   advertised) — the GPS option is offered only on GPS-capable hardware,
+ *   probed from `CUSTOM_VARS`. This is the radio's `gps` custom var, the same
+ *   field the official app's Position Settings → GPS Mode reads and writes, so
+ *   the choice persists on the radio (and round-trips with the official app)
+ *   regardless of the advertise toggle.
  *
  * The fixed coordinate is stored via `SET_ADVERT_LATLON` independently of the
- * policy, so it can be set without being advertised, and the lat/lon editor is
+ * source, so it can be set without being advertised, and the lat/lon editor is
  * enabled only under the Fixed source. Values are decimal degrees; {@link
  * SelfInfo} already reports them in degrees (unlike contacts), so they seed the
  * inputs as-is and `0`/unset shows blank. The editor stays populated after a
@@ -422,7 +428,8 @@ function LocationCard() {
   const status = useMeshStore((s) => s.status);
   const advLocPolicy = useMeshStore((s) => s.selfInfo?.advLocPolicy);
   const hasGps = useMeshStore((s) => s.deviceInfo?.hasGps ?? false);
-  const { setLocation, setLocationPolicy } = useMeshCore();
+  const gpsEnabled = useMeshStore((s) => s.deviceInfo?.gpsEnabled ?? false);
+  const { setLocation, setLocationPolicy, setLocationSource } = useMeshCore();
 
   const fmtDeg = (v?: number) => (v ? String(v) : '');
   // Seed from a coordinate the map picker just handed back (the store's
@@ -439,16 +446,6 @@ function LocationCard() {
   const [saving, setSaving] = useState(false);
   const [savingAdvertise, setSavingAdvertise] = useState(false);
   const [savingSource, setSavingSource] = useState(false);
-
-  // The advert policy collapses to `NONE` when advertising is off, losing the
-  // intended source, so keep the Fixed/GPS choice locally — seeded from the
-  // current policy at mount, defaulting to Fixed — and apply it when
-  // advertising is (re)enabled.
-  const [source, setSource] = useState<number>(() =>
-    useMeshStore.getState().selfInfo?.advLocPolicy === ADVERT_LOC_POLICY.SHARE
-      ? ADVERT_LOC_POLICY.SHARE
-      : ADVERT_LOC_POLICY.PREFS,
-  );
 
   // Clear the consumed one-shot signal so a later remount seeds from the live
   // location, not a stale pick. Touches only the store, never local state.
@@ -467,20 +464,13 @@ function LocationCard() {
   const advertising =
     advLocPolicy !== undefined && advLocPolicy !== ADVERT_LOC_POLICY.NONE;
 
-  // Offer the GPS source only on GPS-capable radios; keep it listed if it's
-  // somehow the active source so the state isn't misrepresented.
-  const sources = LOCATION_SOURCES.filter(
-    (s) =>
-      s.policy !== ADVERT_LOC_POLICY.SHARE ||
-      hasGps ||
-      source === ADVERT_LOC_POLICY.SHARE,
-  );
-  // A lone Fixed option (non-GPS radio) is a pointless picker, so hide the
-  // selector entirely and just show the coordinate editor.
-  const showSource = sources.length > 1;
-  // Under the GPS source the radio supplies its own fix, so the
-  // fixed-coordinate editor is irrelevant and disabled.
-  const usingGps = source === ADVERT_LOC_POLICY.SHARE;
+  // The radio's location source, read straight from its GPS module state: on
+  // means the live fix is advertised, off means the fixed coordinate below is.
+  const usingGps = gpsEnabled;
+
+  // Offer the Fixed/GPS picker only on GPS-capable radios; a lone Fixed option
+  // is a pointless picker, so hide it and just show the coordinate editor.
+  const showSource = hasGps;
 
   // `Number` (not `parseFloat`) so trailing junk like "12abc" is rejected as
   // NaN rather than silently parsed to 12, matching RadioSettings' inputs.
@@ -505,27 +495,29 @@ function LocationCard() {
     setSaving(false);
   };
 
-  // Flip the advert policy between off (`NONE`) and the selected source.
+  // Flip the advert policy between off (`NONE`) and a location-bearing policy
+  // matching the current source, so peers get the right kind of coordinate.
   const toggleAdvertise = async () => {
     if (!editable || savingAdvertise) return;
     setSavingAdvertise(true);
-    await setLocationPolicy(advertising ? ADVERT_LOC_POLICY.NONE : source);
+    await setLocationPolicy(
+      advertising
+        ? ADVERT_LOC_POLICY.NONE
+        : usingGps
+          ? ADVERT_LOC_POLICY.SHARE
+          : ADVERT_LOC_POLICY.PREFS,
+    );
     setSavingAdvertise(false);
   };
 
-  // Switch the Fixed/GPS source. While advertising, this rewrites the live
-  // policy (and only commits the local choice once that succeeds); while off it
-  // just records the choice, applied when advertising is turned on.
-  const selectSource = async (next: number) => {
-    if (!editable || savingSource || next === source) return;
-    if (!advertising) {
-      setSource(next);
-      return;
-    }
+  // Switch the Fixed/GPS source by toggling the radio's GPS module. The store
+  // updates reactively via `onDeviceInfo` on success, so there's no local
+  // choice to keep; a failed write leaves the radio (and the UI) untouched.
+  const selectSource = async (nextUseGps: boolean) => {
+    if (!editable || savingSource || nextUseGps === usingGps) return;
     setSavingSource(true);
-    const ok = await setLocationPolicy(next);
+    await setLocationSource(nextUseGps);
     setSavingSource(false);
-    if (ok) setSource(next);
   };
 
   return (
@@ -568,15 +560,15 @@ function LocationCard() {
             aria-label={t('settings.locationSource')}
             className='inline-flex rounded-md border border-(--border-control) p-0.5'
           >
-            {sources.map(({ policy, label }) => {
-              const active = source === policy;
+            {LOCATION_SOURCES.map(({ useGps, label }) => {
+              const active = usingGps === useGps;
               return (
                 <button
-                  key={policy}
+                  key={label}
                   role='radio'
                   aria-checked={active}
                   disabled={!editable || savingSource}
-                  onClick={() => void selectSource(policy)}
+                  onClick={() => void selectSource(useGps)}
                   className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     active
                       ? 'bg-(--accent) font-semibold text-white'
