@@ -124,12 +124,12 @@ function initialView(
 export function MapView() {
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const contacts = useMeshStore((s) => s.contacts);
-  const adverts = useMeshStore((s) => s.advertCache);
+  const advertCache = useMeshStore((s) => s.advertCache);
 
   const self = useMemo(() => selfMapNode(selfInfo), [selfInfo]);
   const nodes = useMemo(
-    () => collectMapNodes(contacts, adverts, self?.pubkeyPrefix),
-    [contacts, adverts, self?.pubkeyPrefix],
+    () => collectMapNodes(contacts, advertCache, self?.pubkeyPrefix),
+    [contacts, advertCache, self?.pubkeyPrefix],
   );
 
   return <LeafletMap self={self} nodes={nodes} />;
