@@ -36,14 +36,14 @@ import {
   resolveInitialTheme,
   type Theme,
 } from '@/lib/theme/config';
-import { loadMapPrefs, saveMapPrefs, type MapPrefs } from '@/lib/map/config';
+import {
+  DEFAULT_UNIT_SYSTEM,
+  normalizeUnitSystem,
+  type UnitSystem,
+} from '@/lib/units/config';
+import { normalizeMapPrefs, type MapPrefs } from '@/lib/map/config';
+import { DEFAULT_AI_PREF, normalizeAiPref, type AiPref } from '@/lib/ai/pref';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
-
-/** localStorage key for the persisted {@link AutoAddConfig}. */
-const AUTOADD_STORAGE_KEY = 'meshcore.autoAddConfig';
-
-/** localStorage key for the persisted automation master switch. */
-const AUTOMATION_ENABLED_STORAGE_KEY = 'meshcore.automationEnabled';
 
 /** Cap on the in-memory automation audit log, newest kept. */
 const AUDIT_LOG_LIMIT = 200;
@@ -60,42 +60,15 @@ const DEFAULT_AUTOADD_CONFIG: AutoAddConfig = {
 };
 
 /**
- * Reads the persisted auto-add config from localStorage, falling back to
- * defaults (and on SSR).
+ * Normalizes an arbitrary (persisted or corrupt) value into an
+ * {@link AutoAddConfig}, shallow-merging over the defaults so a missing or
+ * stale field falls back rather than reaching the UI as `undefined`.
  */
-function loadAutoAddConfig(): AutoAddConfig {
-  if (typeof window === 'undefined') return DEFAULT_AUTOADD_CONFIG;
-  try {
-    const raw = window.localStorage.getItem(AUTOADD_STORAGE_KEY);
-    if (raw) return { ...DEFAULT_AUTOADD_CONFIG, ...JSON.parse(raw) };
-  } catch {}
-  return DEFAULT_AUTOADD_CONFIG;
-}
-
-/**
- * Reads the persisted automation master switch from localStorage, defaulting to
- * off (and on SSR) so automation never silently arms on a fresh device.
- */
-function loadAutomationEnabled(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return (
-      window.localStorage.getItem(AUTOMATION_ENABLED_STORAGE_KEY) === 'true'
-    );
-  } catch {
-    return false;
+function normalizeAutoAddConfig(raw: unknown): AutoAddConfig {
+  if (typeof raw === 'object' && raw !== null) {
+    return { ...DEFAULT_AUTOADD_CONFIG, ...(raw as Partial<AutoAddConfig>) };
   }
-}
-
-/** Persists the automation master switch to localStorage (best-effort). */
-function saveAutomationEnabled(enabled: boolean): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(
-      AUTOMATION_ENABLED_STORAGE_KEY,
-      String(enabled),
-    );
-  } catch {}
+  return DEFAULT_AUTOADD_CONFIG;
 }
 
 /** All filter values, in menu order; also the allowlist for persisted state. */
@@ -126,6 +99,7 @@ export const SETTINGS_SECTIONS = [
   'radio',
   'identity',
   'location',
+  'display',
   'ai',
   'automation',
   'danger',
@@ -149,9 +123,6 @@ export interface ContactView {
   pinFavorites: boolean;
 }
 
-/** localStorage key for the persisted {@link ContactView}. */
-const CONTACT_VIEW_STORAGE_KEY = 'meshcore.contactView';
-
 const DEFAULT_CONTACT_VIEW: ContactView = {
   filter: 'all',
   sort: 'az',
@@ -159,32 +130,45 @@ const DEFAULT_CONTACT_VIEW: ContactView = {
 };
 
 /**
- * Reads the persisted contacts-list view preferences from localStorage, falling
- * back to defaults (and on SSR).
+ * Normalizes an arbitrary (persisted or corrupt) value into a valid
+ * {@link ContactView}, dropping unrecognized filter/sort values back to their
+ * defaults so they can't reach the sidebar's exhaustive switches.
  */
-function loadContactView(): ContactView {
-  if (typeof window === 'undefined') return DEFAULT_CONTACT_VIEW;
-  try {
-    const raw = window.localStorage.getItem(CONTACT_VIEW_STORAGE_KEY);
-    if (raw) {
-      const parsed = { ...DEFAULT_CONTACT_VIEW, ...JSON.parse(raw) };
-      // Drop unrecognized filter/sort values (corrupt or stale schema) back to
-      // their defaults so they can't reach the sidebar's exhaustive switches.
-      return {
-        filter: CONTACT_FILTERS.includes(parsed.filter)
-          ? parsed.filter
-          : DEFAULT_CONTACT_VIEW.filter,
-        sort: CONTACT_SORTS.includes(parsed.sort)
-          ? parsed.sort
-          : DEFAULT_CONTACT_VIEW.sort,
-        pinFavorites:
-          typeof parsed.pinFavorites === 'boolean'
-            ? parsed.pinFavorites
-            : DEFAULT_CONTACT_VIEW.pinFavorites,
-      };
-    }
-  } catch {}
-  return DEFAULT_CONTACT_VIEW;
+function normalizeContactView(raw: unknown): ContactView {
+  const parsed = {
+    ...DEFAULT_CONTACT_VIEW,
+    ...(typeof raw === 'object' && raw !== null ? raw : {}),
+  } as ContactView;
+  return {
+    filter: CONTACT_FILTERS.includes(parsed.filter)
+      ? parsed.filter
+      : DEFAULT_CONTACT_VIEW.filter,
+    sort: CONTACT_SORTS.includes(parsed.sort)
+      ? parsed.sort
+      : DEFAULT_CONTACT_VIEW.sort,
+    pinFavorites:
+      typeof parsed.pinFavorites === 'boolean'
+        ? parsed.pinFavorites
+        : DEFAULT_CONTACT_VIEW.pinFavorites,
+  };
+}
+
+/**
+ * The per-radio user preferences persisted as one encrypted blob in IndexedDB
+ * (see `savePreferences`/`loadPreferences` in `lib/storage.ts`). Every field is
+ * settable only while a radio is connected, so none of these belong in
+ * localStorage — that layer is reserved for the pre-connect preferences
+ * (`locale`, `theme`). Loaded on connect via
+ * {@link MeshActions.restorePreferences} and saved on change from the
+ * `useMeshCore` connect flow.
+ */
+export interface RadioPreferences {
+  unitSystem: UnitSystem;
+  contactView: ContactView;
+  autoAddConfig: AutoAddConfig;
+  automationEnabled: boolean;
+  mapPrefs: MapPrefs | null;
+  aiPref: AiPref;
 }
 
 /**
@@ -244,6 +228,10 @@ interface MeshState {
   contactView: ContactView;
   locale: SupportedLocale;
   theme: Theme;
+  /** Measurement system used for displayed distances. */
+  unitSystem: UnitSystem;
+  /** Provider/model the AI settings picker last selected (never the key). */
+  aiPref: AiPref;
   /** Persisted viewport, or `null` until the user first pans/zooms the map. */
   mapPrefs: MapPrefs | null;
   toast: Toast | null;
@@ -309,7 +297,15 @@ interface MeshActions {
   setContactView: (view: ContactView) => void;
   setLocale: (locale: SupportedLocale) => void;
   setTheme: (theme: Theme) => void;
+  setUnitSystem: (unitSystem: UnitSystem) => void;
+  setAiPref: (aiPref: AiPref) => void;
   setMapPrefs: (prefs: MapPrefs) => void;
+  /**
+   * Folds a decrypted per-radio preferences blob into the store on connect,
+   * normalizing every field so a corrupt or partial record falls back to
+   * defaults. See {@link RadioPreferences}.
+   */
+  restorePreferences: (raw: unknown) => void;
   addMessage: (id: string, msg: Message) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
@@ -378,15 +374,17 @@ const initialState: MeshState = {
   channels: {},
   adverts: {},
   advertCache: {},
-  autoAddConfig: loadAutoAddConfig(),
+  autoAddConfig: DEFAULT_AUTOADD_CONFIG,
   msgHistory: {},
   activeConvo: null,
   scrollToMsgId: null,
   unreadMarkers: {},
-  contactView: loadContactView(),
+  contactView: DEFAULT_CONTACT_VIEW,
   locale: resolveInitialLocale(),
   theme: resolveInitialTheme(),
-  mapPrefs: loadMapPrefs(),
+  unitSystem: DEFAULT_UNIT_SYSTEM,
+  aiPref: DEFAULT_AI_PREF,
+  mapPrefs: null,
   toast: null,
   view: 'chat',
   mapPicking: false,
@@ -399,7 +397,7 @@ const initialState: MeshState = {
   commandPaletteOpen: false,
   settingsSection: null,
   aiKeyStatus: 'none',
-  automationEnabled: loadAutomationEnabled(),
+  automationEnabled: false,
   automationRules: [],
   stagedActions: [],
   auditLog: [],
@@ -433,29 +431,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   restoreAdvertCache: (cache) => set({ advertCache: cache }),
 
-  setAutoAddConfig: (autoAddConfig) => {
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem(
-          AUTOADD_STORAGE_KEY,
-          JSON.stringify(autoAddConfig),
-        );
-      } catch {}
-    }
-    set({ autoAddConfig });
-  },
+  setAutoAddConfig: (autoAddConfig) => set({ autoAddConfig }),
 
-  setContactView: (contactView) => {
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem(
-          CONTACT_VIEW_STORAGE_KEY,
-          JSON.stringify(contactView),
-        );
-      } catch {}
-    }
-    set({ contactView });
-  },
+  setContactView: (contactView) => set({ contactView }),
 
   setLocale: (locale) => {
     if (typeof window !== 'undefined') {
@@ -468,10 +446,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({ locale });
   },
 
-  setMapPrefs: (mapPrefs) => {
-    saveMapPrefs(mapPrefs);
-    set({ mapPrefs });
-  },
+  setMapPrefs: (mapPrefs) => set({ mapPrefs }),
 
   setTheme: (theme) => {
     if (typeof window !== 'undefined') {
@@ -481,6 +456,25 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       document.documentElement.dataset.theme = theme;
     }
     set({ theme });
+  },
+
+  setUnitSystem: (unitSystem) => set({ unitSystem }),
+
+  setAiPref: (aiPref) => set({ aiPref }),
+
+  restorePreferences: (raw) => {
+    const p = (
+      typeof raw === 'object' && raw !== null ? raw : {}
+    ) as Partial<RadioPreferences>;
+    set({
+      unitSystem: normalizeUnitSystem(p.unitSystem),
+      contactView: normalizeContactView(p.contactView),
+      autoAddConfig: normalizeAutoAddConfig(p.autoAddConfig),
+      automationEnabled:
+        typeof p.automationEnabled === 'boolean' ? p.automationEnabled : false,
+      mapPrefs: normalizeMapPrefs(p.mapPrefs),
+      aiPref: normalizeAiPref(p.aiPref),
+    });
   },
 
   addMessage: (id, msg) =>
@@ -620,10 +614,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setAiKeyStatus: (aiKeyStatus) => set({ aiKeyStatus }),
 
-  setAutomationEnabled: (automationEnabled) => {
-    saveAutomationEnabled(automationEnabled);
-    set({ automationEnabled });
-  },
+  setAutomationEnabled: (automationEnabled) => set({ automationEnabled }),
   restoreAutomationRules: (automationRules) => set({ automationRules }),
   addAutomationRule: (rule) =>
     set((state) => ({ automationRules: [...state.automationRules, rule] })),
@@ -652,7 +643,6 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   clearAuditLog: () => set({ auditLog: [] }),
   killSwitch: () => {
     // The kill switch disarms automation for good, not just this session.
-    saveAutomationEnabled(false);
     set({ automationEnabled: false, stagedActions: [] });
   },
 
@@ -660,18 +650,14 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({
       ...initialState,
       toast: get().toast,
-      // Auto-add config is a persistent user preference, not session state
-      autoAddConfig: get().autoAddConfig,
-      // Contacts-list view is a persistent user preference, not session state
-      contactView: get().contactView,
-      // Locale is a persistent user preference, not session state
+      // Locale is a global (pre-connect) preference kept in localStorage, not
+      // per-radio session state.
       locale: get().locale,
-      // Theme is a persistent user preference, not session state
+      // Theme is a global (pre-connect) preference kept in localStorage, not
+      // per-radio session state.
       theme: get().theme,
-      // Map preferences are a persistent user preference, not session state
-      mapPrefs: get().mapPrefs,
-      // The automation master switch persists across sessions/reconnects
-      automationEnabled: get().automationEnabled,
+      // Every other preference is per-radio (encrypted in IndexedDB) and
+      // reloaded on the next connect, so it resets to defaults here.
     }),
 }));
 
@@ -681,6 +667,24 @@ export function unreadCount(
   id: string,
 ): number {
   return (msgHistory[id] ?? []).filter((m) => m._unread).length;
+}
+
+/**
+ * Extracts the per-radio {@link RadioPreferences} slice from the store state,
+ * for encrypting into the preferences blob. See `savePreferences` in
+ * `lib/storage.ts` and the save subscription in `useMeshCore`.
+ */
+export function selectPreferences(
+  state: MeshState & MeshActions,
+): RadioPreferences {
+  return {
+    unitSystem: state.unitSystem,
+    contactView: state.contactView,
+    autoAddConfig: state.autoAddConfig,
+    automationEnabled: state.automationEnabled,
+    mapPrefs: state.mapPrefs,
+    aiPref: state.aiPref,
+  };
 }
 
 /**

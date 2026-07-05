@@ -26,6 +26,7 @@ import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
 import { AiSettingsBody } from './AiSettings';
 import { AutomationSettingsBody } from './AutomationPanel';
+import { SUPPORTED_UNIT_SYSTEMS, type UnitSystem } from '@/lib/units/config';
 
 /**
  * Settings page: device identity, firmware, radio configuration, and this
@@ -183,6 +184,8 @@ export function SettingsPage() {
           </Card>
 
           <LocationCard />
+
+          <DisplayCard />
 
           <Card
             title={t('settings.section.ai')}
@@ -709,6 +712,40 @@ function RebootCard() {
           {t('settings.reboot')}
         </button>
       )}
+    </Card>
+  );
+}
+
+/**
+ * The Display section: client-side presentation preferences. Currently offers
+ * the measurement system (metric/imperial) used for displayed distances,
+ * persisted per-radio in the encrypted preferences blob via the store.
+ */
+function DisplayCard() {
+  const { t } = useTranslation();
+  const unitSystem = useMeshStore((s) => s.unitSystem);
+  const setUnitSystem = useMeshStore((s) => s.setUnitSystem);
+
+  return (
+    <Card title={t('settings.section.display')} section='display'>
+      <div
+        className='flex items-center justify-between gap-3 py-1.5 text-xs'
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <span className='shrink-0 text-(--text2)'>{t('settings.units')}</span>
+        <select
+          value={unitSystem}
+          onChange={(e) => setUnitSystem(e.target.value as UnitSystem)}
+          aria-label={t('settings.units')}
+          className='cursor-pointer rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) transition-colors hover:border-(--accent) focus:border-(--accent) focus:outline-none'
+        >
+          {SUPPORTED_UNIT_SYSTEMS.map((u) => (
+            <option key={u} value={u}>
+              {t(`settings.units_${u}`)}
+            </option>
+          ))}
+        </select>
+      </div>
     </Card>
   );
 }

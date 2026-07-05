@@ -55,6 +55,7 @@
       "radio": "Radio settings",
       "identity": "Identity",
       "location": "Location",
+      "display": "Display settings",
       "ai": "AI settings",
       "automation": "Automation",
       "danger": "Device actions"
@@ -68,6 +69,7 @@
       "radio": "radio frequency bandwidth lora",
       "identity": "identity public key node name",
       "location": "location coordinates gps position",
+      "display": "display units metric imperial distance measurement",
       "ai": "ai llm api key anthropic claude assistant",
       "automation": "automation rules automate agent triggers tasks",
       "danger": "reboot restart device actions danger"
@@ -201,6 +203,7 @@
       "identity": "Identity",
       "radio": "Radio",
       "location": "Location",
+      "display": "Display",
       "ai": "AI",
       "automation": "Automation",
       "danger": "Device actions"
@@ -229,6 +232,9 @@
     "mhz": "{{value}} MHz",
     "khz": "{{value}} kHz",
     "dbm": "{{value}} dBm",
+    "units": "Units",
+    "units_metric": "Metric (km)",
+    "units_imperial": "Imperial (mi)",
     "edit": "Edit",
     "editRadio": "Edit radio settings",
     "radioEdit": {
@@ -450,6 +456,7 @@
     "location": "Location",
     "distance": "Distance",
     "distanceValue": "{{distance}} km · {{compass}}",
+    "distanceValueImperial": "{{distance}} mi · {{compass}}",
     "favorite": "☆ Favorite",
     "unfavorite": "★ Unfavorite",
     "resetRoute": "Reset route",

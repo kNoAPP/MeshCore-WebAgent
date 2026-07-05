@@ -70,6 +70,17 @@ State changes go through Zustand actions in `store/meshStore.ts` — never local
 component state for data that belongs in the store, and never `useEffect` for
 state that belongs in Zustand.
 
+## Persistence
+
+`localStorage` is reserved for pre-connect preferences only (`locale`, `theme`)
+— settings changeable before a radio is connected and needed synchronously at
+first paint. **Every other preference is per-radio and encrypted in IndexedDB**,
+carried in one `${pubkey}:preferences` blob decrypted on connect and saved on
+change. Message history, the advert cache, automation rules, and secrets follow
+the same per-radio encrypted pattern (`lib/storage.ts`, key from
+`deriveStorageKey`). See _Persisting Preferences_ in `AGENTS.md` for the exact
+steps to add a new preference.
+
 ## Internationalization
 
 All user-facing strings go through `react-i18next`'s `t()`, keyed against

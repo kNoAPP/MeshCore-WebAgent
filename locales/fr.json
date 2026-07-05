@@ -55,6 +55,7 @@
       "radio": "Paramètres radio",
       "identity": "Identité",
       "location": "Emplacement",
+      "display": "Paramètres d'affichage",
       "ai": "Paramètres IA",
       "automation": "Automatisation",
       "danger": "Actions de l'appareil"
@@ -68,6 +69,7 @@
       "radio": "radio fréquence bande passante lora",
       "identity": "identité clé publique nom de nœud",
       "location": "emplacement coordonnées gps position",
+      "display": "affichage unités métrique impérial distance mesure",
       "ai": "ia llm clé api anthropic claude assistant",
       "automation": "automatisation règles automatiser agent déclencheurs tâches",
       "danger": "redémarrer appareil actions danger"
@@ -201,6 +203,7 @@
       "identity": "Identité",
       "radio": "Radio",
       "location": "Localisation",
+      "display": "Affichage",
       "ai": "IA",
       "automation": "Automatisation",
       "danger": "Actions de l'appareil"
@@ -229,6 +232,9 @@
     "mhz": "{{value}} MHz",
     "khz": "{{value}} kHz",
     "dbm": "{{value}} dBm",
+    "units": "Unités",
+    "units_metric": "Métrique (km)",
+    "units_imperial": "Impérial (mi)",
     "edit": "Modifier",
     "editRadio": "Modifier les paramètres radio",
     "radioEdit": {
@@ -450,6 +456,7 @@
     "location": "Position",
     "distance": "Distance",
     "distanceValue": "{{distance}} km · {{compass}}",
+    "distanceValueImperial": "{{distance}} mi · {{compass}}",
     "favorite": "☆ Favori",
     "unfavorite": "★ Retirer des favoris",
     "resetRoute": "Réinitialiser la route",

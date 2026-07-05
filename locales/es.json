@@ -55,6 +55,7 @@
       "radio": "Ajustes de radio",
       "identity": "Identidad",
       "location": "Ubicación",
+      "display": "Ajustes de pantalla",
       "ai": "Ajustes de IA",
       "automation": "Automatización",
       "danger": "Acciones del dispositivo"
@@ -68,6 +69,7 @@
       "radio": "radio frecuencia ancho de banda lora",
       "identity": "identidad clave pública nombre de nodo",
       "location": "ubicación coordenadas gps posición",
+      "display": "pantalla unidades métrico imperial distancia medida",
       "ai": "ia llm clave api anthropic claude asistente",
       "automation": "automatización reglas automatizar agente disparadores tareas",
       "danger": "reiniciar dispositivo acciones peligro"
@@ -201,6 +203,7 @@
       "identity": "Identidad",
       "radio": "Radio",
       "location": "Ubicación",
+      "display": "Pantalla",
       "ai": "IA",
       "automation": "Automatización",
       "danger": "Acciones del dispositivo"
@@ -229,6 +232,9 @@
     "mhz": "{{value}} MHz",
     "khz": "{{value}} kHz",
     "dbm": "{{value}} dBm",
+    "units": "Unidades",
+    "units_metric": "Métrico (km)",
+    "units_imperial": "Imperial (mi)",
     "edit": "Editar",
     "editRadio": "Editar configuración de radio",
     "radioEdit": {
@@ -450,6 +456,7 @@
     "location": "Ubicación",
     "distance": "Distancia",
     "distanceValue": "{{distance}} km · {{compass}}",
+    "distanceValueImperial": "{{distance}} mi · {{compass}}",
     "favorite": "☆ Favorito",
     "unfavorite": "★ Quitar favorito",
     "resetRoute": "Restablecer ruta",

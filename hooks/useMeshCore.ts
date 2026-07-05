@@ -11,7 +11,12 @@ import {
   createBLETransport,
   createWiFiTransport,
 } from '@/lib/meshcore/transports';
-import { useMeshStore, channelConvoId, directConvoId } from '@/store/meshStore';
+import {
+  useMeshStore,
+  channelConvoId,
+  directConvoId,
+  selectPreferences,
+} from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
 import {
   loadRadioData,
@@ -20,6 +25,8 @@ import {
   loadAutomationRules,
   loadAdvertCache,
   saveAdvertCache,
+  loadPreferences,
+  savePreferences,
 } from '@/lib/storage';
 import {
   setSecretContext,
@@ -108,6 +115,12 @@ let storageKey: CryptoKey | null = null;
 // (larger) history blob, and vice versa.
 let advertSaveUnsub: (() => void) | null = null;
 let advertSaveTimer: ReturnType<typeof setTimeout> | null = null;
+// Independent save subscription/timer for the per-radio user-preferences blob
+// (unit system, contacts view, auto-add config, automation switch, map
+// viewport, AI picker). Kept separate from history/advert so a preference
+// change writes only the tiny prefs record.
+let prefsSaveUnsub: (() => void) | null = null;
+let prefsSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let syntheticAckSeq = 0;
 
 // Auto-reconnect state. Reopens the last device without a new user gesture
@@ -163,6 +176,7 @@ function teardownSession(flush = false): void {
     const c = useMeshStore.getState().client;
     flushHistory(c);
     flushAdvertCache(c);
+    flushPreferences(c);
   }
   clearReconnect();
   lastTransportFactory = null;
@@ -208,6 +222,19 @@ function flushAdvertCache(client: MeshCoreClient | null): void {
   }
 }
 
+// Encrypts and writes the current per-radio preferences immediately (bypassing
+// the debounce) so a drop or disconnect can't lose the latest preference edit.
+function flushPreferences(client: MeshCoreClient | null): void {
+  const pubkey = client?.selfInfo?.pubkey;
+  if (pubkey && storageKey) {
+    savePreferences(
+      pubkey,
+      storageKey,
+      selectPreferences(useMeshStore.getState()),
+    );
+  }
+}
+
 // Maps a connect/sync failure to a localized toast message: typed errors carry
 // a code that resolves to a specific string; anything else falls back to a
 // generic localized message so a raw English error never reaches the user.
@@ -242,6 +269,10 @@ function clearSessionState(): void {
   advertSaveTimer = null;
   advertSaveUnsub?.();
   advertSaveUnsub = null;
+  if (prefsSaveTimer) clearTimeout(prefsSaveTimer);
+  prefsSaveTimer = null;
+  prefsSaveUnsub?.();
+  prefsSaveUnsub = null;
   storageKey = null;
   // Drop the advert-diff baseline so the next session doesn't replay a prior
   // radio's adverts as "new" the moment automation subscribes.
@@ -470,6 +501,7 @@ export function useMeshCore() {
     restoreHistory,
     restoreAdvertCache,
     restoreAutomationRules,
+    restorePreferences,
     showToast,
   } = useMeshStore();
 
@@ -637,14 +669,20 @@ export function useMeshCore() {
           // automation rules, and the advert cache in parallel — independent
           // IndexedDB reads with no ordering dependency.
           setSecretContext(pubkey, key);
-          const [, saved, rules, advertCache] = await Promise.all([
+          const [, saved, rules, advertCache, prefs] = await Promise.all([
             loadPersistedApiKey(),
             loadRadioData(pubkey, key),
             loadAutomationRules<AutomationRule[]>(pubkey, key),
             loadAdvertCache(pubkey, key),
+            loadPreferences(pubkey, key),
           ]);
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);
           restoreAutomationRules(rules ?? []);
+          // Fold this radio's saved preferences in before the auto-add hydrate
+          // below, so the radio-sourced fields it merges over sit on top of the
+          // persisted app-only ones (e.g. showPublicKeys). A null/absent blob
+          // normalizes to defaults inside the action.
+          restorePreferences(prefs);
           // Merge the persisted cache under any adverts already heard during
           // this sync (the live entries are fresher).
           if (advertCache) {
@@ -680,6 +718,26 @@ export function useMeshCore() {
             advertSaveTimer = setTimeout(() => {
               advertSaveTimer = null;
               flushAdvertCache(c);
+            }, SAVE_DEBOUNCE_MS);
+          });
+
+          prefsSaveUnsub = useMeshStore.subscribe((state, prev) => {
+            // Any of the six per-radio preference fields changing triggers one
+            // debounced encrypt-and-write of the whole (tiny) prefs blob.
+            if (
+              state.unitSystem === prev.unitSystem &&
+              state.contactView === prev.contactView &&
+              state.autoAddConfig === prev.autoAddConfig &&
+              state.automationEnabled === prev.automationEnabled &&
+              state.mapPrefs === prev.mapPrefs &&
+              state.aiPref === prev.aiPref
+            ) {
+              return;
+            }
+            if (prefsSaveTimer) clearTimeout(prefsSaveTimer);
+            prefsSaveTimer = setTimeout(() => {
+              prefsSaveTimer = null;
+              flushPreferences(c);
             }, SAVE_DEBOUNCE_MS);
           });
         }
@@ -749,6 +807,7 @@ export function useMeshCore() {
       restoreHistory,
       restoreAdvertCache,
       restoreAutomationRules,
+      restorePreferences,
       setAutoAddConfig,
     ],
   );

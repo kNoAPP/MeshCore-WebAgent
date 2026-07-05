@@ -7,8 +7,8 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { setApiKey, forgetApiKey } from '@/lib/ai/secret';
+import { type AiPref } from '@/lib/ai/pref';
 import {
-  DEFAULT_PROVIDER_ID,
   getProvider,
   isProviderId,
   listProviders,
@@ -16,9 +16,6 @@ import {
   type LLMErrorKind,
   type ProviderId,
 } from '@/lib/ai/provider';
-
-/** localStorage key for the (non-sensitive) provider/model picker choice. */
-const AI_PREF_STORAGE_KEY = 'meshcore.aiModel';
 
 /** Max tokens for the manual test completion — a trivial round-trip. */
 const TEST_MAX_TOKENS = 256;
@@ -36,44 +33,6 @@ const ERROR_KEY = {
   unknown: 'settings.ai.error.unknown',
 } as const satisfies Record<LLMErrorKind, string>;
 
-/** The provider/model the picker last selected. */
-interface AiPref {
-  providerId: ProviderId;
-  model: string;
-}
-
-/** Reads the persisted picker choice, falling back to the default provider. */
-function loadAiPref(): AiPref {
-  const fallback: AiPref = {
-    providerId: DEFAULT_PROVIDER_ID,
-    model: getProvider(DEFAULT_PROVIDER_ID).models[0].id,
-  };
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(AI_PREF_STORAGE_KEY);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as Partial<AiPref>;
-    const providerId =
-      typeof parsed.providerId === 'string' && isProviderId(parsed.providerId)
-        ? parsed.providerId
-        : fallback.providerId;
-    const models = getProvider(providerId).models;
-    const model = models.some((m) => m.id === parsed.model)
-      ? (parsed.model as string)
-      : models[0].id;
-    return { providerId, model };
-  } catch {
-    return fallback;
-  }
-}
-
-/** Persists the picker choice (never a secret) to localStorage. */
-function saveAiPref(pref: AiPref): void {
-  try {
-    window.localStorage.setItem(AI_PREF_STORAGE_KEY, JSON.stringify(pref));
-  } catch {}
-}
-
 /**
  * The AI settings card body: bring-your-own LLM key entry, provider/model
  * picker, and a manual test call. Rendered inside the Settings page's AI card.
@@ -86,7 +45,10 @@ export function AiSettingsBody() {
   const keyStatus = useMeshStore((s) => s.aiKeyStatus);
   const connected = useMeshStore((s) => s.status === 'connected');
 
-  const [pref, setPref] = useState<AiPref>(loadAiPref);
+  // The provider/model picker choice is a per-radio preference, persisted in
+  // the encrypted preferences blob via the store (never localStorage).
+  const pref = useMeshStore((s) => s.aiPref);
+  const setAiPref = useMeshStore((s) => s.setAiPref);
   const [keyInput, setKeyInput] = useState('');
   const [remember, setRemember] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -100,14 +62,11 @@ export function AiSettingsBody() {
       providerId: id,
       model: getProvider(id).models[0].id,
     };
-    setPref(next);
-    saveAiPref(next);
+    setAiPref(next);
   };
 
   const pickModel = (model: string) => {
-    const next: AiPref = { ...pref, model };
-    setPref(next);
-    saveAiPref(next);
+    setAiPref({ ...pref, model });
   };
 
   const save = async () => {

@@ -84,6 +84,7 @@ export function AddContactModal() {
     autoAddConfig,
   } = useMeshStore();
   const selfInfo = useMeshStore((s) => s.selfInfo);
+  const unitSystem = useMeshStore((s) => s.unitSystem);
   // The cache can be viewed while disconnected, but adding a contact writes to
   // the radio — gate the per-row Add so it can't silently no-op offline.
   const connected = useMeshStore((s) => s.status === 'connected');
@@ -219,6 +220,7 @@ export function AddContactModal() {
                       selfInfo?.advLon,
                       a.advLat,
                       a.advLon,
+                      unitSystem,
                     );
                     return (
                       <div
