@@ -56,7 +56,6 @@ const DEFAULT_AUTOADD_CONFIG: AutoAddConfig = {
   sensor: false,
   overwriteOldest: false,
   maxHops: MAX_HOPS_NO_LIMIT,
-  showPublicKeys: false,
 };
 
 /**
@@ -169,6 +168,7 @@ export interface RadioPreferences {
   automationEnabled: boolean;
   mapPrefs: MapPrefs | null;
   aiPref: AiPref;
+  showFullPublicKeys: boolean;
 }
 
 /**
@@ -230,6 +230,11 @@ interface MeshState {
   theme: Theme;
   /** Measurement system used for displayed distances. */
   unitSystem: UnitSystem;
+  /**
+   * Whether public keys for contacts and adverts are shown full-length
+   * (otherwise truncated to a 4 + … + 4 hex preview).
+   */
+  showFullPublicKeys: boolean;
   /** Provider/model the AI settings picker last selected (never the key). */
   aiPref: AiPref;
   /** Persisted viewport, or `null` until the user first pans/zooms the map. */
@@ -298,6 +303,7 @@ interface MeshActions {
   setLocale: (locale: SupportedLocale) => void;
   setTheme: (theme: Theme) => void;
   setUnitSystem: (unitSystem: UnitSystem) => void;
+  setShowFullPublicKeys: (showFullPublicKeys: boolean) => void;
   setAiPref: (aiPref: AiPref) => void;
   setMapPrefs: (prefs: MapPrefs) => void;
   /**
@@ -383,6 +389,7 @@ const initialState: MeshState = {
   locale: resolveInitialLocale(),
   theme: resolveInitialTheme(),
   unitSystem: DEFAULT_UNIT_SYSTEM,
+  showFullPublicKeys: false,
   aiPref: DEFAULT_AI_PREF,
   mapPrefs: null,
   toast: null,
@@ -460,6 +467,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setUnitSystem: (unitSystem) => set({ unitSystem }),
 
+  setShowFullPublicKeys: (showFullPublicKeys) => set({ showFullPublicKeys }),
+
   setAiPref: (aiPref) => set({ aiPref }),
 
   restorePreferences: (raw) => {
@@ -474,6 +483,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         typeof p.automationEnabled === 'boolean' ? p.automationEnabled : false,
       mapPrefs: normalizeMapPrefs(p.mapPrefs),
       aiPref: normalizeAiPref(p.aiPref),
+      showFullPublicKeys:
+        typeof p.showFullPublicKeys === 'boolean'
+          ? p.showFullPublicKeys
+          : false,
     });
   },
 
@@ -684,6 +697,7 @@ export function selectPreferences(
     automationEnabled: state.automationEnabled,
     mapPrefs: state.mapPrefs,
     aiPref: state.aiPref,
+    showFullPublicKeys: state.showFullPublicKeys,
   };
 }
 

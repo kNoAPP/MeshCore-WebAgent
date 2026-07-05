@@ -42,12 +42,10 @@ export const MAX_HOPS_NO_LIMIT = 64;
 
 /**
  * Mirrors the radio's auto-add preferences (`manual_add_contacts` +
- * `autoadd_config`), plus one app-only field.
+ * `autoadd_config`).
  *
  * @remarks `maxHops` is the display hop count (0–63), or
  * {@link MAX_HOPS_NO_LIMIT} for no limit — not the radio's raw hop+1 byte.
- * `showPublicKeys` is a local display preference and is never sent to the
- * radio.
  */
 export interface AutoAddConfig {
   mode: 'all' | 'selected';
@@ -57,7 +55,6 @@ export interface AutoAddConfig {
   sensor: boolean;
   overwriteOldest: boolean;
   maxHops: number; // 0-63 display hops, or MAX_HOPS_NO_LIMIT
-  showPublicKeys: boolean;
 }
 
 /** A channel slot. Index 0 is the reserved Public channel. */

@@ -171,6 +171,16 @@ export const ADV_ICON: Record<number, string> = {
 };
 
 /**
+ * Formats a hex public key for display: the full string when `full` is set,
+ * otherwise a `4 + … + 4` hex preview (e.g. `a1b2…9f0e`). Keys shorter than the
+ * preview length are returned unchanged.
+ */
+export function formatPubkey(pubkey: string, full: boolean): string {
+  if (full || pubkey.length <= 8) return pubkey;
+  return `${pubkey.slice(0, 4)}…${pubkey.slice(-4)}`;
+}
+
+/**
  * Builds the `meshcore://contact/add` share URI for a contact — the same format
  * the official app encodes in its contact QR codes and accepts on import, so a
  * QR rendered from this string scans cleanly there. The `type` is the advert

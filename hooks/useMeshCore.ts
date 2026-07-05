@@ -681,8 +681,8 @@ export function useMeshCore() {
           restoreAutomationRules(rules ?? []);
           // Fold this radio's saved preferences in before the auto-add hydrate
           // below, so the radio-sourced fields it merges over sit on top of the
-          // persisted app-only ones (e.g. showPublicKeys). A null/absent blob
-          // normalizes to defaults inside the action.
+          // persisted app-only ones (e.g. showFullPublicKeys). A null/absent
+          // blob normalizes to defaults inside the action.
           restorePreferences(prefs);
           // Merge the persisted cache under any adverts already heard during
           // this sync (the live entries are fresher).
@@ -723,7 +723,7 @@ export function useMeshCore() {
           });
 
           prefsSaveUnsub = useMeshStore.subscribe((state, prev) => {
-            // Any of the six per-radio preference fields changing triggers one
+            // Any of the per-radio preference fields changing triggers one
             // debounced encrypt-and-write of the whole (tiny) prefs blob.
             if (
               state.unitSystem === prev.unitSystem &&
@@ -731,7 +731,8 @@ export function useMeshCore() {
               state.autoAddConfig === prev.autoAddConfig &&
               state.automationEnabled === prev.automationEnabled &&
               state.mapPrefs === prev.mapPrefs &&
-              state.aiPref === prev.aiPref
+              state.aiPref === prev.aiPref &&
+              state.showFullPublicKeys === prev.showFullPublicKeys
             ) {
               return;
             }
@@ -760,7 +761,7 @@ export function useMeshCore() {
         // instead of overwriting it. The mode always comes from the handshake;
         // the per-type bitmask needs CMD_GET_AUTOADD_CONFIG, which older
         // firmware lacks — when it's absent we keep the existing local values
-        // rather than wiping them. showPublicKeys is app-only, always local.
+        // rather than wiping them.
         const mode = c.manualAddMode;
         const bits = await c.readAutoAddBits();
         if (mode || bits) {

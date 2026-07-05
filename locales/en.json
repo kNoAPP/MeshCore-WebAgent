@@ -193,8 +193,7 @@
     "overwriteOldest": "Overwrite oldest non-favorite when contacts are full",
     "maxHops": "Auto-add max hops",
     "noLimit": "No limit",
-    "maxHopsHint": "Only add nodes heard within this many hops (0 = direct only; far right = no limit).",
-    "showPublicKeys": "Show public keys in contact details"
+    "maxHopsHint": "Only add nodes heard within this many hops (0 = direct only; far right = no limit)."
   },
   "settings": {
     "title": "⚙ Settings",
@@ -235,6 +234,7 @@
     "units": "Units",
     "units_metric": "Metric (km)",
     "units_imperial": "Imperial (mi)",
+    "showFullPublicKeys": "Show full public keys",
     "edit": "Edit",
     "editRadio": "Edit radio settings",
     "radioEdit": {
