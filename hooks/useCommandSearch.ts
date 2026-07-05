@@ -121,10 +121,25 @@ export function useCommandSearch(query: string): CommandGroup[] {
     return new Fuse<ContactRecord>(records, CONTACT_FUSE_OPTIONS);
   }, [contacts]);
 
-  const advertFuse = useMemo(() => {
-    const records = buildAdvertRecords(advertCache, contacts);
-    return new Fuse<AdvertRecord>(records, ADVERT_FUSE_OPTIONS);
-  }, [advertCache, contacts]);
+  // The advert cache gets a fresh reference on every heard batch (many per
+  // second on a busy mesh), but a batch that only bumps `lastHeard` changes
+  // neither the searchable name nor the key set. Key the (comparatively
+  // expensive) Fuse rebuild on the record content so the index isn't
+  // reconstructed under the user mid-search — only when a name or the node set
+  // actually changes.
+  const advertRecords = useMemo(
+    () => buildAdvertRecords(advertCache, contacts),
+    [advertCache, contacts],
+  );
+  const advertSig = useMemo(
+    () => advertRecords.map((r) => `${r.prefix}:${r.name}`).join('|'),
+    [advertRecords],
+  );
+  const advertFuse = useMemo(
+    () => new Fuse<AdvertRecord>(advertRecords, ADVERT_FUSE_OPTIONS),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [advertSig],
+  );
 
   const channelFuse = useMemo(() => {
     const records = buildChannelRecords(
