@@ -30,6 +30,7 @@ import {
   ADV_TYPE_REPEATER,
   FAVORITE_FLAG,
   ERR_CODE,
+  ADVERT_LOC_POLICY,
 } from '@/lib/meshcore/constants';
 import { splitPathHashes } from '@/lib/meshcore/parsers';
 import { toHex, fromHex, bytesEqual } from '@/lib/utils';
@@ -1236,6 +1237,50 @@ export function useMeshCore() {
   );
 
   /**
+   * Sets the radio's advert location *source* (Fixed vs GPS) by toggling its
+   * GPS module (`SET_CUSTOM_VAR` `gps`) — the field the radio actually uses to
+   * decide whether an advert carries the live fix or the stored fixed
+   * coordinate, and the one the official app's Position Settings → GPS Mode
+   * reads. While location is being advertised (policy not `NONE`), the
+   * `advert_loc_policy` is realigned to `SHARE`/`PREFS` so the choice also
+   * round-trips on repeater/sensor firmware, where those values differ. When
+   * off, only the GPS var is written so the source is remembered for next time.
+   *
+   * The policy realignment runs first: its prefs-guard throw (older firmware
+   * whose `SELF_INFO` was too short to echo the other prefs) is the one
+   * deterministic failure here, so surfacing it before the GPS module is
+   * touched keeps a rejected write from leaving the source and policy out of
+   * sync.
+   *
+   * @returns whether every needed write succeeded.
+   */
+  const setLocationSource = useCallback(
+    async (useGps: boolean): Promise<boolean> => {
+      if (!canTransmit(client)) return false;
+      try {
+        const policy = client.selfInfo?.advLocPolicy;
+        if (policy !== undefined && policy !== ADVERT_LOC_POLICY.NONE) {
+          await client.setLocationPolicy(
+            useGps ? ADVERT_LOC_POLICY.SHARE : ADVERT_LOC_POLICY.PREFS,
+          );
+        }
+        await client.setGpsEnabled(useGps);
+        showToast(i18n.t('toast.locationSourceSaved'), 'success');
+        return true;
+      } catch (err) {
+        showToast(
+          i18n.t('toast.locationSourceSaveFailed', {
+            error: (err as Error).message,
+          }),
+          'error',
+        );
+        return false;
+      }
+    },
+    [client, showToast],
+  );
+
+  /**
    * Writes the radio parameters to the device. Frequency/bandwidth/SF/CR go in
    * one `SET_RADIO_PARAMS` command and TX power in a separate `SET_TX_POWER`;
    * each is sent only when its value actually changed, and the store updates
@@ -1346,6 +1391,7 @@ export function useMeshCore() {
     setNodeName,
     setLocation,
     setLocationPolicy,
+    setLocationSource,
     applyRadioParams,
     applyAutoAddConfig,
     rebootDevice,

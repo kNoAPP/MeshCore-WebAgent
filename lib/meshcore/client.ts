@@ -36,6 +36,7 @@ import {
   buildSyncNextMessage,
   buildGetBattery,
   buildGetCustomVars,
+  buildSetCustomVar,
   buildGetStats,
   buildSendChannelMsg,
   buildSendDirectMsg,
@@ -593,15 +594,21 @@ export class MeshCoreClient {
   }
 
   // Probes the radio's hardware capabilities via CMD_GET_CUSTOM_VARS and folds
-  // the result into deviceInfo. Only GPS presence is used today: a GPS-equipped
-  // radio lists a `gps` sensor setting, boards without one list none. Fires
-  // onDeviceInfo again so Settings can offer the device-GPS location source
-  // only when it's real.
+  // the result into deviceInfo. A GPS-equipped radio lists a `gps` sensor
+  // setting (boards without one list none), whose value (`1`/`0`) is the live
+  // GPS enable — the radio's location *source*. Both feed Settings: `hasGps`
+  // gates whether the GPS source is offered, `gpsEnabled` reflects the current
+  // choice. Fires onDeviceInfo again so Settings updates once it's known.
   private async syncDeviceCapabilities(): Promise<void> {
     const d = await this.cmd(buildGetCustomVars(), [RESP.CUSTOM_VARS], 5000);
-    const hasGps = 'gps' in parseCustomVars(d);
+    const vars = parseCustomVars(d);
+    const hasGps = 'gps' in vars;
     if (this.deviceInfo) {
-      this.deviceInfo = { ...this.deviceInfo, hasGps };
+      this.deviceInfo = {
+        ...this.deviceInfo,
+        hasGps,
+        gpsEnabled: hasGps ? vars.gps === '1' : undefined,
+      };
       this.callbacks.onDeviceInfo?.(this.deviceInfo);
     }
   }
@@ -894,6 +901,29 @@ export class MeshCoreClient {
     );
     this.selfInfo = { ...info, advLocPolicy: policy };
     this.callbacks.onSelfInfo?.(this.selfInfo);
+  }
+
+  /**
+   * Enables or disables the radio's GPS module (`SET_CUSTOM_VAR` `gps`) — the
+   * radio's advert location *source*. Enabled attaches the live GPS fix,
+   * disabled attaches the fixed coordinate set via {@link setLocation}. Mirrors
+   * the official app's Position Settings → GPS Mode. On success, updates the
+   * local `deviceInfo` mirror and fires {@link MeshCoreCallbacks.onDeviceInfo}
+   * so Settings reflects it immediately.
+   *
+   * @param enabled - whether the GPS module should be on.
+   * @throws if the radio rejects the write (`ERR`) or the command times out.
+   */
+  async setGpsEnabled(enabled: boolean): Promise<void> {
+    await this.cmd(
+      buildSetCustomVar('gps', enabled ? '1' : '0'),
+      [RESP.OK],
+      5000,
+    );
+    if (this.deviceInfo) {
+      this.deviceInfo = { ...this.deviceInfo, gpsEnabled: enabled };
+      this.callbacks.onDeviceInfo?.(this.deviceInfo);
+    }
   }
 
   /**

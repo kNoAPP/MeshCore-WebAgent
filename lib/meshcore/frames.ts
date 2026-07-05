@@ -105,6 +105,25 @@ export function buildGetCustomVars(): Uint8Array {
 }
 
 /**
+ * Sets one sensor-manager custom var (`SET_CUSTOM_VAR`) — the payload is the
+ * command byte followed by an ASCII `name:value` pair (no terminator). Used to
+ * toggle the radio's GPS module via `gps:1` / `gps:0`, which the firmware folds
+ * into its persisted `gps_enabled` pref.
+ *
+ * @param name - the var name (e.g. `gps`).
+ * @param value - the var value (e.g. `1` or `0`).
+ * @see `CMD_SET_CUSTOM_VAR` in the companion radio's `MyMesh.cpp`, which splits
+ * on the `:` and calls `sensors.setSettingValue(name, value)`.
+ */
+export function buildSetCustomVar(name: string, value: string): Uint8Array {
+  const body = enc.encode(`${name}:${value}`);
+  const p = new Uint8Array(1 + body.length);
+  p[0] = CMD.SET_CUSTOM_VAR;
+  p.set(body, 1);
+  return p;
+}
+
+/**
  * Requests one channel slot's `CHANNEL_INFO`.
  *
  * @param idx - channel index 0–7; 0 is the reserved Public channel.

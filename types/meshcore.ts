@@ -179,6 +179,14 @@ export interface DeviceInfo {
    * firmware too old to support it.
    */
   hasGps?: boolean;
+  /**
+   * Whether the radio's GPS module is enabled — the value of the `gps` custom
+   * var (`gps:1`). This is the radio's location *source*: enabled advertises a
+   * live fix, disabled advertises the fixed coordinate set via
+   * `SET_ADVERT_LATLON`. Mirrors the official app's Position Settings → GPS
+   * Mode. `undefined` until `CUSTOM_VARS` is read, or on a radio without GPS.
+   */
+  gpsEnabled?: boolean;
 }
 
 /** Battery voltage (mV) and flash storage usage (KB). */
