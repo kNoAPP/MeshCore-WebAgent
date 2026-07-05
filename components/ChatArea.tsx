@@ -14,7 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { ADV_ICON, utf8ByteLength } from '@/lib/utils';
+import { ADV_ICON, utf8ByteLength, formatPubkey } from '@/lib/utils';
 import { formatDateDivider } from '@/lib/i18n/format';
 import { flashTarget } from '@/lib/ui/flash';
 import { MessageBubble } from './MessageBubble';
@@ -69,6 +69,7 @@ export function ChatArea() {
   const { activeConvo, msgHistory, contacts, deviceName } = useMeshStore();
   const scrollToMsgId = useMeshStore((s) => s.scrollToMsgId);
   const setScrollToMsgId = useMeshStore((s) => s.setScrollToMsgId);
+  const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
   const unreadMarker = useMeshStore((s) =>
     activeConvo ? (s.unreadMarkers[activeConvo.id] ?? null) : null,
   );
@@ -305,7 +306,10 @@ export function ChatArea() {
         <span className='ml-auto text-xs text-(--text2)'>
           {activeConvo.kind === 'channel'
             ? t('common.channelName', { index: activeConvo.rawId })
-            : (activeConvo.rawId as string).slice(0, 16) + '…'}
+            : formatPubkey(
+                directContact?.pubkey ?? (activeConvo.rawId as string),
+                showFullPublicKeys,
+              )}
         </span>
       </div>
 

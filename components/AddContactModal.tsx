@@ -13,6 +13,7 @@ import {
   ADV_ICON,
   ADV_LABEL_KEY,
   formatLatLon,
+  formatPubkey,
   fromHex,
   parseContactUri,
 } from '@/lib/utils';
@@ -76,15 +77,11 @@ const TYPE_OPTIONS = [
  */
 export function AddContactModal() {
   const { t } = useTranslation();
-  const {
-    addContactOpen,
-    setAddContactOpen,
-    advertCache,
-    contacts,
-    autoAddConfig,
-  } = useMeshStore();
+  const { addContactOpen, setAddContactOpen, advertCache, contacts } =
+    useMeshStore();
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const unitSystem = useMeshStore((s) => s.unitSystem);
+  const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
   // The cache can be viewed while disconnected, but adding a contact writes to
   // the radio — gate the per-row Add so it can't silently no-op offline.
   const connected = useMeshStore((s) => s.status === 'connected');
@@ -240,9 +237,8 @@ export function AddContactModal() {
                                 a.advType as keyof typeof ADV_LABEL_KEY
                               ] ?? 'discover.node',
                             )}{' '}
-                            · {formatRelative(a.lastHeard)}
-                            {autoAddConfig.showPublicKeys &&
-                              ` · ${a.pubkeyPrefix}`}
+                            · {formatRelative(a.lastHeard)} ·{' '}
+                            {formatPubkey(a.pubkey, showFullPublicKeys)}
                           </div>
                           {location && (
                             <div className='truncate text-xs text-(--text2)'>

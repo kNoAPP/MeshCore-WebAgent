@@ -193,8 +193,7 @@
     "overwriteOldest": "Ältesten Nicht-Favoriten überschreiben, wenn Kontakte voll sind",
     "maxHops": "Maximale Hops zum Auto-Hinzufügen",
     "noLimit": "Kein Limit",
-    "maxHopsHint": "Nur Knoten hinzufügen, die innerhalb dieser Anzahl an Hops gehört wurden (0 = nur direkt; ganz rechts = kein Limit).",
-    "showPublicKeys": "Öffentliche Schlüssel in Kontaktdetails anzeigen"
+    "maxHopsHint": "Nur Knoten hinzufügen, die innerhalb dieser Anzahl an Hops gehört wurden (0 = nur direkt; ganz rechts = kein Limit)."
   },
   "settings": {
     "title": "⚙ Einstellungen",
@@ -235,6 +234,7 @@
     "units": "Einheiten",
     "units_metric": "Metrisch (km)",
     "units_imperial": "Imperial (mi)",
+    "showFullPublicKeys": "Vollständige öffentliche Schlüssel anzeigen",
     "edit": "Bearbeiten",
     "editRadio": "Funkeinstellungen bearbeiten",
     "radioEdit": {

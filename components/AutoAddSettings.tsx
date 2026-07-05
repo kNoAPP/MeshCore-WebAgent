@@ -116,12 +116,6 @@ function AutoAddSettingsPanel() {
             {t('autoAdd.maxHopsHint')}
           </p>
         </label>
-
-        <Check
-          label={t('autoAdd.showPublicKeys')}
-          checked={cfg.showPublicKeys}
-          onChange={(v) => patch({ showPublicKeys: v })}
-        />
       </div>
 
       <div className='mt-6 flex justify-end gap-2'>

@@ -193,8 +193,7 @@
     "overwriteOldest": "Sobrescribir el más antiguo no favorito cuando los contactos estén llenos",
     "maxHops": "Saltos máximos para auto-añadir",
     "noLimit": "Sin límite",
-    "maxHopsHint": "Solo añadir nodos escuchados dentro de esta cantidad de saltos (0 = solo directos; extremo derecho = sin límite).",
-    "showPublicKeys": "Mostrar claves públicas en los detalles del contacto"
+    "maxHopsHint": "Solo añadir nodos escuchados dentro de esta cantidad de saltos (0 = solo directos; extremo derecho = sin límite)."
   },
   "settings": {
     "title": "⚙ Configuración",
@@ -235,6 +234,7 @@
     "units": "Unidades",
     "units_metric": "Métrico (km)",
     "units_imperial": "Imperial (mi)",
+    "showFullPublicKeys": "Mostrar claves públicas completas",
     "edit": "Editar",
     "editRadio": "Editar configuración de radio",
     "radioEdit": {

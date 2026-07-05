@@ -22,6 +22,7 @@ import {
   deriveHashtagSecret,
   bytesEqual,
   formatLatLon,
+  formatPubkey,
 } from '@/lib/utils';
 import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
 import {
@@ -51,16 +52,11 @@ export function ManagePanel() {
 
 function ManagePanelView() {
   const { t } = useTranslation();
-  const {
-    managePanel,
-    setManagePanel,
-    contacts,
-    channels,
-    advertCache,
-    autoAddConfig,
-  } = useMeshStore();
+  const { managePanel, setManagePanel, contacts, channels, advertCache } =
+    useMeshStore();
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const unitSystem = useMeshStore((s) => s.unitSystem);
+  const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
   // Adding a cached advert writes to the radio, so it needs a live link. The
   // cache can be viewed while disconnected (map/palette), so gate the action.
   const connected = useMeshStore((s) => s.status === 'connected');
@@ -144,11 +140,7 @@ function ManagePanelView() {
           />
           <DetailRow
             label={t('manage.publicKey')}
-            value={
-              autoAddConfig.showPublicKeys
-                ? advert.pubkey
-                : `${advert.pubkeyPrefix}…`
-            }
+            value={formatPubkey(advert.pubkey, showFullPublicKeys)}
             mono
             copy={advert.pubkey}
           />
@@ -220,11 +212,7 @@ function ManagePanelView() {
             />
             <DetailRow
               label={t('manage.publicKey')}
-              value={
-                autoAddConfig.showPublicKeys
-                  ? contact.pubkey
-                  : `${contact.pubkeyPrefix}…`
-              }
+              value={formatPubkey(contact.pubkey, showFullPublicKeys)}
               mono
               copy={contact.pubkey}
             />

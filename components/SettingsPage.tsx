@@ -724,8 +724,9 @@ function RebootCard() {
 /**
  * The Display section: client-side presentation preferences. Offers the UI
  * language (mirrors the connect-screen header selector, persisted in
- * `localStorage`) and the measurement system (metric/imperial) used for
- * displayed distances (persisted per-radio in the encrypted preferences blob).
+ * `localStorage`), the measurement system (metric/imperial) used for
+ * displayed distances, and whether public keys are shown full-length (both
+ * persisted per-radio in the encrypted preferences blob).
  */
 function DisplayCard() {
   const { t } = useTranslation();
@@ -733,6 +734,8 @@ function DisplayCard() {
   const setLocale = useMeshStore((s) => s.setLocale);
   const unitSystem = useMeshStore((s) => s.unitSystem);
   const setUnitSystem = useMeshStore((s) => s.setUnitSystem);
+  const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
+  const setShowFullPublicKeys = useMeshStore((s) => s.setShowFullPublicKeys);
 
   const selectClass =
     'cursor-pointer rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) transition-colors hover:border-(--accent) focus:border-(--accent) focus:outline-none';
@@ -776,6 +779,29 @@ function DisplayCard() {
           ))}
         </select>
       </div>
+      <button
+        role='switch'
+        aria-checked={showFullPublicKeys}
+        onClick={() => setShowFullPublicKeys(!showFullPublicKeys)}
+        className='flex w-full items-center justify-between gap-3 border-t py-1.5 text-left text-xs text-(--text)'
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <span className='shrink-0 text-(--text2)'>
+          {t('settings.showFullPublicKeys')}
+        </span>
+        <span
+          className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+          style={{
+            background: showFullPublicKeys ? 'var(--accent)' : 'var(--border)',
+          }}
+        >
+          <span
+            className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+              showFullPublicKeys ? 'left-3.5' : 'left-0.5'
+            }`}
+          />
+        </span>
+      </button>
     </Card>
   );
 }

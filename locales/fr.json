@@ -193,8 +193,7 @@
     "overwriteOldest": "Écraser le plus ancien non-favori quand les contacts sont pleins",
     "maxHops": "Sauts max pour l'ajout automatique",
     "noLimit": "Sans limite",
-    "maxHopsHint": "N'ajouter que les nœuds entendus dans cette limite de sauts (0 = direct uniquement ; tout à droite = sans limite).",
-    "showPublicKeys": "Afficher les clés publiques dans les détails du contact"
+    "maxHopsHint": "N'ajouter que les nœuds entendus dans cette limite de sauts (0 = direct uniquement ; tout à droite = sans limite)."
   },
   "settings": {
     "title": "⚙ Paramètres",
@@ -235,6 +234,7 @@
     "units": "Unités",
     "units_metric": "Métrique (km)",
     "units_imperial": "Impérial (mi)",
+    "showFullPublicKeys": "Afficher les clés publiques complètes",
     "edit": "Modifier",
     "editRadio": "Modifier les paramètres radio",
     "radioEdit": {

@@ -949,8 +949,7 @@ export class MeshCoreClient {
    * mode, then `SET_AUTOADD_CONFIG` for the filter + hop limit).
    *
    * @remarks The hop count is converted to the radio's hop+1 encoding here; see
-   * {@link readAutoAddBits} for the inverse. `showPublicKeys` is app-only and
-   * not sent.
+   * {@link readAutoAddBits} for the inverse.
    */
   async setAutoAddPrefs(cfg: AutoAddConfig): Promise<void> {
     const manual = cfg.mode === 'all' ? MANUAL_ADD_OFF : MANUAL_ADD_ON;
