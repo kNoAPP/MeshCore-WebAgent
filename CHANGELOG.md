@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.16.1](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.16.0...v1.16.1) (2026-07-05)
+
+
+### Bug Fixes
+
+* **settings:** back location source with gps custom var ([#149](https://github.com/kNoAPP/MeshCore-WebAgent/issues/149)) ([ed0995e](https://github.com/kNoAPP/MeshCore-WebAgent/commit/ed0995e8d4fb6453583247018995fccd65c68f72))
+
 ## [1.16.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.15.0...v1.16.0) (2026-07-05)
 
 
