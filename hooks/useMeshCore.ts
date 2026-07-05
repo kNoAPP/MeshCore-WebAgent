@@ -735,6 +735,15 @@ export function useMeshCore() {
             ) {
               return;
             }
+            // Disarming automation (kill switch or toggle) is safety-relevant
+            // and must persist "for good" — write it immediately rather than
+            // risking the debounce window to a tab close or a link drop.
+            if (prev.automationEnabled && !state.automationEnabled) {
+              if (prefsSaveTimer) clearTimeout(prefsSaveTimer);
+              prefsSaveTimer = null;
+              flushPreferences(c);
+              return;
+            }
             if (prefsSaveTimer) clearTimeout(prefsSaveTimer);
             prefsSaveTimer = setTimeout(() => {
               prefsSaveTimer = null;
