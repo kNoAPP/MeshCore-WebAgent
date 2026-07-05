@@ -149,6 +149,10 @@ function LeafletMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
+  // Signature of the currently plotted markers; lets the marker effect skip a
+  // rebuild when nothing changed. Reset whenever the layer is (re)created so a
+  // fresh, empty layer is always repopulated (e.g. StrictMode's remount).
+  const markerSigRef = useRef<string>('');
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   // When set (from Settings' Location card), the map runs in location-pick
   // mode: a confirm/cancel banner and a draggable click-to-place pin.
@@ -215,6 +219,9 @@ function LeafletMap({
     }
 
     markerLayerRef.current = L.layerGroup().addTo(map);
+    // A brand-new, empty layer: force the next marker effect to rebuild rather
+    // than short-circuit on a signature left over from the previous layer.
+    markerSigRef.current = '';
 
     // `noWrap` keeps the basemap to one world (matching the bounded view);
     // `detectRetina` swaps in `@2x` tiles (via the `{r}` token) on hi-DPI
@@ -260,7 +267,6 @@ function LeafletMap({
   // so skip the (up to MAX_MAP_MARKERS) DOM rebuild when nothing actually
   // plotted changed — a refresh that only bumps `lastHeard`, or touches an
   // off-map/over-cap node, moves no marker and must not churn the layer.
-  const markerSigRef = useRef<string>('');
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
