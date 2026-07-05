@@ -646,8 +646,7 @@ export function useMeshCore() {
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);
           restoreAutomationRules(rules ?? []);
           // Merge the persisted cache under any adverts already heard during
-          // this sync (the live entries are fresher), then persist that
-          // baseline back so it's not lost if no further advert arrives.
+          // this sync (the live entries are fresher).
           if (advertCache) {
             restoreAdvertCache(
               mergeAdvertCache(
@@ -655,8 +654,11 @@ export function useMeshCore() {
                 useMeshStore.getState().advertCache,
               ),
             );
-            flushAdvertCache(c);
           }
+          // Persist the current cache now — even on a first connect with no
+          // stored record — so adverts already heard during this sync (before
+          // the subscription below is wired) aren't lost until the next one.
+          flushAdvertCache(c);
 
           saveUnsub = useMeshStore.subscribe((state, prev) => {
             if (state.msgHistory === prev.msgHistory) return;
