@@ -161,6 +161,65 @@ async function idbDelete(store: string, key: string): Promise<void> {
 }
 
 /**
+ * Encrypts `value` (already-serialized plaintext) with AES-256-GCM under a
+ * fresh random IV and writes it to `store` at `key`. The single
+ * encrypt-and-write path behind every `save*` helper. Best-effort — any failure
+ * (e.g. IndexedDB unavailable) is swallowed.
+ *
+ * @param cryptoKey - the key from {@link deriveStorageKey} for this radio.
+ * @returns true if the record was written, false if the write failed (so
+ * callers that surface persistence state don't report a false success).
+ */
+async function putEncrypted(
+  store: string,
+  key: string,
+  cryptoKey: CryptoKey,
+  value: string,
+): Promise<boolean> {
+  try {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = new TextEncoder().encode(value);
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      cryptoKey,
+      plaintext.buffer as ArrayBuffer,
+    );
+    await idbPut(store, key, { iv, data: ciphertext });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reads and decrypts the record at `store`/`key`, returning the plaintext
+ * string. The single read-and-decrypt path behind every `load*` helper.
+ *
+ * @param cryptoKey - the key from {@link deriveStorageKey} for this radio.
+ * @returns the decoded plaintext, or null if nothing is stored or decryption
+ * fails (wrong key / different radio / corrupt record) — a different radio is
+ * indistinguishable from an absent record, which is the intended property.
+ */
+async function getDecrypted(
+  store: string,
+  key: string,
+  cryptoKey: CryptoKey,
+): Promise<string | null> {
+  try {
+    const record = await idbGet(store, key);
+    if (!record) return null;
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: record.iv },
+      cryptoKey,
+      record.data,
+    );
+    return new TextDecoder().decode(plaintext);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Encrypts and stores a radio's data under its public key. Best-effort — any
  * failure (e.g. IndexedDB unavailable) is swallowed.
  *
@@ -171,16 +230,7 @@ export async function saveRadioData(
   key: CryptoKey,
   data: PersistedRadioData,
 ): Promise<void> {
-  try {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const plaintext = new TextEncoder().encode(JSON.stringify(data));
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      plaintext.buffer as ArrayBuffer,
-    );
-    await idbPut(STORE_NAME, pubkey, { iv, data: ciphertext });
-  } catch {}
+  await putEncrypted(STORE_NAME, pubkey, key, JSON.stringify(data));
 }
 
 /**
@@ -194,29 +244,19 @@ export async function loadRadioData(
   pubkey: string,
   key: CryptoKey,
 ): Promise<PersistedRadioData | null> {
-  try {
-    const record = await idbGet(STORE_NAME, pubkey);
-    if (!record) return null;
-    const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: record.iv },
-      key,
-      record.data,
-    );
-    return JSON.parse(
-      new TextDecoder().decode(plaintext),
-    ) as PersistedRadioData;
-  } catch {
-    // Decryption failure = wrong key (different radio) or corrupt data — treat
-    // as empty
-    return null;
-  }
+  const plaintext = await getDecrypted(STORE_NAME, pubkey, key);
+  return plaintext === null
+    ? null
+    : (JSON.parse(plaintext) as PersistedRadioData);
 }
 
-// The IndexedDB key under which a named secret is stored for a given radio.
-// Namespacing by pubkey keeps one radio's secrets from colliding with another's
-// in the shared secrets store.
-function secretRecordKey(pubkey: string, name: string): string {
-  return `${pubkey}:${name}`;
+// Namespaced IndexedDB key for a per-radio record: the pubkey plus a fixed
+// suffix (a secret's name, `automation-rules`, `advert-cache`, `preferences`).
+// Namespacing by pubkey keeps one radio's records from colliding with
+// another's in a shared store. The bare pubkey (no suffix) is the message
+// history record.
+function recordKey(pubkey: string, suffix: string): string {
+  return `${pubkey}:${suffix}`;
 }
 
 /**
@@ -237,22 +277,7 @@ export async function saveSecret(
   name: string,
   value: string,
 ): Promise<boolean> {
-  try {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const plaintext = new TextEncoder().encode(value);
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      plaintext.buffer as ArrayBuffer,
-    );
-    await idbPut(SECRETS_STORE, secretRecordKey(pubkey, name), {
-      iv,
-      data: ciphertext,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return putEncrypted(SECRETS_STORE, recordKey(pubkey, name), key, value);
 }
 
 /**
@@ -268,18 +293,7 @@ export async function loadSecret(
   key: CryptoKey,
   name: string,
 ): Promise<string | null> {
-  try {
-    const record = await idbGet(SECRETS_STORE, secretRecordKey(pubkey, name));
-    if (!record) return null;
-    const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: record.iv },
-      key,
-      record.data,
-    );
-    return new TextDecoder().decode(plaintext);
-  } catch {
-    return null;
-  }
+  return getDecrypted(SECRETS_STORE, recordKey(pubkey, name), key);
 }
 
 /**
@@ -288,16 +302,8 @@ export async function loadSecret(
  */
 export async function clearSecret(pubkey: string, name: string): Promise<void> {
   try {
-    await idbDelete(SECRETS_STORE, secretRecordKey(pubkey, name));
+    await idbDelete(SECRETS_STORE, recordKey(pubkey, name));
   } catch {}
-}
-
-// Automation rules (task 6.4) are stored per-radio, encrypted under the same
-// per-radio key as message history, in their own record so they never entangle
-// with the msgHistory blob. Namespaced key in the radios store keeps one
-// radio's rules from colliding with its history record (keyed by bare pubkey).
-function rulesRecordKey(pubkey: string): string {
-  return `${pubkey}:automation-rules`;
 }
 
 /**
@@ -312,16 +318,12 @@ export async function saveAutomationRules(
   key: CryptoKey,
   rules: unknown,
 ): Promise<void> {
-  try {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const plaintext = new TextEncoder().encode(JSON.stringify(rules));
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      plaintext.buffer as ArrayBuffer,
-    );
-    await idbPut(STORE_NAME, rulesRecordKey(pubkey), { iv, data: ciphertext });
-  } catch {}
+  await putEncrypted(
+    STORE_NAME,
+    recordKey(pubkey, 'automation-rules'),
+    key,
+    JSON.stringify(rules),
+  );
 }
 
 /**
@@ -335,27 +337,18 @@ export async function loadAutomationRules<T>(
   pubkey: string,
   key: CryptoKey,
 ): Promise<T | null> {
-  try {
-    const record = await idbGet(STORE_NAME, rulesRecordKey(pubkey));
-    if (!record) return null;
-    const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: record.iv },
-      key,
-      record.data,
-    );
-    return JSON.parse(new TextDecoder().decode(plaintext)) as T;
-  } catch {
-    return null;
-  }
+  const plaintext = await getDecrypted(
+    STORE_NAME,
+    recordKey(pubkey, 'automation-rules'),
+    key,
+  );
+  return plaintext === null ? null : (JSON.parse(plaintext) as T);
 }
 
 // The advert cache (discovered nodes not held in the radio's contact table) is
 // stored per-radio, encrypted under the same per-radio key as message history,
 // in its own namespaced record so it never entangles with the msgHistory blob
 // (keyed by bare pubkey).
-function advertCacheRecordKey(pubkey: string): string {
-  return `${pubkey}:advert-cache`;
-}
 
 /**
  * Encrypts and stores a radio's advert cache. Best-effort — any failure is
@@ -369,19 +362,12 @@ export async function saveAdvertCache(
   key: CryptoKey,
   cache: Record<string, Advert>,
 ): Promise<void> {
-  try {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const plaintext = new TextEncoder().encode(JSON.stringify(cache));
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      plaintext.buffer as ArrayBuffer,
-    );
-    await idbPut(STORE_NAME, advertCacheRecordKey(pubkey), {
-      iv,
-      data: ciphertext,
-    });
-  } catch {}
+  await putEncrypted(
+    STORE_NAME,
+    recordKey(pubkey, 'advert-cache'),
+    key,
+    JSON.stringify(cache),
+  );
 }
 
 /**
@@ -396,19 +382,61 @@ export async function loadAdvertCache(
   pubkey: string,
   key: CryptoKey,
 ): Promise<Record<string, Advert> | null> {
-  try {
-    const record = await idbGet(STORE_NAME, advertCacheRecordKey(pubkey));
-    if (!record) return null;
-    const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: record.iv },
-      key,
-      record.data,
-    );
-    return JSON.parse(new TextDecoder().decode(plaintext)) as Record<
-      string,
-      Advert
-    >;
-  } catch {
-    return null;
-  }
+  const plaintext = await getDecrypted(
+    STORE_NAME,
+    recordKey(pubkey, 'advert-cache'),
+    key,
+  );
+  return plaintext === null
+    ? null
+    : (JSON.parse(plaintext) as Record<string, Advert>);
+}
+
+// The user-preferences blob (unit system, contacts-list view, auto-add config,
+// automation master switch, map viewport, AI provider/model picker) is stored
+// per-radio, encrypted under the same per-radio key as everything else, in its
+// own namespaced record so each radio carries its own preferences. This is the
+// canonical home for any app preference that isn't settable before a radio is
+// connected — localStorage is reserved for the pre-connect prefs (locale,
+// theme) only. Keyed by `${pubkey}:preferences` in the radios store.
+
+/**
+ * Encrypts and stores a radio's user-preferences blob. Best-effort — any
+ * failure is swallowed, exactly like {@link saveRadioData}.
+ *
+ * @param key - the key from {@link deriveStorageKey} for this radio.
+ * @param prefs - the JSON-serializable preferences object to persist.
+ */
+export async function savePreferences(
+  pubkey: string,
+  key: CryptoKey,
+  prefs: unknown,
+): Promise<void> {
+  await putEncrypted(
+    STORE_NAME,
+    recordKey(pubkey, 'preferences'),
+    key,
+    JSON.stringify(prefs),
+  );
+}
+
+/**
+ * Loads and decrypts a radio's user-preferences blob.
+ *
+ * @param key - the key from {@link deriveStorageKey} for this radio.
+ * @returns the parsed preferences object, or null if nothing is stored or
+ * decryption fails (wrong key / different radio / corrupt record) — callers
+ * fall back to defaults, so an absent blob is indistinguishable from a fresh
+ * radio.
+ */
+export async function loadPreferences<T>(
+  pubkey: string,
+  key: CryptoKey,
+): Promise<T | null> {
+  const plaintext = await getDecrypted(
+    STORE_NAME,
+    recordKey(pubkey, 'preferences'),
+    key,
+  );
+  return plaintext === null ? null : (JSON.parse(plaintext) as T);
 }

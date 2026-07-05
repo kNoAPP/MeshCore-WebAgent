@@ -55,6 +55,7 @@
       "radio": "Funkeinstellungen",
       "identity": "Identität",
       "location": "Standort",
+      "display": "Anzeigeeinstellungen",
       "ai": "KI-Einstellungen",
       "automation": "Automatisierung",
       "danger": "Geräteaktionen"
@@ -68,6 +69,7 @@
       "radio": "funk frequenz bandbreite lora",
       "identity": "identität öffentlicher schlüssel knotenname",
       "location": "standort koordinaten gps position",
+      "display": "anzeige einheiten metrisch imperial entfernung maßeinheit",
       "ai": "ki llm api-schlüssel anthropic claude assistent",
       "automation": "automatisierung regeln automatisieren agent auslöser aufgaben",
       "danger": "neustart gerät aktionen gefahr"
@@ -201,6 +203,7 @@
       "identity": "Identität",
       "radio": "Funk",
       "location": "Standort",
+      "display": "Anzeige",
       "ai": "KI",
       "automation": "Automatisierung",
       "danger": "Geräteaktionen"
@@ -229,6 +232,9 @@
     "mhz": "{{value}} MHz",
     "khz": "{{value}} kHz",
     "dbm": "{{value}} dBm",
+    "units": "Einheiten",
+    "units_metric": "Metrisch (km)",
+    "units_imperial": "Imperial (mi)",
     "edit": "Bearbeiten",
     "editRadio": "Funkeinstellungen bearbeiten",
     "radioEdit": {
@@ -450,6 +456,7 @@
     "location": "Standort",
     "distance": "Entfernung",
     "distanceValue": "{{distance}} km · {{compass}}",
+    "distanceValueImperial": "{{distance}} mi · {{compass}}",
     "favorite": "☆ Favorit",
     "unfavorite": "★ Favorit entfernen",
     "resetRoute": "Route zurücksetzen",

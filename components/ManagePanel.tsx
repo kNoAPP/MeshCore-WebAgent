@@ -60,6 +60,7 @@ function ManagePanelView() {
     autoAddConfig,
   } = useMeshStore();
   const selfInfo = useMeshStore((s) => s.selfInfo);
+  const unitSystem = useMeshStore((s) => s.unitSystem);
   // Adding a cached advert writes to the radio, so it needs a live link. The
   // cache can be viewed while disconnected (map/palette), so gate the action.
   const connected = useMeshStore((s) => s.status === 'connected');
@@ -128,6 +129,7 @@ function ManagePanelView() {
       selfInfo?.advLon,
       advert.advLat,
       advert.advLon,
+      unitSystem,
     );
     const advertTitle = `${ADV_ICON[advert.advType] ?? '👤'} ${advert.name || advert.pubkeyPrefix.slice(0, 8)}`;
     return (
@@ -190,6 +192,7 @@ function ManagePanelView() {
     selfInfo?.advLon,
     contact.advLat,
     contact.advLon,
+    unitSystem,
   );
 
   const contactTitle = `${ADV_ICON[contact.advType] ?? '👤'} ${contact.name || contact.pubkeyPrefix.slice(0, 8)}`;

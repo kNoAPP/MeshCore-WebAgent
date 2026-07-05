@@ -50,6 +50,10 @@ before working in that area:
 - **State changes go through Zustand actions** in `store/meshStore.ts`, not
   local component state, and never `useEffect` for state that belongs in
   Zustand.
+- **`localStorage` is off-limits for persistence** except for the two
+  pre-connect preferences (`locale`, `theme`) that must be readable before a
+  radio is connected. Every other setting or preference is **per-radio** and
+  **encrypted in IndexedDB** — see _Persisting preferences_ below.
 - **All UI strings are localized** with `react-i18next`. Add new strings to
   `locales/en.json` and render them via `t('...')` (or `i18n.t('...')` outside
   React) — never hardcode display text.
@@ -61,6 +65,49 @@ before working in that area:
 - **Prettier formats on save** — run `npm run format` if needed.
 - **No AI self-attribution** in commits, PRs, issues, or discussions — do not
   add `Co-Authored-By` model trailers, "Generated with …" footers, or similar.
+
+## Persisting Preferences
+
+`localStorage` is **not** an acceptable persistence layer for preferences. The
+only exceptions are settings that can be changed **before** connecting to a
+radio (on the connect screen) — today that is just `locale` and `theme`, which
+live in `localStorage` because they must be readable synchronously at first
+paint (theme has a pre-paint script in `app/layout.tsx`).
+
+Every other preference is **scoped to the connected radio** and stored
+**encrypted** in IndexedDB, under the AES-256-GCM key derived from that radio's
+own secrets. Two radios never share a key, and the data is unreadable without
+the radio. All such preferences travel together in one per-radio **preferences
+blob** (`${pubkey}:preferences` record in the `radios` store).
+
+To add a new per-radio preference:
+
+1. **Store field + action** — add the field to `MeshState` and a setter to
+   `MeshActions` in `store/meshStore.ts`. Its `initialState` value is the
+   in-memory default (never a `localStorage` read). The setter just calls
+   `set(...)` — no persistence side effect.
+2. **Add it to the blob** — extend the `RadioPreferences` interface,
+   `selectPreferences()` (state → blob), and `restorePreferences()` (blob →
+   state, normalizing every field so a corrupt/partial record falls back to
+   defaults). Provide a `normalize*`/`DEFAULT_*` helper for the field's type,
+   colocated with that type (e.g. `lib/units/config.ts`, `lib/ai/pref.ts`).
+3. **Reset on disconnect** — because prefs are per-radio, `reset()` must let the
+   field fall back to its `initialState` default (only `locale`/`theme`/`toast`
+   are preserved there). Do not add it to the preserved list.
+4. **Persistence is automatic** — the connect flow in `hooks/useMeshCore.ts`
+   loads the blob (`loadPreferences`) into the store via `restorePreferences`
+   before the radio hydrate, and a debounced store subscription writes it back
+   (`savePreferences` via `flushPreferences`) whenever any pref field changes.
+   `teardownSession(flush)` flushes it on a deliberate disconnect. If you add a
+   field, extend the equality check in that `prefsSaveUnsub` subscription so a
+   change to it triggers a save.
+
+The encryption/IO primitives live in `lib/storage.ts`
+(`savePreferences`/`loadPreferences`, mirroring `saveAdvertCache`/etc.); the
+per-radio key is derived once per session in `useMeshCore` via
+`deriveStorageKey`. Sensitive values (e.g. an LLM API key) never go in the blob
+or the store — they use the separate encrypted `secrets` store
+(`lib/ai/secret.ts`).
 
 ## What to Avoid
 

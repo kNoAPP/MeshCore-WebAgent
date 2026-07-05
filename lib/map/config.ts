@@ -48,9 +48,6 @@ export interface MapPrefs {
   zoom: number;
 }
 
-/** localStorage key for the persisted {@link MapPrefs}. */
-export const MAP_PREFS_STORAGE_KEY = 'meshcore.mapPrefs';
-
 /** Default viewport (a whole-world view). */
 export const DEFAULT_MAP_PREFS: MapPrefs = {
   center: [20, 0],
@@ -63,39 +60,26 @@ function finiteOr(value: unknown, fallback: number): number {
 }
 
 /**
- * Reads the persisted map preferences from localStorage, validating each field
- * against {@link DEFAULT_MAP_PREFS}. Any missing or non-finite value (a `NaN`,
- * `Infinity`, or corrupted/tampered entry) falls back to the default, so a
- * broken store can never feed Leaflet a `NaN` center/zoom. Returns `null` when
- * nothing is stored yet (or on SSR/static build or a parse error) so callers
- * can tell a never-panned user — who should get smart initial centering — apart
- * from one whose saved viewport simply happens to equal the default.
+ * Normalizes an arbitrary (persisted or corrupt) value into valid
+ * {@link MapPrefs}, validating each field against {@link DEFAULT_MAP_PREFS}.
+ * Any missing or non-finite value (a `NaN`, `Infinity`, or corrupted/tampered
+ * entry) falls back to the default, so a broken record can never feed Leaflet a
+ * `NaN` center/zoom. Returns `null` when nothing is stored (`null`/`undefined`)
+ * so callers can tell a never-panned user — who should get smart initial
+ * centering — apart from one whose saved viewport simply happens to equal the
+ * default.
  */
-export function loadMapPrefs(): MapPrefs | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(MAP_PREFS_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<MapPrefs>;
-    return {
-      center:
-        Array.isArray(parsed.center) && parsed.center.length === 2
-          ? [
-              finiteOr(parsed.center[0], DEFAULT_MAP_PREFS.center[0]),
-              finiteOr(parsed.center[1], DEFAULT_MAP_PREFS.center[1]),
-            ]
-          : DEFAULT_MAP_PREFS.center,
-      zoom: finiteOr(parsed.zoom, DEFAULT_MAP_PREFS.zoom),
-    };
-  } catch {
-    return null;
-  }
-}
-
-/** Writes the map preferences to localStorage, ignoring quota/SSR failures. */
-export function saveMapPrefs(prefs: MapPrefs): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(MAP_PREFS_STORAGE_KEY, JSON.stringify(prefs));
-  } catch {}
+export function normalizeMapPrefs(raw: unknown): MapPrefs | null {
+  if (raw == null || typeof raw !== 'object') return null;
+  const parsed = raw as Partial<MapPrefs>;
+  return {
+    center:
+      Array.isArray(parsed.center) && parsed.center.length === 2
+        ? [
+            finiteOr(parsed.center[0], DEFAULT_MAP_PREFS.center[0]),
+            finiteOr(parsed.center[1], DEFAULT_MAP_PREFS.center[1]),
+          ]
+        : DEFAULT_MAP_PREFS.center,
+    zoom: finiteOr(parsed.zoom, DEFAULT_MAP_PREFS.zoom),
+  };
 }

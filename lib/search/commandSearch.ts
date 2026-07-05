@@ -92,6 +92,7 @@ export const PAGE_TARGETS = [
   { id: 'radio', view: 'settings', section: 'radio' },
   { id: 'identity', view: 'settings', section: 'identity' },
   { id: 'location', view: 'settings', section: 'location' },
+  { id: 'display', view: 'settings', section: 'display' },
   { id: 'ai', view: 'settings', section: 'ai' },
   { id: 'automation', view: 'settings', section: 'automation' },
   { id: 'danger', view: 'settings', section: 'danger' },

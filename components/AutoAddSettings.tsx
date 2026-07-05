@@ -27,8 +27,8 @@ export function AutoAddSettings() {
 /**
  * The auto-add settings form. Edits a local draft seeded from the store on
  * mount (so it reflects the latest radio-hydrated values), then writes it to
- * the
- * radio and localStorage via `applyAutoAddConfig` on Save.
+ * the radio (and the encrypted per-radio preferences blob via the store) with
+ * `applyAutoAddConfig` on Save.
  */
 function AutoAddSettingsPanel() {
   const { t } = useTranslation();

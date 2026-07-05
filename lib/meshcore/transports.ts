@@ -255,6 +255,25 @@ export class BLETransport extends BaseTransport implements ITransport {
   private txChar: BluetoothRemoteGATTCharacteristic | null = null;
   private onFrame: ((d: Uint8Array) => void) | null = null;
   private started = false;
+  // Web Bluetooth permits only one GATT operation in flight per device;
+  // overlapping any two — a write racing another write, the notification
+  // subscribe, or a reopen's reconnect — rejects with "GATT operation already
+  // in progress". Every GATT call funnels through this chain so they run
+  // strictly one at a time no matter how many callers fire concurrently (e.g. a
+  // background contact resync colliding with the 5s message poll).
+  private gattOps: Promise<unknown> = Promise.resolve();
+
+  // Serializes a GATT operation behind any already queued. Runs `op` on both
+  // settle paths so one rejection can't wedge the chain, and advances without
+  // retaining the resolved value.
+  private enqueue<T>(op: () => Promise<T>): Promise<T> {
+    const run = this.gattOps.then(op, op);
+    this.gattOps = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
 
   constructor(private device: BluetoothDevice) {
     super();
@@ -275,20 +294,24 @@ export class BLETransport extends BaseTransport implements ITransport {
    * again by {@link reopen} to recover the same device after a drop.
    */
   async open(): Promise<void> {
-    const server = await this.device.gatt!.connect();
-    const service = await server.getPrimaryService(BLE_SERVICE_UUID);
-    this.rxChar = await service.getCharacteristic(BLE_RX_CHAR_UUID);
-    this.txChar = await service.getCharacteristic(BLE_TX_CHAR_UUID);
+    await this.enqueue(async () => {
+      const server = await this.device.gatt!.connect();
+      const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+      this.rxChar = await service.getCharacteristic(BLE_RX_CHAR_UUID);
+      this.txChar = await service.getCharacteristic(BLE_TX_CHAR_UUID);
+    });
   }
 
   /** Writes a payload to the RX characteristic, split into ≤512-byte chunks. */
   async send(payload: Uint8Array): Promise<void> {
-    const chunkSize = 512;
-    for (let i = 0; i < payload.length; i += chunkSize) {
-      await this.rxChar!.writeValueWithResponse(
-        payload.slice(i, i + chunkSize),
-      );
-    }
+    await this.enqueue(async () => {
+      const chunkSize = 512;
+      for (let i = 0; i < payload.length; i += chunkSize) {
+        await this.rxChar!.writeValueWithResponse(
+          payload.slice(i, i + chunkSize),
+        );
+      }
+    });
   }
 
   async startReading(onFrame: (d: Uint8Array) => void): Promise<void> {
@@ -308,7 +331,7 @@ export class BLETransport extends BaseTransport implements ITransport {
     // after this, and the radio's SELF_INFO reply only arrives as a
     // notification — sending before the subscription is active would drop it.
     // Mark started only on success so a failed subscribe is retried on reopen.
-    await this.txChar!.startNotifications();
+    await this.enqueue(() => this.txChar!.startNotifications());
     this.started = true;
   }
 
@@ -358,7 +381,9 @@ export class BLETransport extends BaseTransport implements ITransport {
       this.handleNotification,
     );
     try {
-      await this.txChar?.stopNotifications();
+      await this.enqueue(async () => {
+        await this.txChar?.stopNotifications();
+      });
     } catch {}
     try {
       this.device.gatt?.disconnect();

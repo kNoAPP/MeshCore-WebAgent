@@ -26,6 +26,12 @@ import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
 import { AiSettingsBody } from './AiSettings';
 import { AutomationSettingsBody } from './AutomationPanel';
+import { SUPPORTED_UNIT_SYSTEMS, type UnitSystem } from '@/lib/units/config';
+import {
+  SUPPORTED_LOCALES,
+  LOCALE_NAMES,
+  type SupportedLocale,
+} from '@/lib/i18n/config';
 
 /**
  * Settings page: device identity, firmware, radio configuration, and this
@@ -183,6 +189,8 @@ export function SettingsPage() {
           </Card>
 
           <LocationCard />
+
+          <DisplayCard />
 
           <Card
             title={t('settings.section.ai')}
@@ -709,6 +717,65 @@ function RebootCard() {
           {t('settings.reboot')}
         </button>
       )}
+    </Card>
+  );
+}
+
+/**
+ * The Display section: client-side presentation preferences. Offers the UI
+ * language (mirrors the connect-screen header selector, persisted in
+ * `localStorage`) and the measurement system (metric/imperial) used for
+ * displayed distances (persisted per-radio in the encrypted preferences blob).
+ */
+function DisplayCard() {
+  const { t } = useTranslation();
+  const locale = useMeshStore((s) => s.locale);
+  const setLocale = useMeshStore((s) => s.setLocale);
+  const unitSystem = useMeshStore((s) => s.unitSystem);
+  const setUnitSystem = useMeshStore((s) => s.setUnitSystem);
+
+  const selectClass =
+    'cursor-pointer rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) transition-colors hover:border-(--accent) focus:border-(--accent) focus:outline-none';
+
+  return (
+    <Card
+      title={t('settings.section.display')}
+      className='col-span-2'
+      section='display'
+    >
+      <div
+        className='flex items-center justify-between gap-3 border-b py-1.5 text-xs'
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <span className='shrink-0 text-(--text2)'>{t('header.language')}</span>
+        <select
+          value={locale}
+          onChange={(e) => setLocale(e.target.value as SupportedLocale)}
+          aria-label={t('header.language')}
+          className={selectClass}
+        >
+          {SUPPORTED_LOCALES.map((l) => (
+            <option key={l} value={l}>
+              {LOCALE_NAMES[l]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className='flex items-center justify-between gap-3 py-1.5 text-xs'>
+        <span className='shrink-0 text-(--text2)'>{t('settings.units')}</span>
+        <select
+          value={unitSystem}
+          onChange={(e) => setUnitSystem(e.target.value as UnitSystem)}
+          aria-label={t('settings.units')}
+          className={selectClass}
+        >
+          {SUPPORTED_UNIT_SYSTEMS.map((u) => (
+            <option key={u} value={u}>
+              {t(`settings.units_${u}`)}
+            </option>
+          ))}
+        </select>
+      </div>
     </Card>
   );
 }
