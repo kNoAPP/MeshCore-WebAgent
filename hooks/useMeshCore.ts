@@ -461,6 +461,7 @@ function beginReconnect(
 ): void {
   flushHistory(client);
   flushAdvertCache(client);
+  flushPreferences(client);
   const store = useMeshStore.getState();
   store.setStatus('reconnecting');
   // Close any connection-scoped panel so it doesn't reappear on reconnect.

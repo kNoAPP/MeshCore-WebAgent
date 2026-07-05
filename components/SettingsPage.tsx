@@ -761,10 +761,7 @@ function DisplayCard() {
           ))}
         </select>
       </div>
-      <div
-        className='flex items-center justify-between gap-3 py-1.5 text-xs'
-        style={{ borderColor: 'var(--border)' }}
-      >
+      <div className='flex items-center justify-between gap-3 py-1.5 text-xs'>
         <span className='shrink-0 text-(--text2)'>{t('settings.units')}</span>
         <select
           value={unitSystem}
