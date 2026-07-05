@@ -69,6 +69,9 @@ export function ChatArea() {
   const { activeConvo, msgHistory, contacts, deviceName } = useMeshStore();
   const scrollToMsgId = useMeshStore((s) => s.scrollToMsgId);
   const setScrollToMsgId = useMeshStore((s) => s.setScrollToMsgId);
+  const unreadMarker = useMeshStore((s) =>
+    activeConvo ? (s.unreadMarkers[activeConvo.id] ?? null) : null,
+  );
   const { sendMessage, retryMessage } = useMeshCore();
   const { t } = useTranslation();
   const [text, setText] = useState('');
@@ -163,6 +166,21 @@ export function ChatArea() {
     // to the bottom underneath it. Read live so clearing the flag can't
     // retrigger this effect (its deps deliberately exclude scrollToMsgId).
     if (useMeshStore.getState().scrollToMsgId) return;
+    // On switch, land on the "last unread" divider so the user picks up where
+    // they left off; fall back to the newest message when there's no unread
+    // boundary. Read the marker live to keep it out of the deps.
+    if (switched && convoId) {
+      const marker = useMeshStore.getState().unreadMarkers[convoId];
+      const el = marker
+        ? messagesRef.current?.querySelector<HTMLElement>(
+            '[data-unread-divider]',
+          )
+        : null;
+      if (el) {
+        el.scrollIntoView({ behavior: 'auto', block: 'start' });
+        return;
+      }
+    }
     bottomRef.current?.scrollIntoView({
       behavior: switched ? 'auto' : 'smooth',
     });
@@ -333,6 +351,27 @@ export function ChatArea() {
                   <div className='rounded-lg border border-dashed border-(--border) px-3 py-1.5 text-[11px] text-(--text2)'>
                     {formatDateDivider(dividerTs)}
                   </div>
+                </div>
+              )}
+              {msg.id != null && msg.id === unreadMarker && (
+                <div
+                  className='my-1 flex items-center gap-2'
+                  data-unread-divider
+                >
+                  <div
+                    className='h-px flex-1'
+                    style={{ background: 'var(--red)' }}
+                  />
+                  <span
+                    className='text-[11px] font-semibold'
+                    style={{ color: 'var(--red)' }}
+                  >
+                    {t('chat.lastUnread')}
+                  </span>
+                  <div
+                    className='h-px flex-1'
+                    style={{ background: 'var(--red)' }}
+                  />
                 </div>
               )}
               <div

@@ -422,6 +422,7 @@
   "chat": {
     "empty": "Sélectionne un canal ou un contact pour commencer à discuter",
     "noMessages": "Aucun message pour l'instant",
+    "lastUnread": "Dernier non lu",
     "you": "Toi",
     "noAck": "Aucun accusé de réception",
     "noAckTooltip": "Le message a pu malgré tout arriver — l'accusé de réception peut se perdre en route",
