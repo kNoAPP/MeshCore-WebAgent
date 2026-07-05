@@ -161,6 +161,24 @@ export function parseDeviceInfo(d: Uint8Array): DeviceInfo {
 }
 
 /**
+ * Parses a `CUSTOM_VARS` reply into a `name → value` map. The payload after the
+ * RESP code is an ASCII string of comma-separated `name:value` pairs (e.g.
+ * `gps:1,gps_interval:30`); an empty list yields an empty map.
+ *
+ * @see `CMD_GET_CUSTOM_VARS` in the companion radio's `MyMesh.cpp`.
+ */
+export function parseCustomVars(d: Uint8Array): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (d.length <= 1) return out;
+  for (const pair of dec.decode(d.subarray(1)).split(',')) {
+    const sep = pair.indexOf(':');
+    if (sep === -1) continue;
+    out[pair.slice(0, sep)] = pair.slice(sep + 1);
+  }
+  return out;
+}
+
+/**
  * Parses the `BATT_AND_STORAGE` reply: battery millivolts and flash usage in
  * KB.
  */

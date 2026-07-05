@@ -92,6 +92,19 @@ export function buildGetBattery(): Uint8Array {
 }
 
 /**
+ * Requests the radio's custom vars (`GET_CUSTOM_VARS`) — the comma-separated
+ * `name:value` list of sensor-manager settings the firmware exposes. Used to
+ * probe hardware capabilities: a GPS-equipped radio reports a `gps` entry,
+ * boards without one report none.
+ *
+ * @see `CMD_GET_CUSTOM_VARS` in the companion radio's `MyMesh.cpp`, which walks
+ * `sensors.getSettingName/Value`.
+ */
+export function buildGetCustomVars(): Uint8Array {
+  return new Uint8Array([CMD.GET_CUSTOM_VARS]);
+}
+
+/**
  * Requests one channel slot's `CHANNEL_INFO`.
  *
  * @param idx - channel index 0–7; 0 is the reserved Public channel.

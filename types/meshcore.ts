@@ -173,6 +173,12 @@ export interface DeviceInfo {
   blePin: number | null;
   model: string;
   version: string;
+  /**
+   * Whether the radio has a GPS module, probed from `CUSTOM_VARS` (a `gps`
+   * sensor setting is present). `undefined` until that query completes or on
+   * firmware too old to support it.
+   */
+  hasGps?: boolean;
 }
 
 /** Battery voltage (mV) and flash storage usage (KB). */
