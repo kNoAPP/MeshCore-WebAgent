@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.16.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.15.0...v1.16.0) (2026-07-05)
+
+
+### Features
+
+* add transport icons to connect tabs ([#144](https://github.com/kNoAPP/MeshCore-WebAgent/issues/144)) ([f1ffc52](https://github.com/kNoAPP/MeshCore-WebAgent/commit/f1ffc526ca9d1d20596265ca6a14538f6bf53055))
+* **chat:** add last-unread divider to conversations ([#148](https://github.com/kNoAPP/MeshCore-WebAgent/issues/148)) ([12a1c44](https://github.com/kNoAPP/MeshCore-WebAgent/commit/12a1c442a0321b12e6bf48592a5077d106376976))
+* make links in messages open in a new tab ([#146](https://github.com/kNoAPP/MeshCore-WebAgent/issues/146)) ([614af64](https://github.com/kNoAPP/MeshCore-WebAgent/commit/614af645d8f564b6ae10ce20bacf5e91397160d6))
+* **settings:** add GPS and fixed location source controls ([#147](https://github.com/kNoAPP/MeshCore-WebAgent/issues/147)) ([b924b66](https://github.com/kNoAPP/MeshCore-WebAgent/commit/b924b66eeab89ce98d52341fefada8eada361002))
+
 ## [1.15.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.14.0...v1.15.0) (2026-07-04)
 
 
