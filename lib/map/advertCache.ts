@@ -45,8 +45,11 @@ export function mergeAdvertCache(
           ...existing,
           ...advert,
           lastHeard: Math.max(existing.lastHeard, advert.lastHeard),
-          advLat: advert.advLat ?? existing.advLat,
-          advLon: advert.advLon ?? existing.advLon,
+          // `0` is the firmware's "unset" sentinel (not undefined), so a
+          // re-advert without a fix must not clobber a known location — fall
+          // back to the cached coordinates in that case.
+          advLat: advert.advLat || existing.advLat,
+          advLon: advert.advLon || existing.advLon,
         }
       : advert;
   }
