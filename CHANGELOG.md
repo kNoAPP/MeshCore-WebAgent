@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.17.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.16.1...v1.17.0) (2026-07-05)
+
+
+### Features
+
+* add unit system setting and store preferences per-radio ([#154](https://github.com/kNoAPP/MeshCore-WebAgent/issues/154)) ([89bd16b](https://github.com/kNoAPP/MeshCore-WebAgent/commit/89bd16ba0c5fe129bcc6b5e1d5ebfd127ea35a01))
+* cache heard adverts for map and discovery ([#153](https://github.com/kNoAPP/MeshCore-WebAgent/issues/153)) ([282a9e7](https://github.com/kNoAPP/MeshCore-WebAgent/commit/282a9e7b1b0a11826161aec2c446b43ef1a506b6))
+
+
+### Bug Fixes
+
+* **map:** refresh self info on location source switch ([#151](https://github.com/kNoAPP/MeshCore-WebAgent/issues/151)) ([e1277a8](https://github.com/kNoAPP/MeshCore-WebAgent/commit/e1277a8609f31f377bf0d7c7af73b0a9ba740ddf))
+
 ## [1.16.1](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.16.0...v1.16.1) (2026-07-05)
 
 
