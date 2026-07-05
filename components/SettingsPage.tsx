@@ -727,7 +727,11 @@ function DisplayCard() {
   const setUnitSystem = useMeshStore((s) => s.setUnitSystem);
 
   return (
-    <Card title={t('settings.section.display')} section='display'>
+    <Card
+      title={t('settings.section.display')}
+      className='col-span-2'
+      section='display'
+    >
       <div
         className='flex items-center justify-between gap-3 py-1.5 text-xs'
         style={{ borderColor: 'var(--border)' }}
