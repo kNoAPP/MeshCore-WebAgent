@@ -12,11 +12,14 @@ import {
   createWiFiTransport,
 } from '@/lib/meshcore/transports';
 import { useMeshStore, channelConvoId, directConvoId } from '@/store/meshStore';
+import { mergeAdvertCache } from '@/lib/map/advertCache';
 import {
   loadRadioData,
   saveRadioData,
   deriveStorageKey,
   loadAutomationRules,
+  loadAdvertCache,
+  saveAdvertCache,
 } from '@/lib/storage';
 import {
   setSecretContext,
@@ -100,6 +103,11 @@ const rxPathBuffer: { hopCount: number; path: string[]; at: number }[] = [];
 let saveUnsub: (() => void) | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let storageKey: CryptoKey | null = null;
+// Independent save subscription/timer for the per-radio advert cache, kept
+// separate from message history so a burst of adverts doesn't rewrite the
+// (larger) history blob, and vice versa.
+let advertSaveUnsub: (() => void) | null = null;
+let advertSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let syntheticAckSeq = 0;
 
 // Auto-reconnect state. Reopens the last device without a new user gesture
@@ -151,7 +159,11 @@ function setReconnectSource(transport: ITransport): void {
 // first (a deliberate disconnect); the give-up path skips it — the drop already
 // flushed and the link's been down since.
 function teardownSession(flush = false): void {
-  if (flush) flushHistory(useMeshStore.getState().client);
+  if (flush) {
+    const c = useMeshStore.getState().client;
+    flushHistory(c);
+    flushAdvertCache(c);
+  }
   clearReconnect();
   lastTransportFactory = null;
   const store = useMeshStore.getState();
@@ -187,6 +199,15 @@ function flushHistory(client: MeshCoreClient | null): void {
   }
 }
 
+// Encrypts and writes the current advert cache immediately (bypassing the
+// debounce) so a drop or disconnect can't lose the latest discovered nodes.
+function flushAdvertCache(client: MeshCoreClient | null): void {
+  const pubkey = client?.selfInfo?.pubkey;
+  if (pubkey && storageKey) {
+    saveAdvertCache(pubkey, storageKey, useMeshStore.getState().advertCache);
+  }
+}
+
 // Maps a connect/sync failure to a localized toast message: typed errors carry
 // a code that resolves to a specific string; anything else falls back to a
 // generic localized message so a raw English error never reaches the user.
@@ -217,6 +238,10 @@ function clearSessionState(): void {
   saveTimer = null;
   saveUnsub?.();
   saveUnsub = null;
+  if (advertSaveTimer) clearTimeout(advertSaveTimer);
+  advertSaveTimer = null;
+  advertSaveUnsub?.();
+  advertSaveUnsub = null;
   storageKey = null;
   // Drop the advert-diff baseline so the next session doesn't replay a prior
   // radio's adverts as "new" the moment automation subscribes.
@@ -404,6 +429,7 @@ function beginReconnect(
   connect: (transport: ITransport, isReconnect: boolean) => Promise<boolean>,
 ): void {
   flushHistory(client);
+  flushAdvertCache(client);
   const store = useMeshStore.getState();
   store.setStatus('reconnecting');
   // Close any connection-scoped panel so it doesn't reappear on reconnect.
@@ -442,6 +468,7 @@ export function useMeshCore() {
     addMessage,
     updateMessage,
     restoreHistory,
+    restoreAdvertCache,
     restoreAutomationRules,
     showToast,
   } = useMeshStore();
@@ -606,17 +633,30 @@ export function useMeshCore() {
           storageKey = key;
 
           // Reuse the same per-radio key for secret storage, then restore a
-          // "remembered" LLM API key, the saved history, and any per-radio
-          // automation rules in parallel — independent IndexedDB reads with no
-          // ordering dependency.
+          // "remembered" LLM API key, the saved history, any per-radio
+          // automation rules, and the advert cache in parallel — independent
+          // IndexedDB reads with no ordering dependency.
           setSecretContext(pubkey, key);
-          const [, saved, rules] = await Promise.all([
+          const [, saved, rules, advertCache] = await Promise.all([
             loadPersistedApiKey(),
             loadRadioData(pubkey, key),
             loadAutomationRules<AutomationRule[]>(pubkey, key),
+            loadAdvertCache(pubkey, key),
           ]);
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);
           restoreAutomationRules(rules ?? []);
+          // Merge the persisted cache under any adverts already heard during
+          // this sync (the live entries are fresher), then persist that
+          // baseline back so it's not lost if no further advert arrives.
+          if (advertCache) {
+            restoreAdvertCache(
+              mergeAdvertCache(
+                advertCache,
+                useMeshStore.getState().advertCache,
+              ),
+            );
+            flushAdvertCache(c);
+          }
 
           saveUnsub = useMeshStore.subscribe((state, prev) => {
             if (state.msgHistory === prev.msgHistory) return;
@@ -627,6 +667,17 @@ export function useMeshCore() {
             saveTimer = setTimeout(() => {
               saveTimer = null;
               flushHistory(c);
+            }, SAVE_DEBOUNCE_MS);
+          });
+
+          advertSaveUnsub = useMeshStore.subscribe((state, prev) => {
+            if (state.advertCache === prev.advertCache) return;
+            // Debounce the encrypt-and-write like history, so a busy mesh's
+            // stream of adverts coalesces into one write.
+            if (advertSaveTimer) clearTimeout(advertSaveTimer);
+            advertSaveTimer = setTimeout(() => {
+              advertSaveTimer = null;
+              flushAdvertCache(c);
             }, SAVE_DEBOUNCE_MS);
           });
         }
@@ -694,6 +745,7 @@ export function useMeshCore() {
       showToast,
       wireClient,
       restoreHistory,
+      restoreAdvertCache,
       restoreAutomationRules,
       setAutoAddConfig,
     ],

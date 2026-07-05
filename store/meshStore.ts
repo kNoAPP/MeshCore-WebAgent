@@ -37,11 +37,7 @@ import {
   type Theme,
 } from '@/lib/theme/config';
 import { loadMapPrefs, saveMapPrefs, type MapPrefs } from '@/lib/map/config';
-import {
-  loadAdvertCache,
-  saveAdvertCache,
-  mergeAdvertCache,
-} from '@/lib/map/advertCache';
+import { mergeAdvertCache } from '@/lib/map/advertCache';
 
 /** localStorage key for the persisted {@link AutoAddConfig}. */
 const AUTOADD_STORAGE_KEY = 'meshcore.autoAddConfig';
@@ -216,10 +212,12 @@ interface MeshState {
   channels: Record<number, Channel>;
   adverts: Record<string, Advert>;
   /**
-   * Browser-persisted metadata for every advert ever heard, keyed by
-   * `pubkeyPrefix`. A superset of {@link adverts} that survives reloads and
-   * reconnects, so the map can plot discovered nodes the radio's bounded
-   * contact table can't hold. See `lib/map/advertCache.ts`.
+   * Metadata for every advert heard from the connected radio, keyed by
+   * `pubkeyPrefix`. A superset of {@link adverts}, restored on connect and
+   * persisted per-radio (encrypted, like message history) so the map can plot
+   * discovered nodes the radio's bounded contact table can't hold — a different
+   * radio unlocks a different cache. See `lib/map/advertCache.ts` and
+   * `lib/storage.ts`.
    */
   advertCache: Record<string, Advert>;
   autoAddConfig: AutoAddConfig;
@@ -303,8 +301,10 @@ interface MeshActions {
   setContacts: (c: Record<string, Contact>) => void;
   setChannels: (ch: Record<number, Channel>) => void;
   setAdverts: (a: Record<string, Advert>) => void;
-  /** Folds freshly heard adverts into the persisted advert cache. */
+  /** Folds freshly heard adverts into the in-memory advert cache. */
   cacheAdverts: (a: Record<string, Advert>) => void;
+  /** Replaces the advert cache (from per-radio persistence on connect). */
+  restoreAdvertCache: (cache: Record<string, Advert>) => void;
   setAutoAddConfig: (cfg: AutoAddConfig) => void;
   setContactView: (view: ContactView) => void;
   setLocale: (locale: SupportedLocale) => void;
@@ -377,7 +377,7 @@ const initialState: MeshState = {
   contacts: {},
   channels: {},
   adverts: {},
-  advertCache: loadAdvertCache(),
+  advertCache: {},
   autoAddConfig: loadAutoAddConfig(),
   msgHistory: {},
   activeConvo: null,
@@ -427,11 +427,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setAdverts: (adverts) => set({ adverts }),
 
   cacheAdverts: (adverts) =>
-    set((state) => {
-      const advertCache = mergeAdvertCache(state.advertCache, adverts);
-      saveAdvertCache(advertCache);
-      return { advertCache };
-    }),
+    set((state) => ({
+      advertCache: mergeAdvertCache(state.advertCache, adverts),
+    })),
+
+  restoreAdvertCache: (cache) => set({ advertCache: cache }),
 
   setAutoAddConfig: (autoAddConfig) => {
     if (typeof window !== 'undefined') {
@@ -670,9 +670,6 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       theme: get().theme,
       // Map preferences are a persistent user preference, not session state
       mapPrefs: get().mapPrefs,
-      // The advert cache persists across sessions so discovered nodes stay on
-      // the map after a disconnect or reconnect
-      advertCache: get().advertCache,
       // The automation master switch persists across sessions/reconnects
       automationEnabled: get().automationEnabled,
     }),
