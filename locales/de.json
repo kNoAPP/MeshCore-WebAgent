@@ -422,6 +422,7 @@
   "chat": {
     "empty": "Wähle einen Kanal oder Kontakt, um zu chatten",
     "noMessages": "Noch keine Nachrichten",
+    "lastUnread": "Zuletzt ungelesen",
     "you": "Du",
     "noAck": "Keine Bestätigung",
     "noAckTooltip": "Die Nachricht kann trotzdem angekommen sein — die Bestätigung kann auf dem Weg verloren gehen",

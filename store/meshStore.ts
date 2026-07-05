@@ -221,6 +221,14 @@ interface MeshState {
    * by {@link ChatArea} once consumed.
    */
   scrollToMsgId: string | null;
+  /**
+   * Per-conversation id of the first unread message captured when the
+   * conversation was last opened, so {@link ChatArea} can draw a "last unread"
+   * divider above it. Frozen at open time (before {@link markRead} clears the
+   * flags) and left in place while viewing, so the boundary doesn't jump as
+   * live messages arrive. Absent when the conversation had no unread messages.
+   */
+  unreadMarkers: Record<string, string>;
 
   // UI
   contactView: ContactView;
@@ -292,6 +300,11 @@ interface MeshActions {
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
   setScrollToMsgId: (msgId: string | null) => void;
+  /**
+   * Freezes (or clears, with `null`) the "last unread" divider position for a
+   * conversation.
+   */
+  setUnreadMarker: (id: string, msgId: string | null) => void;
   markRead: (id: string) => void;
   restoreHistory: (persisted: Record<string, Message[]>) => void;
   showToast: (text: string, variant?: Toast['variant']) => void;
@@ -354,6 +367,7 @@ const initialState: MeshState = {
   msgHistory: {},
   activeConvo: null,
   scrollToMsgId: null,
+  unreadMarkers: {},
   contactView: loadContactView(),
   locale: resolveInitialLocale(),
   theme: resolveInitialTheme(),
@@ -474,6 +488,14 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setActiveConvo: (activeConvo) => set({ activeConvo }),
 
   setScrollToMsgId: (scrollToMsgId) => set({ scrollToMsgId }),
+
+  setUnreadMarker: (id, msgId) =>
+    set((state) => {
+      const next = { ...state.unreadMarkers };
+      if (msgId) next[id] = msgId;
+      else delete next[id];
+      return { unreadMarkers: next };
+    }),
 
   restoreHistory: (persisted) =>
     set((state) => {
@@ -650,7 +672,13 @@ export function isActiveStatus(status: ConnectionStatus): boolean {
 
 /** Opens a conversation and marks it read in one step. */
 export function openConvo(convo: ActiveConvo): void {
-  const { setActiveConvo, markRead } = useMeshStore.getState();
+  const { setActiveConvo, markRead, setUnreadMarker, msgHistory } =
+    useMeshStore.getState();
+  // Freeze the "last unread" divider at the first unread message before
+  // markRead clears the flags, so the boundary the user left off at stays
+  // visible for this viewing.
+  const firstUnread = (msgHistory[convo.id] ?? []).find((m) => m._unread);
+  setUnreadMarker(convo.id, firstUnread?.id ?? null);
   setActiveConvo(convo);
   markRead(convo.id);
 }

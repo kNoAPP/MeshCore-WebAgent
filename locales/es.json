@@ -422,6 +422,7 @@
   "chat": {
     "empty": "Selecciona un canal o contacto para empezar a chatear",
     "noMessages": "Aún no hay mensajes",
+    "lastUnread": "Último no leído",
     "you": "Tú",
     "noAck": "Sin confirmación",
     "noAckTooltip": "El mensaje aún puede haber llegado: la confirmación puede perderse en la ruta",
