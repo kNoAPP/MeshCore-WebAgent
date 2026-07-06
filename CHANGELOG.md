@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.18.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.17.0...v1.18.0) (2026-07-06)
+
+
+### Features
+
+* add display toggle for full public keys ([#155](https://github.com/kNoAPP/MeshCore-WebAgent/issues/155)) ([5ca018e](https://github.com/kNoAPP/MeshCore-WebAgent/commit/5ca018ed9c8945cb89722cfc64d7eb4a36994392))
+
+
+### Bug Fixes
+
+* **chat:** stop auto-scroll from disrupting history reading ([#157](https://github.com/kNoAPP/MeshCore-WebAgent/issues/157)) ([65a85dc](https://github.com/kNoAPP/MeshCore-WebAgent/commit/65a85dc2321ac0206b4bfb73e0dc730a0eb8ed45))
+
 ## [1.17.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.16.1...v1.17.0) (2026-07-05)
 
 
