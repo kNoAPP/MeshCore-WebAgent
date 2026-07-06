@@ -181,9 +181,9 @@ export function ChatArea() {
     const convoId = activeConvo?.id ?? null;
     const switched = prevConvoId.current !== convoId;
     prevConvoId.current = convoId;
-    // Whether this run is the user's own just-sent message, which should jump
-    // instantly rather than animate.
-    let ownSend = false;
+    // Whether this run should jump to the bottom instantly rather than animate
+    // (a send from up in history covers a long distance not worth animating).
+    let instantJump = false;
     // A pending command-palette jump owns the scroll position — don't yank it
     // to the bottom underneath it. Read live so clearing the flag can't
     // retrigger this effect (its deps deliberately exclude scrollToMsgId).
@@ -222,10 +222,10 @@ export function ChatArea() {
       }
       // Sending from within history — jump instantly across the long distance.
       // When already at the bottom, fall through to a smooth short scroll.
-      ownSend = (last?.own ?? false) && !atBottomRef.current;
+      instantJump = (last?.own ?? false) && !atBottomRef.current;
     }
     bottomRef.current?.scrollIntoView({
-      behavior: switched || ownSend ? 'auto' : 'smooth',
+      behavior: switched || instantJump ? 'auto' : 'smooth',
     });
     atBottomRef.current = true;
   }, [activeConvo?.id, messages.length]);
