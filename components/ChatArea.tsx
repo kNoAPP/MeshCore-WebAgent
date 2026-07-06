@@ -220,8 +220,9 @@ export function ChatArea() {
         setShowNewIndicator(true);
         return;
       }
-      // The user just sent from within history — jump instantly, don't animate.
-      ownSend = last?.own ?? false;
+      // Sending from within history — jump instantly across the long distance.
+      // When already at the bottom, fall through to a smooth short scroll.
+      ownSend = (last?.own ?? false) && !atBottomRef.current;
     }
     bottomRef.current?.scrollIntoView({
       behavior: switched || ownSend ? 'auto' : 'smooth',
