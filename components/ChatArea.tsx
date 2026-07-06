@@ -36,6 +36,11 @@ const MAX_SUGGESTIONS = 5;
  */
 const NEAR_BOTTOM_PX = 120;
 
+/** Whether the scroll container is within `NEAR_BOTTOM_PX` of its bottom. */
+function isNearBottom(el: HTMLElement): boolean {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
+}
+
 /**
  * Extracts the in-progress at-mention fragment at the cursor for autocomplete.
  *
@@ -90,6 +95,11 @@ export function ChatArea() {
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevConvoId = useRef<string | null>(null);
+  // Whether the user was near the bottom as of their last scroll. Captured
+  // before a new message appends (which grows the list and would otherwise
+  // inflate a live distance measurement), so a tall incoming message can't be
+  // mistaken for the user having scrolled up.
+  const atBottomRef = useRef(true);
 
   const messages = useMemo(
     () => (activeConvo ? (msgHistory[activeConvo.id] ?? []) : []),
@@ -171,6 +181,9 @@ export function ChatArea() {
     const convoId = activeConvo?.id ?? null;
     const switched = prevConvoId.current !== convoId;
     prevConvoId.current = convoId;
+    // Whether this run is the user's own just-sent message, which should jump
+    // instantly rather than animate.
+    let ownSend = false;
     // A pending command-palette jump owns the scroll position — don't yank it
     // to the bottom underneath it. Read live so clearing the flag can't
     // retrigger this effect (its deps deliberately exclude scrollToMsgId).
@@ -188,32 +201,32 @@ export function ChatArea() {
         : null;
       if (el) {
         el.scrollIntoView({ behavior: 'auto', block: 'start' });
+        atBottomRef.current = false;
         return;
       }
     } else {
       // A new message arrived in the already-open conversation. Always follow
-      // the user's own just-sent message down; otherwise only follow when
-      // they're already near the bottom. If they've scrolled up to read
-      // history, leave their position and surface a "new messages" bubble
-      // instead of yanking them down. Read the latest message live to keep
-      // `messages` out of the deps (we key on its length, not identity).
-      const list = messagesRef.current;
+      // the user's own just-sent message down; otherwise only follow when they
+      // were already near the bottom as of their last scroll. If they've
+      // scrolled up to read history, leave their position and surface a "new
+      // messages" bubble instead of yanking them down. Read the latest message
+      // live to keep `messages` out of the deps (we key on its length, not
+      // identity).
       const live = convoId
         ? (useMeshStore.getState().msgHistory[convoId] ?? [])
         : [];
       const last = live[live.length - 1];
-      if (list && !last?.own) {
-        const distanceFromBottom =
-          list.scrollHeight - list.scrollTop - list.clientHeight;
-        if (distanceFromBottom > NEAR_BOTTOM_PX) {
-          setShowNewIndicator(true);
-          return;
-        }
+      if (!last?.own && !atBottomRef.current) {
+        setShowNewIndicator(true);
+        return;
       }
+      // The user just sent from within history — jump instantly, don't animate.
+      ownSend = last?.own ?? false;
     }
     bottomRef.current?.scrollIntoView({
-      behavior: switched ? 'auto' : 'smooth',
+      behavior: switched || ownSend ? 'auto' : 'smooth',
     });
+    atBottomRef.current = true;
   }, [activeConvo?.id, messages.length]);
 
   // Scroll to and briefly flash a message targeted by the command palette, then
@@ -256,13 +269,14 @@ export function ChatArea() {
   const handleMessagesScroll = () => {
     const list = messagesRef.current;
     if (!list) return;
-    const distanceFromBottom =
-      list.scrollHeight - list.scrollTop - list.clientHeight;
-    if (distanceFromBottom <= NEAR_BOTTOM_PX) setShowNewIndicator(false);
+    const nearBottom = isNearBottom(list);
+    atBottomRef.current = nearBottom;
+    if (nearBottom) setShowNewIndicator(false);
   };
 
   const jumpToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    atBottomRef.current = true;
     setShowNewIndicator(false);
   };
 
