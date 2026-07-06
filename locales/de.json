@@ -438,7 +438,8 @@
     "resetRouteRetryTooltip": "Gespeicherte Route zu diesem Kontakt verwerfen und per Flood erneut senden",
     "repeaterCantMessage": "Repeatern können keine Nachrichten gesendet werden",
     "placeholder": "Nachricht eingeben… (Enter zum Senden, Umschalt+Enter für neue Zeile)",
-    "overByteLimit": "Nachricht ist zu lang — zum Senden kürzen"
+    "overByteLimit": "Nachricht ist zu lang — zum Senden kürzen",
+    "newMessages": "Neue Nachrichten"
   },
   "manage": {
     "removeChannelConfirm": "Diesen Kanal vom Funkgerät entfernen?",
