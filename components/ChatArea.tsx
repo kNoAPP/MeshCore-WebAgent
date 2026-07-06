@@ -30,6 +30,13 @@ import {
 const MAX_SUGGESTIONS = 5;
 
 /**
+ * How close (in pixels) to the bottom of the message list the user must be for
+ * an incoming message to auto-scroll into view. Beyond this, they're treated as
+ * reading history and their scroll position is preserved.
+ */
+const NEAR_BOTTOM_PX = 120;
+
+/**
  * Extracts the in-progress at-mention fragment at the cursor for autocomplete.
  *
  * @returns the text after the nearest at-sign, or null if the cursor isn't in a
@@ -78,6 +85,7 @@ export function ChatArea() {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [showNewIndicator, setShowNewIndicator] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -171,6 +179,7 @@ export function ChatArea() {
     // they left off; fall back to the newest message when there's no unread
     // boundary. Read the marker live to keep it out of the deps.
     if (switched && convoId) {
+      setShowNewIndicator(false);
       const marker = useMeshStore.getState().unreadMarkers[convoId];
       const el = marker
         ? messagesRef.current?.querySelector<HTMLElement>(
@@ -180,6 +189,26 @@ export function ChatArea() {
       if (el) {
         el.scrollIntoView({ behavior: 'auto', block: 'start' });
         return;
+      }
+    } else {
+      // A new message arrived in the already-open conversation. Always follow
+      // the user's own just-sent message down; otherwise only follow when
+      // they're already near the bottom. If they've scrolled up to read
+      // history, leave their position and surface a "new messages" bubble
+      // instead of yanking them down. Read the latest message live to keep
+      // `messages` out of the deps (we key on its length, not identity).
+      const list = messagesRef.current;
+      const live = convoId
+        ? (useMeshStore.getState().msgHistory[convoId] ?? [])
+        : [];
+      const last = live[live.length - 1];
+      if (list && !last?.own) {
+        const distanceFromBottom =
+          list.scrollHeight - list.scrollTop - list.clientHeight;
+        if (distanceFromBottom > NEAR_BOTTOM_PX) {
+          setShowNewIndicator(true);
+          return;
+        }
       }
     }
     bottomRef.current?.scrollIntoView({
@@ -220,6 +249,21 @@ export function ChatArea() {
     setMentionQuery(
       getMentionQuery(el.value, el.selectionStart ?? el.value.length),
     );
+  };
+
+  // Dismiss the "new messages" bubble once the user scrolls back within reach
+  // of the bottom, whether by our jump or their own scrolling.
+  const handleMessagesScroll = () => {
+    const list = messagesRef.current;
+    if (!list) return;
+    const distanceFromBottom =
+      list.scrollHeight - list.scrollTop - list.clientHeight;
+    if (distanceFromBottom <= NEAR_BOTTOM_PX) setShowNewIndicator(false);
+  };
+
+  const jumpToBottom = () => {
+    bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    setShowNewIndicator(false);
   };
 
   const insertMention = (name: string) => {
@@ -314,123 +358,138 @@ export function ChatArea() {
       </div>
 
       {/* Messages */}
-      <div
-        className='flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
-        ref={messagesRef}
-      >
-        {messages.length === 0 && (
-          <div className='mt-8 text-center text-xs text-(--text2)'>
-            {t('chat.noMessages')}
-          </div>
-        )}
-        {messages.map((msg, i) => {
-          let senderLabel: string;
-          let bodyText = msg.text;
+      <div className='relative flex flex-1 flex-col overflow-hidden'>
+        <div
+          className='flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
+          ref={messagesRef}
+          onScroll={handleMessagesScroll}
+        >
+          {messages.length === 0 && (
+            <div className='mt-8 text-center text-xs text-(--text2)'>
+              {t('chat.noMessages')}
+            </div>
+          )}
+          {messages.map((msg, i) => {
+            let senderLabel: string;
+            let bodyText = msg.text;
 
-          if (msg.own) {
-            senderLabel = t('chat.you');
-          } else if (msg.kind === 'channel') {
-            const { sender, body } = splitChannelMessage(msg.text);
-            senderLabel = sender ?? '?';
-            bodyText = body;
-          } else {
-            const contact = msg.pubkeyPrefix
-              ? contacts[msg.pubkeyPrefix]
-              : undefined;
-            senderLabel = contact?.name ?? msg.pubkeyPrefix?.slice(0, 8) ?? '?';
-          }
+            if (msg.own) {
+              senderLabel = t('chat.you');
+            } else if (msg.kind === 'channel') {
+              const { sender, body } = splitChannelMessage(msg.text);
+              senderLabel = sender ?? '?';
+              bodyText = body;
+            } else {
+              const contact = msg.pubkeyPrefix
+                ? contacts[msg.pubkeyPrefix]
+                : undefined;
+              senderLabel =
+                contact?.name ?? msg.pubkeyPrefix?.slice(0, 8) ?? '?';
+            }
 
-          const mentioned =
-            !msg.own &&
-            !msg.system &&
-            deviceName.length > 0 &&
-            bodyText.toLowerCase().includes(`@[${deviceName.toLowerCase()}]`);
+            const mentioned =
+              !msg.own &&
+              !msg.system &&
+              deviceName.length > 0 &&
+              bodyText.toLowerCase().includes(`@[${deviceName.toLowerCase()}]`);
 
-          const dividerTs = dayDividers[i];
+            const dividerTs = dayDividers[i];
 
-          return (
-            <Fragment key={msg.id ?? i}>
-              {dividerTs != null && (
-                <div className='my-1 flex justify-center'>
-                  <div className='rounded-lg border border-dashed border-(--border) px-3 py-1.5 text-[11px] text-(--text2)'>
-                    {formatDateDivider(dividerTs)}
-                  </div>
-                </div>
-              )}
-              {msg.id != null && msg.id === unreadMarker && (
-                <div
-                  className='my-1 flex items-center gap-2'
-                  data-unread-divider
-                >
-                  <div
-                    className='h-px flex-1'
-                    style={{ background: 'var(--red)' }}
-                  />
-                  <span
-                    className='text-[11px] font-semibold'
-                    style={{ color: 'var(--red)' }}
-                  >
-                    {t('chat.lastUnread')}
-                  </span>
-                  <div
-                    className='h-px flex-1'
-                    style={{ background: 'var(--red)' }}
-                  />
-                </div>
-              )}
-              <div
-                className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
-                data-msg-id={msg.id}
-              >
-                {!msg.system && (
-                  <div className='px-1 text-[11px] text-(--text2)'>
-                    {senderLabel}
+            return (
+              <Fragment key={msg.id ?? i}>
+                {dividerTs != null && (
+                  <div className='my-1 flex justify-center'>
+                    <div className='rounded-lg border border-dashed border-(--border) px-3 py-1.5 text-[11px] text-(--text2)'>
+                      {formatDateDivider(dividerTs)}
+                    </div>
                   </div>
                 )}
-                <MessageBubble
-                  msg={msg}
-                  text={bodyText}
-                  deviceName={deviceName}
-                  mentioned={mentioned}
-                  statusActions={
-                    msg.own && msg.status === 'failed' ? (
-                      <span
-                        className='mr-1.5 inline-flex items-center gap-1.5'
-                        style={{ color: 'var(--amber)' }}
-                      >
-                        <span title={t('chat.noAckTooltip')}>
-                          {t('chat.noAck')}
-                        </span>
-                        <span>·</span>
-                        <button
-                          onClick={() => retryMessage(msg, activeConvo)}
-                          className='font-semibold underline hover:opacity-80'
+                {msg.id != null && msg.id === unreadMarker && (
+                  <div
+                    className='my-1 flex items-center gap-2'
+                    data-unread-divider
+                  >
+                    <div
+                      className='h-px flex-1'
+                      style={{ background: 'var(--red)' }}
+                    />
+                    <span
+                      className='text-[11px] font-semibold'
+                      style={{ color: 'var(--red)' }}
+                    >
+                      {t('chat.lastUnread')}
+                    </span>
+                    <div
+                      className='h-px flex-1'
+                      style={{ background: 'var(--red)' }}
+                    />
+                  </div>
+                )}
+                <div
+                  className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
+                  data-msg-id={msg.id}
+                >
+                  {!msg.system && (
+                    <div className='px-1 text-[11px] text-(--text2)'>
+                      {senderLabel}
+                    </div>
+                  )}
+                  <MessageBubble
+                    msg={msg}
+                    text={bodyText}
+                    deviceName={deviceName}
+                    mentioned={mentioned}
+                    statusActions={
+                      msg.own && msg.status === 'failed' ? (
+                        <span
+                          className='mr-1.5 inline-flex items-center gap-1.5'
+                          style={{ color: 'var(--amber)' }}
                         >
-                          {t('chat.retry')}
-                        </button>
-                        {msg.kind === 'direct' &&
-                          (msg.attempt ?? 0) >= 1 &&
-                          directContact &&
-                          directContact.outPathLen !== NO_PATH && (
-                            <button
-                              onClick={() =>
-                                retryMessage(msg, activeConvo, true)
-                              }
-                              title={t('chat.resetRouteRetryTooltip')}
-                              className='font-semibold underline hover:opacity-80'
-                            >
-                              {t('chat.resetRouteRetry')}
-                            </button>
-                          )}
-                      </span>
-                    ) : undefined
-                  }
-                />
-              </div>
-            </Fragment>
-          );
-        })}
-        <div ref={bottomRef} />
+                          <span title={t('chat.noAckTooltip')}>
+                            {t('chat.noAck')}
+                          </span>
+                          <span>·</span>
+                          <button
+                            onClick={() => retryMessage(msg, activeConvo)}
+                            className='font-semibold underline hover:opacity-80'
+                          >
+                            {t('chat.retry')}
+                          </button>
+                          {msg.kind === 'direct' &&
+                            (msg.attempt ?? 0) >= 1 &&
+                            directContact &&
+                            directContact.outPathLen !== NO_PATH && (
+                              <button
+                                onClick={() =>
+                                  retryMessage(msg, activeConvo, true)
+                                }
+                                title={t('chat.resetRouteRetryTooltip')}
+                                className='font-semibold underline hover:opacity-80'
+                              >
+                                {t('chat.resetRouteRetry')}
+                              </button>
+                            )}
+                        </span>
+                      ) : undefined
+                    }
+                  />
+                </div>
+              </Fragment>
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
+        {showNewIndicator && (
+          <button
+            type='button'
+            onClick={jumpToBottom}
+            className='absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-md transition hover:opacity-90'
+            style={{ background: 'var(--accent)' }}
+          >
+            {t('chat.newMessages')}
+            <span aria-hidden>↓</span>
+          </button>
+        )}
       </div>
 
       {/* Input bar */}

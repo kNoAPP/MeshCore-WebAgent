@@ -438,7 +438,8 @@
     "resetRouteRetryTooltip": "Discard the saved route to this contact and resend via flood",
     "repeaterCantMessage": "Repeaters can't be messaged",
     "placeholder": "Type a message… (Enter to send, Shift+Enter for newline)",
-    "overByteLimit": "Message is too long — shorten it to send"
+    "overByteLimit": "Message is too long — shorten it to send",
+    "newMessages": "New messages"
   },
   "manage": {
     "removeChannelConfirm": "Remove this channel from the radio?",
