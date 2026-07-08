@@ -357,6 +357,34 @@ export function describeAction(
 }
 
 /**
+ * Read-tool results are appended to the conversation and re-sent on every
+ * subsequent turn, so bloated reads compound across the agentic loop. These
+ * caps bound worst-case token growth while staying behavior-preserving for
+ * typical small meshes (which fall under every cap).
+ */
+const READ_MESSAGES_DEFAULT = 10;
+const READ_MESSAGES_CAP = 50;
+/** Max rows a single read_contacts / read_adverts call returns. */
+const READ_TABLE_CAP = 300;
+
+/**
+ * Caps a read result to {@link max} rows for the agentic loop's token budget.
+ * Under the cap it returns the bare array unchanged. When the source overflows,
+ * it wraps the kept rows with a `truncated` marker and the real `total`, so the
+ * model knows its view is partial (and can narrow its query) rather than
+ * silently reasoning over a cut list. Callers must pass {@link rows} already
+ * ordered by relevance so the kept slice is the useful one, not an arbitrary
+ * insertion-order prefix.
+ */
+function capRows<T>(
+  rows: T[],
+  max: number,
+): T[] | { items: T[]; truncated: true; total: number } {
+  if (rows.length <= max) return rows;
+  return { items: rows.slice(0, max), truncated: true, total: rows.length };
+}
+
+/**
  * Executes a tool call. Read tools return JSON-serializable data from the
  * store; transmit/write tools run through the {@link ActionContext} (the same
  * useMeshCore action surface, and thus the same `canTransmit` gate, manual use
@@ -369,35 +397,53 @@ export async function callTool(
 ): Promise<unknown> {
   const state = useMeshStore.getState();
   switch (name) {
-    case 'read_contacts':
-      return Object.values(state.contacts).map((c) => ({
-        name: c.name,
-        pubkeyPrefix: c.pubkeyPrefix,
-        advType: c.advType,
-        favorite: (c.flags & FAVORITE_FLAG) !== 0,
-      }));
+    case 'read_contacts': {
+      const rows = Object.values(state.contacts)
+        .map((c) => ({
+          name: c.name,
+          pubkeyPrefix: c.pubkeyPrefix,
+          advType: c.advType,
+          favorite: (c.flags & FAVORITE_FLAG) !== 0,
+        }))
+        // Favorites first so a cap keeps the contacts the user cares about.
+        .sort((a, b) => Number(b.favorite) - Number(a.favorite));
+      return capRows(rows, READ_TABLE_CAP);
+    }
     case 'read_channels':
       return Object.values(state.channels).map((ch) => ({
         idx: ch.idx,
         name: ch.name,
       }));
-    case 'read_adverts':
-      return Object.values(state.adverts).map((a) => ({
-        name: a.name,
-        pubkeyPrefix: a.pubkeyPrefix,
-        advType: a.advType,
-        lastHeard: a.lastHeard,
-      }));
+    case 'read_adverts': {
+      const rows = Object.values(state.adverts)
+        // Most recently heard first so a cap keeps the freshest nodes, not an
+        // arbitrary insertion-order (roughly first-heard) prefix.
+        .sort((a, b) => b.lastHeard - a.lastHeard)
+        .map((a) => ({
+          name: a.name,
+          pubkeyPrefix: a.pubkeyPrefix,
+          advType: a.advType,
+          lastHeard: a.lastHeard,
+        }));
+      return capRows(rows, READ_TABLE_CAP);
+    }
     case 'read_messages': {
       const convoId = reqString(args, 'convoId');
-      const limit = typeof args.limit === 'number' ? args.limit : 20;
+      const limit =
+        typeof args.limit === 'number' ? args.limit : READ_MESSAGES_DEFAULT;
+      const kept = Math.max(1, Math.min(limit, READ_MESSAGES_CAP));
       const msgs = state.msgHistory[convoId] ?? [];
-      return msgs.slice(-Math.max(1, Math.min(limit, 100))).map((m) => ({
+      // Newest `kept` messages (the tail); mark truncated when the conversation
+      // is longer, so a clamped limit or long history isn't read as the whole.
+      const rows = msgs.slice(-kept).map((m) => ({
         text: m.text,
         own: m.own ?? false,
         senderName: m.senderName,
         timestamp: m.timestamp,
       }));
+      return msgs.length > rows.length
+        ? { items: rows, truncated: true, total: msgs.length }
+        : rows;
     }
     case 'read_self_info':
       return {

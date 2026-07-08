@@ -18,6 +18,20 @@ export interface TokenUsage {
   inputTokens: number;
   /** Completion tokens billed for the response. */
   outputTokens: number;
+  /**
+   * Tokens billed to write a new prompt-cache entry, when the provider supports
+   * caching (Anthropic `cache_creation_input_tokens`). `0` — or absent — when
+   * nothing was cached (e.g. the prefix was under the model minimum). Optional
+   * so non-caching providers/paths are unaffected.
+   */
+  cacheCreationInputTokens?: number;
+  /**
+   * Tokens served from an existing prompt-cache entry at the discounted read
+   * rate (Anthropic `cache_read_input_tokens`). `0` — or absent — on a cache
+   * miss. A value `> 0` confirms a real cache hit. Optional so non-caching
+   * providers/paths are unaffected.
+   */
+  cacheReadInputTokens?: number;
 }
 
 /**
