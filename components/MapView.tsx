@@ -95,8 +95,7 @@ function pickIcon(): L.DivIcon {
  * (one `[lat, lon]` per node) to frame with {@link L.Map.fitBounds}.
  */
 type StartView =
-  | { center: [number, number]; zoom: number }
-  | { bounds: [number, number][] };
+  { center: [number, number]; zoom: number } | { bounds: [number, number][] };
 
 /**
  * Picks the starting viewport: the persisted center/zoom if the user has panned
