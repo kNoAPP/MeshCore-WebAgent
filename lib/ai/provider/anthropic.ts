@@ -59,6 +59,16 @@ function messagesUrl(): string {
   return url;
 }
 
+/**
+ * An ephemeral cache breakpoint. Anthropic caches the request prefix up to and
+ * including a marked position for a 5-minute TTL, so identical prefixes on
+ * later turns (and later firings) read from cache at the discounted rate. It is
+ * a silent no-op when the prefix is under the model minimum (~1k tokens on
+ * Sonnet/Opus, ~4k on Haiku): no cache tokens, no error, unchanged response.
+ * See https://platform.claude.com/docs/en/build-with-claude/prompt-caching.
+ */
+const CACHE_CONTROL = { type: 'ephemeral' } as const;
+
 /** Maps a vendor-neutral message content to the Anthropic content shape. */
 function toAnthropicContent(
   content: string | LLMContentBlock[],
@@ -77,27 +87,66 @@ function toAnthropicContent(
   });
 }
 
-/** Shapes an {@link LLMRequest} into the Anthropic Messages request body. */
+/**
+ * Like {@link toAnthropicContent} but forces block form and tags the final
+ * content block with a {@link CACHE_CONTROL} breakpoint, so the growing history
+ * caches incrementally as the agentic loop appends turns. A `string` content
+ * (which maps to a bare string with no place for a marker) becomes a single
+ * text block carrying the marker.
+ */
+function toCachedContent(content: string | LLMContentBlock[]): unknown[] {
+  const blocks =
+    typeof content === 'string'
+      ? [{ type: 'text', text: content }]
+      : (toAnthropicContent(content) as Record<string, unknown>[]);
+  const last = blocks[blocks.length - 1];
+  // A last message with empty content has no block to mark — skip it safely.
+  if (last) last.cache_control = CACHE_CONTROL;
+  return blocks;
+}
+
+/**
+ * Shapes an {@link LLMRequest} into the Anthropic Messages request body,
+ * applying ephemeral cache breakpoints across the cached prefix in Anthropic's
+ * `tools → system → messages` order: the last tool (caches all tool schemas as
+ * one prefix), the system block, and the last message's final block (caches the
+ * conversation incrementally). Max 4 breakpoints per request; this uses at most
+ * 3. Breakpoints are a no-op below the model minimum, so a short single-turn
+ * rule is unaffected.
+ */
 function requestBody(req: LLMRequest): string {
-  return JSON.stringify({
+  const lastMessage = req.messages.length - 1;
+  const body: Record<string, unknown> = {
     model: req.model,
     max_tokens: req.maxTokens,
     stream: true,
-    ...(req.system ? { system: req.system } : {}),
-    messages: req.messages.map((m) => ({
+    messages: req.messages.map((m, i) => ({
       role: m.role,
-      content: toAnthropicContent(m.content),
+      content:
+        i === lastMessage
+          ? toCachedContent(m.content)
+          : toAnthropicContent(m.content),
     })),
-    ...(req.tools && req.tools.length > 0
-      ? {
-          tools: req.tools.map((tool) => ({
-            name: tool.name,
-            description: tool.description,
-            input_schema: tool.inputSchema,
-          })),
-        }
-      : {}),
-  });
+  };
+  // Send `system` as a structured block so it can carry a breakpoint; still
+  // omitted entirely when empty.
+  if (req.system) {
+    body.system = [
+      { type: 'text', text: req.system, cache_control: CACHE_CONTROL },
+    ];
+  }
+  // Mark only the last tool, and only when tools are present, to cache the
+  // whole tool-definition prefix as a single entry.
+  if (req.tools && req.tools.length > 0) {
+    const lastTool = req.tools.length - 1;
+    body.tools = req.tools.map((tool, i) => ({
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.inputSchema,
+      ...(i === lastTool ? { cache_control: CACHE_CONTROL } : {}),
+    }));
+  }
+  return JSON.stringify(body);
 }
 
 /** Maps a non-2xx HTTP status to a typed {@link LLMError}. */
@@ -264,9 +313,26 @@ async function* readStream(
       }
       switch (ev.type) {
         case 'message_start': {
-          const input = (ev.message as { usage?: { input_tokens?: number } })
-            ?.usage?.input_tokens;
-          if (typeof input === 'number') usage.inputTokens = input;
+          const u = (
+            ev.message as {
+              usage?: {
+                input_tokens?: number;
+                cache_creation_input_tokens?: number;
+                cache_read_input_tokens?: number;
+              };
+            }
+          )?.usage;
+          if (typeof u?.input_tokens === 'number') {
+            usage.inputTokens = u.input_tokens;
+          }
+          // Both are 0 on a cache miss (or when the prefix is sub-minimum);
+          // a cache_read > 0 confirms a real hit. Guarded like input_tokens.
+          if (typeof u?.cache_creation_input_tokens === 'number') {
+            usage.cacheCreationInputTokens = u.cache_creation_input_tokens;
+          }
+          if (typeof u?.cache_read_input_tokens === 'number') {
+            usage.cacheReadInputTokens = u.cache_read_input_tokens;
+          }
           break;
         }
         case 'content_block_start': {

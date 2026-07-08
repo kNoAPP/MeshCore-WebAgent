@@ -357,6 +357,17 @@ export function describeAction(
 }
 
 /**
+ * Read-tool results are appended to the conversation and re-sent on every
+ * subsequent turn, so bloated reads compound across the agentic loop. These
+ * caps bound worst-case token growth while staying behavior-preserving for
+ * typical small meshes (which fall under every cap).
+ */
+const READ_MESSAGES_DEFAULT = 10;
+const READ_MESSAGES_CAP = 50;
+/** Max rows a single read_contacts / read_adverts call returns. */
+const READ_TABLE_CAP = 50;
+
+/**
  * Executes a tool call. Read tools return JSON-serializable data from the
  * store; transmit/write tools run through the {@link ActionContext} (the same
  * useMeshCore action surface, and thus the same `canTransmit` gate, manual use
@@ -370,34 +381,41 @@ export async function callTool(
   const state = useMeshStore.getState();
   switch (name) {
     case 'read_contacts':
-      return Object.values(state.contacts).map((c) => ({
-        name: c.name,
-        pubkeyPrefix: c.pubkeyPrefix,
-        advType: c.advType,
-        favorite: (c.flags & FAVORITE_FLAG) !== 0,
-      }));
+      return Object.values(state.contacts)
+        .slice(0, READ_TABLE_CAP)
+        .map((c) => ({
+          name: c.name,
+          pubkeyPrefix: c.pubkeyPrefix,
+          advType: c.advType,
+          favorite: (c.flags & FAVORITE_FLAG) !== 0,
+        }));
     case 'read_channels':
       return Object.values(state.channels).map((ch) => ({
         idx: ch.idx,
         name: ch.name,
       }));
     case 'read_adverts':
-      return Object.values(state.adverts).map((a) => ({
-        name: a.name,
-        pubkeyPrefix: a.pubkeyPrefix,
-        advType: a.advType,
-        lastHeard: a.lastHeard,
-      }));
+      return Object.values(state.adverts)
+        .slice(0, READ_TABLE_CAP)
+        .map((a) => ({
+          name: a.name,
+          pubkeyPrefix: a.pubkeyPrefix,
+          advType: a.advType,
+          lastHeard: a.lastHeard,
+        }));
     case 'read_messages': {
       const convoId = reqString(args, 'convoId');
-      const limit = typeof args.limit === 'number' ? args.limit : 20;
+      const limit =
+        typeof args.limit === 'number' ? args.limit : READ_MESSAGES_DEFAULT;
       const msgs = state.msgHistory[convoId] ?? [];
-      return msgs.slice(-Math.max(1, Math.min(limit, 100))).map((m) => ({
-        text: m.text,
-        own: m.own ?? false,
-        senderName: m.senderName,
-        timestamp: m.timestamp,
-      }));
+      return msgs
+        .slice(-Math.max(1, Math.min(limit, READ_MESSAGES_CAP)))
+        .map((m) => ({
+          text: m.text,
+          own: m.own ?? false,
+          senderName: m.senderName,
+          timestamp: m.timestamp,
+        }));
     }
     case 'read_self_info':
       return {

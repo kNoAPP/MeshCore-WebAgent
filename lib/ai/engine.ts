@@ -49,9 +49,11 @@ export const MAX_MAX_TOKENS = 8192;
 // The agentic loop's LLM round-trips per event, capping cost. The model ends
 // the loop naturally by finishing a turn with no tool call; the cap is only the
 // backstop if it never does. A single turn may batch many tool calls, so a
-// fan-out (e.g. a broadcast list) fits in a few turns.
+// fan-out (e.g. a broadcast list) fits in a few turns. Terse mesh replies
+// rarely need more than a read-then-act pair, so the default stays low to bound
+// per-event burn; a rule that needs more can raise its own cap.
 /** Default turn cap, when a rule doesn't set one. */
-export const DEFAULT_MAX_TURNS = 8;
+export const DEFAULT_MAX_TURNS = 4;
 /** Lower bound a rule's turn cap is clamped to. */
 export const MIN_MAX_TURNS = 1;
 /** Upper bound a rule's *finite* turn cap is clamped to. */
