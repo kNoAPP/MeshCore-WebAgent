@@ -317,6 +317,18 @@ export const NO_PATH = 255;
 export const FAVORITE_FLAG = 0x01;
 
 /**
+ * Mask for the ACL role in a repeater/room-server login permissions byte (the
+ * byte carried by {@link RESP.PUSH_LOGIN_SUCCESS}). The lower two bits hold the
+ * role; `0x3` (`PERM_ACL_ADMIN`) is the only role that grants remote admin.
+ *
+ * @see `PERM_ACL_*` and `ClientInfo::isAdmin` in the firmware's
+ * `helpers/ClientACL.h`.
+ */
+export const PERM_ACL_ROLE_MASK = 0x03;
+/** ACL role value granting full remote administration. */
+export const PERM_ACL_ADMIN = 0x03;
+
+/**
  * `autoadd_config` bitmask sent with {@link CMD.SET_AUTOADD_CONFIG}.
  * `OVERWRITE_OLDEST`
  * applies in every mode; the type bits filter which node types are auto-added

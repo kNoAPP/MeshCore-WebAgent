@@ -14,8 +14,15 @@ import type {
   SendReceipt,
   RawRxPacket,
   RepeaterStatus,
+  RepeaterAccess,
 } from '@/types/meshcore';
-import { ROUTE_TYPE_FLOOD, RADIO_PARAM_SCALE, TXT_TYPE } from './constants';
+import {
+  ROUTE_TYPE_FLOOD,
+  RADIO_PARAM_SCALE,
+  TXT_TYPE,
+  PERM_ACL_ROLE_MASK,
+  PERM_ACL_ADMIN,
+} from './constants';
 import { toHex } from '@/lib/utils';
 
 // Decoders for inbound frame payloads → typed objects. Each takes the full
@@ -492,15 +499,21 @@ export function parseStatusResponse(d: Uint8Array): RepeaterStatus | null {
 
 /**
  * Parses a `PUSH_LOGIN_SUCCESS` (`0x85`): the 6-byte public-key prefix (hex) of
- * the node that accepted the login, so the client can match it to the request.
+ * the node that accepted the login (so the client can match it to the request)
+ * plus the access level the server granted.
  *
  * @remarks Frame: `[code] permissions(1) pubkey_prefix(6)`, optionally followed
  * by `[server timestamp (uint32)][ACL permissions][firmware level]`. Byte 1 is
- * the login permissions (e.g. is-admin), zero for legacy `"OK"` responses; only
- * the prefix is decoded here.
- * @returns the pubkey prefix, or null if the frame is too short.
+ * the login permissions; its low two bits are the ACL role, so `admin` requires
+ * {@link PERM_ACL_ADMIN}. Legacy `"OK"` responses send zero here and therefore
+ * decode as `guest` (older repeaters cannot report the granted role).
+ * @returns the prefix and granted access, or null if the frame is too short.
  */
-export function parseLoginPush(d: Uint8Array): string | null {
+export function parseLoginPush(
+  d: Uint8Array,
+): { pubkeyPrefix: string; access: RepeaterAccess } | null {
   if (d.length < 8) return null;
-  return hexBytes(d, 2, 8);
+  const access: RepeaterAccess =
+    (d[1] & PERM_ACL_ROLE_MASK) === PERM_ACL_ADMIN ? 'admin' : 'guest';
+  return { pubkeyPrefix: hexBytes(d, 2, 8), access };
 }

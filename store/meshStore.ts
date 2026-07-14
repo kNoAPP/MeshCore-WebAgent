@@ -17,6 +17,7 @@ import type {
   DeviceInfo,
   SyncProgress,
   RepeaterStatus,
+  RepeaterAccess,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import type {
@@ -187,10 +188,11 @@ export interface Toast {
 
 /**
  * Login state of a remote-admin session with a repeater or room server.
- * `pending` covers the in-flight login handshake; `admin`/`guest` are the two
- * accepted access levels; `loggedOut` is the initial and post-failure state.
+ * `pending` covers the in-flight login handshake; the {@link RepeaterAccess}
+ * levels (`admin`/`guest`) are the accepted, server-granted states; `loggedOut`
+ * is the initial and post-failure state.
  */
-export type AdminLoginState = 'loggedOut' | 'pending' | 'admin' | 'guest';
+export type AdminLoginState = 'loggedOut' | 'pending' | RepeaterAccess;
 
 /** One line of a repeater CLI transcript. */
 export interface CliLine {

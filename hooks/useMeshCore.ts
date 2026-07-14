@@ -1061,17 +1061,18 @@ export function useMeshCore() {
 
   /**
    * Logs in to a repeater/room server for remote admin. Marks the session
-   * `pending`, then `admin`/`guest` on success or `loggedOut` on failure
-   * (surfaced via toast). The password is never stored — only the resulting
-   * access level lands in the store.
+   * `pending`, then the server-granted `admin`/`guest` level on success or
+   * `loggedOut` on failure (surfaced via toast). The granted level comes from
+   * the login response, not the caller — the server decides it from the
+   * password. The password is never stored, only the resulting access level.
    */
   const repeaterLogin = useCallback(
-    async (contact: Contact, password: string, kind: 'admin' | 'guest') => {
+    async (contact: Contact, password: string) => {
       if (!canTransmit(client)) return;
       setAdminLogin(contact.pubkeyPrefix, 'pending');
       try {
-        await client.login(contact, password);
-        setAdminLogin(contact.pubkeyPrefix, kind);
+        const access = await client.login(contact, password);
+        setAdminLogin(contact.pubkeyPrefix, access);
       } catch (err) {
         setAdminLogin(contact.pubkeyPrefix, 'loggedOut');
         showToast(
