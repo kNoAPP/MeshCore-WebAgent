@@ -508,9 +508,9 @@ export function parseStatusResponse(d: Uint8Array): RepeaterStatus | null {
  * room servers also emit `2` for read-only), not the ACL role. The
  * authoritative role lives in the ACL permissions byte at offset 12 — its low
  * two bits are the role, so `admin` requires {@link PERM_ACL_ADMIN}. Legacy
- * `"OK"` responses omit that byte and send `0` at byte 1, so the granted role
- * is unknown: `access` is then `null` and the caller falls back to the level it
- * attempted.
+ * responses omit that byte: `1` decodes as `admin` and `2` as a read-only
+ * `guest`, while a zero-byte `"OK"` cannot report the granted role, so `access`
+ * is `null` and the caller falls back to the level it attempted.
  * @returns the prefix and granted access (`null` when the response cannot
  * report a role), or null if the frame is too short.
  */
@@ -526,7 +526,10 @@ export function parseLoginPush(
       (d[12] & PERM_ACL_ROLE_MASK) === PERM_ACL_ADMIN ? 'admin' : 'guest';
     return { pubkeyPrefix, access };
   }
-  // Legacy response: byte 1 is the only signal (1 = admin). A zero cannot
-  // report the granted role, so leave it undetermined for the caller.
-  return { pubkeyPrefix, access: d[1] === 1 ? 'admin' : null };
+  // Legacy response: byte 1 is the only signal (1 = admin, 2 = read-only guest
+  // on room servers). Zero cannot report the granted role, so leave it
+  // undetermined for the caller to fall back on the attempted level.
+  const access: RepeaterAccess | null =
+    d[1] === 1 ? 'admin' : d[1] === 2 ? 'guest' : null;
+  return { pubkeyPrefix, access };
 }
