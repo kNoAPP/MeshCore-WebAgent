@@ -96,7 +96,7 @@ export interface Message {
   roundTripMs?: number;
   attempt?: number;
   heardByRepeaters?: number;
-  txtType?: number; // TXT_TYPE of a received message (plain/CLI/signed); routes CLI replies
+  txtType?: number; // received message's TXT_TYPE; routes CLI replies
   _unread?: boolean;
 }
 
