@@ -16,6 +16,7 @@ import type {
   SelfInfo,
   DeviceInfo,
   SyncProgress,
+  RepeaterStatus,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import type {
@@ -47,6 +48,9 @@ import { mergeAdvertCache } from '@/lib/map/advertCache';
 
 /** Cap on the in-memory automation audit log, newest kept. */
 const AUDIT_LOG_LIMIT = 200;
+
+/** Cap on a per-repeater CLI transcript, oldest lines dropped past it. */
+const CLI_LOG_LIMIT = 200;
 
 const DEFAULT_AUTOADD_CONFIG: AutoAddConfig = {
   mode: 'all',
@@ -181,6 +185,33 @@ export interface Toast {
   id: number;
 }
 
+/**
+ * Login state of a remote-admin session with a repeater or room server.
+ * `pending` covers the in-flight login handshake; `admin`/`guest` are the two
+ * accepted access levels; `loggedOut` is the initial and post-failure state.
+ */
+export type AdminLoginState = 'loggedOut' | 'pending' | 'admin' | 'guest';
+
+/** One line of a repeater CLI transcript. */
+export interface CliLine {
+  /** `true` for a command we sent, `false` for the repeater's reply. */
+  own: boolean;
+  text: string;
+  /** `Date.now()` when the line was appended. */
+  ts: number;
+}
+
+/**
+ * A per-repeater remote-admin session: login state, the latest decoded status,
+ * and the bounded CLI transcript. Deliberately ephemeral — never persisted, and
+ * cleared on disconnect (the password is never stored anywhere).
+ */
+export interface AdminSession {
+  login: AdminLoginState;
+  status?: RepeaterStatus;
+  cli: CliLine[];
+}
+
 interface MeshState {
   // Connection
   client: MeshCoreClient | null;
@@ -281,6 +312,14 @@ interface MeshState {
   stagedActions: StagedAction[];
   /** Append-only log of AI decisions (newest first, never the key). */
   auditLog: AuditEntry[];
+
+  // Remote administration (task 7.3)
+  /**
+   * Per-repeater remote-admin sessions, keyed by the target's
+   * `contact.pubkeyPrefix`. Ephemeral in-memory state (never persisted); reset
+   * to `{}` on disconnect.
+   */
+  adminSessions: Record<string, AdminSession>;
 }
 
 interface MeshActions {
@@ -365,6 +404,17 @@ interface MeshActions {
   clearAuditLog: () => void;
   /** Kill switch: disable the master switch and clear the staged queue. */
   killSwitch: () => void;
+
+  /** Sets a repeater admin session's login state (creates it if new). */
+  setAdminLogin: (prefix: string, login: AdminLoginState) => void;
+  /** Stores the latest decoded status for a repeater's admin session. */
+  setRepeaterStatus: (prefix: string, status: RepeaterStatus) => void;
+  /** Appends one line to a repeater's CLI transcript, capped to the newest. */
+  appendCliLine: (prefix: string, line: CliLine) => void;
+  /** Clears a repeater's CLI transcript, leaving the session intact. */
+  clearCliLog: (prefix: string) => void;
+  /** Drops a repeater's admin session entirely (e.g. on log out). */
+  resetAdminSession: (prefix: string) => void;
   reset: () => void;
 }
 
@@ -408,6 +458,7 @@ const initialState: MeshState = {
   automationRules: [],
   stagedActions: [],
   auditLog: [],
+  adminSessions: {},
 };
 
 let toastSeq = 0;
@@ -658,6 +709,64 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // The kill switch disarms automation for good, not just this session.
     set({ automationEnabled: false, stagedActions: [] });
   },
+
+  setAdminLogin: (prefix, login) =>
+    set((state) => {
+      const session = state.adminSessions[prefix] ?? { login, cli: [] };
+      return {
+        adminSessions: {
+          ...state.adminSessions,
+          [prefix]: { ...session, login },
+        },
+      };
+    }),
+  setRepeaterStatus: (prefix, status) =>
+    set((state) => {
+      const session = state.adminSessions[prefix] ?? {
+        login: 'loggedOut',
+        cli: [],
+      };
+      return {
+        adminSessions: {
+          ...state.adminSessions,
+          [prefix]: { ...session, status },
+        },
+      };
+    }),
+  appendCliLine: (prefix, line) =>
+    set((state) => {
+      const session = state.adminSessions[prefix] ?? {
+        login: 'loggedOut',
+        cli: [],
+      };
+      return {
+        adminSessions: {
+          ...state.adminSessions,
+          [prefix]: {
+            ...session,
+            cli: [...session.cli, line].slice(-CLI_LOG_LIMIT),
+          },
+        },
+      };
+    }),
+  clearCliLog: (prefix) =>
+    set((state) => {
+      const session = state.adminSessions[prefix];
+      if (!session) return {};
+      return {
+        adminSessions: {
+          ...state.adminSessions,
+          [prefix]: { ...session, cli: [] },
+        },
+      };
+    }),
+  resetAdminSession: (prefix) =>
+    set((state) => {
+      if (!(prefix in state.adminSessions)) return {};
+      const adminSessions = { ...state.adminSessions };
+      delete adminSessions[prefix];
+      return { adminSessions };
+    }),
 
   reset: () =>
     set({

@@ -693,6 +693,9 @@
     "selfAdvertFloodSent": "Anuncio difundido a la malla",
     "selfAdvertFailed": "Error al anunciar: {{error}}",
     "rebooting": "Reiniciando… se reconectará cuando el dispositivo vuelva",
-    "rebootFailed": "Error al reiniciar: {{error}}"
+    "rebootFailed": "Error al reiniciar: {{error}}",
+    "repeaterLoginFailed": "Error al iniciar sesión: {{error}}",
+    "repeaterStatusFailed": "Error al obtener el estado: {{error}}",
+    "repeaterCliFailed": "Error al enviar el comando: {{error}}"
   }
 }

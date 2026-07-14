@@ -503,6 +503,9 @@ export function useMeshCore() {
     restoreAdvertCache,
     restoreAutomationRules,
     restorePreferences,
+    appendCliLine,
+    setAdminLogin,
+    setRepeaterStatus,
     showToast,
   } = useMeshStore();
 
@@ -528,6 +531,8 @@ export function useMeshCore() {
         onSyncProgress: (p) => setSyncProgress(p),
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
+        onCliReply: ({ pubkeyPrefix, text }) =>
+          appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() }),
         onAdvertsUpdated: (adverts) => {
           const next = { ...adverts };
           setAdverts(next);
@@ -600,6 +605,7 @@ export function useMeshCore() {
       setAdverts,
       cacheAdverts,
       addMessage,
+      appendCliLine,
       showToast,
     ],
   );
@@ -1051,6 +1057,75 @@ export function useMeshCore() {
       }
     },
     [client, showToast],
+  );
+
+  /**
+   * Logs in to a repeater/room server for remote admin. Marks the session
+   * `pending`, then `admin`/`guest` on success or `loggedOut` on failure
+   * (surfaced via toast). The password is never stored — only the resulting
+   * access level lands in the store.
+   */
+  const repeaterLogin = useCallback(
+    async (contact: Contact, password: string, kind: 'admin' | 'guest') => {
+      if (!canTransmit(client)) return;
+      setAdminLogin(contact.pubkeyPrefix, 'pending');
+      try {
+        await client.login(contact, password);
+        setAdminLogin(contact.pubkeyPrefix, kind);
+      } catch (err) {
+        setAdminLogin(contact.pubkeyPrefix, 'loggedOut');
+        showToast(
+          i18n.t('toast.repeaterLoginFailed', {
+            error: (err as Error).message,
+          }),
+          'error',
+        );
+      }
+    },
+    [client, setAdminLogin, showToast],
+  );
+
+  /** Requests a repeater's live status and stores it on its admin session. */
+  const repeaterStatus = useCallback(
+    async (contact: Contact) => {
+      if (!canTransmit(client)) return;
+      try {
+        const status = await client.requestStatus(contact);
+        setRepeaterStatus(contact.pubkeyPrefix, status);
+      } catch (err) {
+        showToast(
+          i18n.t('toast.repeaterStatusFailed', {
+            error: (err as Error).message,
+          }),
+          'error',
+        );
+      }
+    },
+    [client, setRepeaterStatus, showToast],
+  );
+
+  /**
+   * Sends a remote-admin CLI command to a repeater. Echoes the outgoing line to
+   * the transcript immediately; the reply arrives later via `onCliReply`.
+   */
+  const repeaterCli = useCallback(
+    async (contact: Contact, cmd: string) => {
+      if (!canTransmit(client)) return;
+      appendCliLine(contact.pubkeyPrefix, {
+        own: true,
+        text: cmd,
+        ts: Date.now(),
+      });
+      try {
+        await client.sendCliCommand(contact, cmd);
+      } catch (err) {
+        showToast(
+          i18n.t('toast.repeaterCliFailed', { error: (err as Error).message }),
+          'error',
+        );
+      }
+    },
+    [client, appendCliLine, showToast],
   );
 
   /** Saves a heard advert as a contact on the radio. */
@@ -1515,6 +1590,9 @@ export function useMeshCore() {
     retryMessage,
     resetContactPath,
     toggleFavorite,
+    repeaterLogin,
+    repeaterStatus,
+    repeaterCli,
     addDiscoveredContact,
     importContact,
     shareContact,

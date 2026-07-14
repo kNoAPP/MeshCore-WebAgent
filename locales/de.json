@@ -693,6 +693,9 @@
     "selfAdvertFloodSent": "Ankündigung ins Mesh geflutet",
     "selfAdvertFailed": "Ankündigung fehlgeschlagen: {{error}}",
     "rebooting": "Neustart … Verbindung wird wiederhergestellt, sobald das Gerät zurück ist",
-    "rebootFailed": "Neustart fehlgeschlagen: {{error}}"
+    "rebootFailed": "Neustart fehlgeschlagen: {{error}}",
+    "repeaterLoginFailed": "Anmeldung fehlgeschlagen: {{error}}",
+    "repeaterStatusFailed": "Status konnte nicht abgerufen werden: {{error}}",
+    "repeaterCliFailed": "Befehl konnte nicht gesendet werden: {{error}}"
   }
 }
