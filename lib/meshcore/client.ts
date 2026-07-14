@@ -15,6 +15,7 @@ import type {
   SyncProgress,
   SendReceipt,
   RawRxPacket,
+  RepeaterStatus,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import { MeshConnectError } from './errors';
@@ -25,6 +26,7 @@ import {
   AUTOADD,
   MANUAL_ADD_OFF,
   MANUAL_ADD_ON,
+  TXT_TYPE,
 } from './constants';
 import {
   buildAppStart,
@@ -55,6 +57,8 @@ import {
   buildSetAutoAddConfig,
   buildGetAutoAddConfig,
   buildReboot,
+  buildSendLogin,
+  buildSendStatusReq,
 } from './frames';
 import {
   parseSelfInfo,
@@ -75,12 +79,26 @@ import {
   parseStatsPackets,
   parseAutoAddConfig,
   parseCurrentTime,
+  parseStatusResponse,
+  parseLoginPush,
 } from './parsers';
 import { toHex } from '@/lib/utils';
 
 // Cap the heard-adverts log so a long session on a busy mesh can't grow
 // unbounded
 const ADVERTS_LIMIT = 200;
+
+// Extra time added to a login/status push wait beyond the radio's estimated
+// round-trip (read from the SENT receipt), absorbing push-delivery jitter on
+// top of that estimate. Kept small so a genuinely unanswered request (e.g. a
+// wrong repeater password, which yields no response) still fails promptly.
+const PUSH_GRACE_MS = 2000;
+
+// Fallback push-wait budget used only when the SENT receipt carries no usable
+// round-trip estimate (a malformed or too-short receipt). Sized to cover a
+// typical multi-hop path so a slow-but-valid reply isn't cut off; the receipt's
+// own estimate is preferred whenever it provides one.
+const PUSH_FALLBACK_TIMEOUT_MS = 8000;
 
 /**
  * Maximum tolerated drift, in seconds, between the device clock and the
@@ -121,6 +139,18 @@ interface PendingCmd {
   timer: ReturnType<typeof setTimeout>;
 }
 
+// A caller awaiting an asynchronous push (PUSH_LOGIN_SUCCESS /
+// PUSH_STATUS_RESPONSE) that the radio delivers well after its SENT receipt.
+// Keyed by the target node's 6-byte pubkey prefix so concurrent requests to
+// different repeaters never cross-talk. `timer` is armed only once the SENT
+// receipt reveals the estimated round-trip, so it is null between registration
+// and that receipt.
+interface PushWaiter<T> {
+  resolve: (value: T) => void;
+  reject: (err: Error) => void;
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
 /**
  * Event hooks the client fires as radio state changes. The `useMeshCore` hook
  * wires these into the Zustand store. All are optional; collection callbacks
@@ -129,6 +159,12 @@ interface PendingCmd {
 export interface MeshCoreCallbacks {
   /** A new inbound channel or direct message arrived. */
   onMessage?: (msg: Message) => void;
+  /**
+   * A remote-admin CLI reply arrived (a `CONTACT_MSG` with `CLI_DATA`). Routed
+   * here rather than {@link onMessage} so console output never lands in chat
+   * history. `pubkeyPrefix` identifies the repeater/room-server it came from.
+   */
+  onCliReply?: (reply: { pubkeyPrefix: string; text: string }) => void;
   /**
    * The contact table changed (after a sync, add, remove, or favorite toggle).
    */
@@ -178,6 +214,18 @@ export class MeshCoreClient {
   deviceInfo: DeviceInfo | null = null;
 
   private handlers: PendingCmd[] = [];
+  // Login and status replies arrive as unsolicited pushes long after the SENT
+  // receipt, so they can't ride the `handlers` queue. Each is matched back to
+  // its request by the target's 6-byte pubkey prefix (hex).
+  private loginWaiters = new Map<string, PushWaiter<void>>();
+  private statusWaiters = new Map<string, PushWaiter<RepeaterStatus>>();
+  // Serializes the full login/status handshake (the SENT receipt *and* the
+  // async push that follows). Current firmware retains only one pending remote
+  // request and clears it on each CMD_SEND_LOGIN/CMD_SEND_STATUS_REQ, so
+  // overlapping requests — even to different nodes — would cancel each other
+  // radio-side and leave the earlier waiter to time out. Each operation runs to
+  // completion (or failure) before the next begins.
+  private remoteChain: Promise<unknown> = Promise.resolve();
   // Serializes command/response exchanges: each cmd() waits for the previous to
   // settle before sending. The radio handles one exchange at a time, so this
   // stops the 5s message poll (or any other command) from racing a fetch for
@@ -305,6 +353,24 @@ export class MeshCoreClient {
   // command that many extra times if it times out (read-only commands pass 1 to
   // ride out a transient drop under load); other failures propagate on the
   // first try.
+  // Serializes `op` behind everything already queued on `chain`: `op` runs once
+  // the chain settles (success or failure), the caller awaits `run` for `op`'s
+  // own result, and the returned `tail` — which the caller stores back as the
+  // new chain head — settles without ever rejecting, so a failed `op` never
+  // leaks its rejection or resolved value into the next queued operation.
+  // Shared by the command (`cmdChain`) and remote-admin (`remoteChain`) chains.
+  private serialize<T>(
+    chain: Promise<unknown>,
+    op: () => Promise<T>,
+  ): { run: Promise<T>; tail: Promise<unknown> } {
+    const run = chain.then(op, op);
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return { run, tail };
+  }
+
   private cmd(
     payload: Uint8Array,
     types: RespCode[],
@@ -312,16 +378,10 @@ export class MeshCoreClient {
     retries = 0,
   ): Promise<Uint8Array> {
     const attempt = () => this.sendCmd(payload, types, timeout);
-    const run = this.cmdChain.then(
-      () => this.attemptCmd(attempt, retries),
-      () => this.attemptCmd(attempt, retries),
+    const { run, tail } = this.serialize(this.cmdChain, () =>
+      this.attemptCmd(attempt, retries),
     );
-    // Advance the chain on settle (success or failure) without leaking the
-    // rejection into the next command or retaining the resolved frame.
-    this.cmdChain = run.then(
-      () => undefined,
-      () => undefined,
-    );
+    this.cmdChain = tail;
     return run;
   }
 
@@ -445,6 +505,21 @@ export class MeshCoreClient {
       if (pkt) this.callbacks.onLogRx?.(pkt);
       return;
     }
+    if (type === RESP.PUSH_LOGIN_SUCCESS) {
+      // A repeater/room-server accepted a login; match the pending request by
+      // its pubkey prefix. Pushes with no matching waiter are dropped.
+      const prefix = parseLoginPush(d);
+      if (prefix) this.settlePush(this.loginWaiters, prefix, undefined);
+      return;
+    }
+    if (type === RESP.PUSH_STATUS_RESPONSE) {
+      // A repeater answered a status request; resolve the matching waiter with
+      // its parsed stats.
+      const status = parseStatusResponse(d);
+      if (status)
+        this.settlePush(this.statusWaiters, status.pubkeyPrefix, status);
+      return;
+    }
 
     if (this.collectingContacts) {
       if (type === RESP.CONTACTS_START) {
@@ -509,7 +584,17 @@ export class MeshCoreClient {
     if (type === RESP.CONTACT_MSG || type === RESP.CONTACT_MSG_V3) {
       const parsed =
         type === RESP.CONTACT_MSG ? parseContactMsg(d) : parseContactMsgV3(d);
-      if (parsed) this.callbacks.onMessage?.({ kind: 'direct', ...parsed });
+      if (parsed) {
+        if (parsed.txtType === TXT_TYPE.CLI_DATA) {
+          // Remote-admin console output — keep it out of chat history.
+          this.callbacks.onCliReply?.({
+            pubkeyPrefix: parsed.pubkeyPrefix ?? '',
+            text: parsed.text,
+          });
+        } else {
+          this.callbacks.onMessage?.({ kind: 'direct', ...parsed });
+        }
+      }
     }
 
     this.resolveHandler(type, d);
@@ -682,6 +767,59 @@ export class MeshCoreClient {
       10000,
     );
     return d[0] === RESP.SENT ? parseMsgSent(d) : null;
+  }
+
+  /**
+   * Logs in to a repeater or room server for remote administration.
+   *
+   * @remarks
+   * Two-stage handshake: the radio first replies `SENT` (carrying an estimated
+   * round-trip timeout), then the target node's acceptance arrives later as an
+   * unsolicited `PUSH_LOGIN_SUCCESS` matched by pubkey prefix. The wait for
+   * that push is derived from the `SENT` receipt (which can be several seconds
+   * over a multi-hop path), not the fixed command timeout. An empty password is
+   * a valid guest login.
+   * @throws if the radio answers `ERR`, or no success push arrives in time (a
+   * wrong password typically produces no response, so it surfaces as a
+   * timeout).
+   */
+  async login(contact: Contact, password: string): Promise<void> {
+    await this.remoteRequest(
+      this.loginWaiters,
+      contact.pubkeyBytes,
+      buildSendLogin(contact.pubkeyBytes, password),
+    );
+  }
+
+  /**
+   * Requests a repeater's live stats. Same `SENT` → async-push handshake as
+   * {@link login} (requires a prior successful login), resolving the parsed
+   * {@link RepeaterStatus} from `PUSH_STATUS_RESPONSE`.
+   *
+   * @throws if the radio answers `ERR`, or no status push arrives in time.
+   */
+  async requestStatus(contact: Contact): Promise<RepeaterStatus> {
+    return this.remoteRequest(
+      this.statusWaiters,
+      contact.pubkeyBytes,
+      buildSendStatusReq(contact.pubkeyBytes),
+    );
+  }
+
+  /**
+   * Sends a remote-admin CLI command to a repeater or room server. The command
+   * travels as a direct message tagged {@link TXT_TYPE.CLI_DATA}; the reply
+   * arrives asynchronously and is delivered via
+   * {@link MeshCoreCallbacks.onCliReply}, never the chat stream. Resolves once
+   * the radio accepts the send (`SENT`/`OK`).
+   */
+  async sendCliCommand(contact: Contact, command: string): Promise<void> {
+    const prefix = contact.pubkeyBytes.slice(0, 6);
+    await this.cmd(
+      buildSendDirectMsg(prefix, command, 0, TXT_TYPE.CLI_DATA),
+      [RESP.SENT, RESP.OK],
+      10000,
+    );
   }
 
   /**
@@ -1175,12 +1313,124 @@ export class MeshCoreClient {
     }
   }
 
+  // Runs one complete remote-admin handshake, serialized against every other so
+  // the radio's single pending-request slot is never clobbered mid-flight (see
+  // `remoteChain`).
+  private remoteRequest<T>(
+    waiters: Map<string, PushWaiter<T>>,
+    pubkey: Uint8Array,
+    payload: Uint8Array,
+  ): Promise<T> {
+    const { run, tail } = this.serialize(this.remoteChain, () =>
+      this.runRemoteRequest(waiters, pubkey, payload),
+    );
+    this.remoteChain = tail;
+    return run;
+  }
+
+  // The handshake body: register the push waiter, send the command, then arm a
+  // receipt-derived timeout and await the matching push. The waiter is
+  // registered *before* sending because the frame parser dispatches a read
+  // chunk's frames synchronously — a SENT and its push arriving together would
+  // otherwise drop the push before a post-await continuation could register a
+  // waiter (meshcore.js likewise installs its listener before sending).
+  //
+  // `promise` is the single settlement channel and is always returned, so every
+  // failure path — an ERR/timeout on the SENT exchange, or a teardown that
+  // already rejected the waiter — flows through it and can never leave an
+  // unhandled rejected promise behind (which a bare `throw` here would, since
+  // the pre-registered `promise` would then never gain a handler).
+  private async runRemoteRequest<T>(
+    waiters: Map<string, PushWaiter<T>>,
+    pubkey: Uint8Array,
+    payload: Uint8Array,
+  ): Promise<T> {
+    const prefixHex = toHex(pubkey.slice(0, 6));
+
+    // Supersede any stale waiter for the same prefix, then register this one
+    // with no timer yet — the timeout is armed from the SENT receipt below.
+    const prior = waiters.get(prefixHex);
+    if (prior) {
+      if (prior.timer) clearTimeout(prior.timer);
+      prior.reject(new Error('Superseded by a newer request'));
+    }
+    let waiter!: PushWaiter<T>;
+    const promise = new Promise<T>((resolve, reject) => {
+      waiter = { resolve, reject, timer: null };
+    });
+    waiters.set(prefixHex, waiter);
+
+    let sent: Uint8Array;
+    try {
+      sent = await this.cmd(payload, [RESP.SENT], 5000);
+    } catch (err) {
+      // Reject through the waiter so the returned `promise` carries the
+      // failure, then drop the entry. Both are no-ops if teardown already
+      // rejected and removed it (the promise then already holds that error).
+      waiter.reject(err as Error);
+      if (waiters.get(prefixHex) === waiter) waiters.delete(prefixHex);
+      return promise;
+    }
+
+    // Arm the timeout unless the push already settled the waiter (delivered in
+    // the same read chunk as SENT). The wait derives from the receipt's
+    // estimated round-trip — several seconds over a multi-hop path — plus a
+    // grace margin; if the receipt carries no usable estimate, fall back to a
+    // safe budget rather than collapsing to just the grace.
+    if (waiters.get(prefixHex) === waiter) {
+      const estimate = parseMsgSent(sent)?.suggestedTimeoutMs;
+      const base =
+        estimate && estimate > 0 ? estimate : PUSH_FALLBACK_TIMEOUT_MS;
+      waiter.timer = setTimeout(() => {
+        waiters.delete(prefixHex);
+        waiter.reject(new Error(`Timeout waiting for push from ${prefixHex}`));
+      }, base + PUSH_GRACE_MS);
+    }
+    return promise;
+  }
+
+  // Resolves the login/status waiter matching an inbound push's pubkey prefix.
+  // A push with no pending waiter is dropped (a stray or duplicate reply),
+  // mirroring meshcore.js.
+  //
+  // Matching is best-effort by prefix only: the wire push carries nothing that
+  // ties it to a specific request instance. If a request times out (or a push
+  // is duplicated by mesh flooding) and the same repeater is queried again, a
+  // straggler from the earlier request can resolve the later waiter with its
+  // (still real, but staler) snapshot. Serialization via `remoteChain` keeps at
+  // most one waiter per prefix, bounding this to the retry/duplicate window.
+  private settlePush<T>(
+    waiters: Map<string, PushWaiter<T>>,
+    prefixHex: string,
+    value: T,
+  ): void {
+    const w = waiters.get(prefixHex);
+    if (!w) return;
+    waiters.delete(prefixHex);
+    if (w.timer) clearTimeout(w.timer);
+    w.resolve(value);
+  }
+
+  // Rejects every pending login/status push waiter on teardown so callers
+  // awaiting a repeater reply unwind with the link error instead of hanging
+  // until their derived timeout.
+  private rejectPushWaiters(err: Error): void {
+    for (const waiters of [this.loginWaiters, this.statusWaiters]) {
+      for (const w of waiters.values()) {
+        if (w.timer) clearTimeout(w.timer);
+        w.reject(err);
+      }
+      waiters.clear();
+    }
+  }
+
   // Shared teardown for both an unexpected drop and a deliberate destroy: mark
   // closed, fail in-flight commands, and unblock the contact collector.
   private teardown(err: Error): void {
     this._closed = true;
     this.stopTimers();
     this.rejectPending(err);
+    this.rejectPushWaiters(err);
     this.collectingContacts = false;
     this.contactsResolve?.();
   }
