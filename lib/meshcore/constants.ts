@@ -89,18 +89,24 @@ export const RESP = {
   PUSH_MSG_WAITING: 0x83,
   /**
    * Push confirming a {@link CMD.SEND_LOGIN} succeeded:
-   * `[0x85][reserved][6-byte pubkey prefix]`. The prefix identifies which login
-   * request it answers.
+   * `[0x85][permissions][6-byte pubkey prefix]`, optionally followed by
+   * `[server timestamp (uint32)][ACL permissions][firmware level]`. Byte 1 is
+   * the login permissions (e.g. is-admin), zero for legacy `"OK"` responses;
+   * the prefix identifies which login request it answers.
    *
-   * @see `onLoginSuccessPush` in `meshcore.js` (`PushCodes.LoginSuccess`).
+   * @see `onLoginSuccessPush` in `meshcore.js` (`PushCodes.LoginSuccess`) and
+   * `onContactResponse` in the firmware's `companion_radio/MyMesh.cpp`.
    */
   PUSH_LOGIN_SUCCESS: 0x85,
   /**
-   * Push signalling a failed login. Defined for completeness, but the firmware
-   * does not emit it yet — a bad password simply times out with no push.
+   * Push signalling a failed login: `[0x86][reserved][6-byte pubkey prefix]`.
+   * Emitted by the firmware's `onContactResponse` when a login response is not
+   * a success. Note a wrong repeater password produces no response at all (the
+   * request just times out), so a failure often surfaces as a timeout rather
+   * than this push.
    *
-   * @see `PushCodes.LoginFail` in `meshcore.js` (noted there as "not usable
-   * yet").
+   * @see `PushCodes.LoginFail` in `meshcore.js` (still marked "not usable yet"
+   * there) and `onContactResponse` in `companion_radio/MyMesh.cpp`.
    */
   PUSH_LOGIN_FAIL: 0x86,
   /**
@@ -147,9 +153,10 @@ export const ROUTE_TYPE_FLOOD = 0x01;
 export const PAYLOAD_TYPE_GRP_TXT = 0x05;
 
 /**
- * `txt_type` — the second payload byte of a text message frame (both
- * {@link CMD.SEND_TXT_MSG} and inbound `CONTACT_MSG`), classifying how the
- * radio treats the body.
+ * `txt_type` classifies how the radio treats a text message body. It is
+ * payload byte 1 of an outbound {@link CMD.SEND_TXT_MSG}, but on inbound frames
+ * it sits deeper: offset 8 in a `CONTACT_MSG` and offset 11 in a
+ * `CONTACT_MSG_V3` (after the SNR byte).
  *
  * @see `TxtTypes` in `meshcore.js` (`src/constants.js`) and the firmware's
  * `TXT_TYPE_*` defines.

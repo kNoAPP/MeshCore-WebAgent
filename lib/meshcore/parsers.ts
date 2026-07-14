@@ -433,28 +433,31 @@ export function parseStatsPackets(d: Uint8Array): StatsPackets | null {
  * Parses a `PUSH_STATUS_RESPONSE` (`0x87`) into a repeater's live stats.
  *
  * @remarks
- * Frame: `[code] reserved(1) pubkey_prefix(6) <repeaterStats struct>`. The
- * struct starts at offset 8 and is all little-endian, matching `meshcore.js`'s
- * `getStatus` parse:
+ * Frame: `[code] reserved(1) pubkey_prefix(6) <RepeaterStats struct>`. The
+ * struct starts at offset 8 and is all little-endian. `meshcore.js`'s
+ * `getStatus` stops at `nFloodDups`; the two trailing fields are sent by
+ * current firmware (see `RepeaterStats` in `simple_repeater/MyMesh.h`):
  *
- * | Offset | Field            | Type   |
- * | ------ | ---------------- | ------ |
- * | 8      | battMilliVolts   | uint16 |
- * | 10     | currTxQueueLen   | uint16 |
- * | 12     | noiseFloor       | int16  |
- * | 14     | lastRssi         | int16  |
- * | 16     | nPacketsRecv     | uint32 |
- * | 20     | nPacketsSent     | uint32 |
- * | 24     | totalAirTimeSecs | uint32 |
- * | 28     | totalUpTimeSecs  | uint32 |
- * | 32     | nSentFlood       | uint32 |
- * | 36     | nSentDirect      | uint32 |
- * | 40     | nRecvFlood       | uint32 |
- * | 44     | nRecvDirect      | uint32 |
- * | 48     | errEvents        | uint16 |
- * | 50     | lastSnr          | int16 (÷4 → dB) |
- * | 52     | nDirectDups      | uint16 |
- * | 54     | nFloodDups       | uint16 |
+ * | Offset | Field              | Type   |
+ * | ------ | ------------------ | ------ |
+ * | 8      | battMilliVolts     | uint16 |
+ * | 10     | currTxQueueLen     | uint16 |
+ * | 12     | noiseFloor         | int16  |
+ * | 14     | lastRssi           | int16  |
+ * | 16     | nPacketsRecv       | uint32 |
+ * | 20     | nPacketsSent       | uint32 |
+ * | 24     | totalAirTimeSecs   | uint32 |
+ * | 28     | totalUpTimeSecs    | uint32 |
+ * | 32     | nSentFlood         | uint32 |
+ * | 36     | nSentDirect        | uint32 |
+ * | 40     | nRecvFlood         | uint32 |
+ * | 44     | nRecvDirect        | uint32 |
+ * | 48     | errEvents          | uint16 |
+ * | 50     | lastSnr            | int16 (÷4 → dB) |
+ * | 52     | nDirectDups        | uint16 |
+ * | 54     | nFloodDups         | uint16 |
+ * | 56     | totalRxAirTimeSecs | uint32 |
+ * | 60     | nRecvErrors        | uint32 |
  *
  * Each field is read only when the frame covers it, so a shorter blob from
  * older firmware still yields the leading fields. Returns null when the frame
@@ -482,6 +485,8 @@ export function parseStatusResponse(d: Uint8Array): RepeaterStatus | null {
   if (d.length >= 52) status.lastSnr = v.getInt16(50, true) / 4;
   if (d.length >= 54) status.nDirectDups = v.getUint16(52, true);
   if (d.length >= 56) status.nFloodDups = v.getUint16(54, true);
+  if (d.length >= 60) status.totalRxAirTimeSecs = v.getUint32(56, true);
+  if (d.length >= 64) status.nRecvErrors = v.getUint32(60, true);
   return status;
 }
 
@@ -489,7 +494,10 @@ export function parseStatusResponse(d: Uint8Array): RepeaterStatus | null {
  * Parses a `PUSH_LOGIN_SUCCESS` (`0x85`): the 6-byte public-key prefix (hex) of
  * the node that accepted the login, so the client can match it to the request.
  *
- * @remarks Frame: `[code] reserved(1) pubkey_prefix(6)`.
+ * @remarks Frame: `[code] permissions(1) pubkey_prefix(6)`, optionally followed
+ * by `[server timestamp (uint32)][ACL permissions][firmware level]`. Byte 1 is
+ * the login permissions (e.g. is-admin), zero for legacy `"OK"` responses; only
+ * the prefix is decoded here.
  * @returns the pubkey prefix, or null if the frame is too short.
  */
 export function parseLoginPush(d: Uint8Array): string | null {
