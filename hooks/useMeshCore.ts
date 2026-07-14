@@ -54,6 +54,7 @@ import type {
   RadioParams,
   Message,
   RawRxPacket,
+  RepeaterAccess,
   ITransport,
 } from '@/types/meshcore';
 import type { AutomationRule } from '@/types/automation';
@@ -1062,20 +1063,21 @@ export function useMeshCore() {
 
   /**
    * Logs in to a repeater/room server for remote admin. Marks the session
-   * `pending`, then the server-granted `admin`/`guest` level on success or
-   * `loggedOut` on failure (surfaced via toast). The granted level comes from
-   * the login response, not the caller — the server decides it from the
-   * password. The password is never stored, only the resulting access level.
+   * `pending`, then the granted `admin`/`guest` level on success or `loggedOut`
+   * on failure (surfaced via toast). The server decides the level from the
+   * password and its reported role is authoritative; `kind` is only the level
+   * the caller attempted, used as a fallback for legacy responses that cannot
+   * report a role. The password is never stored, only the resulting access.
    */
   const repeaterLogin = useCallback(
-    async (contact: Contact, password: string) => {
+    async (contact: Contact, password: string, kind: RepeaterAccess) => {
       if (!canTransmit(client)) return;
       setAdminLogin(contact.pubkeyPrefix, 'pending');
       try {
         const access = await client.login(contact, password);
         // A drop during login can tear the session down; don't revive it.
         if (!canTransmit(client)) return;
-        setAdminLogin(contact.pubkeyPrefix, access);
+        setAdminLogin(contact.pubkeyPrefix, access ?? kind);
       } catch (err) {
         // A disconnect/drop rejects the pending login and runs its own
         // teardown; don't clobber that outcome with a stale login error. A full

@@ -500,20 +500,33 @@ export function parseStatusResponse(d: Uint8Array): RepeaterStatus | null {
 /**
  * Parses a `PUSH_LOGIN_SUCCESS` (`0x85`): the 6-byte public-key prefix (hex) of
  * the node that accepted the login (so the client can match it to the request)
- * plus the access level the server granted.
+ * plus the access level the server granted, when it can report one.
  *
- * @remarks Frame: `[code] permissions(1) pubkey_prefix(6)`, optionally followed
- * by `[server timestamp (uint32)][ACL permissions][firmware level]`. Byte 1 is
- * the login permissions; its low two bits are the ACL role, so `admin` requires
- * {@link PERM_ACL_ADMIN}. Legacy `"OK"` responses send zero here and therefore
- * decode as `guest` (older repeaters cannot report the granted role).
- * @returns the prefix and granted access, or null if the frame is too short.
+ * @remarks Frame: `[code] legacy_is_admin(1) pubkey_prefix(6)`, and on modern
+ * firmware also a server timestamp (uint32), the ACL permissions byte, and the
+ * firmware level. Byte 1 is only the legacy is-admin indicator (`1` = admin;
+ * room servers also emit `2` for read-only), not the ACL role. The
+ * authoritative role lives in the ACL permissions byte at offset 12 — its low
+ * two bits are the role, so `admin` requires {@link PERM_ACL_ADMIN}. Legacy
+ * `"OK"` responses omit that byte and send `0` at byte 1, so the granted role
+ * is unknown: `access` is then `null` and the caller falls back to the level it
+ * attempted.
+ * @returns the prefix and granted access (`null` when the response cannot
+ * report a role), or null if the frame is too short.
  */
 export function parseLoginPush(
   d: Uint8Array,
-): { pubkeyPrefix: string; access: RepeaterAccess } | null {
+): { pubkeyPrefix: string; access: RepeaterAccess | null } | null {
   if (d.length < 8) return null;
-  const access: RepeaterAccess =
-    (d[1] & PERM_ACL_ROLE_MASK) === PERM_ACL_ADMIN ? 'admin' : 'guest';
-  return { pubkeyPrefix: hexBytes(d, 2, 8), access };
+  const pubkeyPrefix = hexBytes(d, 2, 8);
+  // Modern firmware appends the ACL permissions byte at offset 12; its low two
+  // bits hold the authoritative role.
+  if (d.length > 12) {
+    const access: RepeaterAccess =
+      (d[12] & PERM_ACL_ROLE_MASK) === PERM_ACL_ADMIN ? 'admin' : 'guest';
+    return { pubkeyPrefix, access };
+  }
+  // Legacy response: byte 1 is the only signal (1 = admin). A zero cannot
+  // report the granted role, so leave it undetermined for the caller.
+  return { pubkeyPrefix, access: d[1] === 1 ? 'admin' : null };
 }

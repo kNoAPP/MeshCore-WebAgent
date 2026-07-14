@@ -218,7 +218,7 @@ export class MeshCoreClient {
   // Login and status replies arrive as unsolicited pushes long after the SENT
   // receipt, so they can't ride the `handlers` queue. Each is matched back to
   // its request by the target's 6-byte pubkey prefix (hex).
-  private loginWaiters = new Map<string, PushWaiter<RepeaterAccess>>();
+  private loginWaiters = new Map<string, PushWaiter<RepeaterAccess | null>>();
   private statusWaiters = new Map<string, PushWaiter<RepeaterStatus>>();
   // Serializes the full login/status handshake (the SENT receipt *and* the
   // async push that follows). Current firmware retains only one pending remote
@@ -783,13 +783,17 @@ export class MeshCoreClient {
    * over a multi-hop path), not the fixed command timeout. An empty password is
    * a valid guest login.
    * @returns the access level the server granted, decoded from the success
-   * push — the server decides this from the password, so it is authoritative
-   * (do not assume the level the password was meant to unlock).
+   * push — the server decides this from the password, so it is authoritative.
+   * `null` when the response is a legacy `"OK"` that cannot report the role, in
+   * which case the caller falls back to the level it attempted.
    * @throws if the radio answers `ERR`, or no success push arrives in time (a
    * wrong password typically produces no response, so it surfaces as a
    * timeout).
    */
-  async login(contact: Contact, password: string): Promise<RepeaterAccess> {
+  async login(
+    contact: Contact,
+    password: string,
+  ): Promise<RepeaterAccess | null> {
     return this.remoteRequest(
       this.loginWaiters,
       contact.pubkeyBytes,
