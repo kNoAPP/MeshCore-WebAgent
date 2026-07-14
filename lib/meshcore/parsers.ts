@@ -15,7 +15,7 @@ import type {
   RawRxPacket,
   RepeaterStatus,
 } from '@/types/meshcore';
-import { ROUTE_TYPE_FLOOD, RADIO_PARAM_SCALE } from './constants';
+import { ROUTE_TYPE_FLOOD, RADIO_PARAM_SCALE, TXT_TYPE } from './constants';
 import { toHex } from '@/lib/utils';
 
 // Decoders for inbound frame payloads → typed objects. Each takes the full
@@ -276,7 +276,7 @@ export function parseContactMsg(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 13) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   const txtType = d[8];
-  const textOffset = txtType === 2 ? 17 : 13;
+  const textOffset = txtType === TXT_TYPE.SIGNED ? 17 : 13;
   return {
     pubkeyPrefix: hexBytes(d, 1, 7),
     timestamp: v.getUint32(9, true),
@@ -293,7 +293,7 @@ export function parseContactMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 17) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   const txtType = d[11];
-  const textOffset = txtType === 2 ? 20 : 16;
+  const textOffset = txtType === TXT_TYPE.SIGNED ? 20 : 16;
   return {
     snr: new Int8Array([d[1]])[0] / 4,
     pubkeyPrefix: hexBytes(d, 4, 10),
