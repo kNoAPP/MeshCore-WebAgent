@@ -13,8 +13,9 @@ import type {
   Message,
   SendReceipt,
   RawRxPacket,
+  RepeaterStatus,
 } from '@/types/meshcore';
-import { ROUTE_TYPE_FLOOD, RADIO_PARAM_SCALE } from './constants';
+import { ROUTE_TYPE_FLOOD, RADIO_PARAM_SCALE, TXT_TYPE } from './constants';
 import { toHex } from '@/lib/utils';
 
 // Decoders for inbound frame payloads → typed objects. Each takes the full
@@ -275,12 +276,13 @@ export function parseContactMsg(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 13) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   const txtType = d[8];
-  const textOffset = txtType === 2 ? 17 : 13;
+  const textOffset = txtType === TXT_TYPE.SIGNED ? 17 : 13;
   return {
     pubkeyPrefix: hexBytes(d, 1, 7),
     timestamp: v.getUint32(9, true),
     text: dec.decode(d.slice(textOffset)),
     snr: null,
+    txtType,
   };
 }
 
@@ -291,12 +293,13 @@ export function parseContactMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 17) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   const txtType = d[11];
-  const textOffset = txtType === 2 ? 20 : 16;
+  const textOffset = txtType === TXT_TYPE.SIGNED ? 20 : 16;
   return {
     snr: new Int8Array([d[1]])[0] / 4,
     pubkeyPrefix: hexBytes(d, 4, 10),
     timestamp: v.getUint32(12, true),
     text: dec.decode(d.slice(textOffset)),
+    txtType,
   };
 }
 
@@ -424,4 +427,80 @@ export function parseStatsPackets(d: Uint8Array): StatsPackets | null {
     directRx: v.getUint32(22, true),
     recvErrors: d.length >= 30 ? v.getUint32(26, true) : null,
   };
+}
+
+/**
+ * Parses a `PUSH_STATUS_RESPONSE` (`0x87`) into a repeater's live stats.
+ *
+ * @remarks
+ * Frame: `[code] reserved(1) pubkey_prefix(6) <RepeaterStats struct>`. The
+ * struct starts at offset 8 and is all little-endian. `meshcore.js`'s
+ * `getStatus` stops at `nFloodDups`; the two trailing fields are sent by
+ * current firmware (see `RepeaterStats` in `simple_repeater/MyMesh.h`):
+ *
+ * | Offset | Field              | Type   |
+ * | ------ | ------------------ | ------ |
+ * | 8      | battMilliVolts     | uint16 |
+ * | 10     | currTxQueueLen     | uint16 |
+ * | 12     | noiseFloor         | int16  |
+ * | 14     | lastRssi           | int16  |
+ * | 16     | nPacketsRecv       | uint32 |
+ * | 20     | nPacketsSent       | uint32 |
+ * | 24     | totalAirTimeSecs   | uint32 |
+ * | 28     | totalUpTimeSecs    | uint32 |
+ * | 32     | nSentFlood         | uint32 |
+ * | 36     | nSentDirect        | uint32 |
+ * | 40     | nRecvFlood         | uint32 |
+ * | 44     | nRecvDirect        | uint32 |
+ * | 48     | errEvents          | uint16 |
+ * | 50     | lastSnr            | int16 (÷4 → dB) |
+ * | 52     | nDirectDups        | uint16 |
+ * | 54     | nFloodDups         | uint16 |
+ * | 56     | totalRxAirTimeSecs | uint32 |
+ * | 60     | nRecvErrors        | uint32 |
+ *
+ * Each field is read only when the frame covers it, so a shorter blob from
+ * older firmware still yields the leading fields. Returns null when the frame
+ * is too short for the pubkey prefix and the first two struct fields.
+ */
+export function parseStatusResponse(d: Uint8Array): RepeaterStatus | null {
+  if (d.length < 12) return null;
+  const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
+  const status: RepeaterStatus = {
+    pubkeyPrefix: hexBytes(d, 2, 8),
+    battMilliVolts: v.getUint16(8, true),
+    currTxQueueLen: v.getUint16(10, true),
+  };
+  if (d.length >= 14) status.noiseFloor = v.getInt16(12, true);
+  if (d.length >= 16) status.lastRssi = v.getInt16(14, true);
+  if (d.length >= 20) status.nPacketsRecv = v.getUint32(16, true);
+  if (d.length >= 24) status.nPacketsSent = v.getUint32(20, true);
+  if (d.length >= 28) status.totalAirTimeSecs = v.getUint32(24, true);
+  if (d.length >= 32) status.totalUpTimeSecs = v.getUint32(28, true);
+  if (d.length >= 36) status.nSentFlood = v.getUint32(32, true);
+  if (d.length >= 40) status.nSentDirect = v.getUint32(36, true);
+  if (d.length >= 44) status.nRecvFlood = v.getUint32(40, true);
+  if (d.length >= 48) status.nRecvDirect = v.getUint32(44, true);
+  if (d.length >= 50) status.errEvents = v.getUint16(48, true);
+  if (d.length >= 52) status.lastSnr = v.getInt16(50, true) / 4;
+  if (d.length >= 54) status.nDirectDups = v.getUint16(52, true);
+  if (d.length >= 56) status.nFloodDups = v.getUint16(54, true);
+  if (d.length >= 60) status.totalRxAirTimeSecs = v.getUint32(56, true);
+  if (d.length >= 64) status.nRecvErrors = v.getUint32(60, true);
+  return status;
+}
+
+/**
+ * Parses a `PUSH_LOGIN_SUCCESS` (`0x85`): the 6-byte public-key prefix (hex) of
+ * the node that accepted the login, so the client can match it to the request.
+ *
+ * @remarks Frame: `[code] permissions(1) pubkey_prefix(6)`, optionally followed
+ * by `[server timestamp (uint32)][ACL permissions][firmware level]`. Byte 1 is
+ * the login permissions (e.g. is-admin), zero for legacy `"OK"` responses; only
+ * the prefix is decoded here.
+ * @returns the pubkey prefix, or null if the frame is too short.
+ */
+export function parseLoginPush(d: Uint8Array): string | null {
+  if (d.length < 8) return null;
+  return hexBytes(d, 2, 8);
 }

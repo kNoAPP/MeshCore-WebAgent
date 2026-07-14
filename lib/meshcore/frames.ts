@@ -7,6 +7,7 @@ import {
   MAX_ADVERT_NAME_BYTES,
   RADIO_PARAM_SCALE,
   LATLON_SCALE,
+  TXT_TYPE,
 } from './constants';
 import { truncateUtf8 } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
@@ -167,20 +168,59 @@ export function buildSendChannelMsg(
  * @param pubkeyPrefix6 - first 6 bytes of the recipient's public key.
  * @param text - message body; truncated to {@link MAX_MSG_BYTES} UTF-8 bytes.
  * @param attempt - retry counter; lets the radio vary routing on resends.
+ * @param txtType - message class ({@link TXT_TYPE}); defaults to `PLAIN`. A
+ * remote-admin CLI command is the same frame with `txtType = CLI_DATA`.
  */
 export function buildSendDirectMsg(
   pubkeyPrefix6: Uint8Array,
   text: string,
   attempt = 0,
+  txtType: number = TXT_TYPE.PLAIN,
 ): Uint8Array {
   const textBytes = enc.encode(truncateUtf8(text, MAX_MSG_BYTES));
   const p = new Uint8Array(13 + textBytes.length);
   p[0] = CMD.SEND_TXT_MSG;
-  p[1] = 0x00; // txt_type = plain
+  p[1] = txtType & 0xff;
   p[2] = attempt & 0xff;
   new DataView(p.buffer).setUint32(3, Math.floor(Date.now() / 1000), true);
   p.set(pubkeyPrefix6.slice(0, 6), 7);
   p.set(textBytes, 13);
+  return p;
+}
+
+/**
+ * Builds a login command for a repeater or room server:
+ * `[0x1a][32-byte pubkey][password UTF-8]`. The password is the remainder of
+ * the frame, capped at 15 UTF-8 bytes by the firmware, so it is truncated here.
+ *
+ * @param pubkey - the destination node's 32-byte public key.
+ * @param password - the admin or guest password (empty string for guest).
+ * @see `sendCommandSendLogin` in `meshcore.js`.
+ */
+export function buildSendLogin(
+  pubkey: Uint8Array,
+  password: string,
+): Uint8Array {
+  const pw = enc.encode(truncateUtf8(password, 15));
+  const p = new Uint8Array(1 + 32 + pw.length);
+  p[0] = CMD.SEND_LOGIN;
+  p.set(pubkey.slice(0, 32), 1);
+  p.set(pw, 33);
+  return p;
+}
+
+/**
+ * Builds a status-request command for a repeater or room server:
+ * `[0x1b][32-byte pubkey]`. Requires a prior {@link buildSendLogin}; the radio
+ * answers with a `PUSH_STATUS_RESPONSE` push.
+ *
+ * @param pubkey - the destination node's 32-byte public key.
+ * @see `sendCommandSendStatusReq` in `meshcore.js`.
+ */
+export function buildSendStatusReq(pubkey: Uint8Array): Uint8Array {
+  const p = new Uint8Array(1 + 32);
+  p[0] = CMD.SEND_STATUS_REQ;
+  p.set(pubkey.slice(0, 32), 1);
   return p;
 }
 
