@@ -94,6 +94,12 @@ const ADVERTS_LIMIT = 200;
 // wrong repeater password, which yields no response) still fails promptly.
 const PUSH_GRACE_MS = 2000;
 
+// Fallback push-wait budget used only when the SENT receipt carries no usable
+// round-trip estimate (a malformed or too-short receipt). Sized to cover a
+// typical multi-hop path so a slow-but-valid reply isn't cut off; the receipt's
+// own estimate is preferred whenever it provides one.
+const PUSH_FALLBACK_TIMEOUT_MS = 8000;
+
 /**
  * Maximum tolerated drift, in seconds, between the device clock and the
  * browser clock. On connect, the radio's clock is only corrected once it
@@ -347,6 +353,24 @@ export class MeshCoreClient {
   // command that many extra times if it times out (read-only commands pass 1 to
   // ride out a transient drop under load); other failures propagate on the
   // first try.
+  // Serializes `op` behind everything already queued on `chain`: `op` runs once
+  // the chain settles (success or failure), the caller awaits `run` for `op`'s
+  // own result, and the returned `tail` — which the caller stores back as the
+  // new chain head — settles without ever rejecting, so a failed `op` never
+  // leaks its rejection or resolved value into the next queued operation.
+  // Shared by the command (`cmdChain`) and remote-admin (`remoteChain`) chains.
+  private serialize<T>(
+    chain: Promise<unknown>,
+    op: () => Promise<T>,
+  ): { run: Promise<T>; tail: Promise<unknown> } {
+    const run = chain.then(op, op);
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return { run, tail };
+  }
+
   private cmd(
     payload: Uint8Array,
     types: RespCode[],
@@ -354,16 +378,10 @@ export class MeshCoreClient {
     retries = 0,
   ): Promise<Uint8Array> {
     const attempt = () => this.sendCmd(payload, types, timeout);
-    const run = this.cmdChain.then(
-      () => this.attemptCmd(attempt, retries),
-      () => this.attemptCmd(attempt, retries),
+    const { run, tail } = this.serialize(this.cmdChain, () =>
+      this.attemptCmd(attempt, retries),
     );
-    // Advance the chain on settle (success or failure) without leaking the
-    // rejection into the next command or retaining the resolved frame.
-    this.cmdChain = run.then(
-      () => undefined,
-      () => undefined,
-    );
+    this.cmdChain = tail;
     return run;
   }
 
@@ -795,10 +813,10 @@ export class MeshCoreClient {
    * {@link MeshCoreCallbacks.onCliReply}, never the chat stream. Resolves once
    * the radio accepts the send (`SENT`/`OK`).
    */
-  async sendCliCommand(contact: Contact, cmd: string): Promise<void> {
+  async sendCliCommand(contact: Contact, command: string): Promise<void> {
     const prefix = contact.pubkeyBytes.slice(0, 6);
     await this.cmd(
-      buildSendDirectMsg(prefix, cmd, 0, TXT_TYPE.CLI_DATA),
+      buildSendDirectMsg(prefix, command, 0, TXT_TYPE.CLI_DATA),
       [RESP.SENT, RESP.OK],
       10000,
     );
@@ -1297,54 +1315,40 @@ export class MeshCoreClient {
 
   // Runs one complete remote-admin handshake, serialized against every other so
   // the radio's single pending-request slot is never clobbered mid-flight (see
-  // `remoteChain`). Mirrors the `cmdChain` pattern: advance on settle without
-  // leaking the rejection or the resolved value into the next operation.
+  // `remoteChain`).
   private remoteRequest<T>(
     waiters: Map<string, PushWaiter<T>>,
     pubkey: Uint8Array,
     payload: Uint8Array,
   ): Promise<T> {
-    const op = () => this.runRemoteRequest(waiters, pubkey, payload);
-    const run = this.remoteChain.then(op, op);
-    this.remoteChain = run.then(
-      () => undefined,
-      () => undefined,
+    const { run, tail } = this.serialize(this.remoteChain, () =>
+      this.runRemoteRequest(waiters, pubkey, payload),
     );
+    this.remoteChain = tail;
     return run;
   }
 
-  // The handshake body: register the push waiter *before* sending, because the
-  // frame parser dispatches a read chunk's frames synchronously — a SENT and
-  // its push arriving together would drop the push before a post-await
-  // continuation could register a waiter (as meshcore.js installs its listener
-  // before sending). Send the command, read the SENT receipt, then arm the
-  // receipt-derived timeout and await the matching push. A failure through SENT
-  // removes the pre-registered waiter.
+  // The handshake body: register the push waiter, send the command, then arm a
+  // receipt-derived timeout and await the matching push. The waiter is
+  // registered *before* sending because the frame parser dispatches a read
+  // chunk's frames synchronously — a SENT and its push arriving together would
+  // otherwise drop the push before a post-await continuation could register a
+  // waiter (meshcore.js likewise installs its listener before sending).
+  //
+  // `promise` is the single settlement channel and is always returned, so every
+  // failure path — an ERR/timeout on the SENT exchange, or a teardown that
+  // already rejected the waiter — flows through it and can never leave an
+  // unhandled rejected promise behind (which a bare `throw` here would, since
+  // the pre-registered `promise` would then never gain a handler).
   private async runRemoteRequest<T>(
     waiters: Map<string, PushWaiter<T>>,
     pubkey: Uint8Array,
     payload: Uint8Array,
   ): Promise<T> {
     const prefixHex = toHex(pubkey.slice(0, 6));
-    const { promise, waiter } = this.registerPushWaiter(waiters, prefixHex);
-    let sent: Uint8Array;
-    try {
-      sent = await this.cmd(payload, [RESP.SENT], 5000);
-    } catch (err) {
-      this.removePushWaiter(waiters, prefixHex, waiter);
-      throw err;
-    }
-    this.armPushTimeout(waiters, prefixHex, waiter, sent);
-    return promise;
-  }
 
-  // Registers a push waiter keyed by pubkey prefix and returns its promise. The
-  // waiter carries no timeout yet — `armPushTimeout` sets one from the SENT
-  // receipt. Any pending waiter for the same prefix is superseded.
-  private registerPushWaiter<T>(
-    waiters: Map<string, PushWaiter<T>>,
-    prefixHex: string,
-  ): { promise: Promise<T>; waiter: PushWaiter<T> } {
+    // Supersede any stale waiter for the same prefix, then register this one
+    // with no timer yet — the timeout is armed from the SENT receipt below.
     const prior = waiters.get(prefixHex);
     if (prior) {
       if (prior.timer) clearTimeout(prior.timer);
@@ -1355,45 +1359,46 @@ export class MeshCoreClient {
       waiter = { resolve, reject, timer: null };
     });
     waiters.set(prefixHex, waiter);
-    return { promise, waiter };
-  }
 
-  // Arms the receipt-derived timeout on an already-registered waiter. The wait
-  // is derived from the SENT receipt's estimated round-trip — which can be
-  // several seconds over a multi-hop path — plus a fixed grace margin, so it
-  // never hard-caps at the command timeout. No-op if the push already settled
-  // the waiter (delivered in the same read chunk as SENT).
-  private armPushTimeout<T>(
-    waiters: Map<string, PushWaiter<T>>,
-    prefixHex: string,
-    waiter: PushWaiter<T>,
-    sent: Uint8Array,
-  ): void {
-    if (waiters.get(prefixHex) !== waiter) return;
-    const receipt = parseMsgSent(sent);
-    const timeoutMs = (receipt?.suggestedTimeoutMs ?? 0) + PUSH_GRACE_MS;
-    waiter.timer = setTimeout(() => {
-      waiters.delete(prefixHex);
-      waiter.reject(new Error(`Timeout waiting for push from ${prefixHex}`));
-    }, timeoutMs);
-  }
+    let sent: Uint8Array;
+    try {
+      sent = await this.cmd(payload, [RESP.SENT], 5000);
+    } catch (err) {
+      // Reject through the waiter so the returned `promise` carries the
+      // failure, then drop the entry. Both are no-ops if teardown already
+      // rejected and removed it (the promise then already holds that error).
+      waiter.reject(err as Error);
+      if (waiters.get(prefixHex) === waiter) waiters.delete(prefixHex);
+      return promise;
+    }
 
-  // Drops a pre-registered waiter after its SENT exchange failed, so a rejected
-  // login/status leaves no dangling entry. No-op if a push already replaced or
-  // settled it.
-  private removePushWaiter<T>(
-    waiters: Map<string, PushWaiter<T>>,
-    prefixHex: string,
-    waiter: PushWaiter<T>,
-  ): void {
-    if (waiters.get(prefixHex) !== waiter) return;
-    if (waiter.timer) clearTimeout(waiter.timer);
-    waiters.delete(prefixHex);
+    // Arm the timeout unless the push already settled the waiter (delivered in
+    // the same read chunk as SENT). The wait derives from the receipt's
+    // estimated round-trip — several seconds over a multi-hop path — plus a
+    // grace margin; if the receipt carries no usable estimate, fall back to a
+    // safe budget rather than collapsing to just the grace.
+    if (waiters.get(prefixHex) === waiter) {
+      const estimate = parseMsgSent(sent)?.suggestedTimeoutMs;
+      const base =
+        estimate && estimate > 0 ? estimate : PUSH_FALLBACK_TIMEOUT_MS;
+      waiter.timer = setTimeout(() => {
+        waiters.delete(prefixHex);
+        waiter.reject(new Error(`Timeout waiting for push from ${prefixHex}`));
+      }, base + PUSH_GRACE_MS);
+    }
+    return promise;
   }
 
   // Resolves the login/status waiter matching an inbound push's pubkey prefix.
   // A push with no pending waiter is dropped (a stray or duplicate reply),
   // mirroring meshcore.js.
+  //
+  // Matching is best-effort by prefix only: the wire push carries nothing that
+  // ties it to a specific request instance. If a request times out (or a push
+  // is duplicated by mesh flooding) and the same repeater is queried again, a
+  // straggler from the earlier request can resolve the later waiter with its
+  // (still real, but staler) snapshot. Serialization via `remoteChain` keeps at
+  // most one waiter per prefix, bounding this to the retry/duplicate window.
   private settlePush<T>(
     waiters: Map<string, PushWaiter<T>>,
     prefixHex: string,
@@ -1410,16 +1415,13 @@ export class MeshCoreClient {
   // awaiting a repeater reply unwind with the link error instead of hanging
   // until their derived timeout.
   private rejectPushWaiters(err: Error): void {
-    for (const w of this.loginWaiters.values()) {
-      if (w.timer) clearTimeout(w.timer);
-      w.reject(err);
+    for (const waiters of [this.loginWaiters, this.statusWaiters]) {
+      for (const w of waiters.values()) {
+        if (w.timer) clearTimeout(w.timer);
+        w.reject(err);
+      }
+      waiters.clear();
     }
-    this.loginWaiters.clear();
-    for (const w of this.statusWaiters.values()) {
-      if (w.timer) clearTimeout(w.timer);
-      w.reject(err);
-    }
-    this.statusWaiters.clear();
   }
 
   // Shared teardown for both an unexpected drop and a deliberate destroy: mark
