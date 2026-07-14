@@ -29,6 +29,25 @@ export const CMD = {
   REBOOT: 0x13,
   GET_BATT_AND_STORAGE: 0x14,
   DEVICE_QUERY: 0x16,
+  /**
+   * Logs in to a repeater or room server for remote admin:
+   * `[0x1a][32-byte pubkey][password]`. The radio replies `SENT`, then pushes
+   * {@link RESP.PUSH_LOGIN_SUCCESS} once the destination acknowledges.
+   *
+   * @see `sendCommandSendLogin` in `meshcore.js` (`CommandCodes.SendLogin` =
+   * 26) and the firmware's `CMD_SEND_LOGIN` handler.
+   */
+  SEND_LOGIN: 0x1a,
+  /**
+   * Requests a repeater's live stats: `[0x1b][32-byte pubkey]`. The radio
+   * replies `SENT`, then pushes {@link RESP.PUSH_STATUS_RESPONSE} with the
+   * repeater-stats struct once the destination answers. Requires a prior
+   * {@link CMD.SEND_LOGIN}.
+   *
+   * @see `sendCommandSendStatusReq` in `meshcore.js`
+   * (`CommandCodes.SendStatusReq` = 27).
+   */
+  SEND_STATUS_REQ: 0x1b,
   GET_CHANNEL_INFO: 0x1f,
   SET_CHANNEL: 0x20,
   SET_OTHER_PARAMS: 0x26,
@@ -68,6 +87,32 @@ export const RESP = {
   PUSH_PATH_UPDATED: 0x81,
   PUSH_SEND_CONFIRMED: 0x82,
   PUSH_MSG_WAITING: 0x83,
+  /**
+   * Push confirming a {@link CMD.SEND_LOGIN} succeeded:
+   * `[0x85][reserved][6-byte pubkey prefix]`. The prefix identifies which login
+   * request it answers.
+   *
+   * @see `onLoginSuccessPush` in `meshcore.js` (`PushCodes.LoginSuccess`).
+   */
+  PUSH_LOGIN_SUCCESS: 0x85,
+  /**
+   * Push signalling a failed login. Defined for completeness, but the firmware
+   * does not emit it yet — a bad password simply times out with no push.
+   *
+   * @see `PushCodes.LoginFail` in `meshcore.js` (noted there as "not usable
+   * yet").
+   */
+  PUSH_LOGIN_FAIL: 0x86,
+  /**
+   * Push carrying a repeater's stats in response to
+   * {@link CMD.SEND_STATUS_REQ}:
+   * `[0x87][reserved][6-byte pubkey prefix][repeater-stats struct]`. Decoded by
+   * `parseStatusResponse`.
+   *
+   * @see `onStatusResponsePush` / `getStatus` in `meshcore.js`
+   * (`PushCodes.StatusResponse`).
+   */
+  PUSH_STATUS_RESPONSE: 0x87,
   PUSH_LOG_RX_DATA: 0x88,
   PUSH_NEW_ADVERT: 0x8a,
 } as const;
@@ -100,6 +145,29 @@ export const ROUTE_TYPE_FLOOD = 0x01;
  * `payload_type` in a raw MeshCore packet header: group (channel) text message.
  */
 export const PAYLOAD_TYPE_GRP_TXT = 0x05;
+
+/**
+ * `txt_type` — the second payload byte of a text message frame (both
+ * {@link CMD.SEND_TXT_MSG} and inbound `CONTACT_MSG`), classifying how the
+ * radio treats the body.
+ *
+ * @see `TxtTypes` in `meshcore.js` (`src/constants.js`) and the firmware's
+ * `TXT_TYPE_*` defines.
+ */
+export const TXT_TYPE = {
+  /** A normal chat message. */
+  PLAIN: 0,
+  /**
+   * A remote-admin CLI command/reply — a direct message routed to the node's
+   * console.
+   */
+  CLI_DATA: 1,
+  /**
+   * A signed plain message (carries a 4-byte signature prefix before the
+   * text).
+   */
+  SIGNED: 2,
+} as const;
 
 /**
  * Maximum outgoing text message length in **UTF-8 bytes**, matching the

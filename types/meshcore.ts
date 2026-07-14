@@ -96,6 +96,7 @@ export interface Message {
   roundTripMs?: number;
   attempt?: number;
   heardByRepeaters?: number;
+  txtType?: number; // TXT_TYPE of a received message (plain/CLI/signed); routes CLI replies
   _unread?: boolean;
 }
 
@@ -234,6 +235,35 @@ export interface StatsResult {
   core?: StatsCore;
   radio?: StatsRadio;
   packets?: StatsPackets;
+}
+
+/**
+ * A repeater's live stats from a `PUSH_STATUS_RESPONSE` (`0x87`), decoded by
+ * `parseStatusResponse`. Mirrors the firmware's `repeaterStats` struct (all
+ * little-endian). Every field past `currTxQueueLen` is optional: older firmware
+ * may send a shorter blob, so the parser returns only the fields present.
+ *
+ * @see `getStatus` / `onStatusResponsePush` in `meshcore.js`.
+ */
+export interface RepeaterStatus {
+  /** 6-byte public-key prefix (hex) this status is from, to match the reply. */
+  pubkeyPrefix: string;
+  battMilliVolts: number;
+  currTxQueueLen: number;
+  noiseFloor?: number;
+  lastRssi?: number;
+  nPacketsRecv?: number;
+  nPacketsSent?: number;
+  totalAirTimeSecs?: number;
+  totalUpTimeSecs?: number;
+  nSentFlood?: number;
+  nSentDirect?: number;
+  nRecvFlood?: number;
+  nRecvDirect?: number;
+  errEvents?: number;
+  lastSnr?: number; // dB (raw quarter-dB value ÷ 4)
+  nDirectDups?: number;
+  nFloodDups?: number;
 }
 
 /** The conversation currently open in the UI. */
