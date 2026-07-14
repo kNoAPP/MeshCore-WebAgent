@@ -533,8 +533,12 @@ export function useMeshCore() {
         onSyncProgress: (p) => setSyncProgress(p),
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
-        onCliReply: ({ pubkeyPrefix, text }) =>
-          appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() }),
+        onCliReply: ({ pubkeyPrefix, text }) => {
+          // A queued frame can fire this after teardown; skip it so a late
+          // reply can't recreate adminSessions that reset() just cleared.
+          if (!canTransmit(c)) return;
+          appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
+        },
         onAdvertsUpdated: (adverts) => {
           const next = { ...adverts };
           setAdverts(next);
