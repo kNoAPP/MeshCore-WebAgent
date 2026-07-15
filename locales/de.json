@@ -538,7 +538,6 @@
     "rxErrors": "RX-Fehler",
     "dbm": "{{value}} dBm",
     "config": {
-      "reading": "Aktuelle Werte werden gelesen…",
       "readingField": "Wird gelesen…",
       "readOnlyNotice": "Sie haben Nur-Lese-Zugriff (Gast). Melden Sie sich als Admin an, um Änderungen vorzunehmen.",
       "requiresReboot": "Neustart erforderlich",

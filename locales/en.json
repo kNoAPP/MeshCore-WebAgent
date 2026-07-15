@@ -538,7 +538,6 @@
     "rxErrors": "RX Errors",
     "dbm": "{{value}} dBm",
     "config": {
-      "reading": "Reading current values…",
       "readingField": "Reading…",
       "readOnlyNotice": "You have read-only (guest) access. Log in as admin to make changes.",
       "requiresReboot": "Requires reboot",

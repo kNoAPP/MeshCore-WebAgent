@@ -272,22 +272,6 @@ export function RepeaterConfigTab({
 
   return (
     <div className='space-y-4'>
-      <div className='flex items-center justify-end gap-2'>
-        {reading && (
-          <span className='text-xs text-(--text2)'>
-            {t('repeaterAdmin.config.reading')}
-          </span>
-        )}
-        <button
-          onClick={refresh}
-          disabled={reading}
-          aria-label={t('repeaterAdmin.dashboard.refresh')}
-          className='inline-flex items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:bg-(--surface2) hover:text-(--text) disabled:opacity-50'
-        >
-          <RefreshIcon className={reading ? 'animate-spin' : undefined} />
-        </button>
-      </div>
-
       {readOnly && (
         <p
           className='rounded-md border border-(--border) p-3 text-xs text-(--text2)'
@@ -297,10 +281,24 @@ export function RepeaterConfigTab({
         </p>
       )}
 
-      {REPEATER_SETTING_GROUPS.map((group) => (
+      {REPEATER_SETTING_GROUPS.map((group, i) => (
         <Section
           key={group.id}
           title={t(`repeaterAdmin.config.groups.${group.id}`)}
+          action={
+            // The Refresh control lives in the first section's header rather
+            // than its own row, so it costs no vertical space.
+            i === 0 ? (
+              <button
+                onClick={refresh}
+                disabled={reading}
+                aria-label={t('repeaterAdmin.dashboard.refresh')}
+                className='inline-flex items-center justify-center rounded-md border border-(--border-control) p-1 text-(--text2) transition-colors hover:bg-(--surface2) hover:text-(--text) disabled:opacity-50'
+              >
+                <RefreshIcon className={reading ? 'animate-spin' : undefined} />
+              </button>
+            ) : undefined
+          }
         >
           {group.settings.map((setting) => {
             // Latitude and longitude share one compact "Location" row.
@@ -334,9 +332,11 @@ export function RepeaterConfigTab({
 /** A titled card grouping related settings, rows split by hairline dividers. */
 function Section({
   title,
+  action,
   children,
 }: {
   title: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -344,9 +344,12 @@ function Section({
       className='overflow-hidden rounded-xl border border-(--border)'
       style={{ background: 'var(--surface)' }}
     >
-      <h3 className='border-b border-(--border) px-4 py-2 text-[11px] font-semibold tracking-wide text-(--text2) uppercase'>
-        {title}
-      </h3>
+      <div className='flex items-center justify-between gap-2 border-b border-(--border) px-4 py-2'>
+        <h3 className='text-[11px] font-semibold tracking-wide text-(--text2) uppercase'>
+          {title}
+        </h3>
+        {action}
+      </div>
       <div className='divide-y divide-(--border) px-4'>{children}</div>
     </section>
   );
