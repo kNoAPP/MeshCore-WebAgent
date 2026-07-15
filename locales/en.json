@@ -542,12 +542,9 @@
       "readingField": "Reading…",
       "readOnlyNotice": "You have read-only (guest) access. Log in as admin to make changes.",
       "requiresReboot": "Requires reboot",
-      "save": "Save",
-      "saving": "Saving…",
-      "range": "Must be between {{min}} and {{max}}.",
-      "bytes": "{{used}} / {{max}} bytes",
-      "on": "On",
-      "off": "Off",
+      "edit": "Edit",
+      "apply": "Apply",
+      "radioConfirm": "Changing radio parameters requires a reboot to take effect and can take the node off the mesh. Apply?",
       "advanced": "Advanced",
       "actionsTitle": "Actions",
       "groups": {
@@ -817,7 +814,6 @@
     "repeaterLoginFailed": "Login failed: {{error}}",
     "repeaterStatusFailed": "Failed to fetch status: {{error}}",
     "repeaterCliFailed": "Failed to send command: {{error}}",
-    "repeaterConfigSaved": "Setting updated.",
     "repeaterConfigError": "Node rejected the change: {{error}}",
     "repeaterActionSent": "Command sent."
   }

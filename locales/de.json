@@ -542,12 +542,9 @@
       "readingField": "Wird gelesen…",
       "readOnlyNotice": "Sie haben Nur-Lese-Zugriff (Gast). Melden Sie sich als Admin an, um Änderungen vorzunehmen.",
       "requiresReboot": "Neustart erforderlich",
-      "save": "Speichern",
-      "saving": "Wird gespeichert…",
-      "range": "Muss zwischen {{min}} und {{max}} liegen.",
-      "bytes": "{{used}} / {{max}} Bytes",
-      "on": "Ein",
-      "off": "Aus",
+      "edit": "Bearbeiten",
+      "apply": "Anwenden",
+      "radioConfirm": "Das Ändern der Funkparameter erfordert einen Neustart und kann den Knoten vom Mesh trennen. Anwenden?",
       "advanced": "Erweitert",
       "actionsTitle": "Aktionen",
       "groups": {
@@ -817,7 +814,6 @@
     "repeaterLoginFailed": "Anmeldung fehlgeschlagen: {{error}}",
     "repeaterStatusFailed": "Status konnte nicht abgerufen werden: {{error}}",
     "repeaterCliFailed": "Befehl konnte nicht gesendet werden: {{error}}",
-    "repeaterConfigSaved": "Einstellung aktualisiert.",
     "repeaterConfigError": "Knoten hat die Änderung abgelehnt: {{error}}",
     "repeaterActionSent": "Befehl gesendet."
   }

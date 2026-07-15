@@ -27,6 +27,7 @@ import type {
   NumberSetting,
   ToggleSetting,
   SelectSetting,
+  RadioSetting,
   RepeaterAction,
 } from '@/lib/meshcore/repeaterConfig';
 import {
@@ -42,12 +43,16 @@ import type { Contact } from '@/types/meshcore';
 /** The map of settings ids to their current on-device / draft values. */
 type ValueMap = Record<string, string>;
 
+/** Per-field save lifecycle shown as a small status chip. */
+type SaveStatus = 'saving' | 'saved' | 'error';
+
 /**
  * The Config tab of the repeater admin panel: structured, validated controls
  * for the common `get`/`set` settings plus the key action verbs, all driven by
  * the {@link REPEATER_SETTING_GROUPS} catalog. On open it prefills every field
- * by issuing its `get` and parsing the reply; saving a field sends the matching
- * `set` and re-reads to confirm. Renders read-only when `readOnly` (guest).
+ * by issuing its `get` and parsing the reply; editing a field auto-commits the
+ * matching `set` (on toggle/select change, or on blur/Enter for typed fields)
+ * and re-reads to confirm. Renders read-only when `readOnly` (guest).
  */
 export function RepeaterConfigTab({
   contact,
@@ -68,13 +73,18 @@ export function RepeaterConfigTab({
   const [pending, setPending] = useState<Set<string>>(
     () => new Set(ALL_REPEATER_SETTINGS.map((s) => s.id)),
   );
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [status, setStatus] = useState<Record<string, SaveStatus>>({});
 
   // The hook callback identity can change (client re-wire), so read it through
-  // a ref kept fresh by an effect rather than during render.
+  // a ref kept fresh by an effect rather than during render. Same for the
+  // latest values/drafts, so the stable auto-commit callback isn't stale.
   const requestRef = useRef(repeaterCliRequest);
+  const valuesRef = useRef(values);
+  const draftsRef = useRef(drafts);
   useEffect(() => {
     requestRef.current = repeaterCliRequest;
+    valuesRef.current = values;
+    draftsRef.current = drafts;
   });
 
   // The mount-time contact; its pubkey is immutable, so a later contact-table
@@ -83,6 +93,23 @@ export function RepeaterConfigTab({
   // Token for the active read pass. A new pass (or unmount) flips the prior
   // token's `live` to false so a late reply can't write into a stale pass.
   const runRef = useRef<{ live: boolean }>({ live: false });
+  // False after unmount, so an in-flight commit doesn't set state on a gone
+  // component.
+  const aliveRef = useRef(true);
+  // Timers that fade a field's "saved ✓" chip back to idle.
+  const savedTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // Serializes every CLI round-trip (reads and writes) so at most one is in
+  // flight — the reply correlation relies on ordered, non-overlapping requests.
+  const chainRef = useRef<Promise<unknown>>(Promise.resolve());
+  const enqueue = useCallback(<T,>(op: () => Promise<T>): Promise<T> => {
+    const run = chainRef.current.then(op, op);
+    chainRef.current = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }, []);
 
   // Reads every field's current value, sequentially so only one request is
   // outstanding at a time (replies carry no key, so ordered round-trips are the
@@ -93,11 +120,11 @@ export function RepeaterConfigTab({
     const run = (runRef.current = { live: true });
     void (async () => {
       for (const setting of ALL_REPEATER_SETTINGS) {
+        if (!run.live) return;
         let parsed: string | null = null;
         try {
-          const reply = await requestRef.current(
-            contactRef.current,
-            getCommand(setting),
+          const reply = await enqueue(() =>
+            requestRef.current(contactRef.current, getCommand(setting)),
           );
           if (!run.live) return;
           if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
@@ -116,7 +143,7 @@ export function RepeaterConfigTab({
         });
       }
     })();
-  }, []);
+  }, [enqueue]);
 
   // Manual re-read: mark every field pending again, then read. `setPending`
   // here is a user-gesture update, not an effect body, so it's allowed.
@@ -129,66 +156,84 @@ export function RepeaterConfigTab({
   // reopen); `pending` starts full from the initializer. On unmount, cancel the
   // run and drop any pending CLI request so its reply can't reach a new panel.
   useEffect(() => {
+    aliveRef.current = true;
     read();
     const run = runRef.current;
+    const timers = savedTimers.current;
     const prefix = contactRef.current.pubkeyPrefix;
     return () => {
+      aliveRef.current = false;
       run.live = false;
       clearRepeaterCli(prefix);
+      for (const timer of Object.values(timers)) clearTimeout(timer);
     };
   }, [read, clearRepeaterCli]);
 
-  const nameBytes = nameMaxBytes(drafts.lat ?? '', drafts.lon ?? '');
-
-  const setDraft = useCallback((id: string, value: string) => {
-    setDrafts((prev) => ({ ...prev, [id]: value }));
-  }, []);
-
-  const saveField = useCallback(
-    async (setting: RepeaterSetting) => {
-      const draft = drafts[setting.id] ?? '';
-      const maxBytes = setting.kind === 'text' ? nameBytes : undefined;
-      if (!isValidValue(setting, draft, maxBytes)) return;
-      setSavingId(setting.id);
+  // Commits a field's new value: sends its `set`, then re-reads so the field
+  // reflects the node's authoritative value (which may be rounded/clamped). A
+  // no-op when unchanged or invalid; surfaces `Err` replies via a toast and an
+  // error chip while leaving the stored value untouched.
+  const commit = useCallback(
+    async (setting: RepeaterSetting, next: string) => {
+      const id = setting.id;
+      if (next === (valuesRef.current[id] ?? '')) return;
+      const maxBytes =
+        setting.kind === 'text'
+          ? nameMaxBytes(
+              draftsRef.current.lat ?? '',
+              draftsRef.current.lon ?? '',
+            )
+          : undefined;
+      if (!isValidValue(setting, next, maxBytes)) return;
+      setDrafts((prev) => ({ ...prev, [id]: next }));
+      setStatus((prev) => ({ ...prev, [id]: 'saving' }));
       try {
-        const setReply = await requestRef.current(
-          contact,
-          setCommand(setting, draft),
+        const setReply = await enqueue(() =>
+          requestRef.current(contactRef.current, setCommand(setting, next)),
         );
+        if (!aliveRef.current) return;
         if (isErrorReply(setReply)) {
           showToast(
             t('toast.repeaterConfigError', { error: setReply.trim() }),
             'error',
           );
+          setStatus((prev) => ({ ...prev, [id]: 'error' }));
           return;
         }
-        // Re-read so the field reflects the node's authoritative value (which
-        // may be rounded/clamped from what we sent).
-        let confirmed = draft;
+        let confirmed = next;
         try {
-          const getReply = await requestRef.current(
-            contact,
-            getCommand(setting),
+          const getReply = await enqueue(() =>
+            requestRef.current(contactRef.current, getCommand(setting)),
           );
-          if (!isErrorReply(getReply)) {
-            confirmed = normalizeReply(setting, getReply) ?? draft;
+          if (aliveRef.current && !isErrorReply(getReply)) {
+            confirmed = normalizeReply(setting, getReply) ?? next;
           }
         } catch {
           // Keep the value we just set if the confirm read fails.
         }
-        setValues((prev) => ({ ...prev, [setting.id]: confirmed }));
-        setDrafts((prev) => ({ ...prev, [setting.id]: confirmed }));
-        showToast(t('toast.repeaterConfigSaved'), 'success');
+        if (!aliveRef.current) return;
+        setValues((prev) => ({ ...prev, [id]: confirmed }));
+        setDrafts((prev) => ({ ...prev, [id]: confirmed }));
+        setStatus((prev) => ({ ...prev, [id]: 'saved' }));
+        clearTimeout(savedTimers.current[id]);
+        savedTimers.current[id] = setTimeout(() => {
+          setStatus((prev) => {
+            if (prev[id] !== 'saved') return prev;
+            const next2 = { ...prev };
+            delete next2[id];
+            return next2;
+          });
+        }, 2000);
       } catch (err) {
+        if (!aliveRef.current) return;
         showToast(
           t('toast.repeaterCliFailed', { error: (err as Error).message }),
           'error',
         );
-      } finally {
-        setSavingId(null);
+        setStatus((prev) => ({ ...prev, [id]: 'error' }));
       }
     },
-    [contact, drafts, nameBytes, showToast, t],
+    [enqueue, showToast, t],
   );
 
   const runAction = useCallback(
@@ -199,34 +244,36 @@ export function RepeaterConfigTab({
     [contact, repeaterCli, showToast, t],
   );
 
+  const nameBytes = nameMaxBytes(drafts.lat ?? '', drafts.lon ?? '');
   const reading = pending.size > 0;
 
   const rowProps = (setting: RepeaterSetting) => ({
     setting,
     value: values[setting.id] ?? '',
+    onDraft: (v: string) => setDrafts((prev) => ({ ...prev, [setting.id]: v })),
+    onCommit: (v: string) => void commit(setting, v),
     draft: drafts[setting.id] ?? '',
-    onDraft: (v: string) => setDraft(setting.id, v),
-    onSave: () => void saveField(setting),
-    saving: savingId === setting.id,
+    status: status[setting.id],
     loading: pending.has(setting.id),
     readOnly,
     nameBytes,
   });
 
   return (
-    <div className='space-y-6'>
-      <div className='flex items-center justify-between gap-3'>
-        <span className='text-xs text-(--text2)'>
-          {reading ? t('repeaterAdmin.config.reading') : ''}
-        </span>
+    <div className='space-y-4'>
+      <div className='flex items-center justify-end gap-2'>
+        {reading && (
+          <span className='text-xs text-(--text2)'>
+            {t('repeaterAdmin.config.reading')}
+          </span>
+        )}
         <button
           onClick={refresh}
           disabled={reading}
-          className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50'
+          aria-label={t('repeaterAdmin.dashboard.refresh')}
+          className='rounded-md border border-(--border-control) px-2 py-1 text-sm text-(--text2) transition-colors hover:bg-(--surface2) hover:text-(--text) disabled:opacity-50'
         >
-          {reading
-            ? t('repeaterAdmin.dashboard.refreshing')
-            : t('repeaterAdmin.dashboard.refresh')}
+          ↻
         </button>
       </div>
 
@@ -261,7 +308,7 @@ export function RepeaterConfigTab({
   );
 }
 
-/** A titled card grouping related settings. */
+/** A titled card grouping related settings, rows split by hairline dividers. */
 function Section({
   title,
   children,
@@ -271,11 +318,13 @@ function Section({
 }) {
   return (
     <section
-      className='rounded-lg border border-(--border) p-4'
+      className='overflow-hidden rounded-xl border border-(--border)'
       style={{ background: 'var(--surface)' }}
     >
-      <h3 className='mb-3 text-sm font-semibold text-(--text)'>{title}</h3>
-      <div className='space-y-4'>{children}</div>
+      <h3 className='border-b border-(--border) px-4 py-2 text-[11px] font-semibold tracking-wide text-(--text2) uppercase'>
+        {title}
+      </h3>
+      <div className='divide-y divide-(--border) px-4'>{children}</div>
     </section>
   );
 }
@@ -286,19 +335,23 @@ function AdvancedSection({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <section
-      className='rounded-lg border border-(--border) p-4'
+      className='overflow-hidden rounded-xl border border-(--border)'
       style={{ background: 'var(--surface)' }}
     >
       <button
         type='button'
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className='flex w-full items-center justify-between text-sm font-semibold text-(--text)'
+        className='flex w-full items-center justify-between px-4 py-2 text-[11px] font-semibold tracking-wide text-(--text2) uppercase hover:text-(--text)'
       >
         <span>{t('repeaterAdmin.config.advanced')}</span>
-        <span className='text-(--text2)'>{open ? '▾' : '▸'}</span>
+        <span aria-hidden>{open ? '▾' : '▸'}</span>
       </button>
-      {open && <div className='mt-4 space-y-4'>{children}</div>}
+      {open && (
+        <div className='divide-y divide-(--border) border-t border-(--border) px-4'>
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -309,259 +362,264 @@ interface RowProps {
   value: string;
   draft: string;
   onDraft: (value: string) => void;
-  onSave: () => void;
-  saving: boolean;
+  onCommit: (value: string) => void;
+  status?: SaveStatus;
   loading: boolean;
   readOnly: boolean;
   nameBytes: number;
 }
 
-/** One labeled setting: its control, an optional reboot hint, and a Save. */
+/**
+ * One setting as a compact label→control row. Toggles/selects auto-commit on
+ * change; typed fields commit on blur/Enter (an invalid edit reverts). The
+ * composite radio setting delegates to {@link RadioRow}.
+ */
 function SettingRow({
   setting,
   value,
   draft,
   onDraft,
-  onSave,
-  saving,
+  onCommit,
+  status,
   loading,
   readOnly,
   nameBytes,
 }: RowProps) {
   const { t } = useTranslation();
+
+  if (setting.kind === 'radio') {
+    return (
+      <RadioRow
+        setting={setting}
+        value={value}
+        status={status}
+        loading={loading}
+        readOnly={readOnly}
+        onCommit={onCommit}
+      />
+    );
+  }
+
   const maxBytes = setting.kind === 'text' ? nameBytes : undefined;
   const valid = isValidValue(setting, draft, maxBytes);
-  const dirty = draft !== value;
+  // Blur/Enter on a typed field: commit a valid change, or revert an invalid
+  // one back to the last known value.
+  const commitEdit = () => {
+    if (draft === value) return;
+    if (valid) onCommit(draft);
+    else onDraft(value);
+  };
 
   return (
-    <div className='space-y-1.5'>
-      <div className='flex items-center justify-between gap-2'>
-        <label className='text-sm text-(--text)'>
+    <div className='flex items-center gap-3 py-2.5'>
+      <div className='flex min-w-0 flex-1 items-center gap-2'>
+        <span className='truncate text-sm text-(--text)'>
           {t(`repeaterAdmin.config.fields.${setting.id}.label`)}
-        </label>
-        {setting.requiresReboot && (
-          <span className='text-[11px] text-(--text2)'>
-            {t('repeaterAdmin.config.requiresReboot')}
+        </span>
+        {setting.requiresReboot && <RebootPill />}
+      </div>
+      <div className='flex shrink-0 items-center gap-2'>
+        {loading ? (
+          <span className='text-xs text-(--text2)'>
+            {t('repeaterAdmin.config.readingField')}
           </span>
+        ) : (
+          <>
+            {setting.kind === 'toggle' && (
+              <SwitchControl
+                setting={setting}
+                value={draft}
+                disabled={readOnly}
+                onSelect={onCommit}
+              />
+            )}
+            {setting.kind === 'number' && (
+              <NumberField
+                setting={setting}
+                value={draft}
+                valid={valid}
+                disabled={readOnly}
+                onChange={onDraft}
+                onCommitEdit={commitEdit}
+              />
+            )}
+            {setting.kind === 'select' && (
+              <SelectField
+                setting={setting}
+                value={draft}
+                disabled={readOnly}
+                onSelect={onCommit}
+              />
+            )}
+            {setting.kind === 'text' && (
+              <TextField
+                value={draft}
+                maxBytes={maxBytes ?? setting.maxBytes}
+                valid={valid}
+                disabled={readOnly}
+                onChange={onDraft}
+                onCommitEdit={commitEdit}
+              />
+            )}
+            <StatusChip status={status} />
+          </>
         )}
       </div>
-      {loading ? (
-        <p className='py-1.5 text-xs text-(--text2)'>
-          {t('repeaterAdmin.config.readingField')}
-        </p>
-      ) : (
-        <div className='flex items-start gap-2'>
-          <div className='min-w-0 flex-1'>
-            <SettingControl
-              setting={setting}
-              value={draft}
-              onChange={onDraft}
-              readOnly={readOnly}
-              valid={valid}
-              maxBytes={maxBytes}
-            />
-          </div>
-          {!readOnly && (
-            <button
-              onClick={onSave}
-              disabled={!dirty || !valid || saving}
-              className='shrink-0 rounded-md bg-(--accent) px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
-            >
-              {saving
-                ? t('repeaterAdmin.config.saving')
-                : t('repeaterAdmin.config.save')}
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
-/** Renders the control matching a setting's {@link RepeaterSetting.kind}. */
-function SettingControl({
-  setting,
-  value,
-  onChange,
-  readOnly,
-  valid,
-  maxBytes,
-}: {
-  setting: RepeaterSetting;
-  value: string;
-  onChange: (value: string) => void;
-  readOnly: boolean;
-  valid: boolean;
-  maxBytes?: number;
-}) {
-  switch (setting.kind) {
-    case 'toggle':
-      return (
-        <ToggleControl
-          setting={setting}
-          value={value}
-          onChange={onChange}
-          readOnly={readOnly}
-        />
-      );
-    case 'number':
-      return (
-        <NumberControl
-          setting={setting}
-          value={value}
-          onChange={onChange}
-          readOnly={readOnly}
-          valid={valid}
-        />
-      );
-    case 'select':
-      return (
-        <SelectControl
-          setting={setting}
-          value={value}
-          onChange={onChange}
-          readOnly={readOnly}
-        />
-      );
-    case 'radio':
-      return (
-        <RadioControl
-          value={value}
-          onChange={onChange}
-          readOnly={readOnly}
-          valid={valid}
-        />
-      );
-    case 'text':
-      return (
-        <TextControl
-          value={value}
-          onChange={onChange}
-          readOnly={readOnly}
-          valid={valid}
-          maxBytes={maxBytes ?? setting.maxBytes}
-        />
-      );
-  }
+/** A fixed-width slot showing a field's save lifecycle (spinner / ✓ / ⚠). */
+function StatusChip({ status }: { status?: SaveStatus }) {
+  return (
+    <span className='inline-flex w-4 justify-center' aria-hidden>
+      {status === 'saving' && (
+        <span className='h-3 w-3 animate-spin rounded-full border border-(--text2) border-t-transparent' />
+      )}
+      {status === 'saved' && <span className='text-xs text-(--green)'>✓</span>}
+      {status === 'error' && <span className='text-xs text-(--red)'>⚠</span>}
+    </span>
+  );
 }
 
-const inputClass =
-  'w-full rounded-md border bg-(--surface) px-2 py-1.5 text-sm text-(--text) outline-none focus:border-(--accent) disabled:opacity-60';
-
-function borderClass(valid: boolean): string {
-  return valid ? 'border-(--border-control)' : 'border-(--red)';
-}
-
-/** A segmented On/Off control bound to a toggle setting's wire tokens. */
-function ToggleControl({
-  setting,
-  value,
-  onChange,
-  readOnly,
-}: {
-  setting: ToggleSetting;
-  value: string;
-  onChange: (value: string) => void;
-  readOnly: boolean;
-}) {
+/** A small "requires reboot" badge shown beside affected fields. */
+function RebootPill() {
   const { t } = useTranslation();
-  const options = [
-    { token: setting.on, label: t('repeaterAdmin.config.on') },
-    { token: setting.off, label: t('repeaterAdmin.config.off') },
-  ];
+  return (
+    <span className='rounded-full bg-(--surface2) px-1.5 py-0.5 text-[10px] whitespace-nowrap text-(--text2)'>
+      {t('repeaterAdmin.config.requiresReboot')}
+    </span>
+  );
+}
+
+/** A bordered input group: a control plus an optional in-field unit suffix. */
+function Field({
+  width,
+  invalid,
+  disabled,
+  suffix,
+  children,
+}: {
+  width: string;
+  invalid?: boolean;
+  disabled?: boolean;
+  suffix?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div
-      role='radiogroup'
-      className='inline-flex overflow-hidden rounded-md border border-(--border-control)'
+      className={`flex items-center overflow-hidden rounded-md border ${width} bg-(--surface) focus-within:border-(--accent) ${
+        invalid ? 'border-(--red)' : 'border-(--border-control)'
+      } ${disabled ? 'opacity-60' : ''}`}
     >
-      {options.map((o) => (
-        <button
-          key={o.token}
-          type='button'
-          role='radio'
-          aria-checked={value === o.token}
-          disabled={readOnly}
-          onClick={() => onChange(o.token)}
-          className={`px-3 py-1.5 text-sm disabled:opacity-60 ${
-            value === o.token
-              ? 'bg-(--accent) text-white'
-              : 'text-(--text) hover:bg-(--surface2)'
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** A bounded numeric input with a unit suffix and out-of-range hint. */
-function NumberControl({
-  setting,
-  value,
-  onChange,
-  readOnly,
-  valid,
-}: {
-  setting: NumberSetting;
-  value: string;
-  onChange: (value: string) => void;
-  readOnly: boolean;
-  valid: boolean;
-}) {
-  const { t, i18n } = useTranslation();
-  const unit = setting.unit
-    ? t(`repeaterAdmin.config.units.${setting.unit}`)
-    : null;
-  return (
-    <div>
-      <div className='flex items-center gap-2'>
-        <input
-          type='number'
-          inputMode='decimal'
-          step={setting.step}
-          min={setting.min}
-          max={setting.max}
-          value={value}
-          disabled={readOnly}
-          onChange={(e) => onChange(e.target.value)}
-          className={`${inputClass} ${borderClass(valid)}`}
-        />
-        {unit && (
-          <span className='shrink-0 text-xs text-(--text2)'>{unit}</span>
-        )}
-      </div>
-      {!valid && value.trim() !== '' && (
-        <span className='mt-1 block text-[11px] text-(--red)'>
-          {t('repeaterAdmin.config.range', {
-            min: fmtNum(setting.min, i18n.language),
-            max: fmtNum(setting.max, i18n.language),
-          })}
+      {children}
+      {suffix != null && (
+        <span className='border-l border-(--border-control) px-1.5 py-1 text-[11px] whitespace-nowrap text-(--text2)'>
+          {suffix}
         </span>
       )}
     </div>
   );
 }
 
-/** A dropdown over a select setting's fixed options. */
-function SelectControl({
+/** A modern on/off switch bound to a toggle setting's wire tokens. */
+function SwitchControl({
   setting,
   value,
+  disabled,
+  onSelect,
+}: {
+  setting: ToggleSetting;
+  value: string;
+  disabled: boolean;
+  onSelect: (value: string) => void;
+}) {
+  const on = value === setting.on;
+  return (
+    <button
+      type='button'
+      role='switch'
+      aria-checked={on}
+      disabled={disabled}
+      onClick={() => onSelect(on ? setting.off : setting.on)}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
+        on ? 'bg-(--accent)' : 'bg-(--border-control)'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          on ? 'translate-x-4' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  );
+}
+
+/** A right-sized numeric input with an in-field unit suffix. */
+function NumberField({
+  setting,
+  value,
+  valid,
+  disabled,
   onChange,
-  readOnly,
+  onCommitEdit,
+}: {
+  setting: NumberSetting;
+  value: string;
+  valid: boolean;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  onCommitEdit: () => void;
+}) {
+  const { t } = useTranslation();
+  const unit = setting.unit
+    ? t(`repeaterAdmin.config.units.${setting.unit}`)
+    : undefined;
+  return (
+    <Field
+      width='w-28'
+      invalid={!valid && value.trim() !== ''}
+      disabled={disabled}
+      suffix={unit}
+    >
+      <input
+        type='number'
+        inputMode='decimal'
+        step={setting.integer ? 1 : 'any'}
+        min={setting.min}
+        max={setting.max}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCommitEdit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+        className='w-full min-w-0 bg-transparent px-2 py-1 text-right text-sm text-(--text) outline-none'
+      />
+    </Field>
+  );
+}
+
+/** A content-sized dropdown over a select setting's fixed options. */
+function SelectField({
+  setting,
+  value,
+  disabled,
+  onSelect,
 }: {
   setting: SelectSetting;
   value: string;
-  onChange: (value: string) => void;
-  readOnly: boolean;
+  disabled: boolean;
+  onSelect: (value: string) => void;
 }) {
   const { t } = useTranslation();
   return (
     <select
       value={value}
-      disabled={readOnly}
-      onChange={(e) => onChange(e.target.value)}
-      className={`${inputClass} border-(--border-control)`}
+      disabled={disabled}
+      onChange={(e) => onSelect(e.target.value)}
+      className='rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-sm text-(--text) outline-none focus:border-(--accent) disabled:opacity-60'
     >
       {!setting.options.includes(value) && (
         <option value={value} disabled>
@@ -577,137 +635,229 @@ function SelectControl({
   );
 }
 
-/** A text input with a live UTF-8 byte counter against its max. */
-function TextControl({
+/** A name input with a live UTF-8 byte counter shown as an in-field suffix. */
+function TextField({
   value,
-  onChange,
-  readOnly,
-  valid,
   maxBytes,
+  valid,
+  disabled,
+  onChange,
+  onCommitEdit,
 }: {
   value: string;
-  onChange: (value: string) => void;
-  readOnly: boolean;
-  valid: boolean;
   maxBytes: number;
+  valid: boolean;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  onCommitEdit: () => void;
 }) {
-  const { t } = useTranslation();
   const bytes = utf8ByteLength(value);
   return (
-    <div>
+    <Field
+      width='w-52'
+      invalid={!valid && value.trim() !== ''}
+      disabled={disabled}
+      suffix={
+        <span className={bytes > maxBytes ? 'text-(--red)' : undefined}>
+          {bytes}/{maxBytes}
+        </span>
+      }
+    >
       <input
         type='text'
         value={value}
-        disabled={readOnly}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className={`${inputClass} ${borderClass(valid)}`}
+        onBlur={onCommitEdit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+        className='w-full min-w-0 bg-transparent px-2 py-1 text-sm text-(--text) outline-none'
       />
-      <span
-        className={`mt-1 block text-[11px] ${
-          bytes > maxBytes ? 'text-(--red)' : 'text-(--text2)'
-        }`}
-      >
-        {t('repeaterAdmin.config.bytes', { used: bytes, max: maxBytes })}
-      </span>
-    </div>
+    </Field>
   );
 }
 
-/** Editor for the composite LoRa parameters (`freq,bw,sf,cr`). */
-function RadioControl({
+/**
+ * The composite LoRa parameters as a collapsed one-line summary that expands
+ * into a `freq,bw,sf,cr` editor. Applying confirms first, since a radio change
+ * requires a reboot and can take the node off the mesh.
+ */
+function RadioRow({
+  setting,
   value,
-  onChange,
+  status,
+  loading,
   readOnly,
-  valid,
+  onCommit,
 }: {
+  setting: RadioSetting;
   value: string;
-  onChange: (value: string) => void;
+  status?: SaveStatus;
+  loading: boolean;
   readOnly: boolean;
-  valid: boolean;
+  onCommit: (value: string) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const parsed = parseRadio(value);
-  const bw = parsed?.bw ?? 0;
-  const sf = parsed?.sf ?? 0;
-  const cr = parsed?.cr ?? 0;
-
-  // Frequency is edited as raw text so partial input (e.g. "869.") survives a
-  // keystroke; bw/sf/cr are discrete and read straight off the parsed value.
-  const [freqText, setFreqText] = useState(parsed ? String(parsed.freq) : '');
-  // Tracks the last string we emitted so the sync effect below can tell an
-  // external change (prefill / save confirm) from our own edit echoing back.
-  const emitted = useRef<string | null>(null);
-  useEffect(() => {
-    if (value === emitted.current) return;
-    const p = parseRadio(value);
-    setFreqText(p ? String(p.freq) : '');
-  }, [value]);
-
-  const emit = (
-    freq: string,
-    nextBw: number,
-    nextSf: number,
-    nextCr: number,
-  ) => {
-    const next = `${freq},${nextBw},${nextSf},${nextCr}`;
-    emitted.current = next;
-    onChange(next);
-  };
-
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [freqText, setFreqText] = useState('');
+  const [bw, setBw] = useState(0);
+  const [sf, setSf] = useState(0);
+  const [cr, setCr] = useState(0);
   const num = (n: number) => fmtNum(n, i18n.language);
 
+  const parsed = parseRadio(value);
+  const summary = parsed
+    ? [
+        t('settings.mhz', { value: num(parsed.freq) }),
+        t('settings.khz', { value: num(parsed.bw) }),
+        `SF${parsed.sf}`,
+        t('settings.radioEdit.crLabel', { value: parsed.cr }),
+      ].join(' · ')
+    : '—';
+
+  const startEdit = () => {
+    const p = parseRadio(value);
+    setFreqText(p ? String(p.freq) : '');
+    setBw(p?.bw ?? 0);
+    setSf(p?.sf ?? 0);
+    setCr(p?.cr ?? 0);
+    setConfirming(false);
+    setEditing(true);
+  };
+
+  const draft = `${freqText},${bw},${sf},${cr}`;
+  const valid = isValidValue(setting, draft);
+
   return (
-    <div className='space-y-2'>
-      <div>
-        <span className='mb-1 block text-[11px] text-(--text2)'>
-          {t('settings.frequency')}
-        </span>
-        <input
-          type='number'
-          inputMode='decimal'
-          step='0.001'
-          min={RADIO_FREQ_MIN_MHZ}
-          max={RADIO_FREQ_MAX_MHZ}
-          value={freqText}
-          disabled={readOnly}
-          onChange={(e) => {
-            setFreqText(e.target.value);
-            emit(e.target.value, bw, sf, cr);
-          }}
-          className={`${inputClass} ${borderClass(valid)}`}
-        />
+    <div className='py-2.5'>
+      <div className='flex items-center gap-3'>
+        <div className='flex min-w-0 flex-1 items-center gap-2'>
+          <span className='text-sm text-(--text)'>
+            {t('repeaterAdmin.config.fields.radio.label')}
+          </span>
+          <RebootPill />
+        </div>
+        <div className='flex shrink-0 items-center gap-2'>
+          {loading ? (
+            <span className='text-xs text-(--text2)'>
+              {t('repeaterAdmin.config.readingField')}
+            </span>
+          ) : (
+            <>
+              <span className='font-mono text-xs text-(--text2)'>
+                {summary}
+              </span>
+              {!readOnly && !editing && (
+                <button
+                  onClick={startEdit}
+                  className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs text-(--text) hover:bg-(--surface2)'
+                >
+                  {t('repeaterAdmin.config.edit')}
+                </button>
+              )}
+              <StatusChip status={status} />
+            </>
+          )}
+        </div>
       </div>
-      <div className='grid grid-cols-3 gap-2'>
-        <RadioSelect
-          label={t('settings.bandwidth')}
-          value={bw}
-          options={withCurrent(RADIO_BW_VALUES_KHZ, bw)}
-          format={(v) => t('settings.khz', { value: num(v) })}
-          disabled={readOnly}
-          onChange={(v) => emit(freqText, v, sf, cr)}
-        />
-        <RadioSelect
-          label={t('settings.spreadingFactor')}
-          value={sf}
-          options={withCurrent(RADIO_SF_VALUES, sf)}
-          format={(v) => num(v)}
-          disabled={readOnly}
-          onChange={(v) => emit(freqText, bw, v, cr)}
-        />
-        <RadioSelect
-          label={t('settings.codingRate')}
-          value={cr}
-          options={withCurrent(RADIO_CR_VALUES, cr)}
-          format={(v) => t('settings.radioEdit.crLabel', { value: v })}
-          disabled={readOnly}
-          onChange={(v) => emit(freqText, bw, sf, v)}
-        />
-      </div>
+
+      {editing && (
+        <div
+          className='mt-3 space-y-3 rounded-lg border border-(--border) p-3'
+          style={{ background: 'var(--surface2)' }}
+        >
+          <div className='grid grid-cols-2 gap-3'>
+            <label className='block'>
+              <span className='mb-1 block text-[11px] text-(--text2)'>
+                {t('settings.frequency')}
+              </span>
+              <input
+                type='number'
+                inputMode='decimal'
+                step='any'
+                min={RADIO_FREQ_MIN_MHZ}
+                max={RADIO_FREQ_MAX_MHZ}
+                value={freqText}
+                onChange={(e) => setFreqText(e.target.value)}
+                className='w-full rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-sm text-(--text) outline-none focus:border-(--accent)'
+              />
+            </label>
+            <RadioSelect
+              label={t('settings.bandwidth')}
+              value={bw}
+              options={withCurrent(RADIO_BW_VALUES_KHZ, bw)}
+              format={(v) => t('settings.khz', { value: num(v) })}
+              disabled={false}
+              onChange={setBw}
+            />
+            <RadioSelect
+              label={t('settings.spreadingFactor')}
+              value={sf}
+              options={withCurrent(RADIO_SF_VALUES, sf)}
+              format={(v) => num(v)}
+              disabled={false}
+              onChange={setSf}
+            />
+            <RadioSelect
+              label={t('settings.codingRate')}
+              value={cr}
+              options={withCurrent(RADIO_CR_VALUES, cr)}
+              format={(v) => t('settings.radioEdit.crLabel', { value: v })}
+              disabled={false}
+              onChange={setCr}
+            />
+          </div>
+
+          {confirming ? (
+            <div className='flex items-center justify-between gap-3 border-t border-(--border) pt-3'>
+              <span className='text-xs text-(--text2)'>
+                {t('repeaterAdmin.config.radioConfirm')}
+              </span>
+              <div className='flex shrink-0 gap-2'>
+                <button
+                  onClick={() => setConfirming(false)}
+                  className='rounded-md px-3 py-1 text-sm text-(--text) hover:bg-(--surface2)'
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  onClick={() => {
+                    onCommit(draft);
+                    setEditing(false);
+                    setConfirming(false);
+                  }}
+                  className='rounded-md bg-(--red) px-3 py-1 text-sm font-semibold text-white hover:bg-(--red-hover)'
+                >
+                  {t('repeaterAdmin.config.apply')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className='flex justify-end gap-2 border-t border-(--border) pt-3'>
+              <button
+                onClick={() => setEditing(false)}
+                className='rounded-md px-3 py-1 text-sm text-(--text) hover:bg-(--surface2)'
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => valid && setConfirming(true)}
+                disabled={!valid}
+                className='rounded-md bg-(--accent) px-3 py-1 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
+              >
+                {t('repeaterAdmin.config.apply')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-/** A compact labeled numeric select used by {@link RadioControl}. */
+/** A compact labeled numeric select used by {@link RadioRow}. */
 function RadioSelect({
   label,
   value,
@@ -730,7 +880,7 @@ function RadioSelect({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(Number(e.target.value))}
-        className={`${inputClass} border-(--border-control)`}
+        className='w-full rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-sm text-(--text) outline-none focus:border-(--accent) disabled:opacity-60'
       >
         {options.map((v) => (
           <option key={v} value={v}>
@@ -754,13 +904,13 @@ function ActionsSection({
 
   return (
     <section
-      className='rounded-lg border border-(--border) p-4'
+      className='overflow-hidden rounded-xl border border-(--border)'
       style={{ background: 'var(--surface)' }}
     >
-      <h3 className='mb-3 text-sm font-semibold text-(--text)'>
+      <h3 className='border-b border-(--border) px-4 py-2 text-[11px] font-semibold tracking-wide text-(--text2) uppercase'>
         {t('repeaterAdmin.config.actionsTitle')}
       </h3>
-      <div className='flex flex-wrap gap-2'>
+      <div className='flex flex-wrap items-center gap-2 p-4'>
         {REPEATER_ACTIONS.filter((a) => !a.destructive).map((a) => (
           <button
             key={a.id}
@@ -770,42 +920,40 @@ function ActionsSection({
             {t(`repeaterAdmin.config.actions.${a.id}.label`)}
           </button>
         ))}
+        {reboot && !confirming && (
+          <button
+            onClick={() => setConfirming(true)}
+            className='ml-auto rounded-md border border-(--red) px-3 py-1.5 text-sm text-(--red) hover:bg-(--red-dim) hover:text-white'
+          >
+            {t('repeaterAdmin.config.actions.reboot.label')}
+          </button>
+        )}
       </div>
 
-      {reboot &&
-        (confirming ? (
-          <div className='mt-4 flex items-center justify-between gap-3 border-t border-(--border) pt-4'>
-            <span className='text-sm text-(--text2)'>
-              {t('repeaterAdmin.config.actions.reboot.confirm')}
-            </span>
-            <div className='flex shrink-0 gap-2'>
-              <button
-                onClick={() => setConfirming(false)}
-                className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => {
-                  onRun(reboot);
-                  setConfirming(false);
-                }}
-                className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--red-hover)'
-              >
-                {t('repeaterAdmin.config.actions.reboot.label')}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className='mt-4 border-t border-(--border) pt-4'>
+      {reboot && confirming && (
+        <div className='flex items-center justify-between gap-3 border-t border-(--border) px-4 py-3'>
+          <span className='text-sm text-(--text2)'>
+            {t('repeaterAdmin.config.actions.reboot.confirm')}
+          </span>
+          <div className='flex shrink-0 gap-2'>
             <button
-              onClick={() => setConfirming(true)}
-              className='rounded-md border border-(--red) px-3 py-1.5 text-sm text-(--red) hover:bg-(--red-dim) hover:text-white'
+              onClick={() => setConfirming(false)}
+              className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={() => {
+                onRun(reboot);
+                setConfirming(false);
+              }}
+              className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--red-hover)'
             >
               {t('repeaterAdmin.config.actions.reboot.label')}
             </button>
           </div>
-        ))}
+        </div>
+      )}
     </section>
   );
 }

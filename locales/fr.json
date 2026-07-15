@@ -542,12 +542,9 @@
       "readingField": "Lecture…",
       "readOnlyNotice": "Vous avez un accès en lecture seule (invité). Connectez-vous en tant qu’admin pour apporter des modifications.",
       "requiresReboot": "Nécessite un redémarrage",
-      "save": "Enregistrer",
-      "saving": "Enregistrement…",
-      "range": "Doit être compris entre {{min}} et {{max}}.",
-      "bytes": "{{used}} / {{max}} octets",
-      "on": "Activé",
-      "off": "Désactivé",
+      "edit": "Modifier",
+      "apply": "Appliquer",
+      "radioConfirm": "La modification des paramètres radio nécessite un redémarrage et peut déconnecter le nœud du réseau. Appliquer ?",
       "advanced": "Avancé",
       "actionsTitle": "Actions",
       "groups": {
@@ -817,7 +814,7 @@
     "repeaterLoginFailed": "Échec de la connexion : {{error}}",
     "repeaterStatusFailed": "Échec de la récupération du statut : {{error}}",
     "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}",
-    "repeaterConfigSaved": "Paramètre mis à jour.",
+
     "repeaterConfigError": "Le nœud a rejeté la modification : {{error}}",
     "repeaterActionSent": "Commande envoyée."
   }

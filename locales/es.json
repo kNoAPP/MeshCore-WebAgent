@@ -542,12 +542,9 @@
       "readingField": "Leyendo…",
       "readOnlyNotice": "Tienes acceso de solo lectura (invitado). Inicia sesión como administrador para hacer cambios.",
       "requiresReboot": "Requiere reinicio",
-      "save": "Guardar",
-      "saving": "Guardando…",
-      "range": "Debe estar entre {{min}} y {{max}}.",
-      "bytes": "{{used}} / {{max}} bytes",
-      "on": "Activado",
-      "off": "Desactivado",
+      "edit": "Editar",
+      "apply": "Aplicar",
+      "radioConfirm": "Cambiar los parámetros de radio requiere reiniciar para aplicarse y puede dejar el nodo fuera de la malla. ¿Aplicar?",
       "advanced": "Avanzado",
       "actionsTitle": "Acciones",
       "groups": {
@@ -817,7 +814,6 @@
     "repeaterLoginFailed": "Error al iniciar sesión: {{error}}",
     "repeaterStatusFailed": "Error al obtener el estado: {{error}}",
     "repeaterCliFailed": "Error al enviar el comando: {{error}}",
-    "repeaterConfigSaved": "Ajuste actualizado.",
     "repeaterConfigError": "El nodo rechazó el cambio: {{error}}",
     "repeaterActionSent": "Comando enviado."
   }
