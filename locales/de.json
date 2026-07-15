@@ -481,7 +481,6 @@
     }
   },
   "repeaterAdmin": {
-    "manage": "Verwalten",
     "contactUnavailable": "Dieser Knoten ist nicht mehr verfügbar.",
     "access": {
       "admin": "Admin",

@@ -481,7 +481,6 @@
     }
   },
   "repeaterAdmin": {
-    "manage": "Gérer",
     "contactUnavailable": "Ce nœud n’est plus disponible.",
     "access": {
       "admin": "Admin",

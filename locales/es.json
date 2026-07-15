@@ -481,7 +481,6 @@
     }
   },
   "repeaterAdmin": {
-    "manage": "Administrar",
     "contactUnavailable": "Este nodo ya no está disponible.",
     "access": {
       "admin": "Administrador",

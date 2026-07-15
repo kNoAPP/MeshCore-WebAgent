@@ -78,9 +78,10 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   const prefix = contact.pubkeyPrefix;
 
   const [tab, setTab] = useState<RepeaterTab>('status');
-  // True only during the initial probe for a remembered credential, so we show
-  // a brief spinner instead of flashing the login form before auto-login runs.
-  const [checking, setChecking] = useState(!authed);
+  // True only during the initial credential probe (from a clean logged-out
+  // state), so we show a brief spinner instead of flashing the login form
+  // before auto-login runs. A `pending` login shows the disabled gate instead.
+  const [checking, setChecking] = useState(login === 'loggedOut');
 
   // Captured once at mount (the component is keyed by `prefix`, so it remounts
   // per repeater). The auto-login effect reads these without listing them as
@@ -97,9 +98,11 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   // `prefix`, so it runs once per repeater (remounted when the selection
   // changes).
   useEffect(() => {
-    // Already authenticated (e.g. a reused session): `checking` initialized
-    // false, so there's nothing to probe.
-    if (loginRef.current === 'admin' || loginRef.current === 'guest') return;
+    // Only probe from a clean logged-out state. Skipping `admin`/`guest`
+    // avoids clobbering a live session; skipping `pending` avoids queuing a
+    // second login when the view remounts mid-login (e.g. switching away and
+    // back during a multi-hop handshake).
+    if (loginRef.current !== 'loggedOut') return;
     let cancelled = false;
     void (async () => {
       const cred = await loadRepeaterCred(prefix);

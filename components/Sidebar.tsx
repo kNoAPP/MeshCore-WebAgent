@@ -25,7 +25,11 @@ import {
   type ContactSort,
 } from '@/store/meshStore';
 import { ADV_ICON, contactCategory, type ContactCategory } from '@/lib/utils';
-import { ADV_TYPE_REPEATER, FAVORITE_FLAG } from '@/lib/meshcore/constants';
+import {
+  ADV_TYPE_REPEATER,
+  ADV_TYPE_ROOM,
+  FAVORITE_FLAG,
+} from '@/lib/meshcore/constants';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import type { Contact, Message } from '@/types/meshcore';
 
@@ -373,10 +377,11 @@ export function Sidebar() {
         </div>
         <div className='flex-1 overflow-y-auto'>
           {sortedContacts.map((c) => {
-            // Repeaters can't be messaged, so selecting one opens its
-            // main-window admin view instead of a chat.
-            const isRepeater = c.advType === ADV_TYPE_REPEATER;
-            const id = isRepeater
+            // Repeaters and room servers are remote-admin targets, so
+            // selecting one opens its main-window admin view instead of a chat.
+            const isAdminNode =
+              c.advType === ADV_TYPE_REPEATER || c.advType === ADV_TYPE_ROOM;
+            const id = isAdminNode
               ? repeaterConvoId(c.pubkeyPrefix)
               : directConvoId(c.pubkeyPrefix);
             const unread = unreadCount(msgHistory, id);
@@ -396,7 +401,7 @@ export function Sidebar() {
                 }
                 onClick={() =>
                   openConvo({
-                    kind: isRepeater ? 'repeater' : 'direct',
+                    kind: isAdminNode ? 'repeater' : 'direct',
                     id,
                     rawId: c.pubkeyPrefix,
                     label,

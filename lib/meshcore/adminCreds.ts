@@ -34,6 +34,21 @@ function isRememberedCred(value: unknown): value is RememberedCred {
   );
 }
 
+// All at-rest credential I/O funnels through this promise chain so overlapping
+// operations hit IndexedDB in call order. Without it, a save whose encryption
+// finishes after a later clear could recreate a credential the user just
+// forgot (mirrors the ordering guarantee in `lib/ai/secret.ts`).
+let ioChain: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(op: () => Promise<T>): Promise<T> {
+  const run = ioChain.then(op, op);
+  ioChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 /**
  * Persists a repeater's login credential, encrypted under the connected
  * radio's key. Best-effort — a no-op when no radio session is bound.
@@ -46,11 +61,13 @@ export async function saveRepeaterCred(
 ): Promise<boolean> {
   const ctx = getStorageContext();
   if (!ctx) return false;
-  return saveSecret(
-    ctx.pubkey,
-    ctx.storageKey,
-    credName(prefix),
-    JSON.stringify(cred),
+  return enqueue(() =>
+    saveSecret(
+      ctx.pubkey,
+      ctx.storageKey,
+      credName(prefix),
+      JSON.stringify(cred),
+    ),
   );
 }
 
@@ -63,7 +80,9 @@ export async function loadRepeaterCred(
 ): Promise<RememberedCred | null> {
   const ctx = getStorageContext();
   if (!ctx) return null;
-  const raw = await loadSecret(ctx.pubkey, ctx.storageKey, credName(prefix));
+  const raw = await enqueue(() =>
+    loadSecret(ctx.pubkey, ctx.storageKey, credName(prefix)),
+  );
   if (raw === null) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -80,5 +99,5 @@ export async function loadRepeaterCred(
 export async function clearRepeaterCred(prefix: string): Promise<void> {
   const ctx = getStorageContext();
   if (!ctx) return;
-  await clearSecret(ctx.pubkey, credName(prefix));
+  await enqueue(() => clearSecret(ctx.pubkey, credName(prefix)));
 }
