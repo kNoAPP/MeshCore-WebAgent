@@ -38,6 +38,9 @@ import type { Contact, RadioParams } from '@/types/meshcore';
 /** The map of settings ids to their current on-device / draft values. */
 type ValueMap = Record<string, string>;
 
+/** Stable empty values map, so an uncached repeater doesn't churn renders. */
+const EMPTY_VALUES: ValueMap = {};
+
 /** Per-field save lifecycle shown as a small status chip. */
 type SaveStatus = 'saving' | 'saved' | 'error';
 
@@ -87,8 +90,17 @@ export function RepeaterConfigTab({
   const { repeaterCliRequest, repeaterCli, clearRepeaterCli } = useMeshCore();
   const showToast = useMeshStore((s) => s.showToast);
 
-  const [values, setValues] = useState<ValueMap>({});
-  const [drafts, setDrafts] = useState<ValueMap>({});
+  // Loaded/confirmed values are cached in the per-repeater session so the tab
+  // stays populated across navigation; the store is their source of truth.
+  const values = useMeshStore(
+    (s) => s.adminSessions[contact.pubkeyPrefix]?.config ?? EMPTY_VALUES,
+  );
+  // Drafts are the transient, editable copy — seeded from the cache on mount so
+  // fields render immediately, then diverge only while the user edits.
+  const [drafts, setDrafts] = useState<ValueMap>(
+    () =>
+      useMeshStore.getState().adminSessions[contact.pubkeyPrefix]?.config ?? {},
+  );
   // Ids whose current value is still being read; drives per-field placeholders
   // and each section's spinning Refresh. A field is dropped once its read
   // settles (loaded, errored, or timed out), so a slow/lost reply never blocks
@@ -135,70 +147,84 @@ export function RepeaterConfigTab({
     return run;
   }, []);
 
+  // Writes loaded/confirmed values into the per-repeater session cache (the
+  // source of truth for `values`), so the tab stays populated across
+  // navigation.
+  const cacheValues = useCallback((patch: ValueMap) => {
+    useMeshStore
+      .getState()
+      .mergeRepeaterConfig(contactRef.current.pubkeyPrefix, patch);
+  }, []);
+
   // Reads the given fields' current values. The gets are pipelined (a bounded
   // window in flight at once) and correlated by the per-command tag, rather
   // than run one blocking round-trip at a time. Fields populate as each reply
   // lands. Called per section, so concurrent section reads each scope their
   // "stop reading" to their own fields and never clear another's.
-  const read = useCallback((settings: readonly RepeaterSetting[]) => {
-    void (async () => {
-      // Retry gaps: CLI replies are often dropped over the mesh, so re-request
-      // any field that didn't answer, up to a few passes. A field stays
-      // "reading" until it loads or the passes are exhausted.
-      let queue: RepeaterSetting[] = [...settings];
-      for (let pass = 0; pass < READ_PASSES && queue.length > 0; pass++) {
-        const batch = queue;
-        const misses: RepeaterSetting[] = [];
-        let cursor = 0;
-        const worker = async () => {
-          while (cursor < batch.length) {
-            if (!aliveRef.current) return;
-            const setting = batch[cursor++];
-            let parsed: string | null = null;
-            try {
-              const reply = await requestRef.current(
-                contactRef.current,
-                getCommand(setting),
-              );
+  const read = useCallback(
+    (settings: readonly RepeaterSetting[]) => {
+      void (async () => {
+        // Retry gaps: CLI replies are often dropped over the mesh, so re-request
+        // any field that didn't answer, up to a few passes. A field stays
+        // "reading" until it loads or the passes are exhausted.
+        let queue: RepeaterSetting[] = [...settings];
+        for (let pass = 0; pass < READ_PASSES && queue.length > 0; pass++) {
+          const batch = queue;
+          const misses: RepeaterSetting[] = [];
+          let cursor = 0;
+          const worker = async () => {
+            while (cursor < batch.length) {
               if (!aliveRef.current) return;
-              if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
-            } catch {
-              if (!aliveRef.current) return;
+              const setting = batch[cursor++];
+              let parsed: string | null = null;
+              try {
+                const reply = await requestRef.current(
+                  contactRef.current,
+                  getCommand(setting),
+                );
+                if (!aliveRef.current) return;
+                if (!isErrorReply(reply))
+                  parsed = normalizeReply(setting, reply);
+              } catch {
+                if (!aliveRef.current) return;
+              }
+              if (parsed != null) {
+                const value = parsed;
+                cacheValues({ [setting.id]: value });
+                setDrafts((prev) => ({ ...prev, [setting.id]: value }));
+                setPending((prev) => {
+                  if (!prev.has(setting.id)) return prev;
+                  const next = new Set(prev);
+                  next.delete(setting.id);
+                  return next;
+                });
+              } else {
+                misses.push(setting);
+              }
             }
-            if (parsed != null) {
-              const value = parsed;
-              setValues((prev) => ({ ...prev, [setting.id]: value }));
-              setDrafts((prev) => ({ ...prev, [setting.id]: value }));
-              setPending((prev) => {
-                if (!prev.has(setting.id)) return prev;
-                const next = new Set(prev);
-                next.delete(setting.id);
-                return next;
-              });
-            } else {
-              misses.push(setting);
-            }
-          }
-        };
-        await Promise.all(
-          Array.from({ length: Math.min(READ_CONCURRENCY, batch.length) }, () =>
-            worker(),
-          ),
-        );
+          };
+          await Promise.all(
+            Array.from(
+              { length: Math.min(READ_CONCURRENCY, batch.length) },
+              () => worker(),
+            ),
+          );
+          if (!aliveRef.current) return;
+          queue = misses;
+        }
         if (!aliveRef.current) return;
-        queue = misses;
-      }
-      if (!aliveRef.current) return;
-      // Stop showing "reading" for this call's fields that never answered,
-      // without touching a concurrent read's still-pending fields.
-      setPending((prev) => {
-        let changed = false;
-        const next = new Set(prev);
-        for (const s of settings) if (next.delete(s.id)) changed = true;
-        return changed ? next : prev;
-      });
-    })();
-  }, []);
+        // Stop showing "reading" for this call's fields that never answered,
+        // without touching a concurrent read's still-pending fields.
+        setPending((prev) => {
+          let changed = false;
+          const next = new Set(prev);
+          for (const s of settings) if (next.delete(s.id)) changed = true;
+          return changed ? next : prev;
+        });
+      })();
+    },
+    [cacheValues],
+  );
 
   // Loads (or reloads) one section's fields. Marks them pending, then reads.
   // `setPending` here is a user-gesture update, not an effect body, so it's
@@ -280,7 +306,7 @@ export function RepeaterConfigTab({
           // Keep the value we just set if the confirm read fails.
         }
         if (!aliveRef.current) return;
-        setValues((prev) => ({ ...prev, [id]: confirmed }));
+        cacheValues({ [id]: confirmed });
         setDrafts((prev) => ({ ...prev, [id]: confirmed }));
         setStatus((prev) => ({ ...prev, [id]: 'saved' }));
         clearTimeout(savedTimers.current[id]);
@@ -302,7 +328,7 @@ export function RepeaterConfigTab({
         setErrorMsg((prev) => ({ ...prev, [id]: message }));
       }
     },
-    [enqueue, showToast, t],
+    [enqueue, showToast, t, cacheValues],
   );
 
   const runAction = useCallback(
@@ -354,7 +380,7 @@ export function RepeaterConfigTab({
             fail(reply);
             return false;
           }
-          setValues((prev) => ({ ...prev, radio: radioStr }));
+          cacheValues({ radio: radioStr });
           setDrafts((prev) => ({ ...prev, radio: radioStr }));
         }
         if (txChanged) {
@@ -370,7 +396,7 @@ export function RepeaterConfigTab({
             fail(reply);
             return false;
           }
-          setValues((prev) => ({ ...prev, tx: txStr }));
+          cacheValues({ tx: txStr });
           setDrafts((prev) => ({ ...prev, tx: txStr }));
         }
         showToast(t('toast.radioParamsSaved'), 'success');
@@ -384,7 +410,7 @@ export function RepeaterConfigTab({
         return false;
       }
     },
-    [enqueue, showToast, t],
+    [enqueue, showToast, t, cacheValues],
   );
 
   const nameBytes = nameMaxBytes(drafts.lat ?? '', drafts.lon ?? '');

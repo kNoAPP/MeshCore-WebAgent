@@ -214,6 +214,13 @@ export interface AdminSession {
   login: AdminLoginState;
   status?: RepeaterStatus;
   cli: CliLine[];
+  /**
+   * Cache of the repeater's loaded/confirmed Config-tab values, keyed by
+   * setting id. Ephemeral (part of the session), so the Config fields stay
+   * populated when the user navigates away and back without re-reading, and
+   * clears on disconnect.
+   */
+  config?: Record<string, string>;
 }
 
 interface MeshState {
@@ -413,6 +420,8 @@ interface MeshActions {
   setAdminLogin: (prefix: string, login: AdminLoginState) => void;
   /** Stores the latest decoded status for a repeater's admin session. */
   setRepeaterStatus: (prefix: string, status: RepeaterStatus) => void;
+  /** Merges loaded/confirmed Config values into a repeater's session cache. */
+  mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
   appendCliLine: (prefix: string, line: CliLine) => void;
   /** Clears a repeater's CLI transcript, leaving the session intact. */
@@ -751,6 +760,22 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
           [prefix]: {
             ...session,
             cli: [...session.cli, line].slice(-CLI_LOG_LIMIT),
+          },
+        },
+      };
+    }),
+  mergeRepeaterConfig: (prefix, patch) =>
+    set((state) => {
+      const session = state.adminSessions[prefix] ?? {
+        login: 'loggedOut',
+        cli: [],
+      };
+      return {
+        adminSessions: {
+          ...state.adminSessions,
+          [prefix]: {
+            ...session,
+            config: { ...session.config, ...patch },
           },
         },
       };
