@@ -138,6 +138,11 @@ export function RepeaterConfigTab({
   const aliveRef = useRef(true);
   // Timers that fade a field's "saved ✓" chip back to idle.
   const savedTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // The most recent value committed (or being committed) per field. The commit
+  // no-op check compares against this rather than the last *confirmed* value,
+  // so a fresh edit isn't discarded just because it matches the confirmed value
+  // while an earlier write to a different value is still in flight.
+  const intentRef = useRef<ValueMap>({});
 
   // Serializes whole commit round-trips against each other. The CLI layer
   // already serializes individual commands per repeater, but a `set` and its
@@ -275,7 +280,11 @@ export function RepeaterConfigTab({
   const commit = useCallback(
     async (setting: RepeaterSetting, next: string) => {
       const id = setting.id;
-      if (next === (valuesRef.current[id] ?? '')) return;
+      // Compare against the last value we committed (or are committing), not
+      // just the last confirmed one, so a revert issued while an earlier write
+      // is still in flight isn't dropped as a no-op.
+      const target = intentRef.current[id] ?? valuesRef.current[id] ?? '';
+      if (next === target) return;
       const maxBytes =
         setting.kind === 'text'
           ? nameMaxBytes(
@@ -284,6 +293,7 @@ export function RepeaterConfigTab({
             )
           : undefined;
       if (!isValidValue(setting, next, maxBytes)) return;
+      intentRef.current[id] = next;
       setDrafts((prev) => ({ ...prev, [id]: next }));
       setStatus((prev) => ({ ...prev, [id]: 'saving' }));
       setErrorMsg((prev) => {
@@ -335,9 +345,17 @@ export function RepeaterConfigTab({
               ? { ...prev, [id]: valuesRef.current[id] ?? '' }
               : prev,
           );
+          // Drop the failed intent so a re-commit of the same value works,
+          // unless a newer edit has already superseded it.
+          if (intentRef.current[id] === next) {
+            intentRef.current[id] = valuesRef.current[id] ?? '';
+          }
           return;
         }
         const confirmed = outcome.value;
+        // Reconcile the intent to the node's authoritative value (which may be
+        // clamped/rounded), unless a newer edit is already the pending intent.
+        if (intentRef.current[id] === next) intentRef.current[id] = confirmed;
         cacheValues({ [id]: confirmed });
         setDrafts((prev) => ({ ...prev, [id]: confirmed }));
         setStatus((prev) => ({ ...prev, [id]: 'saved' }));
@@ -352,6 +370,9 @@ export function RepeaterConfigTab({
         }, 2000);
       } catch (err) {
         if (!aliveRef.current) return;
+        if (intentRef.current[id] === next) {
+          intentRef.current[id] = valuesRef.current[id] ?? '';
+        }
         const message = t('toast.repeaterCliFailed', {
           error: (err as Error).message,
         });

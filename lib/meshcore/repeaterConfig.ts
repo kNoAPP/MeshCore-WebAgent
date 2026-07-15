@@ -285,22 +285,21 @@ export function setCommand(setting: RepeaterSetting, value: string): string {
  * the field unchanged and surface as a toast.
  *
  * @remarks
- * The firmware is inconsistent about the prefix, emitting all of `Err`,
- * `Err - ??` (its catch-all for an unrecognized command), `Error`,
- * `Error, bad chars`, and `ERROR: dutycycle must be 1-100`. Older/other builds
- * also reject unknown keys without an `Err` prefix — `??: <cmd>`,
- * `unknown config: <key>`, and `Unknown command` — so those are treated as
- * failures too; otherwise a `set` to a setting the firmware lacks would be
- * confirmed as saved. The trailing word boundary keeps a value that merely
- * starts with those letters — a node named `Erratic Relay` — from reading as a
- * failure.
+ * Matched by error *syntax*, not just a leading word, so a value that merely
+ * starts with those letters — a node named `Error Relay` or
+ * `Unknown Command Center` — still loads. The firmware emits `Err`/`Error`
+ * either alone or followed by its error punctuation (`Err - …`, `Error, …`,
+ * `ERROR: …`, `ERR: …`), the bare catch-all `??: …`, and the
+ * `unknown config: …` / `Unknown command` rejections (emitted without an `Err`
+ * prefix) for a key it doesn't know.
  */
 export function isErrorReply(reply: string): boolean {
   const text = stripPrompt(reply);
   return (
-    /^err(or)?\b/i.test(text) ||
-    /^unknown (config|command)\b/i.test(text) ||
-    text.startsWith('??')
+    /^err(or)?(\s*[-,:]|$)/i.test(text) ||
+    text.startsWith('??') ||
+    /^unknown config:/i.test(text) ||
+    /^unknown command$/i.test(text)
   );
 }
 
@@ -401,7 +400,10 @@ export function isValidValue(
       return isValidRadio(value);
     case 'text': {
       const bytes = utf8ByteLength(value);
-      return bytes >= 1 && bytes <= (textMaxBytes ?? setting.maxBytes);
+      if (bytes < 1 || bytes > (textMaxBytes ?? setting.maxBytes)) return false;
+      // Mirror the firmware's isValidName, which rejects these characters, so a
+      // bad name is caught here instead of only after a mesh round trip.
+      return !/[[\]\\:,?*]/.test(value);
     }
   }
 }
@@ -428,9 +430,15 @@ function isValidRadio(value: string): boolean {
   return (
     freq >= RADIO_FREQ_MIN_MHZ &&
     freq <= RADIO_FREQ_MAX_MHZ &&
-    bw > 0 &&
+    // Firmware bandwidth range in kHz (may be fractional, e.g. 62.5).
+    bw >= 7 &&
+    bw <= 500 &&
+    // SF and CR are integers on the wire; a fractional value would be silently
+    // truncated by the firmware to a different setting than intended.
+    Number.isInteger(sf) &&
     sf >= 5 &&
     sf <= 12 &&
+    Number.isInteger(cr) &&
     cr >= 5 &&
     cr <= 8
   );

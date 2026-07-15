@@ -45,6 +45,7 @@ import {
 } from '@/lib/meshcore/constants';
 import { splitPathHashes } from '@/lib/meshcore/parsers';
 import { saveRepeaterCred } from '@/lib/meshcore/adminCreds';
+import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
 import { toHex, fromHex, bytesEqual, truncateUtf8 } from '@/lib/utils';
 import i18n from '@/lib/i18n';
 import type {
@@ -1319,7 +1320,16 @@ export function useMeshCore() {
     async (contact: Contact, cmd: string): Promise<boolean> => {
       if (!canTransmit(client)) return false;
       try {
-        await repeaterCliRequest(contact, cmd);
+        const reply = await repeaterCliRequest(contact, cmd);
+        // A received reply can still be a rejection (e.g. `ERR: clock cannot go
+        // backwards`); surface it and report failure rather than "sent".
+        if (isErrorReply(reply)) {
+          showToast(
+            i18n.t('toast.repeaterCliFailed', { error: reply.trim() }),
+            'error',
+          );
+          return false;
+        }
         return true;
       } catch (err) {
         // A silent node isn't a failure: reboot/poweroff never reply, so a

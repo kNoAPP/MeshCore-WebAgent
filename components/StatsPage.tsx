@@ -114,6 +114,23 @@ export function StatsPage() {
     [client, readClock],
   );
 
+  // On a reconnect the client is swapped and the link-scoped store cache is
+  // cleared, but this page stays mounted with the previous session's local
+  // snapshot. Drop it (and show loading) so a failed re-read can't keep
+  // displaying the old radio's counters. Skips the initial mount so the
+  // cache-seeded snapshot survives navigating away and back.
+  const prevClientRef = useRef(client);
+  useEffect(() => {
+    if (prevClientRef.current === client) return;
+    prevClientRef.current = client;
+    const st = useMeshStore.getState();
+    setStats(st.deviceStats);
+    setBatteryLocal(st.battery);
+    setClock(st.deviceClock);
+    setFetched(st.deviceStats != null);
+    setLoading(st.deviceStats == null);
+  }, [client]);
+
   // Auto-fetch when the stats view opens or the client changes (a reconnect
   // swaps in a fresh client, which must re-read against the new link). Skips
   // the read when a cached snapshot is already showing — the user Refreshes for
