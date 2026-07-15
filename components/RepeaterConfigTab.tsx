@@ -55,6 +55,14 @@ type SaveStatus = 'saving' | 'saved' | 'error';
 const READ_PASSES = 3;
 
 /**
+ * How many field reads to keep in flight at once. Each command carries a unique
+ * correlation tag the firmware reflects, so requests can be pipelined instead
+ * of run one slow round-trip at a time; a modest window keeps the mesh and the
+ * repeater's reply queue from being flooded while still loading far faster.
+ */
+const READ_CONCURRENCY = 4;
+
+/**
  * The Config tab of the repeater admin panel: structured, validated controls
  * for the common `get`/`set` settings plus the key action verbs, all driven by
  * the {@link REPEATER_SETTING_GROUPS} catalog. On open it prefills every field
@@ -109,8 +117,9 @@ export function RepeaterConfigTab({
   // Timers that fade a field's "saved ✓" chip back to idle.
   const savedTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // Serializes every CLI round-trip (reads and writes) so at most one is in
-  // flight — the reply correlation relies on ordered, non-overlapping requests.
+  // Serializes commit round-trips (a `set` followed by its confirming `get`) so
+  // two edits can't interleave their writes. Reads are pipelined separately and
+  // correlated by tag, so they don't go through this chain.
   const chainRef = useRef<Promise<unknown>>(Promise.resolve());
   const enqueue = useCallback(<T,>(op: () => Promise<T>): Promise<T> => {
     const run = chainRef.current.then(op, op);
@@ -121,10 +130,10 @@ export function RepeaterConfigTab({
     return run;
   }, []);
 
-  // Reads every field's current value, sequentially so only one request is
-  // outstanding at a time (replies carry no key, so ordered round-trips are the
-  // only reliable correlation). Fields populate as each reply lands rather than
-  // gating the tab behind all of them.
+  // Reads every field's current value. The gets are pipelined (a bounded
+  // window in flight at once) and correlated by the per-command tag, rather
+  // than run one blocking round-trip at a time. Fields populate as each reply
+  // lands rather than gating the tab behind all of them.
   const read = useCallback(() => {
     runRef.current.live = false;
     const run = (runRef.current = { live: true });
@@ -132,44 +141,54 @@ export function RepeaterConfigTab({
       // Retry gaps: CLI replies are often dropped over the mesh, so re-request
       // any field that didn't answer, up to a few passes. A field stays
       // "reading" until it loads or the passes are exhausted.
-      const loaded = new Set<string>();
-      for (let pass = 0; pass < READ_PASSES; pass++) {
-        let missing = false;
-        for (const setting of ALL_REPEATER_SETTINGS) {
-          if (!run.live) return;
-          if (loaded.has(setting.id)) continue;
-          let parsed: string | null = null;
-          try {
-            const reply = await enqueue(() =>
-              requestRef.current(contactRef.current, getCommand(setting)),
-            );
+      let queue: RepeaterSetting[] = [...ALL_REPEATER_SETTINGS];
+      for (let pass = 0; pass < READ_PASSES && queue.length > 0; pass++) {
+        const batch = queue;
+        const misses: RepeaterSetting[] = [];
+        let cursor = 0;
+        const worker = async () => {
+          while (cursor < batch.length) {
             if (!run.live) return;
-            if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
-          } catch {
-            if (!run.live) return;
+            const setting = batch[cursor++];
+            let parsed: string | null = null;
+            try {
+              const reply = await requestRef.current(
+                contactRef.current,
+                getCommand(setting),
+              );
+              if (!run.live) return;
+              if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
+            } catch {
+              if (!run.live) return;
+            }
+            if (parsed != null) {
+              const value = parsed;
+              setValues((prev) => ({ ...prev, [setting.id]: value }));
+              setDrafts((prev) => ({ ...prev, [setting.id]: value }));
+              setPending((prev) => {
+                if (!prev.has(setting.id)) return prev;
+                const next = new Set(prev);
+                next.delete(setting.id);
+                return next;
+              });
+            } else {
+              misses.push(setting);
+            }
           }
-          if (parsed != null) {
-            const value = parsed;
-            loaded.add(setting.id);
-            setValues((prev) => ({ ...prev, [setting.id]: value }));
-            setDrafts((prev) => ({ ...prev, [setting.id]: value }));
-            setPending((prev) => {
-              if (!prev.has(setting.id)) return prev;
-              const next = new Set(prev);
-              next.delete(setting.id);
-              return next;
-            });
-          } else {
-            missing = true;
-          }
-        }
-        if (!missing) break;
+        };
+        await Promise.all(
+          Array.from({ length: Math.min(READ_CONCURRENCY, batch.length) }, () =>
+            worker(),
+          ),
+        );
+        if (!run.live) return;
+        queue = misses;
       }
       if (!run.live) return;
       // Stop showing "reading" for fields that never answered.
       setPending((prev) => (prev.size === 0 ? prev : new Set()));
     })();
-  }, [enqueue]);
+  }, []);
 
   // Manual re-read: mark every field pending again, then read. `setPending`
   // here is a user-gesture update, not an effect body, so it's allowed.

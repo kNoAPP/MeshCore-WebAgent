@@ -115,12 +115,16 @@ const pendingAcks = new Map<number, PendingAck>();
 // message from 'failed' to 'delivered' instead of being dropped
 const expiredAcks = new Map<number, Omit<PendingAck, 'timer'>>();
 const EXPIRED_ACK_LIMIT = 50;
-// Per-repeater FIFO queues of resolvers awaiting a structured CLI reply, keyed
-// by the target's pubkeyPrefix. A CLI reply carries only the value (never the
-// echoed command), so a `get`/`set` is correlated to the oldest outstanding
-// request from that repeater — see repeaterCliRequest.
-const cliWaiters = new Map<string, CliWaiter[]>();
+// Per-repeater tables of resolvers awaiting a structured CLI reply, keyed by
+// the target's pubkeyPrefix and then by the 2-char correlation tag sent with
+// each command (see repeaterCliRequest). The firmware reflects that tag on its
+// reply, so many requests can be in flight at once and each reply routes to its
+// own waiter; a reply with no (or an unknown) tag falls back to FIFO order.
+const cliWaiters = new Map<string, Map<string, CliWaiter>>();
 const CLI_REPLY_TIMEOUT_MS = 10000;
+// Rolling source of the 2-char base36 tag prepended to each structured CLI
+// command as "NN|cmd". Wraps at 36^2 — far beyond the handful ever in flight.
+let cliTagSeq = 0;
 let echoWindow: EchoWindow | null = null;
 // Recent group-text RX-log packets awaiting correlation to a decoded inbound
 // channel message. Each entry holds the ordered per-hop repeater hashes.
@@ -277,18 +281,59 @@ function clearCliWaiters(): void {
   for (const prefix of [...cliWaiters.keys()]) rejectCliWaitersFor(prefix);
 }
 
-// Rejects and drops the CLI requests outstanding for one repeater. Used to keep
-// a single owner (one panel) from leaving stale waiters that would consume a
-// later request's reply — the reason replies (which carry no echoed command)
-// could otherwise desync after a remount or a dropped reply.
+// Rejects and drops the CLI requests outstanding for one repeater. Used on
+// panel unmount so a gone owner can't leave stale waiters that later consume a
+// reply meant for the next mount.
 function rejectCliWaitersFor(prefix: string): void {
-  const queue = cliWaiters.get(prefix);
-  if (!queue) return;
+  const byTag = cliWaiters.get(prefix);
+  if (!byTag) return;
   cliWaiters.delete(prefix);
-  for (const w of queue) {
-    clearTimeout(w.timer);
+  for (const w of byTag.values()) {
+    if (w.timer) clearTimeout(w.timer);
     w.reject(new Error('Superseded'));
   }
+}
+
+// Returns the next 2-char base36 correlation tag (e.g. "00", "01", …, "zz").
+function nextCliTag(): string {
+  const tag = (cliTagSeq % 1296).toString(36).padStart(2, '0');
+  cliTagSeq = (cliTagSeq + 1) % 1296;
+  return tag;
+}
+
+// Registers a waiter under (prefix, tag).
+function addCliWaiter(prefix: string, tag: string, waiter: CliWaiter): void {
+  let byTag = cliWaiters.get(prefix);
+  if (!byTag) {
+    byTag = new Map();
+    cliWaiters.set(prefix, byTag);
+  }
+  byTag.set(tag, waiter);
+}
+
+// Removes and returns the waiter registered under (prefix, tag), if any.
+function takeCliWaiter(prefix: string, tag: string): CliWaiter | undefined {
+  const byTag = cliWaiters.get(prefix);
+  const waiter = byTag?.get(tag);
+  if (byTag && waiter) {
+    byTag.delete(tag);
+    if (byTag.size === 0) cliWaiters.delete(prefix);
+  }
+  return waiter;
+}
+
+// Removes and returns the oldest waiter for a repeater. Fallback correlation
+// for firmware that does not reflect the tag prefix, where replies arrive in
+// send order.
+function takeOldestCliWaiter(prefix: string): CliWaiter | undefined {
+  const byTag = cliWaiters.get(prefix);
+  const first = byTag?.entries().next().value;
+  if (byTag && first) {
+    byTag.delete(first[0]);
+    if (byTag.size === 0) cliWaiters.delete(prefix);
+    return first[1];
+  }
+  return undefined;
 }
 
 // Called when a session begins as well as when one ends: a dropped transport
@@ -575,12 +620,22 @@ export function useMeshCore() {
           // reply can't recreate adminSessions that reset() just cleared.
           if (!canTransmit(c)) return;
           appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
-          // Hand the value to the oldest structured request awaiting a reply
-          // from this repeater (replies carry no echoed key, so correlate
-          // FIFO by send order).
-          const waiter = cliWaiters.get(pubkeyPrefix)?.shift();
+          // The firmware reflects our 2-char "NN|" tag on the reply, so route
+          // it to the matching waiter and hand over the value after the tag; an
+          // unknown/stale tag is dropped rather than handed to the wrong
+          // request. Untagged replies (older firmware, or fire-and-forget
+          // actions) fall back to the oldest waiter, matching FIFO send order.
+          if (text.length >= 3 && text[2] === '|') {
+            const waiter = takeCliWaiter(pubkeyPrefix, text.slice(0, 2));
+            if (waiter) {
+              if (waiter.timer) clearTimeout(waiter.timer);
+              waiter.resolve(text.slice(3));
+            }
+            return;
+          }
+          const waiter = takeOldestCliWaiter(pubkeyPrefix);
           if (waiter) {
-            clearTimeout(waiter.timer);
+            if (waiter.timer) clearTimeout(waiter.timer);
             waiter.resolve(text);
           }
         },
@@ -1233,58 +1288,56 @@ export function useMeshCore() {
    * Sends a CLI command to a repeater and resolves with its reply text, for the
    * structured Config editor's `get`/`set` round-trips. Echoes the sent line to
    * the transcript (so the console tab sees it too), then registers a waiter
-   * that `onCliReply` fulfils with the next reply from that repeater.
+   * that `onCliReply` fulfils with the matching reply from that repeater.
    *
    * @remarks
-   * A CLI reply carries only a value, never the echoed command, so correlation
-   * relies on send order. To keep a dropped reply or a component remount from
-   * breaking that order, this keeps at most one outstanding request per
-   * repeater: a new call rejects (supersedes) any still-pending one. Callers
-   * must therefore serialize their requests (await each before the next).
-   * @throws if the send fails, the request is superseded, the session drops, or
-   * no reply arrives in time.
+   * Each command is prefixed with a unique 2-char tag (`NN|cmd`) that the
+   * firmware reflects on its reply, so many requests can be in flight at once
+   * and each reply is matched to its request by tag — callers need not
+   * serialize. Firmware that does not reflect the tag degrades to FIFO
+   * send-order matching.
+   * @throws if the send fails, the session drops, or no reply arrives in time.
    */
   const repeaterCliRequest = useCallback(
     (contact: Contact, cmd: string): Promise<string> => {
       if (!canTransmit(client)) {
         return Promise.reject(new Error('Disconnected'));
       }
-      const line = truncateUtf8(cmd, MAX_MSG_BYTES);
+      // Reserve 3 bytes for the reflected "NN|" tag prefix.
+      const line = truncateUtf8(cmd, MAX_MSG_BYTES - 3);
       appendCliLine(contact.pubkeyPrefix, {
         own: true,
         text: line,
         ts: Date.now(),
       });
       const prefix = contact.pubkeyPrefix;
-      // Supersede any stale request for this repeater so a late reply can't
-      // be handed to this new one.
-      rejectCliWaitersFor(prefix);
+      const tag = nextCliTag();
       return new Promise<string>((resolve, reject) => {
         const waiter: CliWaiter = {
           resolve,
-          // The timeout/supersede paths call this; wrap it to also clear the
+          // The timeout/failure paths call this; wrap it to also clear the
           // timer and settle this promise.
           reject: (err: Error) => {
             if (waiter.timer) clearTimeout(waiter.timer);
             reject(err);
           },
         };
-        // Register the waiter *before* sending so a reply that beats the
+        // Register the tagged waiter *before* sending so a reply that beats the
         // SENT/OK ack still lands. Arm the reply timeout only once the send is
         // acked, so it measures the reply round trip — not time queued behind
-        // other sends.
-        cliWaiters.set(prefix, [waiter]);
-        client.sendCliCommand(contact, line).then(
+        // other pipelined sends.
+        addCliWaiter(prefix, tag, waiter);
+        client.sendCliCommand(contact, `${tag}|${line}`).then(
           () => {
-            if (cliWaiters.get(prefix)?.[0] !== waiter) return;
+            if (cliWaiters.get(prefix)?.get(tag) !== waiter) return;
             waiter.timer = setTimeout(() => {
-              rejectCliWaitersFor(prefix);
+              if (takeCliWaiter(prefix, tag) === waiter) {
+                reject(new Error('Timed out'));
+              }
             }, CLI_REPLY_TIMEOUT_MS);
           },
           (err: Error) => {
-            if (cliWaiters.get(prefix)?.[0] === waiter) {
-              rejectCliWaitersFor(prefix);
-            }
+            takeCliWaiter(prefix, tag);
             reject(err);
           },
         );
