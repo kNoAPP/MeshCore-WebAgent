@@ -484,6 +484,7 @@
     "manage": "Gérer",
     "login": {
       "prompt": "Connectez-vous pour administrer ce nœud.",
+      "accessLabel": "Niveau d’accès",
       "admin": "Admin",
       "adminHint": "Accès complet en lecture/écriture",
       "guest": "Invité",
@@ -526,8 +527,7 @@
     "floodDups": "Doublons flood",
     "directDups": "Doublons directs",
     "rxErrors": "Erreurs RX",
-    "dbm": "{{value}} dBm",
-    "db": "{{value}} dB"
+    "dbm": "{{value}} dBm"
   },
   "route": {
     "noRouteFloods": "Aucune route — flood",

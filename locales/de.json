@@ -484,6 +484,7 @@
     "manage": "Verwalten",
     "login": {
       "prompt": "Melden Sie sich an, um diesen Knoten zu verwalten.",
+      "accessLabel": "Zugriffsebene",
       "admin": "Admin",
       "adminHint": "Voller Lese-/Schreibzugriff",
       "guest": "Gast",
@@ -526,8 +527,7 @@
     "floodDups": "Flood-Duplikate",
     "directDups": "Direkt-Duplikate",
     "rxErrors": "RX-Fehler",
-    "dbm": "{{value}} dBm",
-    "db": "{{value}} dB"
+    "dbm": "{{value}} dBm"
   },
   "route": {
     "noRouteFloods": "Keine Route — Flood",

@@ -7,7 +7,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { fmtAirtime, fmtUptime, fmtVoltage } from '@/lib/utils';
+import { fmtUptime } from '@/lib/utils';
+import { formatAirtime, formatSnr, formatVoltage } from '@/lib/i18n/format';
 import { ModalShell } from './ModalShell';
 import type { Contact, RepeaterAccess, RepeaterStatus } from '@/types/meshcore';
 
@@ -94,7 +95,8 @@ function LoginGate({
   const [kind, setKind] = useState<RepeaterAccess>('admin');
 
   const submit = () => {
-    if (pending || password === '') return;
+    // An empty password is a valid guest login; only Admin requires one.
+    if (pending || (kind === 'admin' && password === '')) return;
     onSubmit(password, kind);
   };
 
@@ -110,11 +112,17 @@ function LoginGate({
         {t('repeaterAdmin.login.prompt')}
       </p>
 
-      <div className='grid grid-cols-2 gap-2'>
+      <div
+        role='radiogroup'
+        aria-label={t('repeaterAdmin.login.accessLabel')}
+        className='grid grid-cols-2 gap-2'
+      >
         {(['admin', 'guest'] as const).map((k) => (
           <button
             key={k}
             type='button'
+            role='radio'
+            aria-checked={kind === k}
             onClick={() => setKind(k)}
             disabled={pending}
             className={`rounded-md border px-3 py-2 text-left disabled:opacity-50 ${
@@ -152,7 +160,7 @@ function LoginGate({
       <div className='flex justify-end border-t border-(--border) pt-4'>
         <button
           type='submit'
-          disabled={pending || password === ''}
+          disabled={pending || (kind === 'admin' && password === '')}
           className='rounded-md bg-(--accent) px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
         >
           {pending
@@ -266,7 +274,7 @@ function buildCards(
   ): [string, string][] => (value == null ? [] : [[label, fmt(value)]]);
 
   const power: [string, string][] = [
-    [t('repeaterAdmin.battery'), fmtVoltage(s.battMilliVolts)],
+    [t('repeaterAdmin.battery'), formatVoltage(s.battMilliVolts)],
     [
       t('repeaterAdmin.batteryPercent'),
       `${approxBatteryPercent(s.battMilliVolts)}%`,
@@ -278,16 +286,12 @@ function buildCards(
   const radio: [string, string][] = [
     ...opt(t('repeaterAdmin.noiseFloor'), s.noiseFloor, dbm),
     ...opt(t('repeaterAdmin.lastRssi'), s.lastRssi, dbm),
-    ...opt(t('repeaterAdmin.lastSnr'), s.lastSnr, (n) =>
-      t('repeaterAdmin.db', {
-        value: `${n > 0 ? '+' : ''}${n.toFixed(2)}`,
-      }),
-    ),
+    ...opt(t('repeaterAdmin.lastSnr'), s.lastSnr, formatSnr),
   ];
 
   const airtime: [string, string][] = [
-    ...opt(t('repeaterAdmin.txAirtime'), s.totalAirTimeSecs, fmtAirtime),
-    ...opt(t('repeaterAdmin.rxAirtime'), s.totalRxAirTimeSecs, fmtAirtime),
+    ...opt(t('repeaterAdmin.txAirtime'), s.totalAirTimeSecs, formatAirtime),
+    ...opt(t('repeaterAdmin.rxAirtime'), s.totalRxAirTimeSecs, formatAirtime),
   ];
 
   const packets: [string, string][] = [

@@ -484,6 +484,7 @@
     "manage": "Administrar",
     "login": {
       "prompt": "Inicia sesión para administrar este nodo.",
+      "accessLabel": "Nivel de acceso",
       "admin": "Administrador",
       "adminHint": "Acceso completo de lectura/escritura",
       "guest": "Invitado",
@@ -526,8 +527,7 @@
     "floodDups": "Duplicados flood",
     "directDups": "Duplicados directos",
     "rxErrors": "Errores RX",
-    "dbm": "{{value}} dBm",
-    "db": "{{value}} dB"
+    "dbm": "{{value}} dBm"
   },
   "route": {
     "noRouteFloods": "Sin ruta — flood",

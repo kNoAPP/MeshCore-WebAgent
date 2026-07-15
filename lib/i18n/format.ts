@@ -97,3 +97,41 @@ export function formatDistanceBearing(
     },
   );
 }
+
+/** Formats `value` with a fixed number of fraction digits in the active locale
+ * (so the decimal separator follows the language, e.g. `4,16` in German). */
+function fixed(value: number, digits: number): string {
+  return value.toLocaleString(i18n.language, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+/**
+ * Formats a supply voltage given in millivolts as locale-aware volts to two
+ * decimals, e.g. `4.16 V` (or `4,16 V` in German). The `V` symbol is an SI unit
+ * and is not translated.
+ */
+export function formatVoltage(milliVolts: number): string {
+  return `${fixed(milliVolts / 1000, 2)} V`;
+}
+
+/**
+ * Formats an airtime duration in seconds with a locale-aware value and a unit
+ * that scales: whole `s` under a minute, then `m`, then `h`. Unit symbols are
+ * not translated.
+ */
+export function formatAirtime(secs: number): string {
+  if (secs < 60) return `${secs.toLocaleString(i18n.language)} s`;
+  if (secs < 3600) return `${fixed(secs / 60, 1)} m`;
+  return `${fixed(secs / 3600, 2)} h`;
+}
+
+/**
+ * Formats a signal-to-noise ratio in dB with a locale-aware two-decimal value
+ * and an explicit `+` for positive readings, e.g. `+5.25 dB` / `-3.00 dB`. The
+ * `dB` symbol is not translated.
+ */
+export function formatSnr(db: number): string {
+  return `${db > 0 ? '+' : ''}${fixed(db, 2)} dB`;
+}

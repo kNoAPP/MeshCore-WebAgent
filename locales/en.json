@@ -484,6 +484,7 @@
     "manage": "Manage",
     "login": {
       "prompt": "Log in to administer this node.",
+      "accessLabel": "Access level",
       "admin": "Admin",
       "adminHint": "Full read/write access",
       "guest": "Guest",
@@ -526,8 +527,7 @@
     "floodDups": "Flood Dups",
     "directDups": "Direct Dups",
     "rxErrors": "RX Errors",
-    "dbm": "{{value}} dBm",
-    "db": "{{value}} dB"
+    "dbm": "{{value}} dBm"
   },
   "route": {
     "noRouteFloods": "No route — floods",
