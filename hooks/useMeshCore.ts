@@ -78,10 +78,12 @@ interface EchoWindow {
 
 // A pending structured CLI request, resolved (or timed out) when the matching
 // reply arrives via onCliReply. reject fires on timeout or session teardown.
+// `timer` is armed only after the send is acked, so it may be unset while the
+// send is still in flight.
 interface CliWaiter {
   resolve: (text: string) => void;
   reject: (err: Error) => void;
-  timer: ReturnType<typeof setTimeout>;
+  timer?: ReturnType<typeof setTimeout>;
 }
 
 // LoRa round trips are spiky — give the radio's suggested timeout some slack
@@ -1243,8 +1245,10 @@ export function useMeshCore() {
    * no reply arrives in time.
    */
   const repeaterCliRequest = useCallback(
-    async (contact: Contact, cmd: string): Promise<string> => {
-      if (!canTransmit(client)) throw new Error('Disconnected');
+    (contact: Contact, cmd: string): Promise<string> => {
+      if (!canTransmit(client)) {
+        return Promise.reject(new Error('Disconnected'));
+      }
       const line = truncateUtf8(cmd, MAX_MSG_BYTES);
       appendCliLine(contact.pubkeyPrefix, {
         own: true,
@@ -1255,26 +1259,35 @@ export function useMeshCore() {
       // Supersede any stale request for this repeater so a late reply can't
       // be handed to this new one.
       rejectCliWaitersFor(prefix);
-      // Send first and wait for the radio's SENT/OK ack. Only then arm the
-      // reply waiter, so the reply timeout measures the round trip to the
-      // repeater and back — not time spent queued behind other sends.
-      await client.sendCliCommand(contact, line);
-      if (!canTransmit(client)) throw new Error('Disconnected');
       return new Promise<string>((resolve, reject) => {
         const waiter: CliWaiter = {
           resolve,
-          reject,
-          timer: setTimeout(() => {
-            rejectCliWaitersFor(prefix);
-          }, CLI_REPLY_TIMEOUT_MS),
+          // The timeout/supersede paths call this; wrap it to also clear the
+          // timer and settle this promise.
+          reject: (err: Error) => {
+            if (waiter.timer) clearTimeout(waiter.timer);
+            reject(err);
+          },
         };
-        // The reject stored on the waiter is what the timeout/supersede path
-        // calls; wrap it so those also settle this promise.
-        waiter.reject = (err: Error) => {
-          clearTimeout(waiter.timer);
-          reject(err);
-        };
+        // Register the waiter *before* sending so a reply that beats the
+        // SENT/OK ack still lands. Arm the reply timeout only once the send is
+        // acked, so it measures the reply round trip — not time queued behind
+        // other sends.
         cliWaiters.set(prefix, [waiter]);
+        client.sendCliCommand(contact, line).then(
+          () => {
+            if (cliWaiters.get(prefix)?.[0] !== waiter) return;
+            waiter.timer = setTimeout(() => {
+              rejectCliWaitersFor(prefix);
+            }, CLI_REPLY_TIMEOUT_MS);
+          },
+          (err: Error) => {
+            if (cliWaiters.get(prefix)?.[0] === waiter) {
+              rejectCliWaitersFor(prefix);
+            }
+            reject(err);
+          },
+        );
       });
     },
     [client, appendCliLine],
