@@ -1316,18 +1316,23 @@ export function useMeshCore() {
    * not an error here: `reboot` and `poweroff` never reply at all.
    */
   const repeaterCli = useCallback(
-    async (contact: Contact, cmd: string) => {
-      if (!canTransmit(client)) return;
+    async (contact: Contact, cmd: string): Promise<boolean> => {
+      if (!canTransmit(client)) return false;
       try {
         await repeaterCliRequest(contact, cmd);
+        return true;
       } catch (err) {
+        // A silent node isn't a failure: reboot/poweroff never reply, so a
+        // timeout still means the command was sent and accepted.
+        if (err instanceof CliTimeoutError) return true;
         // A disconnect rejects the pending send; its teardown owns the toast,
         // so only surface failures from a still-live session.
-        if (!canTransmit(client) || err instanceof CliTimeoutError) return;
+        if (!canTransmit(client)) return false;
         showToast(
           i18n.t('toast.repeaterCliFailed', { error: (err as Error).message }),
           'error',
         );
+        return false;
       }
     },
     [client, repeaterCliRequest, showToast],

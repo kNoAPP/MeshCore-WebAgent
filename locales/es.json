@@ -542,7 +542,7 @@
     },
     "config": {
       "readingField": "Leyendo…",
-      "readOnlyNotice": "Tienes acceso de solo lectura (invitado). Inicia sesión como administrador para hacer cambios.",
+      "readOnlyNotice": "El acceso de invitado es de solo lectura, y el repetidor solo responde a las lecturas de configuración para un administrador, por lo que aquí no se pueden cargar valores. Inicia sesión como administrador para verlos y cambiarlos.",
       "requiresReboot": "Requiere reinicio",
       "edit": "Editar",
       "advanced": "Avanzado",

@@ -287,12 +287,21 @@ export function setCommand(setting: RepeaterSetting, value: string): string {
  * @remarks
  * The firmware is inconsistent about the prefix, emitting all of `Err`,
  * `Err - ??` (its catch-all for an unrecognized command), `Error`,
- * `Error, bad chars`, and `ERROR: dutycycle must be 1-100`. The trailing word
- * boundary keeps a value that merely starts with those letters — a node named
- * `Erratic Relay` — from reading as a failure.
+ * `Error, bad chars`, and `ERROR: dutycycle must be 1-100`. Older/other builds
+ * also reject unknown keys without an `Err` prefix — `??: <cmd>`,
+ * `unknown config: <key>`, and `Unknown command` — so those are treated as
+ * failures too; otherwise a `set` to a setting the firmware lacks would be
+ * confirmed as saved. The trailing word boundary keeps a value that merely
+ * starts with those letters — a node named `Erratic Relay` — from reading as a
+ * failure.
  */
 export function isErrorReply(reply: string): boolean {
-  return /^err(or)?\b/i.test(stripPrompt(reply));
+  const text = stripPrompt(reply);
+  return (
+    /^err(or)?\b/i.test(text) ||
+    /^unknown (config|command)\b/i.test(text) ||
+    text.startsWith('??')
+  );
 }
 
 /**

@@ -542,7 +542,7 @@
     },
     "config": {
       "readingField": "Wird gelesen…",
-      "readOnlyNotice": "Sie haben Nur-Lese-Zugriff (Gast). Melden Sie sich als Admin an, um Änderungen vorzunehmen.",
+      "readOnlyNotice": "Gastzugriff ist schreibgeschützt, und der Repeater beantwortet Konfigurationsabfragen nur für einen Admin — daher können hier keine Werte geladen werden. Melden Sie sich als Admin an, um sie anzuzeigen und zu ändern.",
       "requiresReboot": "Neustart erforderlich",
       "edit": "Bearbeiten",
       "advanced": "Erweitert",

@@ -179,20 +179,33 @@ export function RepeaterConfigTab({
           for (const setting of queue) {
             if (!aliveRef.current) return;
             let parsed: string | null = null;
+            let errored = false;
             try {
               const reply = await requestRef.current(
                 contactRef.current,
                 getCommand(setting),
               );
               if (!aliveRef.current) return;
-              if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
+              if (isErrorReply(reply)) {
+                // A terminal rejection (e.g. the firmware lacks this setting):
+                // surface it and don't retry a command the node refused.
+                errored = true;
+                showToast(
+                  t('toast.repeaterConfigError', { error: reply.trim() }),
+                  'error',
+                );
+              } else {
+                parsed = normalizeReply(setting, reply);
+              }
             } catch {
               if (!aliveRef.current) return;
             }
             if (parsed != null) {
-              const value = parsed;
-              cacheValues({ [setting.id]: value });
-              setDrafts((prev) => ({ ...prev, [setting.id]: value }));
+              cacheValues({ [setting.id]: parsed });
+              setDrafts((prev) => ({ ...prev, [setting.id]: parsed }));
+            }
+            if (parsed != null || errored) {
+              // Settled (loaded or rejected): stop showing "reading".
               setPending((prev) => {
                 if (!prev.has(setting.id)) return prev;
                 const next = new Set(prev);
@@ -200,6 +213,7 @@ export function RepeaterConfigTab({
                 return next;
               });
             } else {
+              // Timeout or an unreadable reply — retry on a later pass.
               misses.push(setting);
             }
           }
@@ -221,7 +235,7 @@ export function RepeaterConfigTab({
         });
       })();
     },
-    [cacheValues],
+    [cacheValues, showToast, t],
   );
 
   // Loads (or reloads) one section's fields. Marks them pending, then reads.
@@ -313,6 +327,14 @@ export function RepeaterConfigTab({
           showToast(message, 'error');
           setStatus((prev) => ({ ...prev, [id]: 'error' }));
           setErrorMsg((prev) => ({ ...prev, [id]: message }));
+          // Revert the field to its last-known value so it doesn't keep showing
+          // the rejected edit — but only if that edit is still what's shown, so
+          // a newer edit queued behind this one isn't clobbered.
+          setDrafts((prev) =>
+            prev[id] === next
+              ? { ...prev, [id]: valuesRef.current[id] ?? '' }
+              : prev,
+          );
           return;
         }
         const confirmed = outcome.value;
@@ -342,9 +364,12 @@ export function RepeaterConfigTab({
   );
 
   const runAction = useCallback(
-    (action: RepeaterAction) => {
-      void repeaterCli(contact, action.cmd);
-      showToast(t('toast.repeaterActionSent'), 'success');
+    async (action: RepeaterAction) => {
+      // Confirm success only after the send is accepted (or the node stays
+      // silent by design, e.g. reboot); a failed/disconnected send is surfaced
+      // by repeaterCli itself, so don't show a premature "sent" toast.
+      const ok = await repeaterCli(contact, action.cmd);
+      if (ok) showToast(t('toast.repeaterActionSent'), 'success');
     },
     [contact, repeaterCli, showToast, t],
   );
@@ -493,11 +518,13 @@ export function RepeaterConfigTab({
               <Card
                 title={t(`repeaterAdmin.config.groups.${group.id}`)}
                 action={
-                  <RefreshButton
-                    onClick={() => refreshSection(fields)}
-                    busy={sectionBusy(fields)}
-                    download={!sectionLoaded(fields)}
-                  />
+                  readOnly ? undefined : (
+                    <RefreshButton
+                      onClick={() => refreshSection(fields)}
+                      busy={sectionBusy(fields)}
+                      download={!sectionLoaded(fields)}
+                    />
+                  )
                 }
               >
                 {fields.map((setting) => {
@@ -534,11 +561,13 @@ export function RepeaterConfigTab({
         <Card
           title={t('repeaterAdmin.config.advanced')}
           action={
-            <RefreshButton
-              onClick={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
-              busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
-              download={!sectionLoaded(REPEATER_ADVANCED_SETTINGS)}
-            />
+            readOnly ? undefined : (
+              <RefreshButton
+                onClick={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
+                busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
+                download={!sectionLoaded(REPEATER_ADVANCED_SETTINGS)}
+              />
+            )
           }
         >
           {REPEATER_ADVANCED_SETTINGS.map((setting) => (
@@ -1117,10 +1146,12 @@ function RadioSection({
     <Card
       title={t('repeaterAdmin.config.fields.radio.label')}
       action={
-        <div className='flex items-center gap-2'>
-          <RebootPill />
-          <RefreshButton onClick={onRefresh} busy={busy} download={!loaded} />
-          {!readOnly && (
+        // Guests get no CLI reply, so the read/edit controls are hidden — the
+        // read-only notice explains why the values can't be shown.
+        readOnly ? undefined : (
+          <div className='flex items-center gap-2'>
+            <RebootPill />
+            <RefreshButton onClick={onRefresh} busy={busy} download={!loaded} />
             <button
               onClick={onEdit}
               disabled={!ready}
@@ -1128,8 +1159,8 @@ function RadioSection({
             >
               {t('repeaterAdmin.config.edit')}
             </button>
-          )}
-        </div>
+          </div>
+        )
       }
     >
       {rows.map((row) => (
