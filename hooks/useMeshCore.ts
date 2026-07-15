@@ -44,6 +44,7 @@ import {
   MAX_MSG_BYTES,
 } from '@/lib/meshcore/constants';
 import { splitPathHashes } from '@/lib/meshcore/parsers';
+import { saveRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { toHex, fromHex, bytesEqual, truncateUtf8 } from '@/lib/utils';
 import i18n from '@/lib/i18n';
 import type {
@@ -979,6 +980,9 @@ export function useMeshCore() {
       // Check before the optimistic bubble so a blocked send leaves no orphan
       // 'sending' message; transmit() re-checks too as the authoritative gate.
       if (!canTransmit(client) || !activeConvo || !text.trim()) return;
+      // Repeater admin views have no composer, so a repeater convo never sends
+      // a chat message; guard both to be safe and to narrow the message kind.
+      if (activeConvo.kind === 'repeater') return;
       const trimmed = text.trim();
       const msgId = crypto.randomUUID();
       addMessage(activeConvo.id, {
@@ -1067,21 +1071,43 @@ export function useMeshCore() {
 
   /**
    * Logs in to a repeater/room server for remote admin. Marks the session
-   * `pending`, then the granted `admin`/`guest` level on success or `loggedOut`
-   * on failure (surfaced via toast). The server decides the level from the
-   * password and its reported role is authoritative; `kind` is only the level
-   * the caller attempted, used as a fallback for legacy responses that cannot
-   * report a role. The password is never stored, only the resulting access.
+   * `pending`, then on success the level the user selected (`kind`) or
+   * `loggedOut` on failure (surfaced via toast). `client.login()` is awaited so
+   * a wrong password still fails, but its server-reported role is not used for
+   * the label: a blank/guest login re-uses an admin-enrolled node's stored ACL
+   * role, which would otherwise show a guest session as admin. When `remember`
+   * is set, the password is persisted encrypted per-radio in the `secrets`
+   * store (never in the store, prefs blob, or localStorage); otherwise it is
+   * not persisted.
    */
   const repeaterLogin = useCallback(
-    async (contact: Contact, password: string, kind: RepeaterAccess) => {
+    async (
+      contact: Contact,
+      password: string,
+      kind: RepeaterAccess,
+      remember: boolean,
+    ) => {
       if (!canTransmit(client)) return;
       setAdminLogin(contact.pubkeyPrefix, 'pending');
       try {
-        const access = await client.login(contact, password);
+        await client.login(contact, password);
         // A drop during login can tear the session down; don't revive it.
         if (!canTransmit(client)) return;
-        setAdminLogin(contact.pubkeyPrefix, access ?? kind);
+        // Reflect the access level the user chose (admin/guest), not the role
+        // the node reports back. A node re-uses your existing ACL role for a
+        // blank/guest login, so an admin-enrolled node would otherwise report
+        // admin even when you intended a read-only guest session. The node
+        // still enforces real permissions (rejecting unauthorized writes).
+        setAdminLogin(contact.pubkeyPrefix, kind);
+        // Only a successful login is ever remembered, so a wrong password can't
+        // be persisted. The credential lives solely in the encrypted per-radio
+        // secrets store — never the store, prefs blob, or localStorage.
+        if (remember) {
+          void saveRepeaterCred(contact.pubkeyPrefix, {
+            access: kind,
+            password,
+          });
+        }
       } catch (err) {
         // A disconnect/drop rejects the pending login and runs its own
         // teardown; don't clobber that outcome with a stale login error. A full

@@ -6,7 +6,13 @@
 import { useMemo } from 'react';
 import Fuse, { type FuseResult } from 'fuse.js';
 import { useTranslation } from 'react-i18next';
-import { useMeshStore, channelConvoId, directConvoId } from '@/store/meshStore';
+import {
+  useMeshStore,
+  channelConvoId,
+  directConvoId,
+  repeaterConvoId,
+} from '@/store/meshStore';
+import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import type { ActiveConvo } from '@/types/meshcore';
 import {
   buildAdvertRecords,
@@ -112,12 +118,20 @@ export function useCommandSearch(query: string): CommandGroup[] {
   }, [msgHistory, channels, contacts, language]);
 
   const contactFuse = useMemo(() => {
-    const records = buildContactRecords(contacts, (prefix, label) => ({
-      kind: 'direct',
-      id: directConvoId(prefix),
-      rawId: prefix,
-      label,
-    }));
+    const records = buildContactRecords(contacts, (prefix, label) => {
+      // Repeaters and room servers open the main-window admin view, not a chat.
+      const advType = contacts[prefix]?.advType;
+      const isAdminNode =
+        advType === ADV_TYPE_REPEATER || advType === ADV_TYPE_ROOM;
+      return isAdminNode
+        ? {
+            kind: 'repeater',
+            id: repeaterConvoId(prefix),
+            rawId: prefix,
+            label,
+          }
+        : { kind: 'direct', id: directConvoId(prefix), rawId: prefix, label };
+    });
     return new Fuse<ContactRecord>(records, CONTACT_FUSE_OPTIONS);
   }, [contacts]);
 

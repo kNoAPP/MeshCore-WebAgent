@@ -206,7 +206,9 @@ export interface CliLine {
 /**
  * A per-repeater remote-admin session: login state, the latest decoded status,
  * and the bounded CLI transcript. Deliberately ephemeral — never persisted, and
- * cleared on disconnect (the password is never stored anywhere).
+ * cleared on disconnect. The password is not part of the session; a remembered
+ * password lives only in the encrypted per-radio `secrets` store (see
+ * `lib/meshcore/adminCreds.ts`).
  */
 export interface AdminSession {
   login: AdminLoginState;
@@ -722,19 +724,21 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         },
       };
     }),
-  setRepeaterStatus: (prefix, status) =>
-    set((state) => {
-      const session = state.adminSessions[prefix] ?? {
-        login: 'loggedOut',
-        cli: [],
-      };
-      return {
-        adminSessions: {
-          ...state.adminSessions,
-          [prefix]: { ...session, status },
-        },
-      };
-    }),
+  setRepeaterStatus: (prefix, status) => {
+    const { adminSessions } = get();
+    const session = adminSessions[prefix];
+    // Status belongs to a live, authenticated session. If a late reply lands
+    // after log-out (session gone) or before login completes, drop it rather
+    // than resurrecting a logged-out session with stale status that would then
+    // leak into the next login. Return before `set` so no listeners are woken.
+    if (session?.login !== 'admin' && session?.login !== 'guest') return;
+    set({
+      adminSessions: {
+        ...adminSessions,
+        [prefix]: { ...session, status },
+      },
+    });
+  },
   appendCliLine: (prefix, line) =>
     set((state) => {
       const session = state.adminSessions[prefix] ?? {
@@ -845,4 +849,13 @@ export function channelConvoId(idx: number): string {
  */
 export function directConvoId(prefix: string): string {
   return convoId('direct', prefix);
+}
+
+/**
+ * Builds the conversation id for a repeater/room admin view (by pubkey prefix).
+ * A distinct namespace from {@link directConvoId} keeps admin selections from
+ * colliding with a chat's `msgHistory` keys.
+ */
+export function repeaterConvoId(prefix: string): string {
+  return convoId('repeater', prefix);
 }

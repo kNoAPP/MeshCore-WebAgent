@@ -480,6 +480,63 @@
       "private": "Privat"
     }
   },
+  "repeaterAdmin": {
+    "contactUnavailable": "Dieser Knoten ist nicht mehr verfügbar.",
+    "access": {
+      "admin": "Admin",
+      "guest": "Gast"
+    },
+    "tabs": {
+      "status": "Status"
+    },
+    "login": {
+      "prompt": "Melden Sie sich an, um diesen Knoten zu verwalten.",
+      "accessLabel": "Zugriffsebene",
+      "admin": "Admin",
+      "adminHint": "Voller Lese-/Schreibzugriff",
+      "guest": "Gast",
+      "guestHint": "Nur-Lese-Zugriff",
+      "password": "Passwort",
+      "passwordPlaceholder": "Passwort eingeben",
+      "submit": "Anmelden",
+      "loggingIn": "Anmeldung…",
+      "checking": "Gespeicherte Anmeldedaten werden geprüft…",
+      "remember": "Diese Anmeldedaten merken"
+    },
+    "dashboard": {
+      "accessAdmin": "Admin-Zugriff",
+      "accessGuest": "Gastzugriff (nur Lesen)",
+      "refresh": "Aktualisieren",
+      "refreshing": "Wird aktualisiert…",
+      "logout": "Abmelden",
+      "unavailable": "Noch kein Status empfangen. Bitte aktualisieren."
+    },
+    "card": {
+      "power": "Energie & Laufzeit",
+      "radio": "Funk",
+      "airtime": "Sendezeit",
+      "packets": "Pakete"
+    },
+    "battery": "Batterie",
+    "batteryPercent": "Ladung (ca.)",
+    "uptime": "Laufzeit",
+    "queueLength": "TX-Warteschlange",
+    "noiseFloor": "Grundrauschen",
+    "lastRssi": "Letzter RSSI",
+    "lastSnr": "Letzter SNR",
+    "txAirtime": "TX-Sendezeit",
+    "rxAirtime": "RX-Sendezeit",
+    "received": "Empfangen",
+    "sent": "Gesendet",
+    "floodTx": "Flood TX",
+    "floodRx": "Flood RX",
+    "directTx": "Direkt TX",
+    "directRx": "Direkt RX",
+    "floodDups": "Flood-Duplikate",
+    "directDups": "Direkt-Duplikate",
+    "rxErrors": "RX-Fehler",
+    "dbm": "{{value}} dBm"
+  },
   "route": {
     "noRouteFloods": "Keine Route — Flood",
     "directHops": "Direkt (0 Hops)",
@@ -541,7 +598,6 @@
     "addChannel": "Kanal hinzufügen",
     "autoAddSettings": "Auto-Hinzufügen-Einstellungen",
     "addContact": "Kontakt hinzufügen",
-    "repeaterCantMessage": "Repeatern können keine Nachrichten gesendet werden",
     "manage": "Verwalten",
     "dragResize": "Zum Ändern der Größe ziehen",
     "filterContacts": "Kontakte filtern & sortieren",

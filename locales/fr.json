@@ -480,6 +480,63 @@
       "private": "Privé"
     }
   },
+  "repeaterAdmin": {
+    "contactUnavailable": "Ce nœud n’est plus disponible.",
+    "access": {
+      "admin": "Admin",
+      "guest": "Invité"
+    },
+    "tabs": {
+      "status": "État"
+    },
+    "login": {
+      "prompt": "Connectez-vous pour administrer ce nœud.",
+      "accessLabel": "Niveau d’accès",
+      "admin": "Admin",
+      "adminHint": "Accès complet en lecture/écriture",
+      "guest": "Invité",
+      "guestHint": "Accès en lecture seule",
+      "password": "Mot de passe",
+      "passwordPlaceholder": "Saisir le mot de passe",
+      "submit": "Se connecter",
+      "loggingIn": "Connexion…",
+      "checking": "Vérification des identifiants enregistrés…",
+      "remember": "Mémoriser ces identifiants"
+    },
+    "dashboard": {
+      "accessAdmin": "Accès administrateur",
+      "accessGuest": "Accès invité (lecture seule)",
+      "refresh": "Actualiser",
+      "refreshing": "Actualisation…",
+      "logout": "Se déconnecter",
+      "unavailable": "Aucun état reçu pour l’instant. Essayez d’actualiser."
+    },
+    "card": {
+      "power": "Énergie et disponibilité",
+      "radio": "Radio",
+      "airtime": "Temps d’antenne",
+      "packets": "Paquets"
+    },
+    "battery": "Batterie",
+    "batteryPercent": "Charge (approx.)",
+    "uptime": "Temps de fonctionnement",
+    "queueLength": "File TX",
+    "noiseFloor": "Bruit de fond",
+    "lastRssi": "Dernier RSSI",
+    "lastSnr": "Dernier SNR",
+    "txAirtime": "Temps d’antenne TX",
+    "rxAirtime": "Temps d’antenne RX",
+    "received": "Reçus",
+    "sent": "Envoyés",
+    "floodTx": "Flood TX",
+    "floodRx": "Flood RX",
+    "directTx": "Direct TX",
+    "directRx": "Direct RX",
+    "floodDups": "Doublons flood",
+    "directDups": "Doublons directs",
+    "rxErrors": "Erreurs RX",
+    "dbm": "{{value}} dBm"
+  },
   "route": {
     "noRouteFloods": "Aucune route — flood",
     "directHops": "Direct (0 saut)",
@@ -541,7 +598,6 @@
     "addChannel": "Ajouter un canal",
     "autoAddSettings": "Paramètres d'ajout automatique",
     "addContact": "Ajouter un contact",
-    "repeaterCantMessage": "Impossible d'envoyer des messages aux répéteurs",
     "manage": "Gérer",
     "dragResize": "Glisser pour redimensionner",
     "filterContacts": "Filtrer et trier les contacts",

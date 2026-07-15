@@ -176,6 +176,7 @@ function ManagePanelView() {
 
   const contact = contacts[managePanel.id];
   if (!contact) return null;
+
   const isFav = (contact.flags & FAVORITE_FLAG) !== 0;
   const hasRoute = contact.outPathLen !== NO_PATH;
   const location = formatLatLon(contact.advLat, contact.advLon);
