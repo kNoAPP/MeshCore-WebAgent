@@ -18,6 +18,7 @@ import type {
   SyncProgress,
   RepeaterStatus,
   RepeaterAccess,
+  StatsResult,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import type {
@@ -233,6 +234,15 @@ interface MeshState {
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
 
+  /**
+   * Cached device Stats-page snapshot, so the cards stay populated when the
+   * user leaves the Stats view and returns without re-reading. Ephemeral
+   * (never persisted); cleared on disconnect. `deviceClock` holds the last read
+   * device time and its skew from this computer.
+   */
+  deviceStats: StatsResult | null;
+  deviceClock: { time: number; skew: number } | null;
+
   // Mesh data
   contacts: Record<string, Contact>;
   channels: Record<number, Channel>;
@@ -341,6 +351,10 @@ interface MeshActions {
   setDeviceInfo: (info: DeviceInfo | null) => void;
   setBattery: (b: BatteryInfo | null) => void;
   setSyncProgress: (p: SyncProgress | null) => void;
+  /** Caches the device Stats-page snapshot so it survives leaving the view. */
+  setDeviceStats: (s: StatsResult | null) => void;
+  /** Caches the last-read device clock (epoch seconds) and its skew. */
+  setDeviceClock: (c: { time: number; skew: number } | null) => void;
   setContacts: (c: Record<string, Contact>) => void;
   setChannels: (ch: Record<number, Channel>) => void;
   setAdverts: (a: Record<string, Advert>) => void;
@@ -439,6 +453,8 @@ const initialState: MeshState = {
   deviceInfo: null,
   battery: null,
   syncProgress: null,
+  deviceStats: null,
+  deviceClock: null,
   contacts: {},
   channels: {},
   adverts: {},
@@ -491,6 +507,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
   setBattery: (battery) => set({ battery }),
   setSyncProgress: (syncProgress) => set({ syncProgress }),
+  setDeviceStats: (deviceStats) => set({ deviceStats }),
+  setDeviceClock: (deviceClock) => set({ deviceClock }),
   setContacts: (contacts) => set({ contacts }),
   setChannels: (channels) => set({ channels }),
   setAdverts: (adverts) => set({ adverts }),

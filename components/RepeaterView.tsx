@@ -375,8 +375,15 @@ function StatusDashboard({
   onRefresh: () => Promise<void>;
 }) {
   const { t, i18n } = useTranslation();
-  const [loading, setLoading] = useState(true);
+  // Skeletons only when there's no cached status; a cached snapshot (kept in
+  // the admin session) renders immediately so returning to the tab stays
+  // populated.
+  const [loading, setLoading] = useState(status == null);
   const fetched = useRef(false);
+  // Whether a cached status was present at mount, so the auto-read is skipped
+  // when returning to an already-loaded tab (the user Refreshes for fresh
+  // data).
+  const hadCache = useRef(status != null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -387,12 +394,13 @@ function StatusDashboard({
     }
   }, [onRefresh]);
 
-  // Auto-fetch once on first entry. The ref guard keeps StrictMode's
-  // double-invoke (and identity churn in `refresh`) from firing a second
-  // request.
+  // Auto-fetch once on first entry, unless a cached status is already showing.
+  // The ref guard keeps StrictMode's double-invoke (and identity churn in
+  // `refresh`) from firing a second request.
   useEffect(() => {
     if (fetched.current) return;
     fetched.current = true;
+    if (hadCache.current) return;
     void refresh();
   }, [refresh]);
 

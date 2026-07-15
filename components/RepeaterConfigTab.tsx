@@ -164,9 +164,9 @@ export function RepeaterConfigTab({
   const read = useCallback(
     (settings: readonly RepeaterSetting[]) => {
       void (async () => {
-        // Retry gaps: CLI replies are often dropped over the mesh, so re-request
-        // any field that didn't answer, up to a few passes. A field stays
-        // "reading" until it loads or the passes are exhausted.
+        // Retry gaps: CLI replies are often dropped over the mesh, so
+        // re-request any field that didn't answer, up to a few passes. A field
+        // stays "reading" until it loads or the passes are exhausted.
         let queue: RepeaterSetting[] = [...settings];
         for (let pass = 0; pass < READ_PASSES && queue.length > 0; pass++) {
           const batch = queue;

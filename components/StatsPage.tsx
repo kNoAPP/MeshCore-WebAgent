@@ -20,27 +20,38 @@ import { RefreshButton } from './RefreshButton';
 export function StatsPage() {
   const { t, i18n } = useTranslation();
   const { client, view } = useMeshStore();
-  const [stats, setStats] = useState<StatsResult | null>(null);
+  // Seed from the cached snapshot so the cards stay populated when the user
+  // leaves the Stats view and returns; the store is the cache's home.
+  const [stats, setStats] = useState<StatsResult | null>(
+    () => useMeshStore.getState().deviceStats,
+  );
   // This session's battery/storage snapshot — the exact result of the last
   // fetch, including null when the device didn't report it. Kept local (rather
   // than reading the shared store) so a timed-out fetch surfaces the card's
-  // "unavailable" state here without clearing the header's last-known reading.
-  const [battery, setBatteryLocal] = useState<BatteryInfo | null>(null);
-  // Starts true so the very first paint shows shimmer skeletons instead of a
-  // blank grid (the auto-fetch effect runs just after mount). Toggled on for
-  // refreshes too, and cleared once a fetch settles.
-  const [loading, setLoading] = useState(true);
+  // "unavailable" state here without clearing the header's last-known reading;
+  // seeded from the last-known reading so it survives navigation.
+  const [battery, setBatteryLocal] = useState<BatteryInfo | null>(
+    () => useMeshStore.getState().battery,
+  );
+  // Skeletons only when there's nothing cached to show; a cached snapshot
+  // renders immediately (no auto-refetch — the user Refreshes for fresh data).
+  const [loading, setLoading] = useState(
+    () => useMeshStore.getState().deviceStats == null,
+  );
   // True once a fetch has completed at least once this session. Distinct from
   // `loading`: it gates the "unavailable" cards so they appear only after a
-  // real attempt, not during the initial blank render.
-  const [fetched, setFetched] = useState(false);
+  // real attempt, not during the initial blank render. A cached snapshot counts
+  // as already fetched.
+  const [fetched, setFetched] = useState(
+    () => useMeshStore.getState().deviceStats != null,
+  );
   // The device clock (epoch seconds) and its skew from this computer at the
   // moment it was read, or null when there's no readable time — the radio
   // lacks GET_DEVICE_TIME (older firmware) or its clock is unset. The clock
   // card shows "not reported" while null (once fetched), matching the other
-  // cards so the grid doesn't reflow.
+  // cards so the grid doesn't reflow. Seeded from the cache.
   const [clock, setClock] = useState<{ time: number; skew: number } | null>(
-    null,
+    () => useMeshStore.getState().deviceClock,
   );
   const [resyncing, setResyncing] = useState(false);
 
@@ -63,11 +74,12 @@ export function StatsPage() {
         return;
       }
       if (gen !== session.current) return;
-      setClock(
+      const next =
         dt !== null && dt > 0
           ? { time: dt, skew: dt - Math.floor(Date.now() / 1000) }
-          : null,
-      );
+          : null;
+      setClock(next);
+      useMeshStore.getState().setDeviceClock(next);
     },
     [client],
   );
@@ -88,6 +100,7 @@ export function StatsPage() {
         const s = await client.getStats();
         if (gen !== session.current) return;
         setStats(s);
+        useMeshStore.getState().setDeviceStats(s);
         setFetched(true);
         const b = await client.getBattery();
         if (gen !== session.current) return;
@@ -102,10 +115,13 @@ export function StatsPage() {
   );
 
   // Auto-fetch when the stats view opens or the client changes (a reconnect
-  // swaps in a fresh client, which must re-read against the new link). Only
+  // swaps in a fresh client, which must re-read against the new link). Skips
+  // the read when a cached snapshot is already showing — the user Refreshes for
+  // fresh data — so returning to the view keeps its cards populated. Only
   // setState happens after an await, never synchronously in the effect body.
   useEffect(() => {
     if (view !== 'stats' || !client) return;
+    if (useMeshStore.getState().deviceStats != null) return;
     void runFetch(++session.current);
   }, [view, client, runFetch]);
 
