@@ -480,6 +480,55 @@
       "private": "Private"
     }
   },
+  "repeaterAdmin": {
+    "manage": "Manage",
+    "login": {
+      "prompt": "Log in to administer this node.",
+      "admin": "Admin",
+      "adminHint": "Full read/write access",
+      "guest": "Guest",
+      "guestHint": "Read-only access",
+      "password": "Password",
+      "passwordPlaceholder": "Enter password",
+      "submit": "Log in",
+      "loggingIn": "Logging in…"
+    },
+    "dashboard": {
+      "accessAdmin": "Admin access",
+      "accessGuest": "Guest access (read-only)",
+      "refresh": "Refresh",
+      "refreshing": "Refreshing…",
+      "logout": "Log out",
+      "loading": "Loading status…",
+      "unavailable": "No status received yet. Try refreshing."
+    },
+    "card": {
+      "power": "Power & Uptime",
+      "radio": "Radio",
+      "airtime": "Airtime",
+      "packets": "Packets"
+    },
+    "battery": "Battery",
+    "batteryPercent": "Charge (approx.)",
+    "uptime": "Uptime",
+    "queueLength": "TX Queue",
+    "noiseFloor": "Noise Floor",
+    "lastRssi": "Last RSSI",
+    "lastSnr": "Last SNR",
+    "txAirtime": "TX Airtime",
+    "rxAirtime": "RX Airtime",
+    "received": "Received",
+    "sent": "Sent",
+    "floodTx": "Flood TX",
+    "floodRx": "Flood RX",
+    "directTx": "Direct TX",
+    "directRx": "Direct RX",
+    "floodDups": "Flood Dups",
+    "directDups": "Direct Dups",
+    "rxErrors": "RX Errors",
+    "dbm": "{{value}} dBm",
+    "db": "{{value}} dB"
+  },
   "route": {
     "noRouteFloods": "No route — floods",
     "directHops": "Direct (0 hops)",

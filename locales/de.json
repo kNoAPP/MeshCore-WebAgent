@@ -480,6 +480,55 @@
       "private": "Privat"
     }
   },
+  "repeaterAdmin": {
+    "manage": "Verwalten",
+    "login": {
+      "prompt": "Melden Sie sich an, um diesen Knoten zu verwalten.",
+      "admin": "Admin",
+      "adminHint": "Voller Lese-/Schreibzugriff",
+      "guest": "Gast",
+      "guestHint": "Nur-Lese-Zugriff",
+      "password": "Passwort",
+      "passwordPlaceholder": "Passwort eingeben",
+      "submit": "Anmelden",
+      "loggingIn": "Anmeldung…"
+    },
+    "dashboard": {
+      "accessAdmin": "Admin-Zugriff",
+      "accessGuest": "Gastzugriff (nur Lesen)",
+      "refresh": "Aktualisieren",
+      "refreshing": "Wird aktualisiert…",
+      "logout": "Abmelden",
+      "loading": "Status wird geladen…",
+      "unavailable": "Noch kein Status empfangen. Bitte aktualisieren."
+    },
+    "card": {
+      "power": "Energie & Laufzeit",
+      "radio": "Funk",
+      "airtime": "Sendezeit",
+      "packets": "Pakete"
+    },
+    "battery": "Batterie",
+    "batteryPercent": "Ladung (ca.)",
+    "uptime": "Laufzeit",
+    "queueLength": "TX-Warteschlange",
+    "noiseFloor": "Grundrauschen",
+    "lastRssi": "Letzter RSSI",
+    "lastSnr": "Letzter SNR",
+    "txAirtime": "TX-Sendezeit",
+    "rxAirtime": "RX-Sendezeit",
+    "received": "Empfangen",
+    "sent": "Gesendet",
+    "floodTx": "Flood TX",
+    "floodRx": "Flood RX",
+    "directTx": "Direkt TX",
+    "directRx": "Direkt RX",
+    "floodDups": "Flood-Duplikate",
+    "directDups": "Direkt-Duplikate",
+    "rxErrors": "RX-Fehler",
+    "dbm": "{{value}} dBm",
+    "db": "{{value}} dB"
+  },
   "route": {
     "noRouteFloods": "Keine Route — Flood",
     "directHops": "Direkt (0 Hops)",

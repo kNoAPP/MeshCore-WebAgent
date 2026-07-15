@@ -10,6 +10,7 @@ import type { TFunction } from 'i18next';
 import { useMeshStore, channelConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
+import { RepeaterAdminPanel } from './RepeaterAdminPanel';
 import { CopyButton } from './CopyButton';
 import { ShareCard } from './ShareCard';
 import {
@@ -27,6 +28,7 @@ import {
 import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
 import {
   ADV_TYPE_REPEATER,
+  ADV_TYPE_ROOM,
   FAVORITE_FLAG,
   NO_PATH,
 } from '@/lib/meshcore/constants';
@@ -71,11 +73,14 @@ function ManagePanelView() {
   const [confirming, setConfirming] = useState(false);
   // `sharing` selects the contact share sub-page in place of the detail view.
   const [sharing, setSharing] = useState(false);
+  // `managing` swaps in the repeater admin panel for the contact detail view.
+  const [managing, setManaging] = useState(false);
 
   if (!managePanel) return null;
   const close = () => {
     setConfirming(false);
     setSharing(false);
+    setManaging(false);
     setManagePanel(null);
   };
 
@@ -176,6 +181,13 @@ function ManagePanelView() {
 
   const contact = contacts[managePanel.id];
   if (!contact) return null;
+
+  if (managing) {
+    return <RepeaterAdminPanel contact={contact} onClose={close} />;
+  }
+
+  const isRepeaterOrRoom =
+    contact.advType === ADV_TYPE_REPEATER || contact.advType === ADV_TYPE_ROOM;
   const isFav = (contact.flags & FAVORITE_FLAG) !== 0;
   const hasRoute = contact.outPathLen !== NO_PATH;
   const location = formatLatLon(contact.advLat, contact.advLon);
@@ -254,6 +266,14 @@ function ManagePanelView() {
             />
           ) : (
             <div className='mt-6 flex flex-wrap justify-end gap-2 border-t border-(--border) pt-4'>
+              {connected && isRepeaterOrRoom && (
+                <button
+                  onClick={() => setManaging(true)}
+                  className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+                >
+                  {t('repeaterAdmin.manage')}
+                </button>
+              )}
               <button
                 onClick={() => toggleFavorite(contact)}
                 className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'

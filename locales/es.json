@@ -480,6 +480,55 @@
       "private": "Privado"
     }
   },
+  "repeaterAdmin": {
+    "manage": "Administrar",
+    "login": {
+      "prompt": "Inicia sesión para administrar este nodo.",
+      "admin": "Administrador",
+      "adminHint": "Acceso completo de lectura/escritura",
+      "guest": "Invitado",
+      "guestHint": "Acceso de solo lectura",
+      "password": "Contraseña",
+      "passwordPlaceholder": "Introduce la contraseña",
+      "submit": "Iniciar sesión",
+      "loggingIn": "Iniciando sesión…"
+    },
+    "dashboard": {
+      "accessAdmin": "Acceso de administrador",
+      "accessGuest": "Acceso de invitado (solo lectura)",
+      "refresh": "Actualizar",
+      "refreshing": "Actualizando…",
+      "logout": "Cerrar sesión",
+      "loading": "Cargando estado…",
+      "unavailable": "Aún no se ha recibido estado. Intenta actualizar."
+    },
+    "card": {
+      "power": "Energía y tiempo activo",
+      "radio": "Radio",
+      "airtime": "Tiempo en el aire",
+      "packets": "Paquetes"
+    },
+    "battery": "Batería",
+    "batteryPercent": "Carga (aprox.)",
+    "uptime": "Tiempo activo",
+    "queueLength": "Cola TX",
+    "noiseFloor": "Nivel de ruido",
+    "lastRssi": "Último RSSI",
+    "lastSnr": "Último SNR",
+    "txAirtime": "Tiempo en el aire TX",
+    "rxAirtime": "Tiempo en el aire RX",
+    "received": "Recibidos",
+    "sent": "Enviados",
+    "floodTx": "Flood TX",
+    "floodRx": "Flood RX",
+    "directTx": "Directo TX",
+    "directRx": "Directo RX",
+    "floodDups": "Duplicados flood",
+    "directDups": "Duplicados directos",
+    "rxErrors": "Errores RX",
+    "dbm": "{{value}} dBm",
+    "db": "{{value}} dB"
+  },
   "route": {
     "noRouteFloods": "Sin ruta — flood",
     "directHops": "Directo (0 saltos)",
