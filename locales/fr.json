@@ -140,7 +140,6 @@
   },
   "stats": {
     "title": "📊 Statistiques de l'appareil",
-
     "card": {
       "storageBattery": "💾 Stockage et batterie",
       "core": "🖥️ Cœur",
@@ -536,12 +535,16 @@
     "directDups": "Doublons directs",
     "rxErrors": "Erreurs RX",
     "dbm": "{{value}} dBm",
+    "cli": {
+      "timedOut": "aucune réponse du nœud",
+      "disconnected": "non connecté",
+      "superseded": "annulé"
+    },
     "config": {
       "readingField": "Lecture…",
       "readOnlyNotice": "Vous avez un accès en lecture seule (invité). Connectez-vous en tant qu’admin pour apporter des modifications.",
       "requiresReboot": "Nécessite un redémarrage",
       "edit": "Modifier",
-
       "advanced": "Avancé",
       "actionsTitle": "Actions",
       "location": "Emplacement",
@@ -558,64 +561,49 @@
       },
       "fields": {
         "name": {
-          "label": "Nom",
-          "hint": "Nom annoncé du nœud."
+          "label": "Nom"
         },
         "lat": {
-          "label": "Latitude",
-          "hint": "Latitude annoncée."
+          "label": "Latitude"
         },
         "lon": {
-          "label": "Longitude",
-          "hint": "Longitude annoncée."
+          "label": "Longitude"
         },
         "radio": {
-          "label": "Radio",
-          "hint": "Fréquence, bande passante, facteur d’étalement et taux de codage LoRa."
+          "label": "Radio"
         },
         "tx": {
-          "label": "Puissance TX",
-          "hint": "Puissance de transmission."
+          "label": "Puissance TX"
         },
         "repeat": {
-          "label": "Répéter",
-          "hint": "Relayer (répéter) le trafic du réseau."
+          "label": "Répéter"
         },
         "floodAdvertInterval": {
-          "label": "Intervalle d’advert flood",
-          "hint": "Fréquence d’envoi d’un advert flood."
+          "label": "Intervalle d’advert flood"
         },
         "advertInterval": {
-          "label": "Intervalle d’advert zéro saut",
-          "hint": "Fréquence d’envoi d’un advert zéro saut."
+          "label": "Intervalle d’advert zéro saut"
         },
         "floodMax": {
-          "label": "Sauts flood max.",
-          "hint": "Nombre maximal de sauts pour les paquets flood."
+          "label": "Sauts flood max."
         },
         "txdelay": {
-          "label": "Délai TX flood",
-          "hint": "Échelle du délai anti-collision pour les retransmissions flood."
+          "label": "Délai TX flood"
         },
         "directTxdelay": {
-          "label": "Délai TX direct",
-          "hint": "Échelle du délai anti-collision pour les retransmissions directes."
+          "label": "Délai TX direct"
         },
         "dutycycle": {
-          "label": "Cycle de service",
-          "hint": "Limite du cycle de service en transmission."
+          "label": "Cycle de service"
         },
         "loopDetect": {
-          "label": "Détection de boucle",
-          "hint": "Rejette les paquets qui semblent boucler."
+          "label": "Détection de boucle"
         },
         "pathHashMode": {
-          "label": "Taille du hash de chemin d’advert",
-          "hint": "Taille en octets du hash de chemin d’advert."
+          "label": "Taille du hash de chemin d’advert"
         },
         "multiAcks": {
-          "label": "Multi-ACK",
-          "hint": "Envoyer plusieurs accusés de réception."
+          "label": "Multi-ACK"
         }
       },
       "options": {
@@ -636,9 +624,15 @@
           "label": "Redémarrer",
           "confirm": "Redémarrer ce nœud maintenant ?"
         },
-        "advert": { "label": "Envoyer un advert flood" },
-        "advertZeroHop": { "label": "Envoyer un advert zéro saut" },
-        "clockSync": { "label": "Synchroniser l’horloge" }
+        "advert": {
+          "label": "Envoyer un advert flood"
+        },
+        "advertZeroHop": {
+          "label": "Envoyer un advert zéro saut"
+        },
+        "clockSync": {
+          "label": "Synchroniser l’horloge"
+        }
       }
     }
   },
@@ -858,7 +852,6 @@
     "repeaterLoginFailed": "Échec de la connexion : {{error}}",
     "repeaterStatusFailed": "Échec de la récupération du statut : {{error}}",
     "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}",
-
     "repeaterConfigError": "Le nœud a rejeté la modification : {{error}}",
     "repeaterActionSent": "Commande envoyée."
   }

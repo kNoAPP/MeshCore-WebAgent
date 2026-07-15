@@ -281,12 +281,18 @@ export function setCommand(setting: RepeaterSetting, value: string): string {
 }
 
 /**
- * `true` when a reply is an error rather than a value. The firmware prefixes
- * failures with `Err` (e.g. `Err - unknown command`); such replies must leave
+ * `true` when a reply is an error rather than a value. Such replies must leave
  * the field unchanged and surface as a toast.
+ *
+ * @remarks
+ * The firmware is inconsistent about the prefix, emitting all of `Err`,
+ * `Err - ??` (its catch-all for an unrecognized command), `Error`,
+ * `Error, bad chars`, and `ERROR: dutycycle must be 1-100`. The trailing word
+ * boundary keeps a value that merely starts with those letters — a node named
+ * `Erratic Relay` — from reading as a failure.
  */
 export function isErrorReply(reply: string): boolean {
-  return /^err\b/i.test(stripPrompt(reply));
+  return /^err(or)?\b/i.test(stripPrompt(reply));
 }
 
 /**

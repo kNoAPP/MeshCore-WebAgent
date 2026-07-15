@@ -76,14 +76,24 @@ interface EchoWindow {
   timer: ReturnType<typeof setTimeout>;
 }
 
-// A pending structured CLI request, resolved (or timed out) when the matching
-// reply arrives via onCliReply. reject fires on timeout or session teardown.
-// `timer` is armed only after the send is acked, so it may be unset while the
-// send is still in flight.
+// The single CLI request outstanding for one repeater, resolved (or timed out)
+// when its reply arrives via onCliReply. reject fires on timeout or session
+// teardown. `timer` is armed only after the send is acked, so it may be unset
+// while the send is still in flight.
 interface CliWaiter {
   resolve: (text: string) => void;
   reject: (err: Error) => void;
   timer?: ReturnType<typeof setTimeout>;
+}
+
+// The repeater accepted the send but never answered. Distinct from a send
+// failure because some commands (`reboot`, `poweroff`) never reply by design,
+// so a fire-and-forget caller can tell "no answer" from "couldn't transmit".
+class CliTimeoutError extends Error {
+  constructor() {
+    super(i18n.t('repeaterAdmin.cli.timedOut'));
+    this.name = 'CliTimeoutError';
+  }
 }
 
 // LoRa round trips are spiky — give the radio's suggested timeout some slack
@@ -115,16 +125,21 @@ const pendingAcks = new Map<number, PendingAck>();
 // message from 'failed' to 'delivered' instead of being dropped
 const expiredAcks = new Map<number, Omit<PendingAck, 'timer'>>();
 const EXPIRED_ACK_LIMIT = 50;
-// Per-repeater tables of resolvers awaiting a structured CLI reply, keyed by
-// the target's pubkeyPrefix and then by the 2-char correlation tag sent with
-// each command (see repeaterCliRequest). The firmware reflects that tag on its
-// reply, so many requests can be in flight at once and each reply routes to its
-// own waiter; a reply with no (or an unknown) tag falls back to FIFO order.
-const cliWaiters = new Map<string, Map<string, CliWaiter>>();
+// The resolver awaiting a CLI reply from each repeater, keyed by pubkeyPrefix.
+//
+// MeshCore gives remote-admin CLI replies no correlation id of any kind: the
+// firmware passes the command straight to CommonCLI::handleCommand, which
+// dispatches on a byte-0 literal match ("get "/"set "), and the reply packet
+// carries the repeater's own clock rather than the request's timestamp. So a
+// reply can only be matched to its request by send order, which holds only
+// while at most one command is outstanding per repeater — hence cliQueues.
+const cliWaiters = new Map<string, CliWaiter>();
+// Per-repeater send queues. Every CLI command — structured get/set and
+// fire-and-forget console/action lines alike — chains here, so the next one
+// leaves only after the previous reply lands (or times out) and the waiter
+// above is never ambiguous.
+const cliQueues = new Map<string, Promise<unknown>>();
 const CLI_REPLY_TIMEOUT_MS = 10000;
-// Rolling source of the 2-char base36 tag prepended to each structured CLI
-// command as "NN|cmd". Wraps at 36^2 — far beyond the handful ever in flight.
-let cliTagSeq = 0;
 let echoWindow: EchoWindow | null = null;
 // Recent group-text RX-log packets awaiting correlation to a decoded inbound
 // channel message. Each entry holds the ordered per-hop repeater hashes.
@@ -279,61 +294,46 @@ function clearPendingAcks(): void {
 // so a structured get/set can't hang forever after the link goes down.
 function clearCliWaiters(): void {
   for (const prefix of [...cliWaiters.keys()]) rejectCliWaitersFor(prefix);
+  cliQueues.clear();
 }
 
-// Rejects and drops the CLI requests outstanding for one repeater. Used on
-// panel unmount so a gone owner can't leave stale waiters that later consume a
+// Rejects and drops the CLI request outstanding for one repeater. Used on panel
+// unmount so a gone owner can't leave a stale waiter that later consumes a
 // reply meant for the next mount.
+//
+// Deliberately leaves the repeater's send queue in place: a rejected request
+// settles its own link in the chain, and dropping the entry would let the next
+// command start a second chain running alongside this one's tail — breaking the
+// single-outstanding-command invariant that makes replies attributable at all.
 function rejectCliWaitersFor(prefix: string): void {
-  const byTag = cliWaiters.get(prefix);
-  if (!byTag) return;
+  takeCliWaiter(prefix)?.reject(
+    new Error(i18n.t('repeaterAdmin.cli.superseded')),
+  );
+}
+
+// Removes the repeater's outstanding waiter and stops its reply timer, so every
+// settle path (reply, timeout, teardown) disarms the timer exactly once.
+function takeCliWaiter(prefix: string): CliWaiter | undefined {
+  const waiter = cliWaiters.get(prefix);
+  if (!waiter) return undefined;
   cliWaiters.delete(prefix);
-  for (const w of byTag.values()) {
-    if (w.timer) clearTimeout(w.timer);
-    w.reject(new Error('Superseded'));
-  }
-}
-
-// Returns the next 2-char base36 correlation tag (e.g. "00", "01", …, "zz").
-function nextCliTag(): string {
-  const tag = (cliTagSeq % 1296).toString(36).padStart(2, '0');
-  cliTagSeq = (cliTagSeq + 1) % 1296;
-  return tag;
-}
-
-// Registers a waiter under (prefix, tag).
-function addCliWaiter(prefix: string, tag: string, waiter: CliWaiter): void {
-  let byTag = cliWaiters.get(prefix);
-  if (!byTag) {
-    byTag = new Map();
-    cliWaiters.set(prefix, byTag);
-  }
-  byTag.set(tag, waiter);
-}
-
-// Removes and returns the waiter registered under (prefix, tag), if any.
-function takeCliWaiter(prefix: string, tag: string): CliWaiter | undefined {
-  const byTag = cliWaiters.get(prefix);
-  const waiter = byTag?.get(tag);
-  if (byTag && waiter) {
-    byTag.delete(tag);
-    if (byTag.size === 0) cliWaiters.delete(prefix);
-  }
+  if (waiter.timer) clearTimeout(waiter.timer);
   return waiter;
 }
 
-// Removes and returns the oldest waiter for a repeater. Fallback correlation
-// for firmware that does not reflect the tag prefix, where replies arrive in
-// send order.
-function takeOldestCliWaiter(prefix: string): CliWaiter | undefined {
-  const byTag = cliWaiters.get(prefix);
-  const first = byTag?.entries().next().value;
-  if (byTag && first) {
-    byTag.delete(first[0]);
-    if (byTag.size === 0) cliWaiters.delete(prefix);
-    return first[1];
-  }
-  return undefined;
+// Chains `op` after whatever CLI command is already queued for this repeater,
+// so only one is ever in flight and replies stay matchable by send order.
+function enqueueCli<T>(prefix: string, op: () => Promise<T>): Promise<T> {
+  const prev = cliQueues.get(prefix) ?? Promise.resolve();
+  const run = prev.then(op, op);
+  cliQueues.set(
+    prefix,
+    run.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  return run;
 }
 
 // Called when a session begins as well as when one ends: a dropped transport
@@ -344,6 +344,12 @@ function clearSessionState(): void {
   expiredAcks.clear();
   closeEchoWindow();
   clearCliWaiters();
+  // The Stats snapshot describes one link session. A reconnect swaps in a fresh
+  // client without going through reset(), so drop it here or the cards would
+  // sit frozen on pre-drop counters against the new link.
+  const store = useMeshStore.getState();
+  store.setDeviceStats(null);
+  store.setDeviceClock(null);
   rxPathBuffer.length = 0;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = null;
@@ -620,24 +626,11 @@ export function useMeshCore() {
           // reply can't recreate adminSessions that reset() just cleared.
           if (!canTransmit(c)) return;
           appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
-          // The firmware reflects our 2-char "NN|" tag on the reply, so route
-          // it to the matching waiter and hand over the value after the tag; an
-          // unknown/stale tag is dropped rather than handed to the wrong
-          // request. Untagged replies (older firmware, or fire-and-forget
-          // actions) fall back to the oldest waiter, matching FIFO send order.
-          if (text.length >= 3 && text[2] === '|') {
-            const waiter = takeCliWaiter(pubkeyPrefix, text.slice(0, 2));
-            if (waiter) {
-              if (waiter.timer) clearTimeout(waiter.timer);
-              waiter.resolve(text.slice(3));
-            }
-            return;
-          }
-          const waiter = takeOldestCliWaiter(pubkeyPrefix);
-          if (waiter) {
-            if (waiter.timer) clearTimeout(waiter.timer);
-            waiter.resolve(text);
-          }
+          // Replies carry no correlation id, so this one answers the single
+          // command outstanding for this repeater (enqueueCli guarantees there
+          // is at most one). A reply with nothing waiting — unsolicited, or
+          // late for a request that already timed out — is transcript-only.
+          takeCliWaiter(pubkeyPrefix)?.resolve(text);
         },
         onAdvertsUpdated: (adverts) => {
           const next = { ...adverts };
@@ -1255,95 +1248,89 @@ export function useMeshCore() {
   );
 
   /**
-   * Sends a remote-admin CLI command to a repeater. Echoes the outgoing line to
-   * the transcript immediately; the reply arrives later via `onCliReply`.
+   * Sends a CLI command to a repeater and resolves with its reply text, for the
+   * structured Config editor's `get`/`set` round-trips. Echoes the sent line to
+   * the transcript (so the console tab sees it too), then registers the waiter
+   * that `onCliReply` fulfils with that repeater's next reply.
+   *
+   * @remarks
+   * MeshCore replies carry no correlation id, so commands to one repeater are
+   * queued and sent strictly one at a time — a reply is only attributable to a
+   * request while it is the sole one outstanding. Callers may therefore fire
+   * requests freely without serializing, but they complete one round trip at a
+   * time. Every CLI send goes through here, including fire-and-forget ones, so
+   * that nothing else can consume a pending request's reply.
+   * @throws if the send fails, the session drops, or no reply arrives in time.
+   */
+  const repeaterCliRequest = useCallback(
+    (contact: Contact, cmd: string): Promise<string> => {
+      const prefix = contact.pubkeyPrefix;
+      return enqueueCli(prefix, () => {
+        // Re-checked inside the queue: the link can drop while queued behind an
+        // earlier command's full round trip.
+        if (!canTransmit(client)) {
+          return Promise.reject(
+            new Error(i18n.t('repeaterAdmin.cli.disconnected')),
+          );
+        }
+        // `sendCliCommand` truncates to MAX_MSG_BYTES UTF-8 bytes, so normalize
+        // once and echo exactly what the repeater will receive.
+        const line = truncateUtf8(cmd, MAX_MSG_BYTES);
+        appendCliLine(prefix, { own: true, text: line, ts: Date.now() });
+        return new Promise<string>((resolve, reject) => {
+          const waiter: CliWaiter = { resolve, reject };
+          // Register *before* sending so a reply that beats the SENT/OK ack
+          // still lands. Arm the reply timeout only once the send is acked, so
+          // it measures the reply round trip, not time spent queued in the
+          // radio.
+          cliWaiters.set(prefix, waiter);
+          client.sendCliCommand(contact, line).then(
+            () => {
+              if (cliWaiters.get(prefix) !== waiter) return;
+              waiter.timer = setTimeout(() => {
+                if (cliWaiters.get(prefix) !== waiter) return;
+                takeCliWaiter(prefix);
+                reject(new CliTimeoutError());
+              }, CLI_REPLY_TIMEOUT_MS);
+            },
+            (err: Error) => {
+              if (cliWaiters.get(prefix) === waiter) takeCliWaiter(prefix);
+              reject(err);
+            },
+          );
+        });
+      });
+    },
+    [client, appendCliLine],
+  );
+
+  /**
+   * Sends a remote-admin CLI command to a repeater and discards its reply — the
+   * transcript already shows it. For the console and the Config tab's action
+   * verbs, where nothing needs the reply text.
+   *
+   * @remarks
+   * Still waits for the reply (via {@link repeaterCliRequest}) rather than
+   * returning at the send ack, so the reply is consumed by this request instead
+   * of being mistaken for the answer to whatever is sent next. A silent node is
+   * not an error here: `reboot` and `poweroff` never reply at all.
    */
   const repeaterCli = useCallback(
     async (contact: Contact, cmd: string) => {
       if (!canTransmit(client)) return;
-      // `sendCliCommand` truncates to MAX_MSG_BYTES UTF-8 bytes, so normalize
-      // once and echo exactly what the repeater will receive.
-      const line = truncateUtf8(cmd, MAX_MSG_BYTES);
-      appendCliLine(contact.pubkeyPrefix, {
-        own: true,
-        text: line,
-        ts: Date.now(),
-      });
       try {
-        await client.sendCliCommand(contact, line);
+        await repeaterCliRequest(contact, cmd);
       } catch (err) {
         // A disconnect rejects the pending send; its teardown owns the toast,
         // so only surface failures from a still-live session.
-        if (!canTransmit(client)) return;
+        if (!canTransmit(client) || err instanceof CliTimeoutError) return;
         showToast(
           i18n.t('toast.repeaterCliFailed', { error: (err as Error).message }),
           'error',
         );
       }
     },
-    [client, appendCliLine, showToast],
-  );
-
-  /**
-   * Sends a CLI command to a repeater and resolves with its reply text, for the
-   * structured Config editor's `get`/`set` round-trips. Echoes the sent line to
-   * the transcript (so the console tab sees it too), then registers a waiter
-   * that `onCliReply` fulfils with the matching reply from that repeater.
-   *
-   * @remarks
-   * Each command is prefixed with a unique 2-char tag (`NN|cmd`) that the
-   * firmware reflects on its reply, so many requests can be in flight at once
-   * and each reply is matched to its request by tag — callers need not
-   * serialize. Firmware that does not reflect the tag degrades to FIFO
-   * send-order matching.
-   * @throws if the send fails, the session drops, or no reply arrives in time.
-   */
-  const repeaterCliRequest = useCallback(
-    (contact: Contact, cmd: string): Promise<string> => {
-      if (!canTransmit(client)) {
-        return Promise.reject(new Error('Disconnected'));
-      }
-      // Reserve 3 bytes for the reflected "NN|" tag prefix.
-      const line = truncateUtf8(cmd, MAX_MSG_BYTES - 3);
-      appendCliLine(contact.pubkeyPrefix, {
-        own: true,
-        text: line,
-        ts: Date.now(),
-      });
-      const prefix = contact.pubkeyPrefix;
-      const tag = nextCliTag();
-      return new Promise<string>((resolve, reject) => {
-        const waiter: CliWaiter = {
-          resolve,
-          // The timeout/failure paths call this; wrap it to also clear the
-          // timer and settle this promise.
-          reject: (err: Error) => {
-            if (waiter.timer) clearTimeout(waiter.timer);
-            reject(err);
-          },
-        };
-        // Register the tagged waiter *before* sending so a reply that beats the
-        // SENT/OK ack still lands. Arm the reply timeout only once the send is
-        // acked, so it measures the reply round trip — not time queued behind
-        // other pipelined sends.
-        addCliWaiter(prefix, tag, waiter);
-        client.sendCliCommand(contact, `${tag}|${line}`).then(
-          () => {
-            if (cliWaiters.get(prefix)?.get(tag) !== waiter) return;
-            waiter.timer = setTimeout(() => {
-              if (takeCliWaiter(prefix, tag) === waiter) {
-                reject(new Error('Timed out'));
-              }
-            }, CLI_REPLY_TIMEOUT_MS);
-          },
-          (err: Error) => {
-            takeCliWaiter(prefix, tag);
-            reject(err);
-          },
-        );
-      });
-    },
-    [client, appendCliLine],
+    [client, repeaterCliRequest, showToast],
   );
 
   /** Drops any pending CLI request for a repeater (e.g. on panel unmount). */

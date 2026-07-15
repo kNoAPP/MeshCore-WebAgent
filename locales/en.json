@@ -535,6 +535,11 @@
     "directDups": "Direct Dups",
     "rxErrors": "RX Errors",
     "dbm": "{{value}} dBm",
+    "cli": {
+      "timedOut": "no reply from the node",
+      "disconnected": "not connected",
+      "superseded": "cancelled"
+    },
     "config": {
       "readingField": "Reading…",
       "readOnlyNotice": "You have read-only (guest) access. Log in as admin to make changes.",
@@ -556,64 +561,49 @@
       },
       "fields": {
         "name": {
-          "label": "Name",
-          "hint": "Advertised node name."
+          "label": "Name"
         },
         "lat": {
-          "label": "Latitude",
-          "hint": "Advertised latitude."
+          "label": "Latitude"
         },
         "lon": {
-          "label": "Longitude",
-          "hint": "Advertised longitude."
+          "label": "Longitude"
         },
         "radio": {
-          "label": "Radio",
-          "hint": "LoRa frequency, bandwidth, spreading factor, and coding rate."
+          "label": "Radio"
         },
         "tx": {
-          "label": "TX Power",
-          "hint": "Transmit power."
+          "label": "TX Power"
         },
         "repeat": {
-          "label": "Repeat",
-          "hint": "Forward (repeat) mesh traffic."
+          "label": "Repeat"
         },
         "floodAdvertInterval": {
-          "label": "Flood advert interval",
-          "hint": "How often a flood advert is sent."
+          "label": "Flood advert interval"
         },
         "advertInterval": {
-          "label": "Zero-hop advert interval",
-          "hint": "How often a zero-hop advert is sent."
+          "label": "Zero-hop advert interval"
         },
         "floodMax": {
-          "label": "Max flood hops",
-          "hint": "Maximum hop count for flood packets."
+          "label": "Max flood hops"
         },
         "txdelay": {
-          "label": "Flood TX delay",
-          "hint": "Collision back-off scaling for flood retransmits."
+          "label": "Flood TX delay"
         },
         "directTxdelay": {
-          "label": "Direct TX delay",
-          "hint": "Collision back-off scaling for direct retransmits."
+          "label": "Direct TX delay"
         },
         "dutycycle": {
-          "label": "Duty cycle",
-          "hint": "Transmit duty-cycle limit."
+          "label": "Duty cycle"
         },
         "loopDetect": {
-          "label": "Loop detection",
-          "hint": "Drops packets that appear to be looping."
+          "label": "Loop detection"
         },
         "pathHashMode": {
-          "label": "Advert path hash size",
-          "hint": "Byte size of the advert path hash."
+          "label": "Advert path hash size"
         },
         "multiAcks": {
-          "label": "Multi-acks",
-          "hint": "Send multiple acknowledgements."
+          "label": "Multi-acks"
         }
       },
       "options": {
@@ -634,9 +624,15 @@
           "label": "Reboot",
           "confirm": "Reboot this node now?"
         },
-        "advert": { "label": "Send flood advert" },
-        "advertZeroHop": { "label": "Send zero-hop advert" },
-        "clockSync": { "label": "Sync clock" }
+        "advert": {
+          "label": "Send flood advert"
+        },
+        "advertZeroHop": {
+          "label": "Send zero-hop advert"
+        },
+        "clockSync": {
+          "label": "Sync clock"
+        }
       }
     }
   },

@@ -535,6 +535,11 @@
     "directDups": "Duplicados directos",
     "rxErrors": "Errores RX",
     "dbm": "{{value}} dBm",
+    "cli": {
+      "timedOut": "sin respuesta del nodo",
+      "disconnected": "sin conexión",
+      "superseded": "cancelado"
+    },
     "config": {
       "readingField": "Leyendo…",
       "readOnlyNotice": "Tienes acceso de solo lectura (invitado). Inicia sesión como administrador para hacer cambios.",
@@ -556,64 +561,49 @@
       },
       "fields": {
         "name": {
-          "label": "Nombre",
-          "hint": "Nombre anunciado del nodo."
+          "label": "Nombre"
         },
         "lat": {
-          "label": "Latitud",
-          "hint": "Latitud anunciada."
+          "label": "Latitud"
         },
         "lon": {
-          "label": "Longitud",
-          "hint": "Longitud anunciada."
+          "label": "Longitud"
         },
         "radio": {
-          "label": "Radio",
-          "hint": "Frecuencia, ancho de banda, factor de dispersión y tasa de codificación LoRa."
+          "label": "Radio"
         },
         "tx": {
-          "label": "Potencia TX",
-          "hint": "Potencia de transmisión."
+          "label": "Potencia TX"
         },
         "repeat": {
-          "label": "Repetir",
-          "hint": "Reenviar (repetir) el tráfico de la malla."
+          "label": "Repetir"
         },
         "floodAdvertInterval": {
-          "label": "Intervalo de advert flood",
-          "hint": "Con qué frecuencia se envía un advert flood."
+          "label": "Intervalo de advert flood"
         },
         "advertInterval": {
-          "label": "Intervalo de advert cero saltos",
-          "hint": "Con qué frecuencia se envía un advert de cero saltos."
+          "label": "Intervalo de advert cero saltos"
         },
         "floodMax": {
-          "label": "Máx. saltos flood",
-          "hint": "Número máximo de saltos para paquetes flood."
+          "label": "Máx. saltos flood"
         },
         "txdelay": {
-          "label": "Retardo TX flood",
-          "hint": "Escala de retroceso por colisión para retransmisiones flood."
+          "label": "Retardo TX flood"
         },
         "directTxdelay": {
-          "label": "Retardo TX directo",
-          "hint": "Escala de retroceso por colisión para retransmisiones directas."
+          "label": "Retardo TX directo"
         },
         "dutycycle": {
-          "label": "Ciclo de trabajo",
-          "hint": "Límite del ciclo de trabajo de transmisión."
+          "label": "Ciclo de trabajo"
         },
         "loopDetect": {
-          "label": "Detección de bucles",
-          "hint": "Descarta paquetes que parecen estar en bucle."
+          "label": "Detección de bucles"
         },
         "pathHashMode": {
-          "label": "Tamaño de hash de ruta de advert",
-          "hint": "Tamaño en bytes del hash de ruta de advert."
+          "label": "Tamaño de hash de ruta de advert"
         },
         "multiAcks": {
-          "label": "Multi-ACK",
-          "hint": "Enviar varios acuses de recibo."
+          "label": "Multi-ACK"
         }
       },
       "options": {
@@ -634,9 +624,15 @@
           "label": "Reiniciar",
           "confirm": "¿Reiniciar este nodo ahora?"
         },
-        "advert": { "label": "Enviar advert flood" },
-        "advertZeroHop": { "label": "Enviar advert cero saltos" },
-        "clockSync": { "label": "Sincronizar reloj" }
+        "advert": {
+          "label": "Enviar advert flood"
+        },
+        "advertZeroHop": {
+          "label": "Enviar advert cero saltos"
+        },
+        "clockSync": {
+          "label": "Sincronizar reloj"
+        }
       }
     }
   },

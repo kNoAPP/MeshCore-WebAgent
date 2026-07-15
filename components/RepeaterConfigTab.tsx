@@ -31,6 +31,7 @@ import type {
   RepeaterAction,
 } from '@/lib/meshcore/repeaterConfig';
 import { fmtNum, utf8ByteLength } from '@/lib/utils';
+import { Card } from './Card';
 import { RefreshButton } from './RefreshButton';
 import { RadioSettingsModal } from './RadioSettings';
 import type { Contact, RadioParams } from '@/types/meshcore';
@@ -49,19 +50,19 @@ const ROW_CLASS =
 type SaveStatus = 'saving' | 'saved' | 'error';
 
 /**
- * How many times a prefill re-requests fields that didn't answer. CLI replies
- * are frequently dropped over the mesh, so a couple of retry passes markedly
- * improve how many fields fill in without a manual refresh.
+ * The result of one commit round-trip: either the node's authoritative value
+ * (which may be rounded or clamped from what was sent), or its error reply.
  */
-const READ_PASSES = 3;
+type CommitOutcome =
+  { kind: 'ok'; value: string } | { kind: 'rejected'; reply: string };
 
 /**
- * How many field reads to keep in flight at once. Each command carries a unique
- * correlation tag the firmware reflects, so requests can be pipelined instead
- * of run one slow round-trip at a time; a modest window keeps the mesh and the
- * repeater's reply queue from being flooded while still loading far faster.
+ * How many times a prefill re-requests fields that didn't answer. CLI replies
+ * are frequently dropped over the mesh, so a couple of retry passes markedly
+ * improve how many fields fill in without a manual refresh. A pass in which
+ * nothing at all answered ends the read early — see {@link RepeaterConfigTab}.
  */
-const READ_CONCURRENCY = 4;
+const READ_PASSES = 3;
 
 /**
  * The radio-related fields, shown together in their own card (like the Settings
@@ -138,9 +139,10 @@ export function RepeaterConfigTab({
   // Timers that fade a field's "saved ✓" chip back to idle.
   const savedTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // Serializes commit round-trips (a `set` followed by its confirming `get`) so
-  // two edits can't interleave their writes. Reads are pipelined separately and
-  // correlated by tag, so they don't go through this chain.
+  // Serializes whole commit round-trips against each other. The CLI layer
+  // already serializes individual commands per repeater, but a `set` and its
+  // confirming `get` must also stay adjacent: without this chain another edit's
+  // `set` could land between them and be what the `get` reports back.
   const chainRef = useRef<Promise<unknown>>(Promise.resolve());
   const enqueue = useCallback(<T,>(op: () => Promise<T>): Promise<T> => {
     const run = chainRef.current.then(op, op);
@@ -160,11 +162,11 @@ export function RepeaterConfigTab({
       .mergeRepeaterConfig(contactRef.current.pubkeyPrefix, patch);
   }, []);
 
-  // Reads the given fields' current values. The gets are pipelined (a bounded
-  // window in flight at once) and correlated by the per-command tag, rather
-  // than run one blocking round-trip at a time. Fields populate as each reply
-  // lands. Called per section, so concurrent section reads each scope their
-  // "stop reading" to their own fields and never clear another's.
+  // Reads the given fields' current values, one round trip at a time — the CLI
+  // layer serializes commands per repeater regardless, since MeshCore replies
+  // carry no correlation id. Fields populate as each reply lands. Called per
+  // section, so concurrent section reads each scope their "stop reading" to
+  // their own fields and never clear another's.
   const read = useCallback(
     (settings: readonly RepeaterSetting[]) => {
       void (async () => {
@@ -173,47 +175,39 @@ export function RepeaterConfigTab({
         // stays "reading" until it loads or the passes are exhausted.
         let queue: RepeaterSetting[] = [...settings];
         for (let pass = 0; pass < READ_PASSES && queue.length > 0; pass++) {
-          const batch = queue;
           const misses: RepeaterSetting[] = [];
-          let cursor = 0;
-          const worker = async () => {
-            while (cursor < batch.length) {
+          for (const setting of queue) {
+            if (!aliveRef.current) return;
+            let parsed: string | null = null;
+            try {
+              const reply = await requestRef.current(
+                contactRef.current,
+                getCommand(setting),
+              );
               if (!aliveRef.current) return;
-              const setting = batch[cursor++];
-              let parsed: string | null = null;
-              try {
-                const reply = await requestRef.current(
-                  contactRef.current,
-                  getCommand(setting),
-                );
-                if (!aliveRef.current) return;
-                if (!isErrorReply(reply))
-                  parsed = normalizeReply(setting, reply);
-              } catch {
-                if (!aliveRef.current) return;
-              }
-              if (parsed != null) {
-                const value = parsed;
-                cacheValues({ [setting.id]: value });
-                setDrafts((prev) => ({ ...prev, [setting.id]: value }));
-                setPending((prev) => {
-                  if (!prev.has(setting.id)) return prev;
-                  const next = new Set(prev);
-                  next.delete(setting.id);
-                  return next;
-                });
-              } else {
-                misses.push(setting);
-              }
+              if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
+            } catch {
+              if (!aliveRef.current) return;
             }
-          };
-          await Promise.all(
-            Array.from(
-              { length: Math.min(READ_CONCURRENCY, batch.length) },
-              () => worker(),
-            ),
-          );
+            if (parsed != null) {
+              const value = parsed;
+              cacheValues({ [setting.id]: value });
+              setDrafts((prev) => ({ ...prev, [setting.id]: value }));
+              setPending((prev) => {
+                if (!prev.has(setting.id)) return prev;
+                const next = new Set(prev);
+                next.delete(setting.id);
+                return next;
+              });
+            } else {
+              misses.push(setting);
+            }
+          }
           if (!aliveRef.current) return;
+          // Nothing at all answered: the node is unreachable rather than the
+          // link merely lossy, so retrying would just flood the mesh with sends
+          // that each burn the full reply timeout.
+          if (misses.length === queue.length) break;
           queue = misses;
         }
         if (!aliveRef.current) return;
@@ -285,31 +279,43 @@ export function RepeaterConfigTab({
         return next2;
       });
       try {
-        const setReply = await enqueue(() =>
-          requestRef.current(contactRef.current, setCommand(setting, next)),
-        );
+        // The `set` and its confirming `get` run as one queued unit, so no
+        // other edit's write can land between them.
+        const outcome = await enqueue(async (): Promise<CommitOutcome> => {
+          const setReply = await requestRef.current(
+            contactRef.current,
+            setCommand(setting, next),
+          );
+          if (isErrorReply(setReply)) {
+            return { kind: 'rejected', reply: setReply.trim() };
+          }
+          try {
+            const getReply = await requestRef.current(
+              contactRef.current,
+              getCommand(setting),
+            );
+            if (!isErrorReply(getReply)) {
+              return {
+                kind: 'ok',
+                value: normalizeReply(setting, getReply) ?? next,
+              };
+            }
+          } catch {
+            // Keep the value we just set if the confirm read fails.
+          }
+          return { kind: 'ok', value: next };
+        });
         if (!aliveRef.current) return;
-        if (isErrorReply(setReply)) {
+        if (outcome.kind === 'rejected') {
           const message = t('toast.repeaterConfigError', {
-            error: setReply.trim(),
+            error: outcome.reply,
           });
           showToast(message, 'error');
           setStatus((prev) => ({ ...prev, [id]: 'error' }));
           setErrorMsg((prev) => ({ ...prev, [id]: message }));
           return;
         }
-        let confirmed = next;
-        try {
-          const getReply = await enqueue(() =>
-            requestRef.current(contactRef.current, getCommand(setting)),
-          );
-          if (aliveRef.current && !isErrorReply(getReply)) {
-            confirmed = normalizeReply(setting, getReply) ?? next;
-          }
-        } catch {
-          // Keep the value we just set if the confirm read fails.
-        }
-        if (!aliveRef.current) return;
+        const confirmed = outcome.value;
         cacheValues({ [id]: confirmed });
         setDrafts((prev) => ({ ...prev, [id]: confirmed }));
         setStatus((prev) => ({ ...prev, [id]: 'saved' }));
@@ -360,48 +366,55 @@ export function RepeaterConfigTab({
         cur.sf !== params.radioSf ||
         cur.cr !== params.radioCr;
       const txChanged = Number(valuesRef.current.tx) !== params.txPower;
-      const fail = (reply: string) =>
-        showToast(
-          t('toast.repeaterConfigError', { error: reply.trim() }),
-          'error',
-        );
+      const radioStr = formatRadio(
+        params.radioFreq,
+        params.radioBw,
+        params.radioSf,
+        params.radioCr,
+      );
+      const txStr = String(params.txPower);
       try {
-        if (radioChanged) {
-          const radioStr = formatRadio(
-            params.radioFreq,
-            params.radioBw,
-            params.radioSf,
-            params.radioCr,
-          );
-          const reply = await enqueue(() =>
-            requestRef.current(
-              contactRef.current,
-              setCommand(radioSetting, radioStr),
-            ),
-          );
-          if (!aliveRef.current) return false;
-          if (isErrorReply(reply)) {
-            fail(reply);
-            return false;
-          }
-          cacheValues({ radio: radioStr });
-          setDrafts((prev) => ({ ...prev, radio: radioStr }));
+        // Both writes travel as one queued unit, so a concurrent field edit
+        // can't land between the LoRa quad and the TX power it pairs with.
+        // `applied` carries whatever was accepted before any rejection, so a
+        // half-applied pair still caches the half that stuck.
+        const { applied, rejected } = await enqueue(
+          async (): Promise<{ applied: ValueMap; rejected: string | null }> => {
+            const applied: ValueMap = {};
+            if (radioChanged) {
+              const reply = await requestRef.current(
+                contactRef.current,
+                setCommand(radioSetting, radioStr),
+              );
+              if (isErrorReply(reply)) {
+                return { applied, rejected: reply.trim() };
+              }
+              applied.radio = radioStr;
+            }
+            if (txChanged) {
+              const reply = await requestRef.current(
+                contactRef.current,
+                setCommand(txSetting, txStr),
+              );
+              if (isErrorReply(reply)) {
+                return { applied, rejected: reply.trim() };
+              }
+              applied.tx = txStr;
+            }
+            return { applied, rejected: null };
+          },
+        );
+        if (!aliveRef.current) return false;
+        if (Object.keys(applied).length > 0) {
+          cacheValues(applied);
+          setDrafts((prev) => ({ ...prev, ...applied }));
         }
-        if (txChanged) {
-          const txStr = String(params.txPower);
-          const reply = await enqueue(() =>
-            requestRef.current(
-              contactRef.current,
-              setCommand(txSetting, txStr),
-            ),
+        if (rejected != null) {
+          showToast(
+            t('toast.repeaterConfigError', { error: rejected }),
+            'error',
           );
-          if (!aliveRef.current) return false;
-          if (isErrorReply(reply)) {
-            fail(reply);
-            return false;
-          }
-          cacheValues({ tx: txStr });
-          setDrafts((prev) => ({ ...prev, tx: txStr }));
+          return false;
         }
         showToast(t('toast.radioParamsSaved'), 'success');
         return true;
@@ -477,7 +490,7 @@ export function RepeaterConfigTab({
           );
           return (
             <Fragment key={group.id}>
-              <Section
+              <Card
                 title={t(`repeaterAdmin.config.groups.${group.id}`)}
                 action={
                   <RefreshButton
@@ -502,14 +515,13 @@ export function RepeaterConfigTab({
                   }
                   return <SettingRow key={setting.id} {...rowProps(setting)} />;
                 })}
-              </Section>
+              </Card>
               {group.id === 'identity' && (
                 <RadioSection
                   radioValue={values.radio ?? ''}
                   txValue={values.tx ?? ''}
-                  loading={pending.has('radio') || pending.has('tx')}
-                  loaded={sectionLoaded(RADIO_FIELDS)}
                   busy={sectionBusy(RADIO_FIELDS)}
+                  loaded={sectionLoaded(RADIO_FIELDS)}
                   readOnly={readOnly}
                   onEdit={() => setRadioEditOpen(true)}
                   onRefresh={() => refreshSection(RADIO_FIELDS)}
@@ -519,7 +531,7 @@ export function RepeaterConfigTab({
           );
         })}
 
-        <Section
+        <Card
           title={t('repeaterAdmin.config.advanced')}
           action={
             <RefreshButton
@@ -532,7 +544,7 @@ export function RepeaterConfigTab({
           {REPEATER_ADVANCED_SETTINGS.map((setting) => (
             <SettingRow key={setting.id} {...rowProps(setting)} />
           ))}
-        </Section>
+        </Card>
 
         {!readOnly && <ActionsSection onRun={runAction} />}
       </div>
@@ -545,32 +557,6 @@ export function RepeaterConfigTab({
         />
       )}
     </>
-  );
-}
-
-/** A titled card grouping related settings, matching the Settings page. */
-function Section({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section
-      className='rounded-lg p-3.5'
-      style={{ background: 'var(--surface2)' }}
-    >
-      <div className='mb-2.5 flex items-center justify-between gap-2'>
-        <h3 className='text-[11px] font-bold tracking-widest text-(--accent) uppercase'>
-          {title}
-        </h3>
-        {action}
-      </div>
-      {children}
-    </section>
   );
 }
 
@@ -1069,25 +1055,28 @@ function CoordField({
  * The LoRa parameters and TX power as their own card, mirroring the Settings
  * page's Radio section: a read-only breakdown of frequency, bandwidth,
  * spreading factor, coding rate, and TX power, with a Refresh to load them and
- * an Edit that opens the shared {@link RadioSettingsModal}. Reuses {@link
- * Section} and {@link RefreshButton}; Edit is disabled until both values load,
- * since the editor needs them to seed its draft.
+ * an Edit that opens the shared {@link RadioSettingsModal}. Reuses {@link Card}
+ * and {@link RefreshButton}; Edit is disabled until both values load, since the
+ * editor needs them to seed its draft.
+ *
+ * @param busy - a read of either field is in flight: spins Refresh and shows
+ *   the rows as "reading".
+ * @param loaded - either field has a value, so Refresh drops its download
+ *   glyph.
  */
 function RadioSection({
   radioValue,
   txValue,
-  loading,
-  loaded,
   busy,
+  loaded,
   readOnly,
   onEdit,
   onRefresh,
 }: {
   radioValue: string;
   txValue: string;
-  loading: boolean;
-  loaded: boolean;
   busy: boolean;
+  loaded: boolean;
   readOnly: boolean;
   onEdit: () => void;
   onRefresh: () => void;
@@ -1125,7 +1114,7 @@ function RadioSection({
   ];
 
   return (
-    <Section
+    <Card
       title={t('repeaterAdmin.config.fields.radio.label')}
       action={
         <div className='flex items-center gap-2'>
@@ -1148,10 +1137,10 @@ function RadioSection({
           key={row.label}
           label={row.label}
           value={row.value}
-          loading={loading}
+          loading={busy}
         />
       ))}
-    </Section>
+    </Card>
   );
 }
 
@@ -1186,7 +1175,7 @@ function ActionsSection({
   const reboot = REPEATER_ACTIONS.find((a) => a.id === 'reboot');
 
   return (
-    <Section title={t('repeaterAdmin.config.actionsTitle')}>
+    <Card title={t('repeaterAdmin.config.actionsTitle')}>
       <div className='flex flex-wrap items-center gap-2'>
         {REPEATER_ACTIONS.filter((a) => !a.destructive).map((a) => (
           <button
@@ -1231,7 +1220,7 @@ function ActionsSection({
           </div>
         </div>
       )}
-    </Section>
+    </Card>
   );
 }
 

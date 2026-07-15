@@ -117,8 +117,11 @@ export function StatsPage() {
   // Auto-fetch when the stats view opens or the client changes (a reconnect
   // swaps in a fresh client, which must re-read against the new link). Skips
   // the read when a cached snapshot is already showing — the user Refreshes for
-  // fresh data — so returning to the view keeps its cards populated. Only
-  // setState happens after an await, never synchronously in the effect body.
+  // fresh data — so returning to the view keeps its cards populated. That cache
+  // is link-scoped: clearSessionState() drops it as each session begins, so a
+  // reconnect still re-reads here rather than resurfacing the old link's
+  // counters. Only setState happens after an await, never synchronously in the
+  // effect body.
   useEffect(() => {
     if (view !== 'stats' || !client) return;
     if (useMeshStore.getState().deviceStats != null) return;

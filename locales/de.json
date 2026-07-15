@@ -535,6 +535,11 @@
     "directDups": "Direkt-Duplikate",
     "rxErrors": "RX-Fehler",
     "dbm": "{{value}} dBm",
+    "cli": {
+      "timedOut": "keine Antwort vom Knoten",
+      "disconnected": "nicht verbunden",
+      "superseded": "abgebrochen"
+    },
     "config": {
       "readingField": "Wird gelesen…",
       "readOnlyNotice": "Sie haben Nur-Lese-Zugriff (Gast). Melden Sie sich als Admin an, um Änderungen vorzunehmen.",
@@ -556,64 +561,49 @@
       },
       "fields": {
         "name": {
-          "label": "Name",
-          "hint": "Angekündigter Knotenname."
+          "label": "Name"
         },
         "lat": {
-          "label": "Breitengrad",
-          "hint": "Angekündigter Breitengrad."
+          "label": "Breitengrad"
         },
         "lon": {
-          "label": "Längengrad",
-          "hint": "Angekündigter Längengrad."
+          "label": "Längengrad"
         },
         "radio": {
-          "label": "Funk",
-          "hint": "LoRa-Frequenz, Bandbreite, Spreizfaktor und Coderate."
+          "label": "Funk"
         },
         "tx": {
-          "label": "Sendeleistung",
-          "hint": "Sendeleistung."
+          "label": "Sendeleistung"
         },
         "repeat": {
-          "label": "Weiterleiten",
-          "hint": "Mesh-Verkehr weiterleiten (wiederholen)."
+          "label": "Weiterleiten"
         },
         "floodAdvertInterval": {
-          "label": "Flood-Advert-Intervall",
-          "hint": "Wie oft ein Flood-Advert gesendet wird."
+          "label": "Flood-Advert-Intervall"
         },
         "advertInterval": {
-          "label": "Zero-Hop-Advert-Intervall",
-          "hint": "Wie oft ein Zero-Hop-Advert gesendet wird."
+          "label": "Zero-Hop-Advert-Intervall"
         },
         "floodMax": {
-          "label": "Max. Flood-Hops",
-          "hint": "Maximale Hop-Anzahl für Flood-Pakete."
+          "label": "Max. Flood-Hops"
         },
         "txdelay": {
-          "label": "Flood-TX-Verzögerung",
-          "hint": "Kollisions-Backoff-Skalierung für Flood-Wiederholungen."
+          "label": "Flood-TX-Verzögerung"
         },
         "directTxdelay": {
-          "label": "Direkt-TX-Verzögerung",
-          "hint": "Kollisions-Backoff-Skalierung für Direkt-Wiederholungen."
+          "label": "Direkt-TX-Verzögerung"
         },
         "dutycycle": {
-          "label": "Duty Cycle",
-          "hint": "Sende-Duty-Cycle-Limit."
+          "label": "Duty Cycle"
         },
         "loopDetect": {
-          "label": "Schleifenerkennung",
-          "hint": "Verwirft Pakete, die zu kreisen scheinen."
+          "label": "Schleifenerkennung"
         },
         "pathHashMode": {
-          "label": "Advert-Pfad-Hash-Größe",
-          "hint": "Bytegröße des Advert-Pfad-Hashes."
+          "label": "Advert-Pfad-Hash-Größe"
         },
         "multiAcks": {
-          "label": "Multi-ACKs",
-          "hint": "Mehrere Bestätigungen senden."
+          "label": "Multi-ACKs"
         }
       },
       "options": {
@@ -634,9 +624,15 @@
           "label": "Neu starten",
           "confirm": "Diesen Knoten jetzt neu starten?"
         },
-        "advert": { "label": "Flood-Advert senden" },
-        "advertZeroHop": { "label": "Zero-Hop-Advert senden" },
-        "clockSync": { "label": "Uhr synchronisieren" }
+        "advert": {
+          "label": "Flood-Advert senden"
+        },
+        "advertZeroHop": {
+          "label": "Zero-Hop-Advert senden"
+        },
+        "clockSync": {
+          "label": "Uhr synchronisieren"
+        }
       }
     }
   },

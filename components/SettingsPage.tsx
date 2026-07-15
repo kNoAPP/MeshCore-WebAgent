@@ -20,6 +20,7 @@ import {
   ADVERT_LOC_POLICY,
 } from '@/lib/meshcore/constants';
 import type { SelfInfo } from '@/types/meshcore';
+import { Card as SharedCard, type CardProps } from './Card';
 import { CopyButton } from './CopyButton';
 import { ModalShell } from './ModalShell';
 import { ShareCard } from './ShareCard';
@@ -809,39 +810,18 @@ function DisplayCard() {
 }
 
 /**
- * A titled card for one settings group. `action` renders an optional control
- * (e.g. an Edit button) on the right of the card heading.
- *
- * @param section - deep-link anchor id, so the command palette can scroll to
- * and flash this card.
+ * The shared {@link SharedCard}, keyed by settings section rather than a raw
+ * element id, so the command palette can scroll to and flash a card.
  */
 function Card({
-  title,
-  action,
-  className,
   section,
-  children,
-}: {
-  title: string;
-  action?: React.ReactNode;
-  className?: string;
-  section?: SettingsSection;
-  children: React.ReactNode;
-}) {
+  ...rest
+}: Omit<CardProps, 'anchorId'> & { section?: SettingsSection }) {
   return (
-    <div
-      id={section ? `settings-${section}` : undefined}
-      className={`rounded-lg p-3.5 ${className ?? ''}`}
-      style={{ background: 'var(--surface2)' }}
-    >
-      <div className='mb-2.5 flex items-center justify-between gap-2'>
-        <h3 className='text-[11px] font-bold tracking-widest text-(--accent) uppercase'>
-          {title}
-        </h3>
-        {action}
-      </div>
-      {children}
-    </div>
+    <SharedCard
+      anchorId={section ? `settings-${section}` : undefined}
+      {...rest}
+    />
   );
 }
 
