@@ -525,7 +525,7 @@ function SettingRow({
   );
 }
 
-/** A fixed-width slot showing a field's save lifecycle (spinner / ✓ / ⚠). */
+/** A save-lifecycle indicator (spinner / ✓ / ⚠); renders nothing when idle. */
 function StatusChip({
   status,
   errorText,
@@ -533,6 +533,7 @@ function StatusChip({
   status?: SaveStatus;
   errorText?: string;
 }) {
+  if (!status) return null;
   return (
     <span className='inline-flex w-4 justify-center'>
       {status === 'saving' && (
