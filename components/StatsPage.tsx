@@ -306,14 +306,14 @@ export function StatsPage() {
 
   return (
     <div className='flex flex-1 flex-col overflow-y-auto p-7'>
-      <div className='mx-auto w-full max-w-3xl'>
+      <div className='mx-auto w-full max-w-6xl'>
         {/* Header */}
         <div className='mb-5 flex items-center justify-between'>
           <h2 className='text-base font-bold'>{t('stats.title')}</h2>
           <RefreshButton onClick={refresh} busy={loading} />
         </div>
 
-        <div className='grid grid-cols-2 gap-4'>
+        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
           {cards.map(({ title, labels, rows }) =>
             loading ? (
               <StatCard

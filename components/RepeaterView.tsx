@@ -505,13 +505,13 @@ function StatusDashboard({
   ];
 
   return (
-    <div className='space-y-4'>
+    <div className='mx-auto w-full max-w-6xl space-y-4'>
       <div className='flex justify-end'>
         <RefreshButton onClick={() => void refresh()} busy={loading} />
       </div>
 
       {loading ? (
-        <div className='grid grid-cols-2 gap-4'>
+        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
           {cards.map(({ title: cardTitle, labels }) => (
             <StatCard
               key={cardTitle}
@@ -522,7 +522,7 @@ function StatusDashboard({
           ))}
         </div>
       ) : status ? (
-        <div className='grid grid-cols-2 gap-4'>
+        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
           {cards
             .filter((c) => c.rows && c.rows.length > 0)
             .map(({ title: cardTitle, rows }) => (
