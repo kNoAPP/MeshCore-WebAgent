@@ -510,8 +510,6 @@
       "refresh": "Refresh",
       "refreshing": "Refreshing…",
       "logout": "Log out",
-      "logoutForget": "Log out & forget credentials",
-      "loading": "Loading status…",
       "unavailable": "No status received yet. Try refreshing."
     },
     "card": {

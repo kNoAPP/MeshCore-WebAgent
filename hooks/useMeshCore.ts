@@ -1087,19 +1087,21 @@ export function useMeshCore() {
       if (!canTransmit(client)) return;
       setAdminLogin(contact.pubkeyPrefix, 'pending');
       try {
-        const access = await client.login(contact, password);
+        await client.login(contact, password);
         // A drop during login can tear the session down; don't revive it.
         if (!canTransmit(client)) return;
-        // The node's granted access is authoritative and can differ from the
-        // requested kind; persist and display the level it actually returned.
-        const resolved = access ?? kind;
-        setAdminLogin(contact.pubkeyPrefix, resolved);
+        // Reflect the access level the user chose (admin/guest), not the role
+        // the node reports back. A node re-uses your existing ACL role for a
+        // blank/guest login, so an admin-enrolled node would otherwise report
+        // admin even when you intended a read-only guest session. The node
+        // still enforces real permissions (rejecting unauthorized writes).
+        setAdminLogin(contact.pubkeyPrefix, kind);
         // Only a successful login is ever remembered, so a wrong password can't
         // be persisted. The credential lives solely in the encrypted per-radio
         // secrets store — never the store, prefs blob, or localStorage.
         if (remember) {
           void saveRepeaterCred(contact.pubkeyPrefix, {
-            access: resolved,
+            access: kind,
             password,
           });
         }

@@ -16,6 +16,7 @@ import {
 } from '@/lib/i18n/format';
 import { formatPubkey } from '@/lib/utils';
 import { RouteChip } from './RouteChip';
+import { StatCard } from './StatCard';
 import type { Contact, RepeaterAccess, RepeaterStatus } from '@/types/meshcore';
 
 /** Coarse Li-ion voltage → charge mapping, clamped to 0–100%. */
@@ -74,48 +75,58 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
 
   const login = session?.login ?? 'loggedOut';
   const authed = login === 'admin' || login === 'guest';
+  const prefix = contact.pubkeyPrefix;
 
   const [tab, setTab] = useState<RepeaterTab>('status');
-  // Whether a credential is remembered for this repeater — drives the log-out
-  // button copy. Set when auto-login finds one or the user opts to remember on
-  // submit; cleared by "log out & forget".
-  const [remembered, setRemembered] = useState(false);
   // True only during the initial probe for a remembered credential, so we show
   // a brief spinner instead of flashing the login form before auto-login runs.
   const [checking, setChecking] = useState(!authed);
-  const autoTried = useRef(false);
 
-  // Auto-login on entry: if not already authenticated and a credential is
-  // remembered for this repeater, log in with it; otherwise fall back to the
-  // gate. The ref guard keeps StrictMode's double-invoke from firing twice.
+  // Captured once at mount (the component is keyed by `prefix`, so it remounts
+  // per repeater). The auto-login effect reads these without listing them as
+  // dependencies, so an unrelated contact update can't re-run the effect and
+  // cancel its own in-flight credential probe (which would strand the
+  // "checking" spinner). The pubkey is immutable, so the mount-time contact is
+  // valid for the login command.
+  const contactRef = useRef(contact);
+  const repeaterLoginRef = useRef(repeaterLogin);
+  const loginRef = useRef(login);
+
+  // On entry, when there is no live session yet, probe the encrypted store for
+  // a remembered credential and auto-log-in with it. Keyed by the stable
+  // `prefix`, so it runs once per repeater (remounted when the selection
+  // changes).
   useEffect(() => {
-    if (autoTried.current) return;
-    autoTried.current = true;
-    // Already authenticated (e.g. a reconnect kept the session): `checking` was
-    // initialized false, so nothing to probe.
-    if (login === 'admin' || login === 'guest') return;
+    // Already authenticated (e.g. a reused session): `checking` initialized
+    // false, so there's nothing to probe.
+    if (loginRef.current === 'admin' || loginRef.current === 'guest') return;
     let cancelled = false;
     void (async () => {
-      const cred = await loadRepeaterCred(contact.pubkeyPrefix);
+      const cred = await loadRepeaterCred(prefix);
       if (cancelled) return;
       if (cred) {
-        setRemembered(true);
         // A failed auto-login (e.g. the node's password changed) falls back to
         // the gate via the login toast; the stale credential is left in place
         // since the failure may be transient.
-        void repeaterLogin(contact, cred.password, cred.access, true);
+        void repeaterLoginRef.current(
+          contactRef.current,
+          cred.password,
+          cred.access,
+          true,
+        );
       }
       setChecking(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [contact, login, repeaterLogin]);
+  }, [prefix]);
 
-  const logoutForget = () => {
+  // Logging out also forgets any remembered credential, so the next visit
+  // re-prompts instead of silently auto-logging back in.
+  const logOut = () => {
     resetAdminSession(contact.pubkeyPrefix);
     void clearRepeaterCred(contact.pubkeyPrefix);
-    setRemembered(false);
   };
 
   return (
@@ -137,12 +148,10 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
           </span>
           {authed && (
             <button
-              onClick={logoutForget}
-              className='rounded-md px-2.5 py-1 text-xs text-(--text) hover:bg-(--surface2)'
+              onClick={logOut}
+              className='rounded-md border border-(--red) px-2.5 py-1 text-xs text-(--red) hover:bg-(--red-dim) hover:text-white'
             >
-              {remembered
-                ? t('repeaterAdmin.dashboard.logoutForget')
-                : t('repeaterAdmin.dashboard.logout')}
+              {t('repeaterAdmin.dashboard.logout')}
             </button>
           )}
         </div>
@@ -161,19 +170,18 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
           </div>
         </>
       ) : (
-        <div className='flex-1 overflow-y-auto p-4'>
+        <div className='flex flex-1 flex-col items-center justify-center overflow-y-auto p-4'>
           {checking ? (
             <p className='text-sm text-(--text2)'>
               {t('repeaterAdmin.login.checking')}
             </p>
           ) : (
-            <div className='mx-auto max-w-md'>
+            <div className='w-full max-w-md'>
               <LoginGate
                 pending={login === 'pending'}
-                onSubmit={(password, kind, remember) => {
-                  setRemembered(remember);
-                  void repeaterLogin(contact, password, kind, remember);
-                }}
+                onSubmit={(password, kind, remember) =>
+                  void repeaterLogin(contact, password, kind, remember)
+                }
               />
             </div>
           )}
@@ -339,7 +347,8 @@ function LoginGate({
 /**
  * The Status tab: grouped cards of the repeater's live status with a Refresh
  * button. Fetches once on mount (first entry) and again on demand; the fetched
- * status is read from the store.
+ * status is read from the store. Cards reuse the shared {@link StatCard} and
+ * its shimmer skeleton while a fetch is in flight, matching the Stats page.
  */
 function StatusDashboard({
   status,
@@ -372,7 +381,103 @@ function StatusDashboard({
 
   const num = (n: number) => n.toLocaleString(i18n.language);
   const dbm = (n: number) => t('repeaterAdmin.dbm', { value: num(n) });
-  const cards = status ? buildCards(t, status, num, dbm) : [];
+  const s = status;
+  // Include a row only when the firmware reported that field.
+  const opt = (
+    label: string,
+    value: number | undefined,
+    fmt: (n: number) => string,
+  ): [string, string][] => (value == null ? [] : [[label, fmt(value)]]);
+
+  // One descriptor per card: `labels` drives the loading skeleton (one shimmer
+  // row per label) and `rows` the loaded values (dropping unreported fields) —
+  // the same shape the Stats page uses so the layout doesn't shift.
+  const cards: {
+    title: string;
+    labels: string[];
+    rows: [string, string][] | null;
+  }[] = [
+    {
+      title: t('repeaterAdmin.card.power'),
+      labels: [
+        t('repeaterAdmin.battery'),
+        t('repeaterAdmin.batteryPercent'),
+        t('repeaterAdmin.uptime'),
+        t('repeaterAdmin.queueLength'),
+      ],
+      rows: s
+        ? [
+            [t('repeaterAdmin.battery'), formatVoltage(s.battMilliVolts)],
+            [
+              t('repeaterAdmin.batteryPercent'),
+              `${approxBatteryPercent(s.battMilliVolts)}%`,
+            ],
+            ...opt(t('repeaterAdmin.uptime'), s.totalUpTimeSecs, formatUptime),
+            [t('repeaterAdmin.queueLength'), num(s.currTxQueueLen)],
+          ]
+        : null,
+    },
+    {
+      title: t('repeaterAdmin.card.radio'),
+      labels: [
+        t('repeaterAdmin.noiseFloor'),
+        t('repeaterAdmin.lastRssi'),
+        t('repeaterAdmin.lastSnr'),
+      ],
+      rows: s
+        ? [
+            ...opt(t('repeaterAdmin.noiseFloor'), s.noiseFloor, dbm),
+            ...opt(t('repeaterAdmin.lastRssi'), s.lastRssi, dbm),
+            ...opt(t('repeaterAdmin.lastSnr'), s.lastSnr, formatSnr),
+          ]
+        : null,
+    },
+    {
+      title: t('repeaterAdmin.card.airtime'),
+      labels: [t('repeaterAdmin.txAirtime'), t('repeaterAdmin.rxAirtime')],
+      rows: s
+        ? [
+            ...opt(
+              t('repeaterAdmin.txAirtime'),
+              s.totalAirTimeSecs,
+              formatAirtime,
+            ),
+            ...opt(
+              t('repeaterAdmin.rxAirtime'),
+              s.totalRxAirTimeSecs,
+              formatAirtime,
+            ),
+          ]
+        : null,
+    },
+    {
+      title: t('repeaterAdmin.card.packets'),
+      labels: [
+        t('repeaterAdmin.received'),
+        t('repeaterAdmin.sent'),
+        t('repeaterAdmin.floodTx'),
+        t('repeaterAdmin.floodRx'),
+        t('repeaterAdmin.directTx'),
+        t('repeaterAdmin.directRx'),
+        t('repeaterAdmin.floodDups'),
+        t('repeaterAdmin.directDups'),
+        t('repeaterAdmin.rxErrors'),
+      ],
+      rows: s
+        ? [
+            ...opt(t('repeaterAdmin.received'), s.nPacketsRecv, num),
+            ...opt(t('repeaterAdmin.sent'), s.nPacketsSent, num),
+            ...opt(t('repeaterAdmin.floodTx'), s.nSentFlood, num),
+            ...opt(t('repeaterAdmin.floodRx'), s.nRecvFlood, num),
+            ...opt(t('repeaterAdmin.directTx'), s.nSentDirect, num),
+            ...opt(t('repeaterAdmin.directRx'), s.nRecvDirect, num),
+            ...opt(t('repeaterAdmin.floodDups'), s.nFloodDups, num),
+            ...opt(t('repeaterAdmin.directDups'), s.nDirectDups, num),
+            ...opt(t('repeaterAdmin.rxErrors'), s.nRecvErrors, num),
+          ]
+        : null,
+    },
+  ];
 
   return (
     <div className='space-y-4'>
@@ -388,100 +493,30 @@ function StatusDashboard({
         </button>
       </div>
 
-      {status ? (
-        <div className='grid grid-cols-2 gap-3'>
-          {cards.map(({ title: cardTitle, rows }) => (
-            <StatCard key={cardTitle} title={cardTitle} rows={rows} />
+      {loading ? (
+        <div className='grid grid-cols-2 gap-4'>
+          {cards.map(({ title: cardTitle, labels }) => (
+            <StatCard
+              key={cardTitle}
+              title={cardTitle}
+              loading
+              rows={labels.map((label) => [label, ''])}
+            />
           ))}
+        </div>
+      ) : status ? (
+        <div className='grid grid-cols-2 gap-4'>
+          {cards
+            .filter((c) => c.rows && c.rows.length > 0)
+            .map(({ title: cardTitle, rows }) => (
+              <StatCard key={cardTitle} title={cardTitle} rows={rows ?? []} />
+            ))}
         </div>
       ) : (
         <p className='text-sm text-(--text2)'>
-          {loading
-            ? t('repeaterAdmin.dashboard.loading')
-            : t('repeaterAdmin.dashboard.unavailable')}
+          {t('repeaterAdmin.dashboard.unavailable')}
         </p>
       )}
-    </div>
-  );
-}
-
-/**
- * Groups a decoded {@link RepeaterStatus} into display cards, dropping any row
- * whose field the firmware didn't report. `num`/`dbm` are the locale-bound
- * value formatters from the dashboard.
- */
-function buildCards(
-  t: ReturnType<typeof useTranslation>['t'],
-  s: RepeaterStatus,
-  num: (n: number) => string,
-  dbm: (n: number) => string,
-): { title: string; rows: [string, string][] }[] {
-  const opt = (
-    label: string,
-    value: number | undefined,
-    fmt: (n: number) => string,
-  ): [string, string][] => (value == null ? [] : [[label, fmt(value)]]);
-
-  const power: [string, string][] = [
-    [t('repeaterAdmin.battery'), formatVoltage(s.battMilliVolts)],
-    [
-      t('repeaterAdmin.batteryPercent'),
-      `${approxBatteryPercent(s.battMilliVolts)}%`,
-    ],
-    ...opt(t('repeaterAdmin.uptime'), s.totalUpTimeSecs, formatUptime),
-    [t('repeaterAdmin.queueLength'), num(s.currTxQueueLen)],
-  ];
-
-  const radio: [string, string][] = [
-    ...opt(t('repeaterAdmin.noiseFloor'), s.noiseFloor, dbm),
-    ...opt(t('repeaterAdmin.lastRssi'), s.lastRssi, dbm),
-    ...opt(t('repeaterAdmin.lastSnr'), s.lastSnr, formatSnr),
-  ];
-
-  const airtime: [string, string][] = [
-    ...opt(t('repeaterAdmin.txAirtime'), s.totalAirTimeSecs, formatAirtime),
-    ...opt(t('repeaterAdmin.rxAirtime'), s.totalRxAirTimeSecs, formatAirtime),
-  ];
-
-  const packets: [string, string][] = [
-    ...opt(t('repeaterAdmin.received'), s.nPacketsRecv, num),
-    ...opt(t('repeaterAdmin.sent'), s.nPacketsSent, num),
-    ...opt(t('repeaterAdmin.floodTx'), s.nSentFlood, num),
-    ...opt(t('repeaterAdmin.floodRx'), s.nRecvFlood, num),
-    ...opt(t('repeaterAdmin.directTx'), s.nSentDirect, num),
-    ...opt(t('repeaterAdmin.directRx'), s.nRecvDirect, num),
-    ...opt(t('repeaterAdmin.floodDups'), s.nFloodDups, num),
-    ...opt(t('repeaterAdmin.directDups'), s.nDirectDups, num),
-    ...opt(t('repeaterAdmin.rxErrors'), s.nRecvErrors, num),
-  ];
-
-  return [
-    { title: t('repeaterAdmin.card.power'), rows: power },
-    { title: t('repeaterAdmin.card.radio'), rows: radio },
-    { title: t('repeaterAdmin.card.airtime'), rows: airtime },
-    { title: t('repeaterAdmin.card.packets'), rows: packets },
-  ].filter((c) => c.rows.length > 0);
-}
-
-/** A titled card rendering `[label, value]` rows for one status group. */
-function StatCard({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: [string, string][];
-}) {
-  return (
-    <div className='rounded-lg border border-(--border) bg-(--surface) p-3'>
-      <h3 className='mb-2 text-xs font-semibold text-(--text2)'>{title}</h3>
-      <div className='space-y-1'>
-        {rows.map(([label, value]) => (
-          <div key={label} className='flex items-center justify-between gap-2'>
-            <span className='text-xs text-(--text2)'>{label}</span>
-            <span className='text-sm text-(--text)'>{value}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

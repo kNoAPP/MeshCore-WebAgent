@@ -510,8 +510,6 @@
       "refresh": "Aktualisieren",
       "refreshing": "Wird aktualisiert…",
       "logout": "Abmelden",
-      "logoutForget": "Abmelden & Anmeldedaten vergessen",
-      "loading": "Status wird geladen…",
       "unavailable": "Noch kein Status empfangen. Bitte aktualisieren."
     },
     "card": {

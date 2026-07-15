@@ -510,8 +510,6 @@
       "refresh": "Actualizar",
       "refreshing": "Actualizando…",
       "logout": "Cerrar sesión",
-      "logoutForget": "Cerrar sesión y olvidar credenciales",
-      "loading": "Cargando estado…",
       "unavailable": "Aún no se ha recibido estado. Intenta actualizar."
     },
     "card": {

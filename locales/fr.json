@@ -510,8 +510,6 @@
       "refresh": "Actualiser",
       "refreshing": "Actualisation…",
       "logout": "Se déconnecter",
-      "logoutForget": "Se déconnecter et oublier les identifiants",
-      "loading": "Chargement de l’état…",
       "unavailable": "Aucun état reçu pour l’instant. Essayez d’actualiser."
     },
     "card": {
