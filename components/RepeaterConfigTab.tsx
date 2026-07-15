@@ -429,7 +429,7 @@ export function RepeaterConfigTab({
 
   return (
     <>
-      <div className='mx-auto grid w-full max-w-6xl grid-cols-1 items-start gap-4 xl:grid-cols-2'>
+      <div className='mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 xl:grid-cols-2'>
         {readOnly && (
           <p
             className='rounded-md border border-(--border) p-3 text-xs text-(--text2) xl:col-span-2'
