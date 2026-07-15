@@ -63,6 +63,14 @@ const READ_PASSES = 3;
 const READ_CONCURRENCY = 4;
 
 /**
+ * The settings shown in the always-visible groups. These load on entry; the
+ * {@link REPEATER_ADVANCED_SETTINGS} are deferred until their disclosure is
+ * first opened, so the initial prefill is smaller and fills in faster.
+ */
+const PRIMARY_REPEATER_SETTINGS: readonly RepeaterSetting[] =
+  REPEATER_SETTING_GROUPS.flatMap((g) => g.settings);
+
+/**
  * The Config tab of the repeater admin panel: structured, validated controls
  * for the common `get`/`set` settings plus the key action verbs, all driven by
  * the {@link REPEATER_SETTING_GROUPS} catalog. On open it prefills every field
@@ -86,8 +94,10 @@ export function RepeaterConfigTab({
   // Ids whose current value is still being read; drives per-field placeholders
   // and the "reading" header. A field is dropped once its read settles (loaded,
   // errored, or timed out), so a slow/lost reply never blocks the whole tab.
+  // Starts with the primary settings only — the advanced knobs are added when
+  // their disclosure is first opened.
   const [pending, setPending] = useState<Set<string>>(
-    () => new Set(ALL_REPEATER_SETTINGS.map((s) => s.id)),
+    () => new Set(PRIMARY_REPEATER_SETTINGS.map((s) => s.id)),
   );
   const [status, setStatus] = useState<Record<string, SaveStatus>>({});
   // The last error message per field, shown on the error chip's tooltip.
@@ -108,9 +118,15 @@ export function RepeaterConfigTab({
   // The mount-time contact; its pubkey is immutable, so a later contact-table
   // refresh (new object identity, same node) needn't re-run the prefill.
   const contactRef = useRef(contact);
-  // Token for the active read pass. A new pass (or unmount) flips the prior
-  // token's `live` to false so a late reply can't write into a stale pass.
-  const runRef = useRef<{ live: boolean }>({ live: false });
+  // Read generation. A new generation (refresh or unmount) makes prior
+  // in-flight reads bail before they write, without cross-cancelling a
+  // concurrent read of a different field set (e.g. the deferred advanced load
+  // overlapping the primary prefill), which share the same generation.
+  const genRef = useRef(0);
+  // Whether the advanced knobs have been requested (their disclosure was opened
+  // at least once). Gates the one-time deferred load and whether refresh
+  // re-reads them.
+  const advancedLoadedRef = useRef(false);
   // False after unmount, so an in-flight commit doesn't set state on a gone
   // component.
   const aliveRef = useRef(true);
@@ -130,25 +146,26 @@ export function RepeaterConfigTab({
     return run;
   }, []);
 
-  // Reads every field's current value. The gets are pipelined (a bounded
+  // Reads the given fields' current values. The gets are pipelined (a bounded
   // window in flight at once) and correlated by the per-command tag, rather
   // than run one blocking round-trip at a time. Fields populate as each reply
-  // lands rather than gating the tab behind all of them.
-  const read = useCallback(() => {
-    runRef.current.live = false;
-    const run = (runRef.current = { live: true });
+  // lands rather than gating the tab behind all of them. Takes an explicit set
+  // so the advanced knobs can be loaded separately, on demand.
+  const read = useCallback((settings: readonly RepeaterSetting[]) => {
+    const gen = genRef.current;
+    const live = () => aliveRef.current && genRef.current === gen;
     void (async () => {
       // Retry gaps: CLI replies are often dropped over the mesh, so re-request
       // any field that didn't answer, up to a few passes. A field stays
       // "reading" until it loads or the passes are exhausted.
-      let queue: RepeaterSetting[] = [...ALL_REPEATER_SETTINGS];
+      let queue: RepeaterSetting[] = [...settings];
       for (let pass = 0; pass < READ_PASSES && queue.length > 0; pass++) {
         const batch = queue;
         const misses: RepeaterSetting[] = [];
         let cursor = 0;
         const worker = async () => {
           while (cursor < batch.length) {
-            if (!run.live) return;
+            if (!live()) return;
             const setting = batch[cursor++];
             let parsed: string | null = null;
             try {
@@ -156,10 +173,10 @@ export function RepeaterConfigTab({
                 contactRef.current,
                 getCommand(setting),
               );
-              if (!run.live) return;
+              if (!live()) return;
               if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
             } catch {
-              if (!run.live) return;
+              if (!live()) return;
             }
             if (parsed != null) {
               const value = parsed;
@@ -181,34 +198,58 @@ export function RepeaterConfigTab({
             worker(),
           ),
         );
-        if (!run.live) return;
+        if (!live()) return;
         queue = misses;
       }
-      if (!run.live) return;
-      // Stop showing "reading" for fields that never answered.
-      setPending((prev) => (prev.size === 0 ? prev : new Set()));
+      if (!live()) return;
+      // Stop showing "reading" for this call's fields that never answered,
+      // without touching a concurrent read's still-pending fields.
+      setPending((prev) => {
+        let changed = false;
+        const next = new Set(prev);
+        for (const s of settings) if (next.delete(s.id)) changed = true;
+        return changed ? next : prev;
+      });
     })();
   }, []);
 
-  // Manual re-read: mark every field pending again, then read. `setPending`
-  // here is a user-gesture update, not an effect body, so it's allowed.
+  // Manual re-read: mark the visible fields pending again, then read. Includes
+  // the advanced knobs only if they've been opened. `setPending` here is a
+  // user-gesture update, not an effect body, so it's allowed.
   const refresh = useCallback(() => {
-    setPending(new Set(ALL_REPEATER_SETTINGS.map((s) => s.id)));
-    read();
+    genRef.current += 1;
+    const settings = advancedLoadedRef.current
+      ? ALL_REPEATER_SETTINGS
+      : PRIMARY_REPEATER_SETTINGS;
+    setPending(new Set(settings.map((s) => s.id)));
+    read(settings);
+  }, [read]);
+
+  // Deferred, one-time load of the advanced knobs when their disclosure first
+  // opens. Runs alongside (not cancelling) any in-flight primary prefill.
+  const loadAdvanced = useCallback(() => {
+    if (advancedLoadedRef.current) return;
+    advancedLoadedRef.current = true;
+    setPending((prev) => {
+      const next = new Set(prev);
+      for (const s of REPEATER_ADVANCED_SETTINGS) next.add(s.id);
+      return next;
+    });
+    read(REPEATER_ADVANCED_SETTINGS);
   }, [read]);
 
   // Prefill on entry — once per mount (the tab remounts per repeater and on
-  // reopen); `pending` starts full from the initializer. On unmount, cancel the
-  // run and drop any pending CLI request so its reply can't reach a new panel.
+  // reopen); `pending` starts with the primary fields from the initializer. On
+  // unmount, cancel in-flight reads and drop any pending CLI request so its
+  // reply can't reach a new panel.
   useEffect(() => {
     aliveRef.current = true;
-    read();
-    const run = runRef.current;
+    read(PRIMARY_REPEATER_SETTINGS);
     const timers = savedTimers.current;
     const prefix = contactRef.current.pubkeyPrefix;
     return () => {
       aliveRef.current = false;
-      run.live = false;
+      genRef.current += 1;
       clearRepeaterCli(prefix);
       for (const timer of Object.values(timers)) clearTimeout(timer);
     };
@@ -354,7 +395,7 @@ export function RepeaterConfigTab({
         </Section>
       ))}
 
-      <AdvancedSection>
+      <AdvancedSection onReveal={loadAdvanced}>
         {REPEATER_ADVANCED_SETTINGS.map((setting) => (
           <SettingRow key={setting.id} {...rowProps(setting)} />
         ))}
@@ -392,9 +433,20 @@ function Section({
 }
 
 /** The advanced routing knobs, collapsed behind a disclosure by default. */
-function AdvancedSection({ children }: { children: React.ReactNode }) {
+function AdvancedSection({
+  onReveal,
+  children,
+}: {
+  onReveal: () => void;
+  children: React.ReactNode;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  // Load the knobs the first time the section is opened, not on mount.
+  const toggle = () => {
+    if (!open) onReveal();
+    setOpen((v) => !v);
+  };
   return (
     <section
       className='overflow-hidden rounded-xl border border-(--border)'
@@ -402,7 +454,7 @@ function AdvancedSection({ children }: { children: React.ReactNode }) {
     >
       <button
         type='button'
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
         className='flex w-full items-center justify-between px-4 py-2 text-[11px] font-semibold tracking-wide text-(--text2) uppercase hover:text-(--text)'
       >
