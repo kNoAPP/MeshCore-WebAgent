@@ -41,6 +41,10 @@ type ValueMap = Record<string, string>;
 /** Stable empty values map, so an uncached repeater doesn't churn renders. */
 const EMPTY_VALUES: ValueMap = {};
 
+/** Shared className for a config row: label left, content right, hairline. */
+const ROW_CLASS =
+  'flex items-center justify-between gap-3 border-b border-(--border) py-1.5 text-xs last:border-0';
+
 /** Per-field save lifecycle shown as a small status chip. */
 type SaveStatus = 'saving' | 'saved' | 'error';
 
@@ -586,8 +590,8 @@ interface RowProps {
 
 /**
  * One setting as a compact label→control row. Toggles/selects auto-commit on
- * change; typed fields commit on blur/Enter (an invalid edit reverts). The
- * composite radio setting delegates to {@link RadioRow}.
+ * change; typed fields commit on blur/Enter (an invalid edit reverts). A slider
+ * drives number fields; the load state is rendered by {@link FieldSlot}.
  */
 function SettingRow({
   setting,
@@ -619,62 +623,54 @@ function SettingRow({
   };
 
   return (
-    <div className='flex items-center justify-between gap-3 border-b border-(--border) py-1.5 text-xs last:border-0'>
+    <div className={ROW_CLASS}>
       <div className='flex min-w-0 flex-1 items-center gap-1.5'>
         <span className='truncate text-(--text2)'>{label}</span>
         {setting.requiresReboot && <RebootPill />}
       </div>
       <div className='flex shrink-0 items-center gap-2'>
-        {loading ? (
-          <span className='text-xs text-(--text2)'>
-            {t('repeaterAdmin.config.readingField')}
-          </span>
-        ) : !loaded ? (
-          <UnloadedValue />
-        ) : (
-          <>
-            {setting.kind === 'toggle' && (
-              <SwitchControl
-                setting={setting}
-                value={draft}
-                disabled={readOnly}
-                ariaLabel={label}
-                onSelect={onCommit}
-              />
-            )}
-            {setting.kind === 'number' && (
-              <SliderField
-                setting={setting}
-                value={draft}
-                disabled={readOnly}
-                ariaLabel={label}
-                onChange={onDraft}
-                onCommitEdit={commitEdit}
-              />
-            )}
-            {setting.kind === 'select' && (
-              <SelectField
-                setting={setting}
-                value={draft}
-                disabled={readOnly}
-                ariaLabel={label}
-                onSelect={onCommit}
-              />
-            )}
-            {setting.kind === 'text' && (
-              <TextField
-                value={draft}
-                maxBytes={maxBytes ?? setting.maxBytes}
-                valid={valid}
-                disabled={readOnly}
-                ariaLabel={label}
-                onChange={onDraft}
-                onCommitEdit={commitEdit}
-              />
-            )}
-            <StatusChip status={status} errorText={errorText} />
-          </>
-        )}
+        <FieldSlot loading={loading} loaded={loaded}>
+          {setting.kind === 'toggle' && (
+            <SwitchControl
+              setting={setting}
+              value={draft}
+              disabled={readOnly}
+              ariaLabel={label}
+              onSelect={onCommit}
+            />
+          )}
+          {setting.kind === 'number' && (
+            <SliderField
+              setting={setting}
+              value={draft}
+              disabled={readOnly}
+              ariaLabel={label}
+              onChange={onDraft}
+              onCommitEdit={commitEdit}
+            />
+          )}
+          {setting.kind === 'select' && (
+            <SelectField
+              setting={setting}
+              value={draft}
+              disabled={readOnly}
+              ariaLabel={label}
+              onSelect={onCommit}
+            />
+          )}
+          {setting.kind === 'text' && (
+            <TextField
+              value={draft}
+              maxBytes={maxBytes ?? setting.maxBytes}
+              valid={valid}
+              disabled={readOnly}
+              ariaLabel={label}
+              onChange={onDraft}
+              onCommitEdit={commitEdit}
+            />
+          )}
+          <StatusChip status={status} errorText={errorText} />
+        </FieldSlot>
       </div>
     </div>
   );
@@ -683,6 +679,31 @@ function SettingRow({
 /** Placeholder for a field whose value hasn't been loaded yet. */
 function UnloadedValue() {
   return <span className='text-(--text2)'>—</span>;
+}
+
+/**
+ * Renders a row's right-hand content by load state: a "reading" caption while
+ * fetching, a placeholder until the value first loads, else its control(s).
+ */
+function FieldSlot({
+  loading,
+  loaded,
+  children,
+}: {
+  loading: boolean;
+  loaded: boolean;
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  if (loading) {
+    return (
+      <span className='text-(--text2)'>
+        {t('repeaterAdmin.config.readingField')}
+      </span>
+    );
+  }
+  if (!loaded) return <UnloadedValue />;
+  return <>{children}</>;
 }
 
 /** A save-lifecycle indicator (spinner / ✓ / ⚠); renders nothing when idle. */
@@ -991,25 +1012,17 @@ function LocationRow({
   const loading = latProps.loading || (lonProps?.loading ?? false);
   const loaded = latProps.value !== '' || (lonProps?.value ?? '') !== '';
   return (
-    <div className='flex items-center justify-between gap-3 border-b border-(--border) py-1.5 text-xs last:border-0'>
+    <div className={ROW_CLASS}>
       <div className='flex min-w-0 flex-1 items-center gap-1.5'>
         <span className='truncate text-(--text2)'>
           {t('repeaterAdmin.config.location')}
         </span>
       </div>
       <div className='flex shrink-0 items-center gap-3'>
-        {loading ? (
-          <span className='text-xs text-(--text2)'>
-            {t('repeaterAdmin.config.readingField')}
-          </span>
-        ) : !loaded ? (
-          <UnloadedValue />
-        ) : (
-          <>
-            <CoordField {...latProps} />
-            {lonProps && <CoordField {...lonProps} />}
-          </>
-        )}
+        <FieldSlot loading={loading} loaded={loaded}>
+          <CoordField {...latProps} />
+          {lonProps && <CoordField {...lonProps} />}
+        </FieldSlot>
       </div>
     </div>
   );
@@ -1152,19 +1165,12 @@ function ValueRow({
   value: string | null;
   loading: boolean;
 }) {
-  const { t } = useTranslation();
   return (
-    <div className='flex items-center justify-between gap-3 border-b border-(--border) py-1.5 text-xs last:border-0'>
+    <div className={ROW_CLASS}>
       <span className='shrink-0 text-(--text2)'>{label}</span>
-      {loading ? (
-        <span className='text-(--text2)'>
-          {t('repeaterAdmin.config.readingField')}
-        </span>
-      ) : value == null ? (
-        <UnloadedValue />
-      ) : (
+      <FieldSlot loading={loading} loaded={value != null}>
         <span className='font-semibold'>{value}</span>
-      )}
+      </FieldSlot>
     </div>
   );
 }
@@ -1180,13 +1186,7 @@ function ActionsSection({
   const reboot = REPEATER_ACTIONS.find((a) => a.id === 'reboot');
 
   return (
-    <section
-      className='rounded-lg p-3.5'
-      style={{ background: 'var(--surface2)' }}
-    >
-      <h3 className='mb-2.5 text-[11px] font-bold tracking-widest text-(--accent) uppercase'>
-        {t('repeaterAdmin.config.actionsTitle')}
-      </h3>
+    <Section title={t('repeaterAdmin.config.actionsTitle')}>
       <div className='flex flex-wrap items-center gap-2'>
         {REPEATER_ACTIONS.filter((a) => !a.destructive).map((a) => (
           <button
@@ -1231,7 +1231,7 @@ function ActionsSection({
           </div>
         </div>
       )}
-    </section>
+    </Section>
   );
 }
 

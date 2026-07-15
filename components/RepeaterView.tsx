@@ -406,6 +406,8 @@ function StatusDashboard({
 
   const num = (n: number) => n.toLocaleString(i18n.language);
   const dbm = (n: number) => t('repeaterAdmin.dbm', { value: num(n) });
+  // Shared responsive layout for the stat cards (loading and loaded).
+  const gridClass = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
   const s = status;
   // Include a row only when the firmware reported that field.
   const opt = (
@@ -511,7 +513,7 @@ function StatusDashboard({
       </div>
 
       {loading ? (
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
+        <div className={gridClass}>
           {cards.map(({ title: cardTitle, labels }) => (
             <StatCard
               key={cardTitle}
@@ -522,7 +524,7 @@ function StatusDashboard({
           ))}
         </div>
       ) : status ? (
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
+        <div className={gridClass}>
           {cards
             .filter((c) => c.rows && c.rows.length > 0)
             .map(({ title: cardTitle, rows }) => (
