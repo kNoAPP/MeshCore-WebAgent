@@ -41,9 +41,10 @@ import {
   FAVORITE_FLAG,
   ERR_CODE,
   ADVERT_LOC_POLICY,
+  MAX_MSG_BYTES,
 } from '@/lib/meshcore/constants';
 import { splitPathHashes } from '@/lib/meshcore/parsers';
-import { toHex, fromHex, bytesEqual } from '@/lib/utils';
+import { toHex, fromHex, bytesEqual, truncateUtf8 } from '@/lib/utils';
 import i18n from '@/lib/i18n';
 import type {
   ActiveConvo,
@@ -53,6 +54,7 @@ import type {
   RadioParams,
   Message,
   RawRxPacket,
+  RepeaterAccess,
   ITransport,
 } from '@/types/meshcore';
 import type { AutomationRule } from '@/types/automation';
@@ -503,6 +505,9 @@ export function useMeshCore() {
     restoreAdvertCache,
     restoreAutomationRules,
     restorePreferences,
+    appendCliLine,
+    setAdminLogin,
+    setRepeaterStatus,
     showToast,
   } = useMeshStore();
 
@@ -528,6 +533,12 @@ export function useMeshCore() {
         onSyncProgress: (p) => setSyncProgress(p),
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
+        onCliReply: ({ pubkeyPrefix, text }) => {
+          // A queued frame can fire this after teardown; skip it so a late
+          // reply can't recreate adminSessions that reset() just cleared.
+          if (!canTransmit(c)) return;
+          appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
+        },
         onAdvertsUpdated: (adverts) => {
           const next = { ...adverts };
           setAdverts(next);
@@ -600,6 +611,7 @@ export function useMeshCore() {
       setAdverts,
       cacheAdverts,
       addMessage,
+      appendCliLine,
       showToast,
     ],
   );
@@ -1051,6 +1063,100 @@ export function useMeshCore() {
       }
     },
     [client, showToast],
+  );
+
+  /**
+   * Logs in to a repeater/room server for remote admin. Marks the session
+   * `pending`, then the granted `admin`/`guest` level on success or `loggedOut`
+   * on failure (surfaced via toast). The server decides the level from the
+   * password and its reported role is authoritative; `kind` is only the level
+   * the caller attempted, used as a fallback for legacy responses that cannot
+   * report a role. The password is never stored, only the resulting access.
+   */
+  const repeaterLogin = useCallback(
+    async (contact: Contact, password: string, kind: RepeaterAccess) => {
+      if (!canTransmit(client)) return;
+      setAdminLogin(contact.pubkeyPrefix, 'pending');
+      try {
+        const access = await client.login(contact, password);
+        // A drop during login can tear the session down; don't revive it.
+        if (!canTransmit(client)) return;
+        setAdminLogin(contact.pubkeyPrefix, access ?? kind);
+      } catch (err) {
+        // A disconnect/drop rejects the pending login and runs its own
+        // teardown; don't clobber that outcome with a stale login error. A full
+        // disconnect already cleared the slice (leave it gone); a transient
+        // drop keeps the entry, so just clear its `pending` spinner silently.
+        if (!canTransmit(client)) {
+          if (useMeshStore.getState().adminSessions[contact.pubkeyPrefix]) {
+            setAdminLogin(contact.pubkeyPrefix, 'loggedOut');
+          }
+          return;
+        }
+        setAdminLogin(contact.pubkeyPrefix, 'loggedOut');
+        showToast(
+          i18n.t('toast.repeaterLoginFailed', {
+            error: (err as Error).message,
+          }),
+          'error',
+        );
+      }
+    },
+    [client, setAdminLogin, showToast],
+  );
+
+  /** Requests a repeater's live status and stores it on its admin session. */
+  const repeaterStatus = useCallback(
+    async (contact: Contact) => {
+      if (!canTransmit(client)) return;
+      try {
+        const status = await client.requestStatus(contact);
+        // Skip a stale update if the session dropped mid-request.
+        if (!canTransmit(client)) return;
+        setRepeaterStatus(contact.pubkeyPrefix, status);
+      } catch (err) {
+        // A disconnect rejects the in-flight request; its teardown owns the
+        // user-facing toast, so suppress this stale operation error.
+        if (!canTransmit(client)) return;
+        showToast(
+          i18n.t('toast.repeaterStatusFailed', {
+            error: (err as Error).message,
+          }),
+          'error',
+        );
+      }
+    },
+    [client, setRepeaterStatus, showToast],
+  );
+
+  /**
+   * Sends a remote-admin CLI command to a repeater. Echoes the outgoing line to
+   * the transcript immediately; the reply arrives later via `onCliReply`.
+   */
+  const repeaterCli = useCallback(
+    async (contact: Contact, cmd: string) => {
+      if (!canTransmit(client)) return;
+      // `sendCliCommand` truncates to MAX_MSG_BYTES UTF-8 bytes, so normalize
+      // once and echo exactly what the repeater will receive.
+      const line = truncateUtf8(cmd, MAX_MSG_BYTES);
+      appendCliLine(contact.pubkeyPrefix, {
+        own: true,
+        text: line,
+        ts: Date.now(),
+      });
+      try {
+        await client.sendCliCommand(contact, line);
+      } catch (err) {
+        // A disconnect rejects the pending send; its teardown owns the toast,
+        // so only surface failures from a still-live session.
+        if (!canTransmit(client)) return;
+        showToast(
+          i18n.t('toast.repeaterCliFailed', { error: (err as Error).message }),
+          'error',
+        );
+      }
+    },
+    [client, appendCliLine, showToast],
   );
 
   /** Saves a heard advert as a contact on the radio. */
@@ -1515,6 +1621,9 @@ export function useMeshCore() {
     retryMessage,
     resetContactPath,
     toggleFavorite,
+    repeaterLogin,
+    repeaterStatus,
+    repeaterCli,
     addDiscoveredContact,
     importContact,
     shareContact,

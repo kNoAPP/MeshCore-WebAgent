@@ -693,6 +693,9 @@
     "selfAdvertFloodSent": "Annonce diffusée au réseau",
     "selfAdvertFailed": "Échec de l'annonce : {{error}}",
     "rebooting": "Redémarrage… reconnexion dès le retour de l'appareil",
-    "rebootFailed": "Échec du redémarrage : {{error}}"
+    "rebootFailed": "Échec du redémarrage : {{error}}",
+    "repeaterLoginFailed": "Échec de la connexion : {{error}}",
+    "repeaterStatusFailed": "Échec de la récupération du statut : {{error}}",
+    "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}"
   }
 }

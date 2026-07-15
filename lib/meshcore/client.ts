@@ -16,6 +16,7 @@ import type {
   SendReceipt,
   RawRxPacket,
   RepeaterStatus,
+  RepeaterAccess,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import { MeshConnectError } from './errors';
@@ -217,7 +218,7 @@ export class MeshCoreClient {
   // Login and status replies arrive as unsolicited pushes long after the SENT
   // receipt, so they can't ride the `handlers` queue. Each is matched back to
   // its request by the target's 6-byte pubkey prefix (hex).
-  private loginWaiters = new Map<string, PushWaiter<void>>();
+  private loginWaiters = new Map<string, PushWaiter<RepeaterAccess | null>>();
   private statusWaiters = new Map<string, PushWaiter<RepeaterStatus>>();
   // Serializes the full login/status handshake (the SENT receipt *and* the
   // async push that follows). Current firmware retains only one pending remote
@@ -507,9 +508,11 @@ export class MeshCoreClient {
     }
     if (type === RESP.PUSH_LOGIN_SUCCESS) {
       // A repeater/room-server accepted a login; match the pending request by
-      // its pubkey prefix. Pushes with no matching waiter are dropped.
-      const prefix = parseLoginPush(d);
-      if (prefix) this.settlePush(this.loginWaiters, prefix, undefined);
+      // its pubkey prefix and resolve it with the server-granted access level.
+      // Pushes with no matching waiter are dropped.
+      const login = parseLoginPush(d);
+      if (login)
+        this.settlePush(this.loginWaiters, login.pubkeyPrefix, login.access);
       return;
     }
     if (type === RESP.PUSH_STATUS_RESPONSE) {
@@ -779,12 +782,19 @@ export class MeshCoreClient {
    * that push is derived from the `SENT` receipt (which can be several seconds
    * over a multi-hop path), not the fixed command timeout. An empty password is
    * a valid guest login.
+   * @returns the access level the server granted, decoded from the success
+   * push — the server decides this from the password, so it is authoritative.
+   * `null` when the response is a legacy `"OK"` that cannot report the role, in
+   * which case the caller falls back to the level it attempted.
    * @throws if the radio answers `ERR`, or no success push arrives in time (a
    * wrong password typically produces no response, so it surfaces as a
    * timeout).
    */
-  async login(contact: Contact, password: string): Promise<void> {
-    await this.remoteRequest(
+  async login(
+    contact: Contact,
+    password: string,
+  ): Promise<RepeaterAccess | null> {
+    return this.remoteRequest(
       this.loginWaiters,
       contact.pubkeyBytes,
       buildSendLogin(contact.pubkeyBytes, password),

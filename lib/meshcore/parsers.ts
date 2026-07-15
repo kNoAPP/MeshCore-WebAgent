@@ -14,8 +14,15 @@ import type {
   SendReceipt,
   RawRxPacket,
   RepeaterStatus,
+  RepeaterAccess,
 } from '@/types/meshcore';
-import { ROUTE_TYPE_FLOOD, RADIO_PARAM_SCALE, TXT_TYPE } from './constants';
+import {
+  ROUTE_TYPE_FLOOD,
+  RADIO_PARAM_SCALE,
+  TXT_TYPE,
+  PERM_ACL_ROLE_MASK,
+  PERM_ACL_ADMIN,
+} from './constants';
 import { toHex } from '@/lib/utils';
 
 // Decoders for inbound frame payloads → typed objects. Each takes the full
@@ -492,15 +499,37 @@ export function parseStatusResponse(d: Uint8Array): RepeaterStatus | null {
 
 /**
  * Parses a `PUSH_LOGIN_SUCCESS` (`0x85`): the 6-byte public-key prefix (hex) of
- * the node that accepted the login, so the client can match it to the request.
+ * the node that accepted the login (so the client can match it to the request)
+ * plus the access level the server granted, when it can report one.
  *
- * @remarks Frame: `[code] permissions(1) pubkey_prefix(6)`, optionally followed
- * by `[server timestamp (uint32)][ACL permissions][firmware level]`. Byte 1 is
- * the login permissions (e.g. is-admin), zero for legacy `"OK"` responses; only
- * the prefix is decoded here.
- * @returns the pubkey prefix, or null if the frame is too short.
+ * @remarks Frame: `[code] legacy_is_admin(1) pubkey_prefix(6)`, and on modern
+ * firmware also a server timestamp (uint32), the ACL permissions byte, and the
+ * firmware level. Byte 1 is only the legacy is-admin indicator (`1` = admin;
+ * room servers also emit `2` for read-only), not the ACL role. The
+ * authoritative role lives in the ACL permissions byte at offset 12 — its low
+ * two bits are the role, so `admin` requires {@link PERM_ACL_ADMIN}. Legacy
+ * responses omit that byte: `1` decodes as `admin` and `2` as a read-only
+ * `guest`, while a zero-byte `"OK"` cannot report the granted role, so `access`
+ * is `null` and the caller falls back to the level it attempted.
+ * @returns the prefix and granted access (`null` when the response cannot
+ * report a role), or null if the frame is too short.
  */
-export function parseLoginPush(d: Uint8Array): string | null {
+export function parseLoginPush(
+  d: Uint8Array,
+): { pubkeyPrefix: string; access: RepeaterAccess | null } | null {
   if (d.length < 8) return null;
-  return hexBytes(d, 2, 8);
+  const pubkeyPrefix = hexBytes(d, 2, 8);
+  // Modern firmware appends the ACL permissions byte at offset 12; its low two
+  // bits hold the authoritative role.
+  if (d.length > 12) {
+    const access: RepeaterAccess =
+      (d[12] & PERM_ACL_ROLE_MASK) === PERM_ACL_ADMIN ? 'admin' : 'guest';
+    return { pubkeyPrefix, access };
+  }
+  // Legacy response: byte 1 is the only signal (1 = admin, 2 = read-only guest
+  // on room servers). Zero cannot report the granted role, so leave it
+  // undetermined for the caller to fall back on the attempted level.
+  const access: RepeaterAccess | null =
+    d[1] === 1 ? 'admin' : d[1] === 2 ? 'guest' : null;
+  return { pubkeyPrefix, access };
 }

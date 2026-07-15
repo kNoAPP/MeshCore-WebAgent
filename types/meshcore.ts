@@ -271,6 +271,14 @@ export interface RepeaterStatus {
   nRecvErrors?: number;
 }
 
+/**
+ * Access level a repeater/room server grants a login, decoded from the ACL role
+ * bits of the `PUSH_LOGIN_SUCCESS` permissions byte. The server — not the
+ * client — decides this from the password it accepted, so it is authoritative.
+ * The two non-admin roles (read-only, read-write) collapse to `guest` here.
+ */
+export type RepeaterAccess = 'admin' | 'guest';
+
 /** The conversation currently open in the UI. */
 export interface ActiveConvo {
   kind: 'channel' | 'direct';
