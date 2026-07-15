@@ -539,8 +539,6 @@
       "readOnlyNotice": "You have read-only (guest) access. Log in as admin to make changes.",
       "requiresReboot": "Requires reboot",
       "edit": "Edit",
-      "apply": "Apply",
-      "radioConfirm": "Changing radio parameters requires a reboot to take effect and can take the node off the mesh. Apply?",
       "advanced": "Advanced",
       "actionsTitle": "Actions",
       "location": "Location",

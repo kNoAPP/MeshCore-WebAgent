@@ -5,7 +5,6 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
 import {
   RADIO_FREQ_MIN_MHZ,
@@ -94,22 +93,24 @@ type RadioDraft = {
 };
 
 /**
- * Two-step editor for the radio's LoRa parameters, launched from the Settings
- * Radio card. The first step edits a draft seeded from `fields`; the second
- * confirms, warning that a wrong frequency/bandwidth/SF/CR can silently isolate
- * the node from the mesh and showing each current→new value for easy revert.
- * Apply writes the changes via {@link useMeshCore.applyRadioParams} and closes
- * on success; a failed or rejected write keeps the editor open.
+ * Two-step editor for a node's LoRa parameters, launched from the Settings
+ * Radio card and the repeater Config tab. The first step edits a draft seeded
+ * from `fields`; the second confirms, warning that a wrong
+ * frequency/bandwidth/SF/CR can silently isolate the node from the mesh and
+ * showing each current→new value for easy revert. Apply writes the changes via
+ * the caller-supplied {@link onApply} (the local radio or a remote repeater's
+ * CLI) and closes on success; a failed or rejected write keeps the editor open.
  */
 export function RadioSettingsModal({
   fields,
+  onApply,
   onClose,
 }: {
   fields: RadioFields;
+  onApply: (params: RadioParams) => Promise<boolean>;
   onClose: () => void;
 }) {
   const { t, num, crLabel } = useRadioFormat();
-  const { applyRadioParams } = useMeshCore();
 
   const [draft, setDraft] = useState<RadioDraft>(() => ({
     freq: String(fields.radioFreq),
@@ -165,7 +166,7 @@ export function RadioSettingsModal({
       txPower: draft.txPower,
     };
     setSaving(true);
-    const ok = await applyRadioParams(proposed);
+    const ok = await onApply(proposed);
     setSaving(false);
     if (ok) onClose();
   };

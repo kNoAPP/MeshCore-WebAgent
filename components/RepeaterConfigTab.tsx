@@ -19,6 +19,7 @@ import {
   isValidValue,
   nameMaxBytes,
   parseRadio,
+  formatRadio,
   LOOP_DETECT_OPTIONS,
   PATH_HASH_MODE_OPTIONS,
 } from '@/lib/meshcore/repeaterConfig';
@@ -27,19 +28,12 @@ import type {
   NumberSetting,
   ToggleSetting,
   SelectSetting,
-  RadioSetting,
   RepeaterAction,
 } from '@/lib/meshcore/repeaterConfig';
-import {
-  RADIO_FREQ_MIN_MHZ,
-  RADIO_FREQ_MAX_MHZ,
-  RADIO_SF_VALUES,
-  RADIO_CR_VALUES,
-  RADIO_BW_VALUES_KHZ,
-} from '@/lib/meshcore/constants';
 import { fmtNum, utf8ByteLength } from '@/lib/utils';
 import { RefreshButton } from './RefreshButton';
-import type { Contact } from '@/types/meshcore';
+import { RadioSettingsModal } from './RadioSettings';
+import type { Contact, RadioParams } from '@/types/meshcore';
 
 /** The map of settings ids to their current on-device / draft values. */
 type ValueMap = Record<string, string>;
@@ -63,20 +57,15 @@ const READ_PASSES = 3;
 const READ_CONCURRENCY = 4;
 
 /**
- * The settings shown in the always-visible groups. These load on entry; the
- * {@link REPEATER_ADVANCED_SETTINGS} are deferred until their disclosure is
- * first opened, so the initial prefill is smaller and fills in faster.
- */
-const PRIMARY_REPEATER_SETTINGS: readonly RepeaterSetting[] =
-  REPEATER_SETTING_GROUPS.flatMap((g) => g.settings);
-
-/**
  * The Config tab of the repeater admin panel: structured, validated controls
  * for the common `get`/`set` settings plus the key action verbs, all driven by
- * the {@link REPEATER_SETTING_GROUPS} catalog. On open it prefills every field
- * by issuing its `get` and parsing the reply; editing a field auto-commits the
- * matching `set` (on toggle/select change, or on blur/Enter for typed fields)
- * and re-reads to confirm. Renders read-only when `readOnly` (guest).
+ * the {@link REPEATER_SETTING_GROUPS} catalog. Nothing loads on entry; each
+ * section has its own Refresh button that reads just that section's fields, so
+ * the user pulls only the values they care about. Editing a field auto-commits
+ * the matching `set` (on toggle/select change, slider release, or blur/Enter
+ * for typed fields) and re-reads to confirm. The composite radio parameters and
+ * TX power are edited together in the shared {@link RadioSettingsModal}.
+ * Renders read-only when `readOnly` (guest).
  */
 export function RepeaterConfigTab({
   contact,
@@ -92,16 +81,16 @@ export function RepeaterConfigTab({
   const [values, setValues] = useState<ValueMap>({});
   const [drafts, setDrafts] = useState<ValueMap>({});
   // Ids whose current value is still being read; drives per-field placeholders
-  // and the "reading" header. A field is dropped once its read settles (loaded,
-  // errored, or timed out), so a slow/lost reply never blocks the whole tab.
-  // Starts with the primary settings only — the advanced knobs are added when
-  // their disclosure is first opened.
-  const [pending, setPending] = useState<Set<string>>(
-    () => new Set(PRIMARY_REPEATER_SETTINGS.map((s) => s.id)),
-  );
+  // and each section's spinning Refresh. A field is dropped once its read
+  // settles (loaded, errored, or timed out), so a slow/lost reply never blocks
+  // the rest of the section. Starts empty — nothing loads until a section's
+  // Refresh is clicked.
+  const [pending, setPending] = useState<Set<string>>(() => new Set());
   const [status, setStatus] = useState<Record<string, SaveStatus>>({});
   // The last error message per field, shown on the error chip's tooltip.
   const [errorMsg, setErrorMsg] = useState<Record<string, string>>({});
+  // Whether the shared radio/TX editor modal is open.
+  const [radioEditOpen, setRadioEditOpen] = useState(false);
 
   // The hook callback identity can change (client re-wire), so read it through
   // a ref kept fresh by an effect rather than during render. Same for the
@@ -118,17 +107,8 @@ export function RepeaterConfigTab({
   // The mount-time contact; its pubkey is immutable, so a later contact-table
   // refresh (new object identity, same node) needn't re-run the prefill.
   const contactRef = useRef(contact);
-  // Read generation. A new generation (refresh or unmount) makes prior
-  // in-flight reads bail before they write, without cross-cancelling a
-  // concurrent read of a different field set (e.g. the deferred advanced load
-  // overlapping the primary prefill), which share the same generation.
-  const genRef = useRef(0);
-  // Whether the advanced knobs have been requested (their disclosure was opened
-  // at least once). Gates the one-time deferred load and whether refresh
-  // re-reads them.
-  const advancedLoadedRef = useRef(false);
-  // False after unmount, so an in-flight commit doesn't set state on a gone
-  // component.
+  // False after unmount, so an in-flight read or commit doesn't set state on a
+  // gone component (and a late CLI reply is ignored).
   const aliveRef = useRef(true);
   // Timers that fade a field's "saved ✓" chip back to idle.
   const savedTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -149,11 +129,9 @@ export function RepeaterConfigTab({
   // Reads the given fields' current values. The gets are pipelined (a bounded
   // window in flight at once) and correlated by the per-command tag, rather
   // than run one blocking round-trip at a time. Fields populate as each reply
-  // lands rather than gating the tab behind all of them. Takes an explicit set
-  // so the advanced knobs can be loaded separately, on demand.
+  // lands. Called per section, so concurrent section reads each scope their
+  // "stop reading" to their own fields and never clear another's.
   const read = useCallback((settings: readonly RepeaterSetting[]) => {
-    const gen = genRef.current;
-    const live = () => aliveRef.current && genRef.current === gen;
     void (async () => {
       // Retry gaps: CLI replies are often dropped over the mesh, so re-request
       // any field that didn't answer, up to a few passes. A field stays
@@ -165,7 +143,7 @@ export function RepeaterConfigTab({
         let cursor = 0;
         const worker = async () => {
           while (cursor < batch.length) {
-            if (!live()) return;
+            if (!aliveRef.current) return;
             const setting = batch[cursor++];
             let parsed: string | null = null;
             try {
@@ -173,10 +151,10 @@ export function RepeaterConfigTab({
                 contactRef.current,
                 getCommand(setting),
               );
-              if (!live()) return;
+              if (!aliveRef.current) return;
               if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
             } catch {
-              if (!live()) return;
+              if (!aliveRef.current) return;
             }
             if (parsed != null) {
               const value = parsed;
@@ -198,10 +176,10 @@ export function RepeaterConfigTab({
             worker(),
           ),
         );
-        if (!live()) return;
+        if (!aliveRef.current) return;
         queue = misses;
       }
-      if (!live()) return;
+      if (!aliveRef.current) return;
       // Stop showing "reading" for this call's fields that never answered,
       // without touching a concurrent read's still-pending fields.
       setPending((prev) => {
@@ -213,47 +191,35 @@ export function RepeaterConfigTab({
     })();
   }, []);
 
-  // Manual re-read: mark the visible fields pending again, then read. Includes
-  // the advanced knobs only if they've been opened. `setPending` here is a
-  // user-gesture update, not an effect body, so it's allowed.
-  const refresh = useCallback(() => {
-    genRef.current += 1;
-    const settings = advancedLoadedRef.current
-      ? ALL_REPEATER_SETTINGS
-      : PRIMARY_REPEATER_SETTINGS;
-    setPending(new Set(settings.map((s) => s.id)));
-    read(settings);
-  }, [read]);
+  // Loads (or reloads) one section's fields. Marks them pending, then reads.
+  // `setPending` here is a user-gesture update, not an effect body, so it's
+  // allowed. A no-op re-click is harmless — the section's Refresh spins while
+  // any of its fields are pending.
+  const refreshSection = useCallback(
+    (settings: readonly RepeaterSetting[]) => {
+      setPending((prev) => {
+        const next = new Set(prev);
+        for (const s of settings) next.add(s.id);
+        return next;
+      });
+      read(settings);
+    },
+    [read],
+  );
 
-  // Deferred, one-time load of the advanced knobs when their disclosure first
-  // opens. Runs alongside (not cancelling) any in-flight primary prefill.
-  const loadAdvanced = useCallback(() => {
-    if (advancedLoadedRef.current) return;
-    advancedLoadedRef.current = true;
-    setPending((prev) => {
-      const next = new Set(prev);
-      for (const s of REPEATER_ADVANCED_SETTINGS) next.add(s.id);
-      return next;
-    });
-    read(REPEATER_ADVANCED_SETTINGS);
-  }, [read]);
-
-  // Prefill on entry — once per mount (the tab remounts per repeater and on
-  // reopen); `pending` starts with the primary fields from the initializer. On
-  // unmount, cancel in-flight reads and drop any pending CLI request so its
-  // reply can't reach a new panel.
+  // Track liveness for in-flight reads/commits, and on unmount drop any pending
+  // CLI request so its reply can't reach a new panel. Nothing is read here —
+  // the user pulls each section on demand.
   useEffect(() => {
     aliveRef.current = true;
-    read(PRIMARY_REPEATER_SETTINGS);
     const timers = savedTimers.current;
     const prefix = contactRef.current.pubkeyPrefix;
     return () => {
       aliveRef.current = false;
-      genRef.current += 1;
       clearRepeaterCli(prefix);
       for (const timer of Object.values(timers)) clearTimeout(timer);
     };
-  }, [read, clearRepeaterCli]);
+  }, [clearRepeaterCli]);
 
   // Commits a field's new value: sends its `set`, then re-reads so the field
   // reflects the node's authoritative value (which may be rounded/clamped). A
@@ -338,8 +304,102 @@ export function RepeaterConfigTab({
     [contact, repeaterCli, showToast, t],
   );
 
+  // Applies the shared radio/TX editor's result to the repeater over CLI:
+  // `set radio` only if the LoRa quad changed (it reboots the node), `set tx`
+  // only if power changed. Returns whether every needed write succeeded so the
+  // modal can stay open on failure.
+  const applyRepeaterRadio = useCallback(
+    async (params: RadioParams): Promise<boolean> => {
+      const radioSetting = ALL_REPEATER_SETTINGS.find((s) => s.id === 'radio');
+      const txSetting = ALL_REPEATER_SETTINGS.find((s) => s.id === 'tx');
+      if (!radioSetting || !txSetting) return false;
+      const cur = parseRadio(valuesRef.current.radio ?? '');
+      const radioChanged =
+        !cur ||
+        Math.round(cur.freq * 1000) !== Math.round(params.radioFreq * 1000) ||
+        cur.bw !== params.radioBw ||
+        cur.sf !== params.radioSf ||
+        cur.cr !== params.radioCr;
+      const txChanged = Number(valuesRef.current.tx) !== params.txPower;
+      const fail = (reply: string) =>
+        showToast(
+          t('toast.repeaterConfigError', { error: reply.trim() }),
+          'error',
+        );
+      try {
+        if (radioChanged) {
+          const radioStr = formatRadio(
+            params.radioFreq,
+            params.radioBw,
+            params.radioSf,
+            params.radioCr,
+          );
+          const reply = await enqueue(() =>
+            requestRef.current(
+              contactRef.current,
+              setCommand(radioSetting, radioStr),
+            ),
+          );
+          if (!aliveRef.current) return false;
+          if (isErrorReply(reply)) {
+            fail(reply);
+            return false;
+          }
+          setValues((prev) => ({ ...prev, radio: radioStr }));
+          setDrafts((prev) => ({ ...prev, radio: radioStr }));
+        }
+        if (txChanged) {
+          const txStr = String(params.txPower);
+          const reply = await enqueue(() =>
+            requestRef.current(
+              contactRef.current,
+              setCommand(txSetting, txStr),
+            ),
+          );
+          if (!aliveRef.current) return false;
+          if (isErrorReply(reply)) {
+            fail(reply);
+            return false;
+          }
+          setValues((prev) => ({ ...prev, tx: txStr }));
+          setDrafts((prev) => ({ ...prev, tx: txStr }));
+        }
+        showToast(t('toast.radioParamsSaved'), 'success');
+        return true;
+      } catch (err) {
+        if (!aliveRef.current) return false;
+        showToast(
+          t('toast.repeaterCliFailed', { error: (err as Error).message }),
+          'error',
+        );
+        return false;
+      }
+    },
+    [enqueue, showToast, t],
+  );
+
   const nameBytes = nameMaxBytes(drafts.lat ?? '', drafts.lon ?? '');
-  const reading = pending.size > 0;
+  const sectionBusy = (settings: readonly RepeaterSetting[]) =>
+    settings.some((s) => pending.has(s.id));
+
+  // Seed for the shared radio/TX modal, or null until both values have loaded.
+  const radioParsed = parseRadio(values.radio ?? '');
+  const txValue = values.tx ?? '';
+  const txNum = Number(txValue);
+  const txSetting = ALL_REPEATER_SETTINGS.find((s) => s.id === 'tx');
+  const maxTxPower =
+    txSetting && txSetting.kind === 'number' ? txSetting.max : 22;
+  const radioModalFields =
+    radioParsed && txValue !== '' && Number.isFinite(txNum)
+      ? {
+          radioFreq: radioParsed.freq,
+          radioBw: radioParsed.bw,
+          radioSf: radioParsed.sf,
+          radioCr: radioParsed.cr,
+          txPower: txNum,
+          maxTxPower,
+        }
+      : null;
 
   const rowProps = (setting: RepeaterSetting) => ({
     setting,
@@ -365,21 +425,21 @@ export function RepeaterConfigTab({
         </p>
       )}
 
-      {REPEATER_SETTING_GROUPS.map((group, i) => (
+      {REPEATER_SETTING_GROUPS.map((group) => (
         <Section
           key={group.id}
           title={t(`repeaterAdmin.config.groups.${group.id}`)}
           action={
-            // The Refresh control lives in the first section's header rather
-            // than its own row, so it costs no vertical space.
-            i === 0 ? (
-              <RefreshButton onClick={refresh} busy={reading} />
-            ) : undefined
+            <RefreshButton
+              onClick={() => refreshSection(group.settings)}
+              busy={sectionBusy(group.settings)}
+            />
           }
         >
           {group.settings.map((setting) => {
+            // TX power is edited inside the radio modal, not its own row.
+            if (setting.id === 'lon' || setting.id === 'tx') return null;
             // Latitude and longitude share one compact "Location" row.
-            if (setting.id === 'lon') return null;
             if (setting.id === 'lat') {
               const lon = group.settings.find((s) => s.id === 'lon');
               return (
@@ -390,18 +450,42 @@ export function RepeaterConfigTab({
                 />
               );
             }
+            // The LoRa quad + TX power open the shared radio editor modal.
+            if (setting.id === 'radio') {
+              return (
+                <RadioModalRow
+                  key='radio'
+                  radioValue={values.radio ?? ''}
+                  txValue={values.tx ?? ''}
+                  loading={pending.has('radio') || pending.has('tx')}
+                  readOnly={readOnly}
+                  onEdit={() => setRadioEditOpen(true)}
+                />
+              );
+            }
             return <SettingRow key={setting.id} {...rowProps(setting)} />;
           })}
         </Section>
       ))}
 
-      <AdvancedSection onReveal={loadAdvanced}>
+      <AdvancedSection
+        busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
+        onRefresh={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
+      >
         {REPEATER_ADVANCED_SETTINGS.map((setting) => (
           <SettingRow key={setting.id} {...rowProps(setting)} />
         ))}
       </AdvancedSection>
 
       {!readOnly && <ActionsSection onRun={runAction} />}
+
+      {radioEditOpen && radioModalFields && (
+        <RadioSettingsModal
+          fields={radioModalFields}
+          onApply={applyRepeaterRadio}
+          onClose={() => setRadioEditOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -432,35 +516,38 @@ function Section({
   );
 }
 
-/** The advanced routing knobs, collapsed behind a disclosure by default. */
+/**
+ * The advanced routing knobs, collapsed behind a disclosure by default. Its
+ * Refresh button (which loads the section's values) appears only once opened.
+ */
 function AdvancedSection({
-  onReveal,
+  busy,
+  onRefresh,
   children,
 }: {
-  onReveal: () => void;
+  busy: boolean;
+  onRefresh: () => void;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  // Load the knobs the first time the section is opened, not on mount.
-  const toggle = () => {
-    if (!open) onReveal();
-    setOpen((v) => !v);
-  };
   return (
     <section
       className='overflow-hidden rounded-xl border border-(--border)'
       style={{ background: 'var(--surface)' }}
     >
-      <button
-        type='button'
-        onClick={toggle}
-        aria-expanded={open}
-        className='flex w-full items-center justify-between px-4 py-2 text-[11px] font-semibold tracking-wide text-(--text2) uppercase hover:text-(--text)'
-      >
-        <span>{t('repeaterAdmin.config.advanced')}</span>
-        <span aria-hidden>{open ? '▾' : '▸'}</span>
-      </button>
+      <div className='flex items-center justify-between gap-2 px-4 py-2'>
+        <button
+          type='button'
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className='flex flex-1 items-center gap-2 text-[11px] font-semibold tracking-wide text-(--text2) uppercase hover:text-(--text)'
+        >
+          <span aria-hidden>{open ? '▾' : '▸'}</span>
+          <span>{t('repeaterAdmin.config.advanced')}</span>
+        </button>
+        {open && <RefreshButton onClick={onRefresh} busy={busy} />}
+      </div>
       {open && (
         <div className='divide-y divide-(--border) border-t border-(--border) px-4'>
           {children}
@@ -503,25 +590,15 @@ function SettingRow({
 }: RowProps) {
   const { t, i18n } = useTranslation();
 
-  if (setting.kind === 'radio') {
-    return (
-      <RadioRow
-        setting={setting}
-        value={value}
-        status={status}
-        errorText={errorText}
-        loading={loading}
-        readOnly={readOnly}
-        onCommit={onCommit}
-      />
-    );
-  }
-
   const label = t(`repeaterAdmin.config.fields.${setting.id}.label`);
   const maxBytes = setting.kind === 'text' ? nameBytes : undefined;
   const valid = isValidValue(setting, draft, maxBytes);
-  // Blur/Enter on a typed field: commit a valid change, or revert an invalid
-  // one back to the last known value.
+  // A field is "loaded" once its value has been read; before that (or if a read
+  // is dropped) the row shows a placeholder instead of a control seeded from a
+  // default, since nothing loads until the section's Refresh is clicked.
+  const loaded = value !== '';
+  // Blur/Enter (or slider release) on an editable field: commit a valid change,
+  // or revert an invalid one back to the last known value.
   const commitEdit = () => {
     if (draft === value) return;
     if (valid) onCommit(draft);
@@ -540,6 +617,8 @@ function SettingRow({
           <span className='text-xs text-(--text2)'>
             {t('repeaterAdmin.config.readingField')}
           </span>
+        ) : !loaded ? (
+          <UnloadedValue />
         ) : (
           <>
             {setting.kind === 'toggle' && (
@@ -552,10 +631,9 @@ function SettingRow({
               />
             )}
             {setting.kind === 'number' && (
-              <NumberField
+              <SliderField
                 setting={setting}
                 value={draft}
-                valid={valid}
                 disabled={readOnly}
                 ariaLabel={label}
                 onChange={onDraft}
@@ -588,6 +666,11 @@ function SettingRow({
       </div>
     </div>
   );
+}
+
+/** Placeholder for a field whose value hasn't been loaded yet. */
+function UnloadedValue() {
+  return <span className='text-sm text-(--text2)'>—</span>;
 }
 
 /** A save-lifecycle indicator (spinner / ✓ / ⚠); renders nothing when idle. */
@@ -804,6 +887,55 @@ function NumberField({
   );
 }
 
+/**
+ * A numeric slider with a live value readout and unit. Dragging updates the
+ * draft; the change commits on release (pointer up / key up), so a drag doesn't
+ * fire a `set` on every tick.
+ */
+function SliderField({
+  setting,
+  value,
+  disabled,
+  ariaLabel,
+  onChange,
+  onCommitEdit,
+}: {
+  setting: NumberSetting;
+  value: string;
+  disabled: boolean;
+  ariaLabel: string;
+  onChange: (value: string) => void;
+  onCommitEdit: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const unit = setting.unit
+    ? t(`repeaterAdmin.config.units.${setting.unit}`)
+    : undefined;
+  const n = Number(value);
+  const slider = Number.isFinite(n) ? n : setting.min;
+  return (
+    <div className='flex items-center gap-2'>
+      <input
+        type='range'
+        aria-label={ariaLabel}
+        min={setting.min}
+        max={setting.max}
+        step={setting.step === 'any' ? undefined : setting.step}
+        value={slider}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        onPointerUp={onCommitEdit}
+        onKeyUp={onCommitEdit}
+        className='w-40 accent-(--accent) disabled:opacity-60'
+      />
+      <span className='w-20 shrink-0 text-right text-sm text-(--text) tabular-nums'>
+        {fmtNum(slider, i18n.language)}
+        {unit ? ` ${unit}` : ''}
+      </span>
+    </div>
+  );
+}
+
 /** A content-sized dropdown over a select setting's fixed options. */
 function SelectField({
   setting,
@@ -897,6 +1029,7 @@ function LocationRow({
 }) {
   const { t } = useTranslation();
   const loading = latProps.loading || (lonProps?.loading ?? false);
+  const loaded = latProps.value !== '' || (lonProps?.value ?? '') !== '';
   return (
     <div className='flex items-center gap-3 py-2'>
       <div className='flex min-w-0 flex-1 items-center gap-1.5'>
@@ -910,6 +1043,8 @@ function LocationRow({
           <span className='text-xs text-(--text2)'>
             {t('repeaterAdmin.config.readingField')}
           </span>
+        ) : !loaded ? (
+          <UnloadedValue />
         ) : (
           <>
             <CoordField {...latProps} />
@@ -959,220 +1094,69 @@ function CoordField({
 }
 
 /**
- * The composite LoRa parameters as a collapsed one-line summary that expands
- * into a `freq,bw,sf,cr` editor. Applying confirms first, since a radio change
- * requires a reboot and can take the node off the mesh.
+ * The composite LoRa parameters plus TX power as a one-line summary with an
+ * Edit button that opens the shared {@link RadioSettingsModal}. Shows a
+ * placeholder until both `radio` and `tx` have been loaded, since the Edit
+ * affordance needs their values to seed the editor.
  */
-function RadioRow({
-  setting,
-  value,
-  status,
-  errorText,
+function RadioModalRow({
+  radioValue,
+  txValue,
   loading,
   readOnly,
-  onCommit,
+  onEdit,
 }: {
-  setting: RadioSetting;
-  value: string;
-  status?: SaveStatus;
-  errorText?: string;
+  radioValue: string;
+  txValue: string;
   loading: boolean;
   readOnly: boolean;
-  onCommit: (value: string) => void;
+  onEdit: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [editing, setEditing] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [freqText, setFreqText] = useState('');
-  const [bw, setBw] = useState(0);
-  const [sf, setSf] = useState(0);
-  const [cr, setCr] = useState(0);
   const num = (n: number) => fmtNum(n, i18n.language);
-
-  const parsed = parseRadio(value);
-  const summary = parsed
+  const parsed = parseRadio(radioValue);
+  const loaded = parsed != null && txValue !== '';
+  const summary = loaded
     ? [
         t('settings.mhz', { value: num(parsed.freq) }),
         t('settings.khz', { value: num(parsed.bw) }),
         `SF${parsed.sf}`,
         t('settings.radioEdit.crLabel', { value: parsed.cr }),
+        t('settings.dbm', { value: num(Number(txValue)) }),
       ].join(' · ')
-    : '—';
-
-  const startEdit = () => {
-    const p = parseRadio(value);
-    // Trim float noise (e.g. 910.5250244) to the wire's kHz precision.
-    setFreqText(p ? String(Math.round(p.freq * 1000) / 1000) : '');
-    setBw(p?.bw ?? 0);
-    setSf(p?.sf ?? 0);
-    setCr(p?.cr ?? 0);
-    setConfirming(false);
-    setEditing(true);
-  };
-
-  const draft = `${freqText},${bw},${sf},${cr}`;
-  const valid = isValidValue(setting, draft);
+    : null;
 
   return (
-    <div className='py-2.5'>
-      <div className='flex items-center gap-3'>
-        <div className='flex min-w-0 flex-1 items-center gap-1.5'>
-          <span className='text-sm text-(--text)'>
-            {t('repeaterAdmin.config.fields.radio.label')}
-          </span>
-          <InfoHint text={settingHint(t, i18n.language, setting)} />
-          <RebootPill />
-        </div>
-        <div className='flex shrink-0 items-center gap-2'>
-          {loading ? (
-            <span className='text-xs text-(--text2)'>
-              {t('repeaterAdmin.config.readingField')}
-            </span>
-          ) : (
-            <>
-              <span className='font-mono text-xs text-(--text2)'>
-                {summary}
-              </span>
-              {!readOnly && !editing && (
-                <button
-                  onClick={startEdit}
-                  className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs text-(--text) hover:bg-(--surface2)'
-                >
-                  {t('repeaterAdmin.config.edit')}
-                </button>
-              )}
-              <StatusChip status={status} errorText={errorText} />
-            </>
-          )}
-        </div>
+    <div className='flex items-center gap-3 py-2.5'>
+      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
+        <span className='text-sm text-(--text)'>
+          {t('repeaterAdmin.config.fields.radio.label')}
+        </span>
+        <InfoHint text={t('repeaterAdmin.config.fields.radio.hint')} />
+        <RebootPill />
       </div>
-
-      {editing && (
-        <div
-          className='mt-3 space-y-3 rounded-lg border border-(--border) p-3'
-          style={{ background: 'var(--surface2)' }}
-        >
-          <div className='grid grid-cols-2 gap-3'>
-            <label className='block'>
-              <span className='mb-1 block text-[11px] text-(--text2)'>
-                {t('settings.frequency')}
-              </span>
-              <input
-                type='number'
-                inputMode='decimal'
-                step='any'
-                min={RADIO_FREQ_MIN_MHZ}
-                max={RADIO_FREQ_MAX_MHZ}
-                value={freqText}
-                onChange={(e) => setFreqText(e.target.value)}
-                className='w-full rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-sm text-(--text) outline-none focus:border-(--accent)'
-              />
-            </label>
-            <RadioSelect
-              label={t('settings.bandwidth')}
-              value={bw}
-              options={withCurrent(RADIO_BW_VALUES_KHZ, bw)}
-              format={(v) => t('settings.khz', { value: num(v) })}
-              disabled={false}
-              onChange={setBw}
-            />
-            <RadioSelect
-              label={t('settings.spreadingFactor')}
-              value={sf}
-              options={withCurrent(RADIO_SF_VALUES, sf)}
-              format={(v) => num(v)}
-              disabled={false}
-              onChange={setSf}
-            />
-            <RadioSelect
-              label={t('settings.codingRate')}
-              value={cr}
-              options={withCurrent(RADIO_CR_VALUES, cr)}
-              format={(v) => t('settings.radioEdit.crLabel', { value: v })}
-              disabled={false}
-              onChange={setCr}
-            />
-          </div>
-
-          {confirming ? (
-            <div className='flex items-center justify-between gap-3 border-t border-(--border) pt-3'>
-              <span className='text-xs text-(--text2)'>
-                {t('repeaterAdmin.config.radioConfirm')}
-              </span>
-              <div className='flex shrink-0 gap-2'>
-                <button
-                  onClick={() => setConfirming(false)}
-                  className='rounded-md px-3 py-1 text-sm text-(--text) hover:bg-(--surface2)'
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  onClick={() => {
-                    onCommit(draft);
-                    setEditing(false);
-                    setConfirming(false);
-                  }}
-                  className='rounded-md bg-(--red) px-3 py-1 text-sm font-semibold text-white hover:bg-(--red-hover)'
-                >
-                  {t('repeaterAdmin.config.apply')}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className='flex justify-end gap-2 border-t border-(--border) pt-3'>
+      <div className='flex shrink-0 items-center gap-2'>
+        {loading ? (
+          <span className='text-xs text-(--text2)'>
+            {t('repeaterAdmin.config.readingField')}
+          </span>
+        ) : !loaded ? (
+          <UnloadedValue />
+        ) : (
+          <>
+            <span className='font-mono text-xs text-(--text2)'>{summary}</span>
+            {!readOnly && (
               <button
-                onClick={() => setEditing(false)}
-                className='rounded-md px-3 py-1 text-sm text-(--text) hover:bg-(--surface2)'
+                onClick={onEdit}
+                className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs text-(--text) hover:bg-(--surface2)'
               >
-                {t('common.cancel')}
+                {t('repeaterAdmin.config.edit')}
               </button>
-              <button
-                onClick={() => valid && setConfirming(true)}
-                disabled={!valid}
-                className='rounded-md bg-(--accent) px-3 py-1 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
-              >
-                {t('repeaterAdmin.config.apply')}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </>
+        )}
+      </div>
     </div>
-  );
-}
-
-/** A compact labeled numeric select used by {@link RadioRow}. */
-function RadioSelect({
-  label,
-  value,
-  options,
-  format,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  options: number[];
-  format: (value: number) => string;
-  disabled: boolean;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className='block'>
-      <span className='mb-1 block text-[11px] text-(--text2)'>{label}</span>
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className='w-full rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-sm text-(--text) outline-none focus:border-(--accent) disabled:opacity-60'
-      >
-        {options.map((v) => (
-          <option key={v} value={v}>
-            {format(v)}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }
 
@@ -1240,12 +1224,6 @@ function ActionsSection({
       )}
     </section>
   );
-}
-
-/** Standard option list plus the current value when it isn't already one. */
-function withCurrent(values: readonly number[], current: number): number[] {
-  if (current === 0 || values.includes(current)) return [...values];
-  return [...values, current].sort((a, b) => a - b);
 }
 
 /** Resolves a select option to its localized label. */

@@ -540,8 +540,7 @@
       "readOnlyNotice": "Vous avez un accès en lecture seule (invité). Connectez-vous en tant qu’admin pour apporter des modifications.",
       "requiresReboot": "Nécessite un redémarrage",
       "edit": "Modifier",
-      "apply": "Appliquer",
-      "radioConfirm": "La modification des paramètres radio nécessite un redémarrage et peut déconnecter le nœud du réseau. Appliquer ?",
+
       "advanced": "Avancé",
       "actionsTitle": "Actions",
       "location": "Emplacement",

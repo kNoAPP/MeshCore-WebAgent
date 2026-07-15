@@ -49,6 +49,7 @@ import {
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { status, selfInfo, deviceInfo: device } = useMeshStore();
+  const { applyRadioParams } = useMeshCore();
   const settingsSection = useMeshStore((s) => s.settingsSection);
   const clearSettingsSection = useMeshStore((s) => s.clearSettingsSection);
 
@@ -215,6 +216,7 @@ export function SettingsPage() {
       {radioEditOpen && fields && (
         <RadioSettingsModal
           fields={fields}
+          onApply={applyRadioParams}
           onClose={() => setRadioEditOpen(false)}
         />
       )}
