@@ -286,7 +286,16 @@ export function setCommand(setting: RepeaterSetting, value: string): string {
  * the field unchanged and surface as a toast.
  */
 export function isErrorReply(reply: string): boolean {
-  return /^err\b/i.test(reply.trim());
+  return /^err\b/i.test(stripPrompt(reply));
+}
+
+/**
+ * Strips the firmware's `"> "` CLI prompt prefix (and surrounding whitespace)
+ * that leads every reply, so the value beneath can be parsed. Idempotent and
+ * safe on replies that lack the marker.
+ */
+function stripPrompt(reply: string): string {
+  return reply.trim().replace(/^>+\s*/, '');
 }
 
 const ON_TOKENS = new Set(['on', '1', 'true', 'enabled', 'yes']);
@@ -305,7 +314,7 @@ export function normalizeReply(
   setting: RepeaterSetting,
   reply: string,
 ): string | null {
-  const text = reply.trim();
+  const text = stripPrompt(reply);
   switch (setting.kind) {
     case 'toggle': {
       const token = text.toLowerCase();

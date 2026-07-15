@@ -538,7 +538,8 @@
     "rxErrors": "Erreurs RX",
     "dbm": "{{value}} dBm",
     "config": {
-      "loading": "Chargement de la configuration…",
+      "reading": "Lecture des valeurs actuelles…",
+      "readingField": "Lecture…",
       "readOnlyNotice": "Vous avez un accès en lecture seule (invité). Connectez-vous en tant qu’admin pour apporter des modifications.",
       "requiresReboot": "Nécessite un redémarrage",
       "save": "Enregistrer",

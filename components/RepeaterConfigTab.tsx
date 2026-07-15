@@ -57,12 +57,17 @@ export function RepeaterConfigTab({
   readOnly: boolean;
 }) {
   const { t } = useTranslation();
-  const { repeaterCliRequest, repeaterCli } = useMeshCore();
+  const { repeaterCliRequest, repeaterCli, clearRepeaterCli } = useMeshCore();
   const showToast = useMeshStore((s) => s.showToast);
 
   const [values, setValues] = useState<ValueMap>({});
   const [drafts, setDrafts] = useState<ValueMap>({});
-  const [loading, setLoading] = useState(true);
+  // Ids whose current value is still being read; drives per-field placeholders
+  // and the "reading" header. A field is dropped once its read settles (loaded,
+  // errored, or timed out), so a slow/lost reply never blocks the whole tab.
+  const [pending, setPending] = useState<Set<string>>(
+    () => new Set(ALL_REPEATER_SETTINGS.map((s) => s.id)),
+  );
   const [savingId, setSavingId] = useState<string | null>(null);
 
   // The hook callback identity can change (client re-wire), so read it through
@@ -75,36 +80,63 @@ export function RepeaterConfigTab({
   // The mount-time contact; its pubkey is immutable, so a later contact-table
   // refresh (new object identity, same node) needn't re-run the prefill.
   const contactRef = useRef(contact);
+  // Token for the active read pass. A new pass (or unmount) flips the prior
+  // token's `live` to false so a late reply can't write into a stale pass.
+  const runRef = useRef<{ live: boolean }>({ live: false });
 
-  // Prefill each field by reading its current value on entry — once per mount
-  // (the tab remounts per repeater and on reopen). Sequential so at most one
-  // request is outstanding, keeping the FIFO reply correlation exact; a field
-  // that errors or times out is skipped and the rest still load.
-  useEffect(() => {
-    let cancelled = false;
+  // Reads every field's current value, sequentially so only one request is
+  // outstanding at a time (replies carry no key, so ordered round-trips are the
+  // only reliable correlation). Fields populate as each reply lands rather than
+  // gating the tab behind all of them.
+  const read = useCallback(() => {
+    runRef.current.live = false;
+    const run = (runRef.current = { live: true });
     void (async () => {
       for (const setting of ALL_REPEATER_SETTINGS) {
+        let parsed: string | null = null;
         try {
           const reply = await requestRef.current(
             contactRef.current,
             getCommand(setting),
           );
-          if (cancelled) return;
-          if (isErrorReply(reply)) continue;
-          const value = normalizeReply(setting, reply);
-          if (value == null) continue;
+          if (!run.live) return;
+          if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
+        } catch {
+          if (!run.live) return;
+        }
+        if (parsed != null) {
+          const value = parsed;
           setValues((prev) => ({ ...prev, [setting.id]: value }));
           setDrafts((prev) => ({ ...prev, [setting.id]: value }));
-        } catch {
-          if (cancelled) return;
         }
+        setPending((prev) => {
+          const next = new Set(prev);
+          next.delete(setting.id);
+          return next;
+        });
       }
-      if (!cancelled) setLoading(false);
     })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  // Manual re-read: mark every field pending again, then read. `setPending`
+  // here is a user-gesture update, not an effect body, so it's allowed.
+  const refresh = useCallback(() => {
+    setPending(new Set(ALL_REPEATER_SETTINGS.map((s) => s.id)));
+    read();
+  }, [read]);
+
+  // Prefill on entry — once per mount (the tab remounts per repeater and on
+  // reopen); `pending` starts full from the initializer. On unmount, cancel the
+  // run and drop any pending CLI request so its reply can't reach a new panel.
+  useEffect(() => {
+    read();
+    const run = runRef.current;
+    const prefix = contactRef.current.pubkeyPrefix;
+    return () => {
+      run.live = false;
+      clearRepeaterCli(prefix);
+    };
+  }, [read, clearRepeaterCli]);
 
   const nameBytes = nameMaxBytes(drafts.lat ?? '', drafts.lon ?? '');
 
@@ -167,13 +199,7 @@ export function RepeaterConfigTab({
     [contact, repeaterCli, showToast, t],
   );
 
-  if (loading) {
-    return (
-      <p className='text-sm text-(--text2)'>
-        {t('repeaterAdmin.config.loading')}
-      </p>
-    );
-  }
+  const reading = pending.size > 0;
 
   const rowProps = (setting: RepeaterSetting) => ({
     setting,
@@ -182,12 +208,28 @@ export function RepeaterConfigTab({
     onDraft: (v: string) => setDraft(setting.id, v),
     onSave: () => void saveField(setting),
     saving: savingId === setting.id,
+    loading: pending.has(setting.id),
     readOnly,
     nameBytes,
   });
 
   return (
     <div className='space-y-6'>
+      <div className='flex items-center justify-between gap-3'>
+        <span className='text-xs text-(--text2)'>
+          {reading ? t('repeaterAdmin.config.reading') : ''}
+        </span>
+        <button
+          onClick={refresh}
+          disabled={reading}
+          className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50'
+        >
+          {reading
+            ? t('repeaterAdmin.dashboard.refreshing')
+            : t('repeaterAdmin.dashboard.refresh')}
+        </button>
+      </div>
+
       {readOnly && (
         <p
           className='rounded-md border border-(--border) p-3 text-xs text-(--text2)'
@@ -269,6 +311,7 @@ interface RowProps {
   onDraft: (value: string) => void;
   onSave: () => void;
   saving: boolean;
+  loading: boolean;
   readOnly: boolean;
   nameBytes: number;
 }
@@ -281,6 +324,7 @@ function SettingRow({
   onDraft,
   onSave,
   saving,
+  loading,
   readOnly,
   nameBytes,
 }: RowProps) {
@@ -301,29 +345,35 @@ function SettingRow({
           </span>
         )}
       </div>
-      <div className='flex items-start gap-2'>
-        <div className='min-w-0 flex-1'>
-          <SettingControl
-            setting={setting}
-            value={draft}
-            onChange={onDraft}
-            readOnly={readOnly}
-            valid={valid}
-            maxBytes={maxBytes}
-          />
+      {loading ? (
+        <p className='py-1.5 text-xs text-(--text2)'>
+          {t('repeaterAdmin.config.readingField')}
+        </p>
+      ) : (
+        <div className='flex items-start gap-2'>
+          <div className='min-w-0 flex-1'>
+            <SettingControl
+              setting={setting}
+              value={draft}
+              onChange={onDraft}
+              readOnly={readOnly}
+              valid={valid}
+              maxBytes={maxBytes}
+            />
+          </div>
+          {!readOnly && (
+            <button
+              onClick={onSave}
+              disabled={!dirty || !valid || saving}
+              className='shrink-0 rounded-md bg-(--accent) px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              {saving
+                ? t('repeaterAdmin.config.saving')
+                : t('repeaterAdmin.config.save')}
+            </button>
+          )}
         </div>
-        {!readOnly && (
-          <button
-            onClick={onSave}
-            disabled={!dirty || !valid || saving}
-            className='shrink-0 rounded-md bg-(--accent) px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
-          >
-            {saving
-              ? t('repeaterAdmin.config.saving')
-              : t('repeaterAdmin.config.save')}
-          </button>
-        )}
-      </div>
+      )}
     </div>
   );
 }

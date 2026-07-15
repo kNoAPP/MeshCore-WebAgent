@@ -272,13 +272,21 @@ function clearPendingAcks(): void {
 // Rejects and drops every outstanding CLI request. Called on session teardown
 // so a structured get/set can't hang forever after the link goes down.
 function clearCliWaiters(): void {
-  for (const queue of cliWaiters.values()) {
-    for (const w of queue) {
-      clearTimeout(w.timer);
-      w.reject(new Error('Disconnected'));
-    }
+  for (const prefix of [...cliWaiters.keys()]) rejectCliWaitersFor(prefix);
+}
+
+// Rejects and drops the CLI requests outstanding for one repeater. Used to keep
+// a single owner (one panel) from leaving stale waiters that would consume a
+// later request's reply — the reason replies (which carry no echoed command)
+// could otherwise desync after a remount or a dropped reply.
+function rejectCliWaitersFor(prefix: string): void {
+  const queue = cliWaiters.get(prefix);
+  if (!queue) return;
+  cliWaiters.delete(prefix);
+  for (const w of queue) {
+    clearTimeout(w.timer);
+    w.reject(new Error('Superseded'));
   }
-  cliWaiters.clear();
 }
 
 // Called when a session begins as well as when one ends: a dropped transport
@@ -1222,13 +1230,17 @@ export function useMeshCore() {
   /**
    * Sends a CLI command to a repeater and resolves with its reply text, for the
    * structured Config editor's `get`/`set` round-trips. Echoes the sent line to
-   * the transcript (so the console tab sees it too), then registers a FIFO
-   * waiter that `onCliReply` fulfils with the next reply from that repeater.
+   * the transcript (so the console tab sees it too), then registers a waiter
+   * that `onCliReply` fulfils with the next reply from that repeater.
    *
    * @remarks
-   * Replies carry only a value, never the echoed command, so correlation is
-   * best-effort FIFO by send order — callers should serialize their requests.
-   * @throws if the send fails, the session drops, or no reply arrives in time.
+   * A CLI reply carries only a value, never the echoed command, so correlation
+   * relies on send order. To keep a dropped reply or a component remount from
+   * breaking that order, this keeps at most one outstanding request per
+   * repeater: a new call rejects (supersedes) any still-pending one. Callers
+   * must therefore serialize their requests (await each before the next).
+   * @throws if the send fails, the request is superseded, the session drops, or
+   * no reply arrives in time.
    */
   const repeaterCliRequest = useCallback(
     (contact: Contact, cmd: string): Promise<string> => {
@@ -1242,37 +1254,37 @@ export function useMeshCore() {
         ts: Date.now(),
       });
       const prefix = contact.pubkeyPrefix;
+      // Supersede any stale request for this repeater so a late reply can't
+      // be handed to this new one.
+      rejectCliWaitersFor(prefix);
       return new Promise<string>((resolve, reject) => {
-        const queue = cliWaiters.get(prefix) ?? [];
         const waiter: CliWaiter = {
           resolve,
           reject,
           timer: setTimeout(() => {
-            const q = cliWaiters.get(prefix);
-            if (q)
-              cliWaiters.set(
-                prefix,
-                q.filter((w) => w !== waiter),
-              );
-            reject(new Error('Timed out'));
+            rejectCliWaitersFor(prefix);
           }, CLI_REPLY_TIMEOUT_MS),
         };
-        queue.push(waiter);
-        cliWaiters.set(prefix, queue);
-        client.sendCliCommand(contact, line).catch((err: Error) => {
-          const q = cliWaiters.get(prefix);
-          if (q)
-            cliWaiters.set(
-              prefix,
-              q.filter((w) => w !== waiter),
-            );
+        // The reject stored on the waiter is what the timeout/supersede path
+        // calls; wrap it so those also settle this promise.
+        waiter.reject = (err: Error) => {
           clearTimeout(waiter.timer);
+          reject(err);
+        };
+        cliWaiters.set(prefix, [waiter]);
+        client.sendCliCommand(contact, line).catch((err: Error) => {
+          rejectCliWaitersFor(prefix);
           reject(err);
         });
       });
     },
     [client, appendCliLine],
   );
+
+  /** Drops any pending CLI request for a repeater (e.g. on panel unmount). */
+  const clearRepeaterCli = useCallback((prefix: string) => {
+    rejectCliWaitersFor(prefix);
+  }, []);
 
   /** Saves a heard advert as a contact on the radio. */
   const addDiscoveredContact = useCallback(
@@ -1740,6 +1752,7 @@ export function useMeshCore() {
     repeaterStatus,
     repeaterCli,
     repeaterCliRequest,
+    clearRepeaterCli,
     addDiscoveredContact,
     importContact,
     shareContact,
