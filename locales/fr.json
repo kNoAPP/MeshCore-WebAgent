@@ -482,6 +482,14 @@
   },
   "repeaterAdmin": {
     "manage": "Gérer",
+    "contactUnavailable": "Ce nœud n’est plus disponible.",
+    "access": {
+      "admin": "Admin",
+      "guest": "Invité"
+    },
+    "tabs": {
+      "status": "État"
+    },
     "login": {
       "prompt": "Connectez-vous pour administrer ce nœud.",
       "accessLabel": "Niveau d’accès",
@@ -492,7 +500,9 @@
       "password": "Mot de passe",
       "passwordPlaceholder": "Saisir le mot de passe",
       "submit": "Se connecter",
-      "loggingIn": "Connexion…"
+      "loggingIn": "Connexion…",
+      "checking": "Vérification des identifiants enregistrés…",
+      "remember": "Mémoriser ces identifiants"
     },
     "dashboard": {
       "accessAdmin": "Accès administrateur",
@@ -500,6 +510,7 @@
       "refresh": "Actualiser",
       "refreshing": "Actualisation…",
       "logout": "Se déconnecter",
+      "logoutForget": "Se déconnecter et oublier les identifiants",
       "loading": "Chargement de l’état…",
       "unavailable": "Aucun état reçu pour l’instant. Essayez d’actualiser."
     },
@@ -590,7 +601,6 @@
     "addChannel": "Ajouter un canal",
     "autoAddSettings": "Paramètres d'ajout automatique",
     "addContact": "Ajouter un contact",
-    "repeaterCantMessage": "Impossible d'envoyer des messages aux répéteurs",
     "manage": "Gérer",
     "dragResize": "Glisser pour redimensionner",
     "filterContacts": "Filtrer et trier les contacts",

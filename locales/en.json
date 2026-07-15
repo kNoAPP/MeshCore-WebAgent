@@ -482,6 +482,14 @@
   },
   "repeaterAdmin": {
     "manage": "Manage",
+    "contactUnavailable": "This node is no longer available.",
+    "access": {
+      "admin": "Admin",
+      "guest": "Guest"
+    },
+    "tabs": {
+      "status": "Status"
+    },
     "login": {
       "prompt": "Log in to administer this node.",
       "accessLabel": "Access level",
@@ -492,7 +500,9 @@
       "password": "Password",
       "passwordPlaceholder": "Enter password",
       "submit": "Log in",
-      "loggingIn": "Logging in…"
+      "loggingIn": "Logging in…",
+      "checking": "Checking saved credentials…",
+      "remember": "Remember these credentials"
     },
     "dashboard": {
       "accessAdmin": "Admin access",
@@ -500,6 +510,7 @@
       "refresh": "Refresh",
       "refreshing": "Refreshing…",
       "logout": "Log out",
+      "logoutForget": "Log out & forget credentials",
       "loading": "Loading status…",
       "unavailable": "No status received yet. Try refreshing."
     },
@@ -590,7 +601,6 @@
     "addChannel": "Add channel",
     "autoAddSettings": "Auto-add settings",
     "addContact": "Add contact",
-    "repeaterCantMessage": "Repeaters can't be messaged",
     "manage": "Manage",
     "dragResize": "Drag to resize",
     "filterContacts": "Filter & order contacts",

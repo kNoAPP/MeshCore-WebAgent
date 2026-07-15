@@ -44,6 +44,7 @@ import {
   MAX_MSG_BYTES,
 } from '@/lib/meshcore/constants';
 import { splitPathHashes } from '@/lib/meshcore/parsers';
+import { saveRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { toHex, fromHex, bytesEqual, truncateUtf8 } from '@/lib/utils';
 import i18n from '@/lib/i18n';
 import type {
@@ -979,6 +980,9 @@ export function useMeshCore() {
       // Check before the optimistic bubble so a blocked send leaves no orphan
       // 'sending' message; transmit() re-checks too as the authoritative gate.
       if (!canTransmit(client) || !activeConvo || !text.trim()) return;
+      // Repeater admin views have no composer, so a repeater convo never sends
+      // a chat message; guard both to be safe and to narrow the message kind.
+      if (activeConvo.kind === 'repeater') return;
       const trimmed = text.trim();
       const msgId = crypto.randomUUID();
       addMessage(activeConvo.id, {
@@ -1074,14 +1078,31 @@ export function useMeshCore() {
    * report a role. The password is never stored, only the resulting access.
    */
   const repeaterLogin = useCallback(
-    async (contact: Contact, password: string, kind: RepeaterAccess) => {
+    async (
+      contact: Contact,
+      password: string,
+      kind: RepeaterAccess,
+      remember: boolean,
+    ) => {
       if (!canTransmit(client)) return;
       setAdminLogin(contact.pubkeyPrefix, 'pending');
       try {
         const access = await client.login(contact, password);
         // A drop during login can tear the session down; don't revive it.
         if (!canTransmit(client)) return;
-        setAdminLogin(contact.pubkeyPrefix, access ?? kind);
+        // The node's granted access is authoritative and can differ from the
+        // requested kind; persist and display the level it actually returned.
+        const resolved = access ?? kind;
+        setAdminLogin(contact.pubkeyPrefix, resolved);
+        // Only a successful login is ever remembered, so a wrong password can't
+        // be persisted. The credential lives solely in the encrypted per-radio
+        // secrets store — never the store, prefs blob, or localStorage.
+        if (remember) {
+          void saveRepeaterCred(contact.pubkeyPrefix, {
+            access: resolved,
+            password,
+          });
+        }
       } catch (err) {
         // A disconnect/drop rejects the pending login and runs its own
         // teardown; don't clobber that outcome with a stale login error. A full

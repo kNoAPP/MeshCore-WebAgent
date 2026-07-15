@@ -104,7 +104,7 @@ export function fromHex(hex: string, expectedLen?: number): Uint8Array | null {
 
 /** Builds a conversation key like `"channel:0"` or `"direct:b6cf429f4882"`. */
 export function convoId(
-  kind: 'channel' | 'direct',
+  kind: 'channel' | 'direct' | 'repeater',
   rawId: string | number,
 ): string {
   return `${kind}:${rawId}`;

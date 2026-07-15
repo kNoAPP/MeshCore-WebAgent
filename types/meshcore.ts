@@ -281,8 +281,8 @@ export type RepeaterAccess = 'admin' | 'guest';
 
 /** The conversation currently open in the UI. */
 export interface ActiveConvo {
-  kind: 'channel' | 'direct';
-  id: string; // e.g. "channel:0" or "direct:b6cf429f4882"
+  kind: 'channel' | 'direct' | 'repeater';
+  id: string; // e.g. "channel:0", "direct:b6cf429f4882", or "repeater:b6cf429f4882"
   rawId: string | number;
   label: string;
 }

@@ -482,6 +482,14 @@
   },
   "repeaterAdmin": {
     "manage": "Administrar",
+    "contactUnavailable": "Este nodo ya no está disponible.",
+    "access": {
+      "admin": "Administrador",
+      "guest": "Invitado"
+    },
+    "tabs": {
+      "status": "Estado"
+    },
     "login": {
       "prompt": "Inicia sesión para administrar este nodo.",
       "accessLabel": "Nivel de acceso",
@@ -492,7 +500,9 @@
       "password": "Contraseña",
       "passwordPlaceholder": "Introduce la contraseña",
       "submit": "Iniciar sesión",
-      "loggingIn": "Iniciando sesión…"
+      "loggingIn": "Iniciando sesión…",
+      "checking": "Comprobando credenciales guardadas…",
+      "remember": "Recordar estas credenciales"
     },
     "dashboard": {
       "accessAdmin": "Acceso de administrador",
@@ -500,6 +510,7 @@
       "refresh": "Actualizar",
       "refreshing": "Actualizando…",
       "logout": "Cerrar sesión",
+      "logoutForget": "Cerrar sesión y olvidar credenciales",
       "loading": "Cargando estado…",
       "unavailable": "Aún no se ha recibido estado. Intenta actualizar."
     },
@@ -590,7 +601,6 @@
     "addChannel": "Añadir canal",
     "autoAddSettings": "Ajustes de auto-añadir",
     "addContact": "Añadir contacto",
-    "repeaterCantMessage": "No se puede enviar mensajes a los repetidores",
     "manage": "Gestionar",
     "dragResize": "Arrastra para redimensionar",
     "filterContacts": "Filtrar y ordenar contactos",

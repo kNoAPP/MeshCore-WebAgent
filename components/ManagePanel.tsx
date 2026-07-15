@@ -7,10 +7,14 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Eye } from 'lucide-react';
 import type { TFunction } from 'i18next';
-import { useMeshStore, channelConvoId } from '@/store/meshStore';
+import {
+  useMeshStore,
+  channelConvoId,
+  repeaterConvoId,
+  openConvo,
+} from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
-import { RepeaterAdminPanel } from './RepeaterAdminPanel';
 import { CopyButton } from './CopyButton';
 import { ShareCard } from './ShareCard';
 import {
@@ -73,14 +77,11 @@ function ManagePanelView() {
   const [confirming, setConfirming] = useState(false);
   // `sharing` selects the contact share sub-page in place of the detail view.
   const [sharing, setSharing] = useState(false);
-  // `managing` swaps in the repeater admin panel for the contact detail view.
-  const [managing, setManaging] = useState(false);
 
   if (!managePanel) return null;
   const close = () => {
     setConfirming(false);
     setSharing(false);
-    setManaging(false);
     setManagePanel(null);
   };
 
@@ -182,10 +183,6 @@ function ManagePanelView() {
   const contact = contacts[managePanel.id];
   if (!contact) return null;
 
-  if (managing) {
-    return <RepeaterAdminPanel contact={contact} onClose={close} />;
-  }
-
   const isRepeaterOrRoom =
     contact.advType === ADV_TYPE_REPEATER || contact.advType === ADV_TYPE_ROOM;
   const isFav = (contact.flags & FAVORITE_FLAG) !== 0;
@@ -268,7 +265,15 @@ function ManagePanelView() {
             <div className='mt-6 flex flex-wrap justify-end gap-2 border-t border-(--border) pt-4'>
               {connected && isRepeaterOrRoom && (
                 <button
-                  onClick={() => setManaging(true)}
+                  onClick={() => {
+                    openConvo({
+                      kind: 'repeater',
+                      id: repeaterConvoId(contact.pubkeyPrefix),
+                      rawId: contact.pubkeyPrefix,
+                      label: contact.name || contact.pubkeyPrefix.slice(0, 8),
+                    });
+                    close();
+                  }}
                   className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
                 >
                   {t('repeaterAdmin.manage')}

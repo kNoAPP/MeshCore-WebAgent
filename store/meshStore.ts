@@ -848,3 +848,12 @@ export function channelConvoId(idx: number): string {
 export function directConvoId(prefix: string): string {
   return convoId('direct', prefix);
 }
+
+/**
+ * Builds the conversation id for a repeater/room admin view (by pubkey prefix).
+ * A distinct namespace from {@link directConvoId} keeps admin selections from
+ * colliding with a chat's `msgHistory` keys.
+ */
+export function repeaterConvoId(prefix: string): string {
+  return convoId('repeater', prefix);
+}

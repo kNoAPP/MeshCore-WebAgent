@@ -17,6 +17,7 @@ import {
   openConvo,
   channelConvoId,
   directConvoId,
+  repeaterConvoId,
   unreadCount,
   CONTACT_FILTERS,
   CONTACT_SORTS,
@@ -372,32 +373,33 @@ export function Sidebar() {
         </div>
         <div className='flex-1 overflow-y-auto'>
           {sortedContacts.map((c) => {
-            const id = directConvoId(c.pubkeyPrefix);
+            // Repeaters can't be messaged, so selecting one opens its
+            // main-window admin view instead of a chat.
+            const isRepeater = c.advType === ADV_TYPE_REPEATER;
+            const id = isRepeater
+              ? repeaterConvoId(c.pubkeyPrefix)
+              : directConvoId(c.pubkeyPrefix);
             const unread = unreadCount(msgHistory, id);
             const active = activeConvo?.id === id;
             const isFav = (c.flags & FAVORITE_FLAG) !== 0;
-            const isRepeater = c.advType === ADV_TYPE_REPEATER;
+            const label = c.name || c.pubkeyPrefix.slice(0, 8);
             return (
               <SidebarItem
                 key={id}
                 innerRef={active ? activeItemRef : undefined}
                 icon={isFav ? '⭐' : (ADV_ICON[c.advType] ?? '👤')}
-                label={c.name || c.pubkeyPrefix.slice(0, 8)}
+                label={label}
                 active={active}
                 unread={unread}
-                disabled={isRepeater}
-                title={
-                  isRepeater ? t('sidebar.repeaterCantMessage') : undefined
-                }
                 onManage={() =>
                   setManagePanel({ kind: 'contact', id: c.pubkeyPrefix })
                 }
                 onClick={() =>
                   openConvo({
-                    kind: 'direct',
+                    kind: isRepeater ? 'repeater' : 'direct',
                     id,
                     rawId: c.pubkeyPrefix,
-                    label: c.name || c.pubkeyPrefix.slice(0, 8),
+                    label,
                   })
                 }
               />

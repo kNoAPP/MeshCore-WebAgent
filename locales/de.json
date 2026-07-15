@@ -482,6 +482,14 @@
   },
   "repeaterAdmin": {
     "manage": "Verwalten",
+    "contactUnavailable": "Dieser Knoten ist nicht mehr verfügbar.",
+    "access": {
+      "admin": "Admin",
+      "guest": "Gast"
+    },
+    "tabs": {
+      "status": "Status"
+    },
     "login": {
       "prompt": "Melden Sie sich an, um diesen Knoten zu verwalten.",
       "accessLabel": "Zugriffsebene",
@@ -492,7 +500,9 @@
       "password": "Passwort",
       "passwordPlaceholder": "Passwort eingeben",
       "submit": "Anmelden",
-      "loggingIn": "Anmeldung…"
+      "loggingIn": "Anmeldung…",
+      "checking": "Gespeicherte Anmeldedaten werden geprüft…",
+      "remember": "Diese Anmeldedaten merken"
     },
     "dashboard": {
       "accessAdmin": "Admin-Zugriff",
@@ -500,6 +510,7 @@
       "refresh": "Aktualisieren",
       "refreshing": "Wird aktualisiert…",
       "logout": "Abmelden",
+      "logoutForget": "Abmelden & Anmeldedaten vergessen",
       "loading": "Status wird geladen…",
       "unavailable": "Noch kein Status empfangen. Bitte aktualisieren."
     },
@@ -590,7 +601,6 @@
     "addChannel": "Kanal hinzufügen",
     "autoAddSettings": "Auto-Hinzufügen-Einstellungen",
     "addContact": "Kontakt hinzufügen",
-    "repeaterCantMessage": "Repeatern können keine Nachrichten gesendet werden",
     "manage": "Verwalten",
     "dragResize": "Zum Ändern der Größe ziehen",
     "filterContacts": "Kontakte filtern & sortieren",

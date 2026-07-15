@@ -11,6 +11,7 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { ConnectPanel } from './ConnectPanel';
 import { ChatArea } from './ChatArea';
+import { RepeaterView } from './RepeaterView';
 import { ReconnectingOverlay } from './ReconnectingOverlay';
 import { StatsPage } from './StatsPage';
 import { SettingsPage } from './SettingsPage';
@@ -39,6 +40,7 @@ export function AppShell() {
   const isDesktop = useIsDesktop();
   const status = useMeshStore((s) => s.status);
   const view = useMeshStore((s) => s.view);
+  const activeConvo = useMeshStore((s) => s.activeConvo);
   const commandPaletteOpen = useMeshStore((s) => s.commandPaletteOpen);
   const connected = status === 'connected';
   const reconnecting = status === 'reconnecting';
@@ -72,7 +74,11 @@ export function AppShell() {
             ) : (
               <>
                 <Sidebar />
-                <ChatArea />
+                {activeConvo?.kind === 'repeater' ? (
+                  <RepeaterView />
+                ) : (
+                  <ChatArea />
+                )}
               </>
             )
           ) : (
