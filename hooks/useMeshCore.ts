@@ -1243,10 +1243,8 @@ export function useMeshCore() {
    * no reply arrives in time.
    */
   const repeaterCliRequest = useCallback(
-    (contact: Contact, cmd: string): Promise<string> => {
-      if (!canTransmit(client)) {
-        return Promise.reject(new Error('Disconnected'));
-      }
+    async (contact: Contact, cmd: string): Promise<string> => {
+      if (!canTransmit(client)) throw new Error('Disconnected');
       const line = truncateUtf8(cmd, MAX_MSG_BYTES);
       appendCliLine(contact.pubkeyPrefix, {
         own: true,
@@ -1257,6 +1255,11 @@ export function useMeshCore() {
       // Supersede any stale request for this repeater so a late reply can't
       // be handed to this new one.
       rejectCliWaitersFor(prefix);
+      // Send first and wait for the radio's SENT/OK ack. Only then arm the
+      // reply waiter, so the reply timeout measures the round trip to the
+      // repeater and back — not time spent queued behind other sends.
+      await client.sendCliCommand(contact, line);
+      if (!canTransmit(client)) throw new Error('Disconnected');
       return new Promise<string>((resolve, reject) => {
         const waiter: CliWaiter = {
           resolve,
@@ -1272,10 +1275,6 @@ export function useMeshCore() {
           reject(err);
         };
         cliWaiters.set(prefix, [waiter]);
-        client.sendCliCommand(contact, line).catch((err: Error) => {
-          rejectCliWaitersFor(prefix);
-          reject(err);
-        });
       });
     },
     [client, appendCliLine],

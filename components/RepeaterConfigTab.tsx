@@ -47,6 +47,13 @@ type ValueMap = Record<string, string>;
 type SaveStatus = 'saving' | 'saved' | 'error';
 
 /**
+ * How many times a prefill re-requests fields that didn't answer. CLI replies
+ * are frequently dropped over the mesh, so a couple of retry passes markedly
+ * improve how many fields fill in without a manual refresh.
+ */
+const READ_PASSES = 3;
+
+/**
  * The Config tab of the repeater admin panel: structured, validated controls
  * for the common `get`/`set` settings plus the key action verbs, all driven by
  * the {@link REPEATER_SETTING_GROUPS} catalog. On open it prefills every field
@@ -121,29 +128,45 @@ export function RepeaterConfigTab({
     runRef.current.live = false;
     const run = (runRef.current = { live: true });
     void (async () => {
-      for (const setting of ALL_REPEATER_SETTINGS) {
-        if (!run.live) return;
-        let parsed: string | null = null;
-        try {
-          const reply = await enqueue(() =>
-            requestRef.current(contactRef.current, getCommand(setting)),
-          );
+      // Retry gaps: CLI replies are often dropped over the mesh, so re-request
+      // any field that didn't answer, up to a few passes. A field stays
+      // "reading" until it loads or the passes are exhausted.
+      const loaded = new Set<string>();
+      for (let pass = 0; pass < READ_PASSES; pass++) {
+        let missing = false;
+        for (const setting of ALL_REPEATER_SETTINGS) {
           if (!run.live) return;
-          if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
-        } catch {
-          if (!run.live) return;
+          if (loaded.has(setting.id)) continue;
+          let parsed: string | null = null;
+          try {
+            const reply = await enqueue(() =>
+              requestRef.current(contactRef.current, getCommand(setting)),
+            );
+            if (!run.live) return;
+            if (!isErrorReply(reply)) parsed = normalizeReply(setting, reply);
+          } catch {
+            if (!run.live) return;
+          }
+          if (parsed != null) {
+            const value = parsed;
+            loaded.add(setting.id);
+            setValues((prev) => ({ ...prev, [setting.id]: value }));
+            setDrafts((prev) => ({ ...prev, [setting.id]: value }));
+            setPending((prev) => {
+              if (!prev.has(setting.id)) return prev;
+              const next = new Set(prev);
+              next.delete(setting.id);
+              return next;
+            });
+          } else {
+            missing = true;
+          }
         }
-        if (parsed != null) {
-          const value = parsed;
-          setValues((prev) => ({ ...prev, [setting.id]: value }));
-          setDrafts((prev) => ({ ...prev, [setting.id]: value }));
-        }
-        setPending((prev) => {
-          const next = new Set(prev);
-          next.delete(setting.id);
-          return next;
-        });
+        if (!missing) break;
       }
+      if (!run.live) return;
+      // Stop showing "reading" for fields that never answered.
+      setPending((prev) => (prev.size === 0 ? prev : new Set()));
     })();
   }, [enqueue]);
 
