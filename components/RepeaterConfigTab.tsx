@@ -419,71 +419,73 @@ export function RepeaterConfigTab({
   });
 
   return (
-    <div className='space-y-4'>
-      {readOnly && (
-        <p
-          className='rounded-md border border-(--border) p-3 text-xs text-(--text2)'
-          style={{ background: 'var(--surface2)' }}
-        >
-          {t('repeaterAdmin.config.readOnlyNotice')}
-        </p>
-      )}
+    <>
+      <div className='mx-auto grid w-full max-w-6xl grid-cols-1 items-start gap-4 xl:grid-cols-2'>
+        {readOnly && (
+          <p
+            className='rounded-md border border-(--border) p-3 text-xs text-(--text2) xl:col-span-2'
+            style={{ background: 'var(--surface2)' }}
+          >
+            {t('repeaterAdmin.config.readOnlyNotice')}
+          </p>
+        )}
 
-      {REPEATER_SETTING_GROUPS.map((group) => (
-        <Section
-          key={group.id}
-          title={t(`repeaterAdmin.config.groups.${group.id}`)}
-          action={
-            <RefreshButton
-              onClick={() => refreshSection(group.settings)}
-              busy={sectionBusy(group.settings)}
-              download={!sectionLoaded(group.settings)}
-            />
-          }
-        >
-          {group.settings.map((setting) => {
-            // TX power is edited inside the radio modal, not its own row.
-            if (setting.id === 'lon' || setting.id === 'tx') return null;
-            // Latitude and longitude share one compact "Location" row.
-            if (setting.id === 'lat') {
-              const lon = group.settings.find((s) => s.id === 'lon');
-              return (
-                <LocationRow
-                  key='location'
-                  latProps={rowProps(setting)}
-                  lonProps={lon ? rowProps(lon) : undefined}
-                />
-              );
+        {REPEATER_SETTING_GROUPS.map((group) => (
+          <Section
+            key={group.id}
+            title={t(`repeaterAdmin.config.groups.${group.id}`)}
+            action={
+              <RefreshButton
+                onClick={() => refreshSection(group.settings)}
+                busy={sectionBusy(group.settings)}
+                download={!sectionLoaded(group.settings)}
+              />
             }
-            // The LoRa quad + TX power open the shared radio editor modal.
-            if (setting.id === 'radio') {
-              return (
-                <RadioModalRow
-                  key='radio'
-                  radioValue={values.radio ?? ''}
-                  txValue={values.tx ?? ''}
-                  loading={pending.has('radio') || pending.has('tx')}
-                  readOnly={readOnly}
-                  onEdit={() => setRadioEditOpen(true)}
-                />
-              );
-            }
-            return <SettingRow key={setting.id} {...rowProps(setting)} />;
-          })}
-        </Section>
-      ))}
-
-      <AdvancedSection
-        busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
-        loaded={sectionLoaded(REPEATER_ADVANCED_SETTINGS)}
-        onRefresh={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
-      >
-        {REPEATER_ADVANCED_SETTINGS.map((setting) => (
-          <SettingRow key={setting.id} {...rowProps(setting)} />
+          >
+            {group.settings.map((setting) => {
+              // TX power is edited inside the radio modal, not its own row.
+              if (setting.id === 'lon' || setting.id === 'tx') return null;
+              // Latitude and longitude share one compact "Location" row.
+              if (setting.id === 'lat') {
+                const lon = group.settings.find((s) => s.id === 'lon');
+                return (
+                  <LocationRow
+                    key='location'
+                    latProps={rowProps(setting)}
+                    lonProps={lon ? rowProps(lon) : undefined}
+                  />
+                );
+              }
+              // The LoRa quad + TX power open the shared radio editor modal.
+              if (setting.id === 'radio') {
+                return (
+                  <RadioModalRow
+                    key='radio'
+                    radioValue={values.radio ?? ''}
+                    txValue={values.tx ?? ''}
+                    loading={pending.has('radio') || pending.has('tx')}
+                    readOnly={readOnly}
+                    onEdit={() => setRadioEditOpen(true)}
+                  />
+                );
+              }
+              return <SettingRow key={setting.id} {...rowProps(setting)} />;
+            })}
+          </Section>
         ))}
-      </AdvancedSection>
 
-      {!readOnly && <ActionsSection onRun={runAction} />}
+        <AdvancedSection
+          busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
+          loaded={sectionLoaded(REPEATER_ADVANCED_SETTINGS)}
+          onRefresh={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
+        >
+          {REPEATER_ADVANCED_SETTINGS.map((setting) => (
+            <SettingRow key={setting.id} {...rowProps(setting)} />
+          ))}
+        </AdvancedSection>
+
+        {!readOnly && <ActionsSection onRun={runAction} />}
+      </div>
 
       {radioEditOpen && radioModalFields && (
         <RadioSettingsModal
@@ -492,7 +494,7 @@ export function RepeaterConfigTab({
           onClose={() => setRadioEditOpen(false)}
         />
       )}
-    </div>
+    </>
   );
 }
 
