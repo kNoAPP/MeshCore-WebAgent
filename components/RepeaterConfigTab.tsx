@@ -474,15 +474,20 @@ export function RepeaterConfigTab({
           </Section>
         ))}
 
-        <AdvancedSection
-          busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
-          loaded={sectionLoaded(REPEATER_ADVANCED_SETTINGS)}
-          onRefresh={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
+        <Section
+          title={t('repeaterAdmin.config.advanced')}
+          action={
+            <RefreshButton
+              onClick={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
+              busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
+              download={!sectionLoaded(REPEATER_ADVANCED_SETTINGS)}
+            />
+          }
         >
           {REPEATER_ADVANCED_SETTINGS.map((setting) => (
             <SettingRow key={setting.id} {...rowProps(setting)} />
           ))}
-        </AdvancedSection>
+        </Section>
 
         {!readOnly && <ActionsSection onRun={runAction} />}
       </div>
@@ -520,47 +525,6 @@ function Section({
         {action}
       </div>
       {children}
-    </section>
-  );
-}
-
-/**
- * The advanced routing knobs, collapsed behind a disclosure by default. Its
- * Refresh button (which loads the section's values) appears only once opened.
- */
-function AdvancedSection({
-  busy,
-  loaded,
-  onRefresh,
-  children,
-}: {
-  busy: boolean;
-  loaded: boolean;
-  onRefresh: () => void;
-  children: React.ReactNode;
-}) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  return (
-    <section
-      className='rounded-lg p-3.5'
-      style={{ background: 'var(--surface2)' }}
-    >
-      <div className='flex items-center justify-between gap-2'>
-        <button
-          type='button'
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className='flex flex-1 items-center gap-2 text-[11px] font-bold tracking-widest text-(--accent) uppercase hover:opacity-80'
-        >
-          <span aria-hidden>{open ? '▾' : '▸'}</span>
-          <span>{t('repeaterAdmin.config.advanced')}</span>
-        </button>
-        {open && (
-          <RefreshButton onClick={onRefresh} busy={busy} download={!loaded} />
-        )}
-      </div>
-      {open && <div className='mt-2.5'>{children}</div>}
     </section>
   );
 }
