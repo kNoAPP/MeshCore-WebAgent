@@ -3,6 +3,7 @@
     "cancel": "Cancelar",
     "save": "Guardar",
     "remove": "Eliminar",
+    "refresh": "Actualizar",
     "close": "Cerrar",
     "add": "Añadir",
     "manage": "Gestionar",
@@ -138,8 +139,6 @@
   },
   "stats": {
     "title": "📊 Estadísticas del dispositivo",
-    "refresh": "↻ Actualizar",
-    "refreshing": "⟳ Actualizando…",
     "card": {
       "storageBattery": "💾 Almacenamiento y batería",
       "core": "🖥️ Núcleo",
@@ -507,8 +506,6 @@
     "dashboard": {
       "accessAdmin": "Acceso de administrador",
       "accessGuest": "Acceso de invitado (solo lectura)",
-      "refresh": "Actualizar",
-      "refreshing": "Actualizando…",
       "logout": "Cerrar sesión",
       "unavailable": "Aún no se ha recibido estado. Intenta actualizar."
     },

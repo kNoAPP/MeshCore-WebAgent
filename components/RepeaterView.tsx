@@ -17,6 +17,7 @@ import {
 import { formatPubkey } from '@/lib/utils';
 import { RouteChip } from './RouteChip';
 import { StatCard } from './StatCard';
+import { RefreshButton } from './RefreshButton';
 import { RepeaterConfigTab } from './RepeaterConfigTab';
 import type { Contact, RepeaterAccess, RepeaterStatus } from '@/types/meshcore';
 
@@ -498,15 +499,7 @@ function StatusDashboard({
   return (
     <div className='space-y-4'>
       <div className='flex justify-end'>
-        <button
-          onClick={() => void refresh()}
-          disabled={loading}
-          className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50'
-        >
-          {loading
-            ? t('repeaterAdmin.dashboard.refreshing')
-            : t('repeaterAdmin.dashboard.refresh')}
-        </button>
+        <RefreshButton onClick={() => void refresh()} busy={loading} />
       </div>
 
       {loading ? (

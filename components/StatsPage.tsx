@@ -10,6 +10,7 @@ import type { StatsResult, BatteryInfo } from '@/types/meshcore';
 import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
 import { fmtUptime, fmtAirtime, fmtVoltage, fmtSkew } from '@/lib/utils';
 import { StatCard } from './StatCard';
+import { RefreshButton } from './RefreshButton';
 
 /**
  * Device stats page. Fetches battery + all stats pages when the stats view
@@ -293,13 +294,7 @@ export function StatsPage() {
         {/* Header */}
         <div className='mb-5 flex items-center justify-between'>
           <h2 className='text-base font-bold'>{t('stats.title')}</h2>
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className='rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50'
-          >
-            {loading ? t('stats.refreshing') : t('stats.refresh')}
-          </button>
+          <RefreshButton onClick={refresh} busy={loading} />
         </div>
 
         <div className='grid grid-cols-2 gap-4'>

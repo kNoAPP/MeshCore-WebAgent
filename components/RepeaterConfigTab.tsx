@@ -38,6 +38,7 @@ import {
   RADIO_BW_VALUES_KHZ,
 } from '@/lib/meshcore/constants';
 import { fmtNum, utf8ByteLength } from '@/lib/utils';
+import { RefreshButton } from './RefreshButton';
 import type { Contact } from '@/types/meshcore';
 
 /** The map of settings ids to their current on-device / draft values. */
@@ -312,14 +313,7 @@ export function RepeaterConfigTab({
             // The Refresh control lives in the first section's header rather
             // than its own row, so it costs no vertical space.
             i === 0 ? (
-              <button
-                onClick={refresh}
-                disabled={reading}
-                aria-label={t('repeaterAdmin.dashboard.refresh')}
-                className='inline-flex items-center justify-center rounded-md border border-(--border-control) p-1 text-(--text2) transition-colors hover:bg-(--surface2) hover:text-(--text) disabled:opacity-50'
-              >
-                <RefreshIcon className={reading ? 'animate-spin' : undefined} />
-              </button>
+              <RefreshButton onClick={refresh} busy={reading} />
             ) : undefined
           }
         >
@@ -589,27 +583,6 @@ function InfoIcon() {
       <circle cx='12' cy='12' r='10' />
       <path d='M12 16v-4' />
       <path d='M12 8h.01' />
-    </svg>
-  );
-}
-
-/** Circular-arrows refresh glyph; spins via `animate-spin` while reading. */
-function RefreshIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox='0 0 24 24'
-      className={`h-4 w-4 ${className ?? ''}`}
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      aria-hidden='true'
-    >
-      <path d='M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8' />
-      <path d='M21 3v5h-5' />
-      <path d='M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16' />
-      <path d='M3 21v-5h5' />
     </svg>
   );
 }

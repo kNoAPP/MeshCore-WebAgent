@@ -3,6 +3,7 @@
     "cancel": "Abbrechen",
     "save": "Speichern",
     "remove": "Entfernen",
+    "refresh": "Aktualisieren",
     "close": "Schließen",
     "add": "Hinzufügen",
     "manage": "Verwalten",
@@ -138,8 +139,6 @@
   },
   "stats": {
     "title": "📊 Gerätestatistik",
-    "refresh": "↻ Aktualisieren",
-    "refreshing": "⟳ Aktualisiere…",
     "card": {
       "storageBattery": "💾 Speicher & Akku",
       "core": "🖥️ Kern",
@@ -507,8 +506,6 @@
     "dashboard": {
       "accessAdmin": "Admin-Zugriff",
       "accessGuest": "Gastzugriff (nur Lesen)",
-      "refresh": "Aktualisieren",
-      "refreshing": "Wird aktualisiert…",
       "logout": "Abmelden",
       "unavailable": "Noch kein Status empfangen. Bitte aktualisieren."
     },

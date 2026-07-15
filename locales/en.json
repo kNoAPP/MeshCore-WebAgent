@@ -3,6 +3,7 @@
     "cancel": "Cancel",
     "save": "Save",
     "remove": "Remove",
+    "refresh": "Refresh",
     "close": "Close",
     "add": "Add",
     "manage": "Manage",
@@ -138,8 +139,6 @@
   },
   "stats": {
     "title": "📊 Device Stats",
-    "refresh": "↻ Refresh",
-    "refreshing": "⟳ Refreshing…",
     "card": {
       "storageBattery": "💾 Storage & Battery",
       "core": "🖥️ Core",
@@ -507,8 +506,6 @@
     "dashboard": {
       "accessAdmin": "Admin access",
       "accessGuest": "Guest access (read-only)",
-      "refresh": "Refresh",
-      "refreshing": "Refreshing…",
       "logout": "Log out",
       "unavailable": "No status received yet. Try refreshing."
     },
