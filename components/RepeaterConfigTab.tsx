@@ -601,7 +601,7 @@ function SettingRow({
   readOnly,
   nameBytes,
 }: RowProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const label = t(`repeaterAdmin.config.fields.${setting.id}.label`);
   const maxBytes = setting.kind === 'text' ? nameBytes : undefined;
@@ -622,7 +622,6 @@ function SettingRow({
     <div className='flex items-center justify-between gap-3 border-b border-(--border) py-1.5 text-xs last:border-0'>
       <div className='flex min-w-0 flex-1 items-center gap-1.5'>
         <span className='truncate text-(--text2)'>{label}</span>
-        <InfoHint text={settingHint(t, i18n.language, setting)} />
         {setting.requiresReboot && <RebootPill />}
       </div>
       <div className='flex shrink-0 items-center gap-2'>
@@ -719,58 +718,6 @@ function StatusChip({
       )}
     </span>
   );
-}
-
-/** A small info affordance whose native tooltip explains a setting. */
-function InfoHint({ text }: { text: string }) {
-  return (
-    <span
-      className='inline-flex shrink-0 cursor-help text-(--text2)'
-      title={text}
-      aria-label={text}
-    >
-      <InfoIcon />
-    </span>
-  );
-}
-
-/** Circled-i glyph for {@link InfoHint}, inheriting the text color. */
-function InfoIcon() {
-  return (
-    <svg
-      viewBox='0 0 24 24'
-      className='h-3.5 w-3.5'
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      aria-hidden='true'
-    >
-      <circle cx='12' cy='12' r='10' />
-      <path d='M12 16v-4' />
-      <path d='M12 8h.01' />
-    </svg>
-  );
-}
-
-/**
- * Builds a setting's tooltip: its localized description, with the valid numeric
- * range (and unit) appended for number fields.
- */
-function settingHint(
-  t: ReturnType<typeof useTranslation>['t'],
-  lang: string,
-  setting: RepeaterSetting,
-): string {
-  const desc = t(`repeaterAdmin.config.fields.${setting.id}.hint`);
-  if (setting.kind === 'number') {
-    const unit = setting.unit
-      ? ` ${t(`repeaterAdmin.config.units.${setting.unit}`)}`
-      : '';
-    return `${desc} (${fmtNum(setting.min, lang)}–${fmtNum(setting.max, lang)}${unit})`;
-  }
-  return desc;
 }
 
 /** A small "requires reboot" badge shown beside affected fields. */
@@ -1049,7 +996,6 @@ function LocationRow({
         <span className='truncate text-(--text2)'>
           {t('repeaterAdmin.config.location')}
         </span>
-        <InfoHint text={t('repeaterAdmin.config.locationHint')} />
       </div>
       <div className='flex shrink-0 items-center gap-3'>
         {loading ? (
