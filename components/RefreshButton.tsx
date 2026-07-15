@@ -26,25 +26,49 @@ function RefreshIcon({ className }: { className?: string }) {
   );
 }
 
+/** Download (arrow-into-tray) glyph, shown before a section's first load. */
+function DownloadIcon() {
+  return (
+    <svg
+      viewBox='0 0 24 24'
+      className='h-4 w-4'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='2'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      aria-hidden='true'
+    >
+      <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' />
+      <path d='M7 10l5 5 5-5' />
+      <path d='M12 15V3' />
+    </svg>
+  );
+}
+
 /**
  * The app's single refresh control: a bordered icon button whose glyph spins
  * while a fetch is in flight. Disabled (and spinning) while {@link busy}.
  *
  * @param onClick - triggers the refresh.
  * @param busy - fetch in flight: disables the button and spins the icon.
+ * @param download - show a download glyph (and "Load" label) instead of the
+ *   refresh arrows; for a target whose values haven't been loaded yet.
  * @param className - extra classes for layout (e.g. sizing overrides).
  */
 export function RefreshButton({
   onClick,
   busy,
+  download,
   className,
 }: {
   onClick: () => void;
   busy: boolean;
+  download?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation();
-  const label = t('common.refresh');
+  const label = t(download && !busy ? 'common.load' : 'common.refresh');
   return (
     <button
       type='button'
@@ -54,7 +78,13 @@ export function RefreshButton({
       title={label}
       className={`inline-flex items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:bg-(--surface2) hover:text-(--text) disabled:opacity-50 ${className ?? ''}`}
     >
-      <RefreshIcon className={busy ? 'animate-spin' : undefined} />
+      {busy ? (
+        <RefreshIcon className='animate-spin' />
+      ) : download ? (
+        <DownloadIcon />
+      ) : (
+        <RefreshIcon />
+      )}
     </button>
   );
 }

@@ -381,6 +381,10 @@ export function RepeaterConfigTab({
   const nameBytes = nameMaxBytes(drafts.lat ?? '', drafts.lon ?? '');
   const sectionBusy = (settings: readonly RepeaterSetting[]) =>
     settings.some((s) => pending.has(s.id));
+  // A section is "unloaded" until at least one of its fields has a value; its
+  // Refresh control then shows a download glyph to invite the first load.
+  const sectionLoaded = (settings: readonly RepeaterSetting[]) =>
+    settings.some((s) => (values[s.id] ?? '') !== '');
 
   // Seed for the shared radio/TX modal, or null until both values have loaded.
   const radioParsed = parseRadio(values.radio ?? '');
@@ -433,6 +437,7 @@ export function RepeaterConfigTab({
             <RefreshButton
               onClick={() => refreshSection(group.settings)}
               busy={sectionBusy(group.settings)}
+              download={!sectionLoaded(group.settings)}
             />
           }
         >
@@ -470,6 +475,7 @@ export function RepeaterConfigTab({
 
       <AdvancedSection
         busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
+        loaded={sectionLoaded(REPEATER_ADVANCED_SETTINGS)}
         onRefresh={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
       >
         {REPEATER_ADVANCED_SETTINGS.map((setting) => (
@@ -522,10 +528,12 @@ function Section({
  */
 function AdvancedSection({
   busy,
+  loaded,
   onRefresh,
   children,
 }: {
   busy: boolean;
+  loaded: boolean;
   onRefresh: () => void;
   children: React.ReactNode;
 }) {
@@ -546,7 +554,9 @@ function AdvancedSection({
           <span aria-hidden>{open ? '▾' : '▸'}</span>
           <span>{t('repeaterAdmin.config.advanced')}</span>
         </button>
-        {open && <RefreshButton onClick={onRefresh} busy={busy} />}
+        {open && (
+          <RefreshButton onClick={onRefresh} busy={busy} download={!loaded} />
+        )}
       </div>
       {open && (
         <div className='divide-y divide-(--border) border-t border-(--border) px-4'>
