@@ -34,6 +34,7 @@ import { fmtNum, utf8ByteLength } from '@/lib/utils';
 import { Card } from './Card';
 import { RefreshButton } from './RefreshButton';
 import { RadioSettingsModal } from './RadioSettings';
+import { SaveStatusChip, type SaveStatus } from './SaveStatus';
 import type { Contact, RadioParams } from '@/types/meshcore';
 
 /** The map of settings ids to their current on-device / draft values. */
@@ -45,9 +46,6 @@ const EMPTY_VALUES: ValueMap = {};
 /** Shared className for a config row: label left, content right, hairline. */
 const ROW_CLASS =
   'flex items-center justify-between gap-3 border-b border-(--border) py-1.5 text-xs last:border-0';
-
-/** Per-field save lifecycle shown as a small status chip. */
-type SaveStatus = 'saving' | 'saved' | 'error';
 
 /**
  * The result of one commit round-trip: either the node's authoritative value
@@ -705,7 +703,7 @@ function SettingRow({
               onCommitEdit={commitEdit}
             />
           )}
-          <StatusChip status={status} errorText={errorText} />
+          <SaveStatusChip status={status} errorText={errorText} />
         </FieldSlot>
       </div>
     </div>
@@ -740,48 +738,6 @@ function FieldSlot({
   }
   if (!loaded) return <UnloadedValue />;
   return <>{children}</>;
-}
-
-/**
- * A save-lifecycle indicator (spinner / ✓ / ⚠). Always occupies a fixed-width
- * slot so it fades in and out in place instead of widening the row and shoving
- * the control sideways when a save starts or clears. When idle it shows a faint
- * dot so the slot reads as an intentional gutter rather than blank space.
- */
-function StatusChip({
-  status,
-  errorText,
-}: {
-  status?: SaveStatus;
-  errorText?: string;
-}) {
-  return (
-    <span className='inline-flex w-4 shrink-0 items-center justify-center'>
-      {!status && (
-        <span aria-hidden className='h-1 w-1 rounded-full bg-(--border)' />
-      )}
-      {status === 'saving' && (
-        <span
-          aria-hidden
-          className='h-3 w-3 animate-spin rounded-full border border-(--text2) border-t-transparent'
-        />
-      )}
-      {status === 'saved' && (
-        <span aria-hidden className='text-xs text-(--green)'>
-          ✓
-        </span>
-      )}
-      {status === 'error' && (
-        <span
-          className='cursor-help text-xs text-(--red)'
-          title={errorText}
-          aria-label={errorText}
-        >
-          ⚠
-        </span>
-      )}
-    </span>
-  );
 }
 
 /** A small "requires reboot" badge shown beside affected fields. */
@@ -1103,7 +1059,7 @@ function CoordField({
         onChange={onDraft}
         onCommitEdit={commitEdit}
       />
-      <StatusChip status={status} errorText={errorText} />
+      <SaveStatusChip status={status} errorText={errorText} />
     </div>
   );
 }

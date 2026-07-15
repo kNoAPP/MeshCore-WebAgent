@@ -25,6 +25,7 @@ import { CopyButton } from './CopyButton';
 import { ModalShell } from './ModalShell';
 import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
+import { SaveStatusChip, useSaveStatus } from './SaveStatus';
 import { AiSettingsBody } from './AiSettings';
 import { AutomationSettingsBody } from './AutomationPanel';
 import { SUPPORTED_UNIT_SYSTEMS, type UnitSystem } from '@/lib/units/config';
@@ -292,7 +293,8 @@ function NodeNameRow() {
   const { setNodeName } = useMeshCore();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
-  const [saving, setSaving] = useState(false);
+  const { status: saveStatus, run: runSave } = useSaveStatus();
+  const saving = saveStatus === 'saving';
 
   const currentName = selfInfo?.name ?? '';
   // Writes only land on a fully connected link (the hook gates on it too); show
@@ -313,9 +315,7 @@ function NodeNameRow() {
 
   const save = async () => {
     if (!canSave) return;
-    setSaving(true);
-    const ok = await setNodeName(trimmed);
-    setSaving(false);
+    const ok = await runSave(() => setNodeName(trimmed));
     if (ok) setEditing(false);
   };
 
@@ -343,6 +343,7 @@ function NodeNameRow() {
           >
             <Pencil size={13} />
           </button>
+          <SaveStatusChip status={saveStatus} />
         </span>
       </div>
     );
@@ -380,7 +381,8 @@ function NodeNameRow() {
           {byteCount}/{MAX_ADVERT_NAME_BYTES}
         </span>
       </div>
-      <div className='flex justify-end gap-2'>
+      <div className='flex items-center justify-end gap-2'>
+        <SaveStatusChip status={saveStatus} />
         <button
           onClick={() => setEditing(false)}
           className='rounded-md px-2.5 py-1 text-xs text-(--text) hover:bg-(--surface)'
@@ -454,9 +456,11 @@ function LocationCard() {
     const p = useMeshStore.getState().pendingLocation;
     return p ? String(p.lon) : fmtDeg(useMeshStore.getState().selfInfo?.advLon);
   });
-  const [saving, setSaving] = useState(false);
+  const { status: coordStatus, run: runCoordSave } = useSaveStatus();
+  const { status: sourceStatus, run: runSourceSave } = useSaveStatus();
+  const saving = coordStatus === 'saving';
+  const savingSource = sourceStatus === 'saving';
   const [savingAdvertise, setSavingAdvertise] = useState(false);
-  const [savingSource, setSavingSource] = useState(false);
 
   // Clear the consumed one-shot signal so a later remount seeds from the live
   // location, not a stale pick. Touches only the store, never local state.
@@ -504,9 +508,7 @@ function LocationCard() {
 
   const save = async () => {
     if (!canSave) return;
-    setSaving(true);
-    await setLocation(latNum, lonNum);
-    setSaving(false);
+    await runCoordSave(() => setLocation(latNum, lonNum));
   };
 
   // Flip the advert policy between off (`NONE`) and a location-bearing policy
@@ -529,9 +531,7 @@ function LocationCard() {
   // choice to keep; a failed write leaves the radio (and the UI) untouched.
   const selectSource = async (nextUseGps: boolean) => {
     if (!editable || savingSource || nextUseGps === usingGps) return;
-    setSavingSource(true);
-    await setLocationSource(nextUseGps);
-    setSavingSource(false);
+    await runSourceSave(() => setLocationSource(nextUseGps));
   };
 
   return (
@@ -566,8 +566,9 @@ function LocationCard() {
       </button>
       {showSource && (
         <div className='mt-3'>
-          <div className='mb-2 text-xs text-(--text2)'>
-            {t('settings.locationSource')}
+          <div className='mb-2 flex items-center gap-2 text-xs text-(--text2)'>
+            <span>{t('settings.locationSource')}</span>
+            <SaveStatusChip status={sourceStatus} />
           </div>
           <div
             role='radiogroup'
@@ -643,13 +644,16 @@ function LocationCard() {
         >
           {t('settings.setOnMap')}
         </button>
-        <button
-          onClick={() => void save()}
-          disabled={!canSave}
-          className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
-        >
-          {t('common.save')}
-        </button>
+        <div className='flex items-center gap-2'>
+          <SaveStatusChip status={coordStatus} />
+          <button
+            onClick={() => void save()}
+            disabled={!canSave}
+            className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
+          >
+            {t('common.save')}
+          </button>
+        </div>
       </div>
     </Card>
   );
