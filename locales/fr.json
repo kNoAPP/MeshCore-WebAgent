@@ -547,6 +547,8 @@
       "radioConfirm": "La modification des paramètres radio nécessite un redémarrage et peut déconnecter le nœud du réseau. Appliquer ?",
       "advanced": "Avancé",
       "actionsTitle": "Actions",
+      "location": "Emplacement",
+      "locationHint": "Coordonnées annoncées en degrés décimaux.",
       "groups": {
         "identity": "Identité et emplacement",
         "routing": "Routage et advert"
@@ -558,21 +560,66 @@
         "percent": "%"
       },
       "fields": {
-        "name": { "label": "Nom" },
-        "lat": { "label": "Latitude" },
-        "lon": { "label": "Longitude" },
-        "radio": { "label": "Radio" },
-        "tx": { "label": "Puissance TX" },
-        "repeat": { "label": "Répéter" },
-        "floodAdvertInterval": { "label": "Intervalle d’advert flood" },
-        "advertInterval": { "label": "Intervalle d’advert zéro saut" },
-        "floodMax": { "label": "Sauts flood max." },
-        "txdelay": { "label": "Délai TX flood" },
-        "directTxdelay": { "label": "Délai TX direct" },
-        "dutycycle": { "label": "Cycle de service" },
-        "loopDetect": { "label": "Détection de boucle" },
-        "pathHashMode": { "label": "Taille du hash de chemin d’advert" },
-        "multiAcks": { "label": "Multi-ACK" }
+        "name": {
+          "label": "Nom",
+          "hint": "Nom annoncé du nœud."
+        },
+        "lat": {
+          "label": "Latitude",
+          "hint": "Latitude annoncée."
+        },
+        "lon": {
+          "label": "Longitude",
+          "hint": "Longitude annoncée."
+        },
+        "radio": {
+          "label": "Radio",
+          "hint": "Fréquence, bande passante, facteur d’étalement et taux de codage LoRa."
+        },
+        "tx": {
+          "label": "Puissance TX",
+          "hint": "Puissance de transmission."
+        },
+        "repeat": {
+          "label": "Répéter",
+          "hint": "Relayer (répéter) le trafic du réseau."
+        },
+        "floodAdvertInterval": {
+          "label": "Intervalle d’advert flood",
+          "hint": "Fréquence d’envoi d’un advert flood."
+        },
+        "advertInterval": {
+          "label": "Intervalle d’advert zéro saut",
+          "hint": "Fréquence d’envoi d’un advert zéro saut."
+        },
+        "floodMax": {
+          "label": "Sauts flood max.",
+          "hint": "Nombre maximal de sauts pour les paquets flood."
+        },
+        "txdelay": {
+          "label": "Délai TX flood",
+          "hint": "Échelle du délai anti-collision pour les retransmissions flood."
+        },
+        "directTxdelay": {
+          "label": "Délai TX direct",
+          "hint": "Échelle du délai anti-collision pour les retransmissions directes."
+        },
+        "dutycycle": {
+          "label": "Cycle de service",
+          "hint": "Limite du cycle de service en transmission."
+        },
+        "loopDetect": {
+          "label": "Détection de boucle",
+          "hint": "Rejette les paquets qui semblent boucler."
+        },
+        "pathHashMode": {
+          "label": "Taille du hash de chemin d’advert",
+          "hint": "Taille en octets du hash de chemin d’advert."
+        },
+        "multiAcks": {
+          "label": "Multi-ACK",
+          "hint": "Envoyer plusieurs accusés de réception."
+        }
       },
       "options": {
         "loopDetect": {

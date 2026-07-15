@@ -324,7 +324,11 @@ export function normalizeReply(
     }
     case 'number': {
       const match = text.match(NUMBER_RE);
-      return match ? match[0] : null;
+      if (!match) return null;
+      const n = Number(match[0]);
+      if (!Number.isFinite(n)) return null;
+      // Canonicalize integer fields so a node reply like `50.0%` shows as `50`.
+      return setting.integer ? String(Math.round(n)) : match[0];
     }
     case 'select': {
       const token = text.toLowerCase();

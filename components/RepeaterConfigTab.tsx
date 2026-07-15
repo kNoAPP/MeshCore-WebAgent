@@ -74,6 +74,8 @@ export function RepeaterConfigTab({
     () => new Set(ALL_REPEATER_SETTINGS.map((s) => s.id)),
   );
   const [status, setStatus] = useState<Record<string, SaveStatus>>({});
+  // The last error message per field, shown on the error chip's tooltip.
+  const [errorMsg, setErrorMsg] = useState<Record<string, string>>({});
 
   // The hook callback identity can change (client re-wire), so read it through
   // a ref kept fresh by an effect rather than during render. Same for the
@@ -187,17 +189,24 @@ export function RepeaterConfigTab({
       if (!isValidValue(setting, next, maxBytes)) return;
       setDrafts((prev) => ({ ...prev, [id]: next }));
       setStatus((prev) => ({ ...prev, [id]: 'saving' }));
+      setErrorMsg((prev) => {
+        if (!(id in prev)) return prev;
+        const next2 = { ...prev };
+        delete next2[id];
+        return next2;
+      });
       try {
         const setReply = await enqueue(() =>
           requestRef.current(contactRef.current, setCommand(setting, next)),
         );
         if (!aliveRef.current) return;
         if (isErrorReply(setReply)) {
-          showToast(
-            t('toast.repeaterConfigError', { error: setReply.trim() }),
-            'error',
-          );
+          const message = t('toast.repeaterConfigError', {
+            error: setReply.trim(),
+          });
+          showToast(message, 'error');
           setStatus((prev) => ({ ...prev, [id]: 'error' }));
+          setErrorMsg((prev) => ({ ...prev, [id]: message }));
           return;
         }
         let confirmed = next;
@@ -226,11 +235,12 @@ export function RepeaterConfigTab({
         }, 2000);
       } catch (err) {
         if (!aliveRef.current) return;
-        showToast(
-          t('toast.repeaterCliFailed', { error: (err as Error).message }),
-          'error',
-        );
+        const message = t('toast.repeaterCliFailed', {
+          error: (err as Error).message,
+        });
+        showToast(message, 'error');
         setStatus((prev) => ({ ...prev, [id]: 'error' }));
+        setErrorMsg((prev) => ({ ...prev, [id]: message }));
       }
     },
     [enqueue, showToast, t],
@@ -254,6 +264,7 @@ export function RepeaterConfigTab({
     onCommit: (v: string) => void commit(setting, v),
     draft: drafts[setting.id] ?? '',
     status: status[setting.id],
+    errorText: errorMsg[setting.id],
     loading: pending.has(setting.id),
     readOnly,
     nameBytes,
@@ -291,9 +302,21 @@ export function RepeaterConfigTab({
           key={group.id}
           title={t(`repeaterAdmin.config.groups.${group.id}`)}
         >
-          {group.settings.map((setting) => (
-            <SettingRow key={setting.id} {...rowProps(setting)} />
-          ))}
+          {group.settings.map((setting) => {
+            // Latitude and longitude share one compact "Location" row.
+            if (setting.id === 'lon') return null;
+            if (setting.id === 'lat') {
+              const lon = group.settings.find((s) => s.id === 'lon');
+              return (
+                <LocationRow
+                  key='location'
+                  latProps={rowProps(setting)}
+                  lonProps={lon ? rowProps(lon) : undefined}
+                />
+              );
+            }
+            return <SettingRow key={setting.id} {...rowProps(setting)} />;
+          })}
         </Section>
       ))}
 
@@ -364,6 +387,7 @@ interface RowProps {
   onDraft: (value: string) => void;
   onCommit: (value: string) => void;
   status?: SaveStatus;
+  errorText?: string;
   loading: boolean;
   readOnly: boolean;
   nameBytes: number;
@@ -381,11 +405,12 @@ function SettingRow({
   onDraft,
   onCommit,
   status,
+  errorText,
   loading,
   readOnly,
   nameBytes,
 }: RowProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   if (setting.kind === 'radio') {
     return (
@@ -393,6 +418,7 @@ function SettingRow({
         setting={setting}
         value={value}
         status={status}
+        errorText={errorText}
         loading={loading}
         readOnly={readOnly}
         onCommit={onCommit}
@@ -400,6 +426,7 @@ function SettingRow({
     );
   }
 
+  const label = t(`repeaterAdmin.config.fields.${setting.id}.label`);
   const maxBytes = setting.kind === 'text' ? nameBytes : undefined;
   const valid = isValidValue(setting, draft, maxBytes);
   // Blur/Enter on a typed field: commit a valid change, or revert an invalid
@@ -411,11 +438,10 @@ function SettingRow({
   };
 
   return (
-    <div className='flex items-center gap-3 py-2.5'>
-      <div className='flex min-w-0 flex-1 items-center gap-2'>
-        <span className='truncate text-sm text-(--text)'>
-          {t(`repeaterAdmin.config.fields.${setting.id}.label`)}
-        </span>
+    <div className='flex items-center gap-3 py-2'>
+      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
+        <span className='truncate text-sm text-(--text)'>{label}</span>
+        <InfoHint text={settingHint(t, i18n.language, setting)} />
         {setting.requiresReboot && <RebootPill />}
       </div>
       <div className='flex shrink-0 items-center gap-2'>
@@ -430,6 +456,7 @@ function SettingRow({
                 setting={setting}
                 value={draft}
                 disabled={readOnly}
+                ariaLabel={label}
                 onSelect={onCommit}
               />
             )}
@@ -439,6 +466,7 @@ function SettingRow({
                 value={draft}
                 valid={valid}
                 disabled={readOnly}
+                ariaLabel={label}
                 onChange={onDraft}
                 onCommitEdit={commitEdit}
               />
@@ -448,6 +476,7 @@ function SettingRow({
                 setting={setting}
                 value={draft}
                 disabled={readOnly}
+                ariaLabel={label}
                 onSelect={onCommit}
               />
             )}
@@ -457,11 +486,12 @@ function SettingRow({
                 maxBytes={maxBytes ?? setting.maxBytes}
                 valid={valid}
                 disabled={readOnly}
+                ariaLabel={label}
                 onChange={onDraft}
                 onCommitEdit={commitEdit}
               />
             )}
-            <StatusChip status={status} />
+            <StatusChip status={status} errorText={errorText} />
           </>
         )}
       </div>
@@ -470,16 +500,69 @@ function SettingRow({
 }
 
 /** A fixed-width slot showing a field's save lifecycle (spinner / ✓ / ⚠). */
-function StatusChip({ status }: { status?: SaveStatus }) {
+function StatusChip({
+  status,
+  errorText,
+}: {
+  status?: SaveStatus;
+  errorText?: string;
+}) {
   return (
-    <span className='inline-flex w-4 justify-center' aria-hidden>
+    <span className='inline-flex w-4 justify-center'>
       {status === 'saving' && (
-        <span className='h-3 w-3 animate-spin rounded-full border border-(--text2) border-t-transparent' />
+        <span
+          aria-hidden
+          className='h-3 w-3 animate-spin rounded-full border border-(--text2) border-t-transparent'
+        />
       )}
-      {status === 'saved' && <span className='text-xs text-(--green)'>✓</span>}
-      {status === 'error' && <span className='text-xs text-(--red)'>⚠</span>}
+      {status === 'saved' && (
+        <span aria-hidden className='text-xs text-(--green)'>
+          ✓
+        </span>
+      )}
+      {status === 'error' && (
+        <span
+          className='cursor-help text-xs text-(--red)'
+          title={errorText}
+          aria-label={errorText}
+        >
+          ⚠
+        </span>
+      )}
     </span>
   );
+}
+
+/** A small ⓘ affordance whose native tooltip explains a setting (and range). */
+function InfoHint({ text }: { text: string }) {
+  return (
+    <span
+      className='shrink-0 cursor-help text-[11px] text-(--text2)'
+      title={text}
+      aria-label={text}
+    >
+      ⓘ
+    </span>
+  );
+}
+
+/**
+ * Builds a setting's tooltip: its localized description, with the valid numeric
+ * range (and unit) appended for number fields.
+ */
+function settingHint(
+  t: ReturnType<typeof useTranslation>['t'],
+  lang: string,
+  setting: RepeaterSetting,
+): string {
+  const desc = t(`repeaterAdmin.config.fields.${setting.id}.hint`);
+  if (setting.kind === 'number') {
+    const unit = setting.unit
+      ? ` ${t(`repeaterAdmin.config.units.${setting.unit}`)}`
+      : '';
+    return `${desc} (${fmtNum(setting.min, lang)}–${fmtNum(setting.max, lang)}${unit})`;
+  }
+  return desc;
 }
 
 /** A small "requires reboot" badge shown beside affected fields. */
@@ -527,11 +610,13 @@ function SwitchControl({
   setting,
   value,
   disabled,
+  ariaLabel,
   onSelect,
 }: {
   setting: ToggleSetting;
   value: string;
   disabled: boolean;
+  ariaLabel: string;
   onSelect: (value: string) => void;
 }) {
   const on = value === setting.on;
@@ -540,6 +625,7 @@ function SwitchControl({
       type='button'
       role='switch'
       aria-checked={on}
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={() => onSelect(on ? setting.off : setting.on)}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
@@ -561,6 +647,8 @@ function NumberField({
   value,
   valid,
   disabled,
+  ariaLabel,
+  width = 'w-28',
   onChange,
   onCommitEdit,
 }: {
@@ -568,6 +656,8 @@ function NumberField({
   value: string;
   valid: boolean;
   disabled: boolean;
+  ariaLabel: string;
+  width?: string;
   onChange: (value: string) => void;
   onCommitEdit: () => void;
 }) {
@@ -577,7 +667,7 @@ function NumberField({
     : undefined;
   return (
     <Field
-      width='w-28'
+      width={width}
       invalid={!valid && value.trim() !== ''}
       disabled={disabled}
       suffix={unit}
@@ -585,6 +675,7 @@ function NumberField({
       <input
         type='number'
         inputMode='decimal'
+        aria-label={ariaLabel}
         step={setting.integer ? 1 : 'any'}
         min={setting.min}
         max={setting.max}
@@ -606,11 +697,13 @@ function SelectField({
   setting,
   value,
   disabled,
+  ariaLabel,
   onSelect,
 }: {
   setting: SelectSetting;
   value: string;
   disabled: boolean;
+  ariaLabel: string;
   onSelect: (value: string) => void;
 }) {
   const { t } = useTranslation();
@@ -618,6 +711,7 @@ function SelectField({
     <select
       value={value}
       disabled={disabled}
+      aria-label={ariaLabel}
       onChange={(e) => onSelect(e.target.value)}
       className='rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-sm text-(--text) outline-none focus:border-(--accent) disabled:opacity-60'
     >
@@ -641,6 +735,7 @@ function TextField({
   maxBytes,
   valid,
   disabled,
+  ariaLabel,
   onChange,
   onCommitEdit,
 }: {
@@ -648,6 +743,7 @@ function TextField({
   maxBytes: number;
   valid: boolean;
   disabled: boolean;
+  ariaLabel: string;
   onChange: (value: string) => void;
   onCommitEdit: () => void;
 }) {
@@ -667,6 +763,7 @@ function TextField({
         type='text'
         value={value}
         disabled={disabled}
+        aria-label={ariaLabel}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onCommitEdit}
         onKeyDown={(e) => {
@@ -675,6 +772,77 @@ function TextField({
         className='w-full min-w-0 bg-transparent px-2 py-1 text-sm text-(--text) outline-none'
       />
     </Field>
+  );
+}
+
+/** Latitude and longitude paired on one compact row under "Location". */
+function LocationRow({
+  latProps,
+  lonProps,
+}: {
+  latProps: RowProps;
+  lonProps?: RowProps;
+}) {
+  const { t } = useTranslation();
+  const loading = latProps.loading || (lonProps?.loading ?? false);
+  return (
+    <div className='flex items-center gap-3 py-2'>
+      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
+        <span className='truncate text-sm text-(--text)'>
+          {t('repeaterAdmin.config.location')}
+        </span>
+        <InfoHint text={t('repeaterAdmin.config.locationHint')} />
+      </div>
+      <div className='flex shrink-0 items-center gap-3'>
+        {loading ? (
+          <span className='text-xs text-(--text2)'>
+            {t('repeaterAdmin.config.readingField')}
+          </span>
+        ) : (
+          <>
+            <CoordField {...latProps} />
+            {lonProps && <CoordField {...lonProps} />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** One coordinate input (lat or lon) with its own caption and status chip. */
+function CoordField({
+  setting,
+  value,
+  draft,
+  onDraft,
+  onCommit,
+  status,
+  errorText,
+  readOnly,
+}: RowProps) {
+  const { t } = useTranslation();
+  const label = t(`repeaterAdmin.config.fields.${setting.id}.label`);
+  const valid = isValidValue(setting, draft);
+  const commitEdit = () => {
+    if (draft === value) return;
+    if (valid) onCommit(draft);
+    else onDraft(value);
+  };
+  return (
+    <div className='flex items-center gap-1.5'>
+      <span className='text-[11px] text-(--text2)'>{label}</span>
+      <NumberField
+        setting={setting as NumberSetting}
+        value={draft}
+        valid={valid}
+        disabled={readOnly}
+        ariaLabel={label}
+        width='w-36'
+        onChange={onDraft}
+        onCommitEdit={commitEdit}
+      />
+      <StatusChip status={status} errorText={errorText} />
+    </div>
   );
 }
 
@@ -687,6 +855,7 @@ function RadioRow({
   setting,
   value,
   status,
+  errorText,
   loading,
   readOnly,
   onCommit,
@@ -694,6 +863,7 @@ function RadioRow({
   setting: RadioSetting;
   value: string;
   status?: SaveStatus;
+  errorText?: string;
   loading: boolean;
   readOnly: boolean;
   onCommit: (value: string) => void;
@@ -719,7 +889,8 @@ function RadioRow({
 
   const startEdit = () => {
     const p = parseRadio(value);
-    setFreqText(p ? String(p.freq) : '');
+    // Trim float noise (e.g. 910.5250244) to the wire's kHz precision.
+    setFreqText(p ? String(Math.round(p.freq * 1000) / 1000) : '');
     setBw(p?.bw ?? 0);
     setSf(p?.sf ?? 0);
     setCr(p?.cr ?? 0);
@@ -733,10 +904,11 @@ function RadioRow({
   return (
     <div className='py-2.5'>
       <div className='flex items-center gap-3'>
-        <div className='flex min-w-0 flex-1 items-center gap-2'>
+        <div className='flex min-w-0 flex-1 items-center gap-1.5'>
           <span className='text-sm text-(--text)'>
             {t('repeaterAdmin.config.fields.radio.label')}
           </span>
+          <InfoHint text={settingHint(t, i18n.language, setting)} />
           <RebootPill />
         </div>
         <div className='flex shrink-0 items-center gap-2'>
@@ -757,7 +929,7 @@ function RadioRow({
                   {t('repeaterAdmin.config.edit')}
                 </button>
               )}
-              <StatusChip status={status} />
+              <StatusChip status={status} errorText={errorText} />
             </>
           )}
         </div>

@@ -547,6 +547,8 @@
       "radioConfirm": "Das Ändern der Funkparameter erfordert einen Neustart und kann den Knoten vom Mesh trennen. Anwenden?",
       "advanced": "Erweitert",
       "actionsTitle": "Aktionen",
+      "location": "Standort",
+      "locationHint": "Angekündigte Koordinaten in Dezimalgrad.",
       "groups": {
         "identity": "Identität & Standort",
         "routing": "Routing & Advert"
@@ -558,21 +560,66 @@
         "percent": "%"
       },
       "fields": {
-        "name": { "label": "Name" },
-        "lat": { "label": "Breitengrad" },
-        "lon": { "label": "Längengrad" },
-        "radio": { "label": "Funk" },
-        "tx": { "label": "Sendeleistung" },
-        "repeat": { "label": "Weiterleiten" },
-        "floodAdvertInterval": { "label": "Flood-Advert-Intervall" },
-        "advertInterval": { "label": "Zero-Hop-Advert-Intervall" },
-        "floodMax": { "label": "Max. Flood-Hops" },
-        "txdelay": { "label": "Flood-TX-Verzögerung" },
-        "directTxdelay": { "label": "Direkt-TX-Verzögerung" },
-        "dutycycle": { "label": "Duty Cycle" },
-        "loopDetect": { "label": "Schleifenerkennung" },
-        "pathHashMode": { "label": "Advert-Pfad-Hash-Größe" },
-        "multiAcks": { "label": "Multi-ACKs" }
+        "name": {
+          "label": "Name",
+          "hint": "Angekündigter Knotenname."
+        },
+        "lat": {
+          "label": "Breitengrad",
+          "hint": "Angekündigter Breitengrad."
+        },
+        "lon": {
+          "label": "Längengrad",
+          "hint": "Angekündigter Längengrad."
+        },
+        "radio": {
+          "label": "Funk",
+          "hint": "LoRa-Frequenz, Bandbreite, Spreizfaktor und Coderate."
+        },
+        "tx": {
+          "label": "Sendeleistung",
+          "hint": "Sendeleistung."
+        },
+        "repeat": {
+          "label": "Weiterleiten",
+          "hint": "Mesh-Verkehr weiterleiten (wiederholen)."
+        },
+        "floodAdvertInterval": {
+          "label": "Flood-Advert-Intervall",
+          "hint": "Wie oft ein Flood-Advert gesendet wird."
+        },
+        "advertInterval": {
+          "label": "Zero-Hop-Advert-Intervall",
+          "hint": "Wie oft ein Zero-Hop-Advert gesendet wird."
+        },
+        "floodMax": {
+          "label": "Max. Flood-Hops",
+          "hint": "Maximale Hop-Anzahl für Flood-Pakete."
+        },
+        "txdelay": {
+          "label": "Flood-TX-Verzögerung",
+          "hint": "Kollisions-Backoff-Skalierung für Flood-Wiederholungen."
+        },
+        "directTxdelay": {
+          "label": "Direkt-TX-Verzögerung",
+          "hint": "Kollisions-Backoff-Skalierung für Direkt-Wiederholungen."
+        },
+        "dutycycle": {
+          "label": "Duty Cycle",
+          "hint": "Sende-Duty-Cycle-Limit."
+        },
+        "loopDetect": {
+          "label": "Schleifenerkennung",
+          "hint": "Verwirft Pakete, die zu kreisen scheinen."
+        },
+        "pathHashMode": {
+          "label": "Advert-Pfad-Hash-Größe",
+          "hint": "Bytegröße des Advert-Pfad-Hashes."
+        },
+        "multiAcks": {
+          "label": "Multi-ACKs",
+          "hint": "Mehrere Bestätigungen senden."
+        }
       },
       "options": {
         "loopDetect": {
