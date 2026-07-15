@@ -3,9 +3,8 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pencil } from 'lucide-react';
 import { useMeshStore, type SettingsSection } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
@@ -278,12 +277,12 @@ function ShareNodeModal({
 }
 
 /**
- * The Identity section's node-name row with inline editing: a pencil reveals a
- * text input with Save/Cancel and a live UTF-8 byte counter. Save writes the
- * name to the radio via {@link useMeshCore.setNodeName} (the store — and so the
- * header and this row — update through `onSelfInfo` on success). Empty names
- * are rejected and the name is capped at {@link MAX_ADVERT_NAME_BYTES}; the
- * editor stays open on a failed write so the typed name isn't lost. Editing is
+ * The Identity section's node-name row: an always-editable inline text input
+ * with a live UTF-8 byte counter and a save-status chip, mirroring the repeater
+ * name field. A valid, changed name commits on blur/Enter via {@link
+ * useMeshCore.setNodeName} (the store — and so the header and this row — update
+ * through `onSelfInfo` on success); an invalid edit (empty or over {@link
+ * MAX_ADVERT_NAME_BYTES}) reverts to the last known name on blur. Editing is
  * gated to a fully connected link, matching every other radio write.
  */
 function NodeNameRow() {
@@ -291,111 +290,70 @@ function NodeNameRow() {
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const status = useMeshStore((s) => s.status);
   const { setNodeName } = useMeshCore();
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState('');
   const { status: saveStatus, run: runSave } = useSaveStatus();
-  const saving = saveStatus === 'saving';
 
   const currentName = selfInfo?.name ?? '';
+  const [draft, setDraft] = useState(currentName);
+  // Re-seed the editable draft when the radio reports a new name (e.g. after a
+  // successful write) without a useEffect, via React's render-time state reset.
+  const [known, setKnown] = useState(currentName);
+  if (currentName !== known) {
+    setKnown(currentName);
+    setDraft(currentName);
+  }
+
   // Writes only land on a fully connected link (the hook gates on it too); show
-  // the affordance disabled while reconnecting rather than hiding it.
+  // the field disabled while reconnecting rather than hiding it.
   const editable = status === 'connected';
 
-  const trimmed = value.trim();
+  const trimmed = draft.trim();
   const byteCount = utf8ByteLength(trimmed);
   const overLimit = byteCount > MAX_ADVERT_NAME_BYTES;
-  // Gate Save on `editable` too: if the link drops mid-edit the write would be
-  // silently swallowed by the hook's connected-link check, with no toast.
-  const canSave = editable && trimmed.length > 0 && !overLimit && !saving;
+  const valid = trimmed.length > 0 && !overLimit;
 
-  const start = () => {
-    setValue(currentName);
-    setEditing(true);
+  // Commit on blur/Enter: push a valid, changed name, or revert an invalid edit
+  // back to the last known name.
+  const commit = () => {
+    if (draft === currentName) return;
+    if (editable && valid) void runSave(() => setNodeName(trimmed));
+    else setDraft(currentName);
   };
-
-  const save = async () => {
-    if (!canSave) return;
-    const ok = await runSave(() => setNodeName(trimmed));
-    if (ok) setEditing(false);
-  };
-
-  const rowBorder = { borderColor: 'var(--border)' };
-
-  if (!editing) {
-    return (
-      <div
-        className='flex items-center justify-between gap-3 border-b py-1.5 text-xs'
-        style={rowBorder}
-      >
-        <span className='shrink-0 text-(--text2)'>
-          {t('settings.nodeName')}
-        </span>
-        <span className='flex min-w-0 items-center gap-1.5'>
-          <span className='truncate font-semibold'>
-            {currentName || t('common.unknown')}
-          </span>
-          <button
-            onClick={start}
-            disabled={!editable}
-            aria-label={t('settings.editName')}
-            title={t('settings.editName')}
-            className='shrink-0 text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-(--text2)'
-          >
-            <Pencil size={13} />
-          </button>
-          <SaveStatusChip status={saveStatus} />
-        </span>
-      </div>
-    );
-  }
 
   return (
     <div
-      className='flex flex-col gap-1.5 border-b py-1.5 text-xs'
-      style={rowBorder}
+      className='flex items-center justify-between gap-3 border-b py-1.5 text-xs'
+      style={{ borderColor: 'var(--border)' }}
     >
-      <div className='flex items-center gap-2'>
-        <span className='shrink-0 text-(--text2)'>
-          {t('settings.nodeName')}
-        </span>
-        <input
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void save();
-            else if (e.key === 'Escape') setEditing(false);
-          }}
-          aria-label={t('settings.nodeName')}
-          className='min-w-0 flex-1 rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent)'
-        />
-        <span
-          className={`shrink-0 text-[11px] ${
-            overLimit
-              ? 'text-(--red)'
-              : byteCount > MAX_ADVERT_NAME_BYTES - 6
-                ? 'text-(--yellow)'
-                : 'text-(--text2)'
-          }`}
+      <span className='shrink-0 text-(--text2)'>{t('settings.nodeName')}</span>
+      <div className='flex shrink-0 items-center gap-2'>
+        <div
+          className={`flex w-52 items-center overflow-hidden rounded-md border bg-(--surface) focus-within:border-(--accent) ${
+            !valid && draft.trim() !== ''
+              ? 'border-(--red)'
+              : 'border-(--border-control)'
+          } ${!editable ? 'opacity-60' : ''}`}
         >
-          {byteCount}/{MAX_ADVERT_NAME_BYTES}
-        </span>
-      </div>
-      <div className='flex items-center justify-end gap-2'>
+          <input
+            type='text'
+            value={draft}
+            disabled={!editable}
+            aria-label={t('settings.nodeName')}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
+            className='w-full min-w-0 bg-transparent px-2 py-1 text-xs text-(--text) outline-none'
+          />
+          <span
+            className={`border-l border-(--border-control) px-1.5 py-1 text-[11px] whitespace-nowrap ${
+              overLimit ? 'text-(--red)' : 'text-(--text2)'
+            }`}
+          >
+            {byteCount}/{MAX_ADVERT_NAME_BYTES}
+          </span>
+        </div>
         <SaveStatusChip status={saveStatus} />
-        <button
-          onClick={() => setEditing(false)}
-          className='rounded-md px-2.5 py-1 text-xs text-(--text) hover:bg-(--surface)'
-        >
-          {t('common.cancel')}
-        </button>
-        <button
-          onClick={() => void save()}
-          disabled={!canSave}
-          className='rounded-md bg-(--accent) px-2.5 py-1 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
-        >
-          {t('common.save')}
-        </button>
       </div>
     </div>
   );
@@ -458,17 +416,27 @@ function LocationCard() {
   });
   const { status: coordStatus, run: runCoordSave } = useSaveStatus();
   const { status: sourceStatus, run: runSourceSave } = useSaveStatus();
-  const saving = coordStatus === 'saving';
   const savingSource = sourceStatus === 'saving';
   const [savingAdvertise, setSavingAdvertise] = useState(false);
+  // Last coordinate written to the radio, so a blur that changed nothing (or a
+  // re-blur of the same value) doesn't re-issue the write.
+  const lastSaved = useRef({ lat: latStr, lon: lonStr });
 
-  // Clear the consumed one-shot signal so a later remount seeds from the live
-  // location, not a stale pick. Touches only the store, never local state.
+  // A coordinate handed back by the map picker is saved immediately on mount —
+  // choosing a point on the map is itself the commit, so there's no Save step.
   useEffect(() => {
-    if (useMeshStore.getState().pendingLocation) {
-      useMeshStore.getState().clearPendingLocation();
-    }
-  }, []);
+    const pending = useMeshStore.getState().pendingLocation;
+    if (!pending) return;
+    useMeshStore.getState().clearPendingLocation();
+    const st = useMeshStore.getState();
+    const connected = st.status === 'connected';
+    const gps =
+      (st.deviceInfo?.gpsEnabled ?? false) ||
+      st.selfInfo?.advLocPolicy === ADVERT_LOC_POLICY.SHARE;
+    if (!connected || gps) return;
+    lastSaved.current = { lat: String(pending.lat), lon: String(pending.lon) };
+    void runCoordSave(() => setLocation(pending.lat, pending.lon));
+  }, [runCoordSave, setLocation]);
 
   // Writes only land on a fully connected link (the hook gates on it too); show
   // the affordance disabled while reconnecting rather than hiding it.
@@ -504,11 +472,18 @@ function LocationCard() {
     Number.isFinite(lonNum) &&
     lonNum >= ADVERT_LON_MIN &&
     lonNum <= ADVERT_LON_MAX;
-  const canSave = editable && !usingGps && latValid && lonValid && !saving;
+  const canSave = editable && !usingGps && latValid && lonValid;
 
-  const save = async () => {
+  // Commit typed coordinates on blur/Enter: a valid, changed pair is written
+  // straight to the radio (no Save button); an invalid edit is left in place,
+  // flagged red, for the user to fix.
+  const commitCoords = async () => {
     if (!canSave) return;
-    await runCoordSave(() => setLocation(latNum, lonNum));
+    if (latStr === lastSaved.current.lat && lonStr === lastSaved.current.lon) {
+      return;
+    }
+    const ok = await runCoordSave(() => setLocation(latNum, lonNum));
+    if (ok) lastSaved.current = { lat: latStr, lon: lonStr };
   };
 
   // Flip the advert policy between off (`NONE`) and a location-bearing policy
@@ -608,6 +583,10 @@ function LocationCard() {
           <input
             value={latStr}
             onChange={(e) => setLatStr(e.target.value)}
+            onBlur={() => void commitCoords()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
             disabled={usingGps}
             inputMode='decimal'
             placeholder='0.000000'
@@ -624,6 +603,10 @@ function LocationCard() {
           <input
             value={lonStr}
             onChange={(e) => setLonStr(e.target.value)}
+            onBlur={() => void commitCoords()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
             disabled={usingGps}
             inputMode='decimal'
             placeholder='0.000000'
@@ -644,16 +627,7 @@ function LocationCard() {
         >
           {t('settings.setOnMap')}
         </button>
-        <div className='flex items-center gap-2'>
-          <SaveStatusChip status={coordStatus} />
-          <button
-            onClick={() => void save()}
-            disabled={!canSave}
-            className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
-          >
-            {t('common.save')}
-          </button>
-        </div>
+        <SaveStatusChip status={coordStatus} />
       </div>
     </Card>
   );
