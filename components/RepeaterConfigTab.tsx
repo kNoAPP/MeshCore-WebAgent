@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
@@ -55,6 +55,15 @@ const READ_PASSES = 3;
  * repeater's reply queue from being flooded while still loading far faster.
  */
 const READ_CONCURRENCY = 4;
+
+/**
+ * The radio-related fields, shown together in their own card (like the Settings
+ * page's Radio section) rather than inside the Identity group they're cataloged
+ * in. Loaded and edited as a unit via {@link RadioSection}.
+ */
+const RADIO_FIELDS: readonly RepeaterSetting[] = ALL_REPEATER_SETTINGS.filter(
+  (s) => s.id === 'radio' || s.id === 'tx',
+);
 
 /**
  * The Config tab of the repeater admin panel: structured, validated controls
@@ -430,49 +439,55 @@ export function RepeaterConfigTab({
           </p>
         )}
 
-        {REPEATER_SETTING_GROUPS.map((group) => (
-          <Section
-            key={group.id}
-            title={t(`repeaterAdmin.config.groups.${group.id}`)}
-            action={
-              <RefreshButton
-                onClick={() => refreshSection(group.settings)}
-                busy={sectionBusy(group.settings)}
-                download={!sectionLoaded(group.settings)}
-              />
-            }
-          >
-            {group.settings.map((setting) => {
-              // TX power is edited inside the radio modal, not its own row.
-              if (setting.id === 'lon' || setting.id === 'tx') return null;
-              // Latitude and longitude share one compact "Location" row.
-              if (setting.id === 'lat') {
-                const lon = group.settings.find((s) => s.id === 'lon');
-                return (
-                  <LocationRow
-                    key='location'
-                    latProps={rowProps(setting)}
-                    lonProps={lon ? rowProps(lon) : undefined}
+        {REPEATER_SETTING_GROUPS.map((group) => {
+          // Radio + TX power live in their own card (see RadioSection), like
+          // the Settings page; keep them out of the group they're cataloged in.
+          const fields = group.settings.filter(
+            (s) => s.id !== 'radio' && s.id !== 'tx',
+          );
+          return (
+            <Fragment key={group.id}>
+              <Section
+                title={t(`repeaterAdmin.config.groups.${group.id}`)}
+                action={
+                  <RefreshButton
+                    onClick={() => refreshSection(fields)}
+                    busy={sectionBusy(fields)}
+                    download={!sectionLoaded(fields)}
                   />
-                );
-              }
-              // The LoRa quad + TX power open the shared radio editor modal.
-              if (setting.id === 'radio') {
-                return (
-                  <RadioModalRow
-                    key='radio'
-                    radioValue={values.radio ?? ''}
-                    txValue={values.tx ?? ''}
-                    loading={pending.has('radio') || pending.has('tx')}
-                    readOnly={readOnly}
-                    onEdit={() => setRadioEditOpen(true)}
-                  />
-                );
-              }
-              return <SettingRow key={setting.id} {...rowProps(setting)} />;
-            })}
-          </Section>
-        ))}
+                }
+              >
+                {fields.map((setting) => {
+                  // Latitude and longitude share one compact "Location" row.
+                  if (setting.id === 'lon') return null;
+                  if (setting.id === 'lat') {
+                    const lon = group.settings.find((s) => s.id === 'lon');
+                    return (
+                      <LocationRow
+                        key='location'
+                        latProps={rowProps(setting)}
+                        lonProps={lon ? rowProps(lon) : undefined}
+                      />
+                    );
+                  }
+                  return <SettingRow key={setting.id} {...rowProps(setting)} />;
+                })}
+              </Section>
+              {group.id === 'identity' && (
+                <RadioSection
+                  radioValue={values.radio ?? ''}
+                  txValue={values.tx ?? ''}
+                  loading={pending.has('radio') || pending.has('tx')}
+                  loaded={sectionLoaded(RADIO_FIELDS)}
+                  busy={sectionBusy(RADIO_FIELDS)}
+                  readOnly={readOnly}
+                  onEdit={() => setRadioEditOpen(true)}
+                  onRefresh={() => refreshSection(RADIO_FIELDS)}
+                />
+              )}
+            </Fragment>
+          );
+        })}
 
         <Section
           title={t('repeaterAdmin.config.advanced')}
@@ -1066,68 +1081,118 @@ function CoordField({
 }
 
 /**
- * The composite LoRa parameters plus TX power as a one-line summary with an
- * Edit button that opens the shared {@link RadioSettingsModal}. Shows a
- * placeholder until both `radio` and `tx` have been loaded, since the Edit
- * affordance needs their values to seed the editor.
+ * The LoRa parameters and TX power as their own card, mirroring the Settings
+ * page's Radio section: a read-only breakdown of frequency, bandwidth,
+ * spreading factor, coding rate, and TX power, with a Refresh to load them and
+ * an Edit that opens the shared {@link RadioSettingsModal}. Reuses {@link
+ * Section} and {@link RefreshButton}; Edit is disabled until both values load,
+ * since the editor needs them to seed its draft.
  */
-function RadioModalRow({
+function RadioSection({
   radioValue,
   txValue,
   loading,
+  loaded,
+  busy,
   readOnly,
   onEdit,
+  onRefresh,
 }: {
   radioValue: string;
   txValue: string;
   loading: boolean;
+  loaded: boolean;
+  busy: boolean;
   readOnly: boolean;
   onEdit: () => void;
+  onRefresh: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const num = (n: number) => fmtNum(n, i18n.language);
   const parsed = parseRadio(radioValue);
-  const loaded = parsed != null && txValue !== '';
-  const summary = loaded
-    ? [
-        t('settings.mhz', { value: num(parsed.freq) }),
-        t('settings.khz', { value: num(parsed.bw) }),
-        `SF${parsed.sf}`,
-        t('settings.radioEdit.crLabel', { value: parsed.cr }),
-        t('settings.dbm', { value: num(Number(txValue)) }),
-      ].join(' · ')
-    : null;
+  const ready = parsed != null && txValue !== '';
+  const rows: { label: string; value: string | null }[] = [
+    {
+      label: t('settings.frequency'),
+      value: parsed ? t('settings.mhz', { value: num(parsed.freq) }) : null,
+    },
+    {
+      label: t('settings.bandwidth'),
+      value: parsed ? t('settings.khz', { value: num(parsed.bw) }) : null,
+    },
+    {
+      label: t('settings.spreadingFactor'),
+      value: parsed ? num(parsed.sf) : null,
+    },
+    {
+      label: t('settings.codingRate'),
+      value: parsed
+        ? t('settings.radioEdit.crLabel', { value: parsed.cr })
+        : null,
+    },
+    {
+      label: t('settings.txPower'),
+      value:
+        txValue !== ''
+          ? t('settings.dbm', { value: num(Number(txValue)) })
+          : null,
+    },
+  ];
 
   return (
+    <Section
+      title={t('repeaterAdmin.config.fields.radio.label')}
+      action={
+        <div className='flex items-center gap-2'>
+          <RebootPill />
+          <RefreshButton onClick={onRefresh} busy={busy} download={!loaded} />
+          {!readOnly && (
+            <button
+              onClick={onEdit}
+              disabled={!ready}
+              className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+            >
+              {t('repeaterAdmin.config.edit')}
+            </button>
+          )}
+        </div>
+      }
+    >
+      {rows.map((row) => (
+        <ValueRow
+          key={row.label}
+          label={row.label}
+          value={row.value}
+          loading={loading}
+        />
+      ))}
+    </Section>
+  );
+}
+
+/** A read-only label/value row, matching the editable rows' hairline style. */
+function ValueRow({
+  label,
+  value,
+  loading,
+}: {
+  label: string;
+  value: string | null;
+  loading: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
     <div className='flex items-center justify-between gap-3 border-b border-(--border) py-1.5 text-xs last:border-0'>
-      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
+      <span className='shrink-0 text-(--text2)'>{label}</span>
+      {loading ? (
         <span className='text-(--text2)'>
-          {t('repeaterAdmin.config.fields.radio.label')}
+          {t('repeaterAdmin.config.readingField')}
         </span>
-        <InfoHint text={t('repeaterAdmin.config.fields.radio.hint')} />
-        <RebootPill />
-      </div>
-      <div className='flex shrink-0 items-center gap-2'>
-        {loading ? (
-          <span className='text-xs text-(--text2)'>
-            {t('repeaterAdmin.config.readingField')}
-          </span>
-        ) : !loaded ? (
-          <UnloadedValue />
-        ) : (
-          <>
-            <span className='font-mono text-xs text-(--text2)'>{summary}</span>
-            {!readOnly && (
-              <button
-                onClick={onEdit}
-                className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs text-(--text) hover:bg-(--surface)'
-              >
-                {t('repeaterAdmin.config.edit')}
-              </button>
-            )}
-          </>
-        )}
-      </div>
+      ) : value == null ? (
+        <UnloadedValue />
+      ) : (
+        <span className='font-semibold'>{value}</span>
+      )}
     </div>
   );
 }
