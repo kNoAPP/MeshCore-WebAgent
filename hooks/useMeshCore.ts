@@ -1071,11 +1071,14 @@ export function useMeshCore() {
 
   /**
    * Logs in to a repeater/room server for remote admin. Marks the session
-   * `pending`, then the granted `admin`/`guest` level on success or `loggedOut`
-   * on failure (surfaced via toast). The server decides the level from the
-   * password and its reported role is authoritative; `kind` is only the level
-   * the caller attempted, used as a fallback for legacy responses that cannot
-   * report a role. The password is never stored, only the resulting access.
+   * `pending`, then on success the level the user selected (`kind`) or
+   * `loggedOut` on failure (surfaced via toast). `client.login()` is awaited so
+   * a wrong password still fails, but its server-reported role is not used for
+   * the label: a blank/guest login re-uses an admin-enrolled node's stored ACL
+   * role, which would otherwise show a guest session as admin. When `remember`
+   * is set, the password is persisted encrypted per-radio in the `secrets`
+   * store (never in the store, prefs blob, or localStorage); otherwise it is
+   * not persisted.
    */
   const repeaterLogin = useCallback(
     async (

@@ -39,9 +39,9 @@ type RepeaterTab = (typeof TABS)[number];
 
 /**
  * The main-window remote-admin view for a repeater or room server, shown in
- * place of the chat pane when a repeater is selected in the sidebar (and
- * reachable for rooms via the manage action). Resolves the target contact from
- * the active conversation; renders nothing useful if it has been evicted.
+ * place of the chat pane when either is selected in the sidebar (or the command
+ * palette). Resolves the target contact from the active conversation; renders
+ * nothing useful if it has been evicted.
  */
 export function RepeaterView() {
   const { t } = useTranslation();
@@ -222,10 +222,15 @@ function TabBar({
 }) {
   const { t } = useTranslation();
   return (
-    <div className='flex shrink-0 gap-1 border-b border-(--border) px-3'>
+    <div
+      role='tablist'
+      className='flex shrink-0 gap-1 border-b border-(--border) px-3'
+    >
       {TABS.map((id) => (
         <button
           key={id}
+          role='tab'
+          aria-selected={active === id}
           onClick={() => onSelect(id)}
           className={`-mb-px border-b-2 px-3 py-2 text-sm ${
             active === id
@@ -244,7 +249,8 @@ function TabBar({
  * The login form: a password field, an Admin/Guest access choice, a "remember"
  * toggle (default off), and a submit that dispatches the login. While
  * `pending`, the form is disabled and the button shows a progress label. The
- * password lives only in local state and is neither persisted nor auto-filled.
+ * password is never auto-filled; it stays in local state and is persisted
+ * (encrypted, per-radio) only when the user opts in via the remember toggle.
  */
 function LoginGate({
   pending,

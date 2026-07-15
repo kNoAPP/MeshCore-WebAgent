@@ -206,7 +206,9 @@ export interface CliLine {
 /**
  * A per-repeater remote-admin session: login state, the latest decoded status,
  * and the bounded CLI transcript. Deliberately ephemeral — never persisted, and
- * cleared on disconnect (the password is never stored anywhere).
+ * cleared on disconnect. The password is not part of the session; a remembered
+ * password lives only in the encrypted per-radio `secrets` store (see
+ * `lib/meshcore/adminCreds.ts`).
  */
 export interface AdminSession {
   login: AdminLoginState;
