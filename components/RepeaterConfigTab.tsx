@@ -744,8 +744,9 @@ function FieldSlot({
 
 /**
  * A save-lifecycle indicator (spinner / ✓ / ⚠). Always occupies a fixed-width
- * slot — empty when idle — so it fades in and out in place instead of widening
- * the row and shoving the control sideways when a save starts or clears.
+ * slot so it fades in and out in place instead of widening the row and shoving
+ * the control sideways when a save starts or clears. When idle it shows a faint
+ * dot so the slot reads as an intentional gutter rather than blank space.
  */
 function StatusChip({
   status,
@@ -755,7 +756,10 @@ function StatusChip({
   errorText?: string;
 }) {
   return (
-    <span className='inline-flex w-4 shrink-0 justify-center'>
+    <span className='inline-flex w-4 shrink-0 items-center justify-center'>
+      {!status && (
+        <span aria-hidden className='h-1 w-1 rounded-full bg-(--border)' />
+      )}
       {status === 'saving' && (
         <span
           aria-hidden
