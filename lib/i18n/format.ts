@@ -108,6 +108,26 @@ function fixed(value: number, digits: number): string {
 }
 
 /**
+ * Formats a duration in seconds as a compact `1d 2h 3m 4s` string (zero units
+ * dropped), with the day count grouped for the active locale (e.g. `1,000d`).
+ * The `d`/`h`/`m`/`s` symbols are locale-neutral and not translated.
+ */
+export function formatUptime(secs: number): string {
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return [
+    d && `${d.toLocaleString(i18n.language)}d`,
+    h && `${h}h`,
+    m && `${m}m`,
+    `${s}s`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/**
  * Formats a supply voltage given in millivolts as locale-aware volts to two
  * decimals, e.g. `4.16 V` (or `4,16 V` in German). The `V` symbol is an SI unit
  * and is not translated.

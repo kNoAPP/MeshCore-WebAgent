@@ -722,21 +722,21 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         },
       };
     }),
-  setRepeaterStatus: (prefix, status) =>
-    set((state) => {
-      const session = state.adminSessions[prefix];
-      // Status belongs to a live, authenticated session. If a late reply lands
-      // after log-out (session gone) or before login completes, drop it rather
-      // than resurrecting a logged-out session with stale status that would
-      // then leak into the next login.
-      if (session?.login !== 'admin' && session?.login !== 'guest') return {};
-      return {
-        adminSessions: {
-          ...state.adminSessions,
-          [prefix]: { ...session, status },
-        },
-      };
-    }),
+  setRepeaterStatus: (prefix, status) => {
+    const { adminSessions } = get();
+    const session = adminSessions[prefix];
+    // Status belongs to a live, authenticated session. If a late reply lands
+    // after log-out (session gone) or before login completes, drop it rather
+    // than resurrecting a logged-out session with stale status that would then
+    // leak into the next login. Return before `set` so no listeners are woken.
+    if (session?.login !== 'admin' && session?.login !== 'guest') return;
+    set({
+      adminSessions: {
+        ...adminSessions,
+        [prefix]: { ...session, status },
+      },
+    });
+  },
   appendCliLine: (prefix, line) =>
     set((state) => {
       const session = state.adminSessions[prefix] ?? {

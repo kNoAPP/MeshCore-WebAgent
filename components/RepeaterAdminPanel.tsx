@@ -7,8 +7,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { fmtUptime } from '@/lib/utils';
-import { formatAirtime, formatSnr, formatVoltage } from '@/lib/i18n/format';
+import {
+  formatAirtime,
+  formatSnr,
+  formatUptime,
+  formatVoltage,
+} from '@/lib/i18n/format';
 import { ModalShell } from './ModalShell';
 import type { Contact, RepeaterAccess, RepeaterStatus } from '@/types/meshcore';
 
@@ -49,10 +53,11 @@ export function RepeaterAdminPanel({
   const resetAdminSession = useMeshStore((s) => s.resetAdminSession);
 
   const login = session?.login ?? 'loggedOut';
-  const loggedIn = login === 'admin' || login === 'guest';
   const title = `📡 ${contact.name || contact.pubkeyPrefix.slice(0, 8)}`;
 
-  if (!loggedIn) {
+  // Not yet authenticated (logged out or mid-login): show the login gate. The
+  // guard also narrows `login` to `RepeaterAccess` for the dashboard below.
+  if (login !== 'admin' && login !== 'guest') {
     return (
       <ModalShell title={title} onClose={onClose}>
         <LoginGate
@@ -194,8 +199,11 @@ function StatusDashboard({
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    await onRefresh();
-    setLoading(false);
+    try {
+      await onRefresh();
+    } finally {
+      setLoading(false);
+    }
   }, [onRefresh]);
 
   // Auto-fetch once on first entry to the dashboard. The ref guard keeps
@@ -279,7 +287,7 @@ function buildCards(
       t('repeaterAdmin.batteryPercent'),
       `${approxBatteryPercent(s.battMilliVolts)}%`,
     ],
-    ...opt(t('repeaterAdmin.uptime'), s.totalUpTimeSecs, fmtUptime),
+    ...opt(t('repeaterAdmin.uptime'), s.totalUpTimeSecs, formatUptime),
     [t('repeaterAdmin.queueLength'), num(s.currTxQueueLen)],
   ];
 
