@@ -487,7 +487,8 @@
       "guest": "Guest"
     },
     "tabs": {
-      "status": "Status"
+      "status": "Status",
+      "config": "Config"
     },
     "login": {
       "prompt": "Log in to administer this node.",
@@ -535,7 +536,69 @@
     "floodDups": "Flood Dups",
     "directDups": "Direct Dups",
     "rxErrors": "RX Errors",
-    "dbm": "{{value}} dBm"
+    "dbm": "{{value}} dBm",
+    "config": {
+      "loading": "Loading configuration…",
+      "readOnlyNotice": "You have read-only (guest) access. Log in as admin to make changes.",
+      "requiresReboot": "Requires reboot",
+      "save": "Save",
+      "saving": "Saving…",
+      "range": "Must be between {{min}} and {{max}}.",
+      "bytes": "{{used}} / {{max}} bytes",
+      "on": "On",
+      "off": "Off",
+      "advanced": "Advanced",
+      "actionsTitle": "Actions",
+      "groups": {
+        "identity": "Identity & Location",
+        "routing": "Routing & Advert"
+      },
+      "units": {
+        "dbm": "dBm",
+        "hours": "hours",
+        "minutes": "min",
+        "percent": "%"
+      },
+      "fields": {
+        "name": { "label": "Name" },
+        "lat": { "label": "Latitude" },
+        "lon": { "label": "Longitude" },
+        "radio": { "label": "Radio" },
+        "tx": { "label": "TX Power" },
+        "repeat": { "label": "Repeat" },
+        "floodAdvertInterval": { "label": "Flood advert interval" },
+        "advertInterval": { "label": "Zero-hop advert interval" },
+        "floodMax": { "label": "Max flood hops" },
+        "txdelay": { "label": "Flood TX delay" },
+        "directTxdelay": { "label": "Direct TX delay" },
+        "dutycycle": { "label": "Duty cycle" },
+        "loopDetect": { "label": "Loop detection" },
+        "pathHashMode": { "label": "Advert path hash size" },
+        "multiAcks": { "label": "Multi-acks" }
+      },
+      "options": {
+        "loopDetect": {
+          "off": "Off",
+          "minimal": "Minimal",
+          "moderate": "Moderate",
+          "strict": "Strict"
+        },
+        "pathHashMode": {
+          "0": "1 byte",
+          "1": "2 bytes",
+          "2": "3 bytes"
+        }
+      },
+      "actions": {
+        "reboot": {
+          "label": "Reboot",
+          "confirm": "Reboot this node now?"
+        },
+        "advert": { "label": "Send flood advert" },
+        "advertZeroHop": { "label": "Send zero-hop advert" },
+        "clockSync": { "label": "Sync clock" }
+      }
+    }
   },
   "route": {
     "noRouteFloods": "No route — floods",
@@ -752,6 +815,9 @@
     "rebootFailed": "Failed to reboot: {{error}}",
     "repeaterLoginFailed": "Login failed: {{error}}",
     "repeaterStatusFailed": "Failed to fetch status: {{error}}",
-    "repeaterCliFailed": "Failed to send command: {{error}}"
+    "repeaterCliFailed": "Failed to send command: {{error}}",
+    "repeaterConfigSaved": "Setting updated.",
+    "repeaterConfigError": "Node rejected the change: {{error}}",
+    "repeaterActionSent": "Command sent."
   }
 }

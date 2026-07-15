@@ -17,6 +17,7 @@ import {
 import { formatPubkey } from '@/lib/utils';
 import { RouteChip } from './RouteChip';
 import { StatCard } from './StatCard';
+import { RepeaterConfigTab } from './RepeaterConfigTab';
 import type { Contact, RepeaterAccess, RepeaterStatus } from '@/types/meshcore';
 
 /** Coarse Li-ion voltage → charge mapping, clamped to 0–100%. */
@@ -33,8 +34,8 @@ function approxBatteryPercent(milliVolts: number): number {
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
-/** Admin tabs in display order; Config/Neighbors/Console come in 7.5/7.6. */
-const TABS = ['status'] as const;
+/** Admin tabs in display order; Neighbors/Console come in later tasks. */
+const TABS = ['status', 'config'] as const;
 type RepeaterTab = (typeof TABS)[number];
 
 /**
@@ -168,6 +169,12 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
               <StatusDashboard
                 status={session?.status}
                 onRefresh={() => repeaterStatus(contact)}
+              />
+            )}
+            {tab === 'config' && (
+              <RepeaterConfigTab
+                contact={contact}
+                readOnly={login !== 'admin'}
               />
             )}
           </div>

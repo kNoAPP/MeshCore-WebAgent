@@ -65,7 +65,6 @@ interface PendingAck {
   msgId: string;
   timer: ReturnType<typeof setTimeout>;
 }
-
 // Counts repeater rebroadcasts of our last channel TX heard in the RX log.
 // payloadKey locks onto the first group-text echo after sending; rebroadcasts
 // of the same packet carry identical payload bytes.
@@ -74,6 +73,14 @@ interface EchoWindow {
   msgId: string;
   payloadKey: string | null;
   heard: Set<string>;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+// A pending structured CLI request, resolved (or timed out) when the matching
+// reply arrives via onCliReply. reject fires on timeout or session teardown.
+interface CliWaiter {
+  resolve: (text: string) => void;
+  reject: (err: Error) => void;
   timer: ReturnType<typeof setTimeout>;
 }
 
@@ -106,6 +113,12 @@ const pendingAcks = new Map<number, PendingAck>();
 // message from 'failed' to 'delivered' instead of being dropped
 const expiredAcks = new Map<number, Omit<PendingAck, 'timer'>>();
 const EXPIRED_ACK_LIMIT = 50;
+// Per-repeater FIFO queues of resolvers awaiting a structured CLI reply, keyed
+// by the target's pubkeyPrefix. A CLI reply carries only the value (never the
+// echoed command), so a `get`/`set` is correlated to the oldest outstanding
+// request from that repeater — see repeaterCliRequest.
+const cliWaiters = new Map<string, CliWaiter[]>();
+const CLI_REPLY_TIMEOUT_MS = 10000;
 let echoWindow: EchoWindow | null = null;
 // Recent group-text RX-log packets awaiting correlation to a decoded inbound
 // channel message. Each entry holds the ordered per-hop repeater hashes.
@@ -256,6 +269,18 @@ function clearPendingAcks(): void {
   pendingAcks.clear();
 }
 
+// Rejects and drops every outstanding CLI request. Called on session teardown
+// so a structured get/set can't hang forever after the link goes down.
+function clearCliWaiters(): void {
+  for (const queue of cliWaiters.values()) {
+    for (const w of queue) {
+      clearTimeout(w.timer);
+      w.reject(new Error('Disconnected'));
+    }
+  }
+  cliWaiters.clear();
+}
+
 // Called when a session begins as well as when one ends: a dropped transport
 // never reaches disconnect(), so stale timers and the previous radio's save
 // subscription must not survive into the next connection
@@ -263,6 +288,7 @@ function clearSessionState(): void {
   clearPendingAcks();
   expiredAcks.clear();
   closeEchoWindow();
+  clearCliWaiters();
   rxPathBuffer.length = 0;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = null;
@@ -539,6 +565,14 @@ export function useMeshCore() {
           // reply can't recreate adminSessions that reset() just cleared.
           if (!canTransmit(c)) return;
           appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
+          // Hand the value to the oldest structured request awaiting a reply
+          // from this repeater (replies carry no echoed key, so correlate
+          // FIFO by send order).
+          const waiter = cliWaiters.get(pubkeyPrefix)?.shift();
+          if (waiter) {
+            clearTimeout(waiter.timer);
+            waiter.resolve(text);
+          }
         },
         onAdvertsUpdated: (adverts) => {
           const next = { ...adverts };
@@ -1185,6 +1219,61 @@ export function useMeshCore() {
     [client, appendCliLine, showToast],
   );
 
+  /**
+   * Sends a CLI command to a repeater and resolves with its reply text, for the
+   * structured Config editor's `get`/`set` round-trips. Echoes the sent line to
+   * the transcript (so the console tab sees it too), then registers a FIFO
+   * waiter that `onCliReply` fulfils with the next reply from that repeater.
+   *
+   * @remarks
+   * Replies carry only a value, never the echoed command, so correlation is
+   * best-effort FIFO by send order — callers should serialize their requests.
+   * @throws if the send fails, the session drops, or no reply arrives in time.
+   */
+  const repeaterCliRequest = useCallback(
+    (contact: Contact, cmd: string): Promise<string> => {
+      if (!canTransmit(client)) {
+        return Promise.reject(new Error('Disconnected'));
+      }
+      const line = truncateUtf8(cmd, MAX_MSG_BYTES);
+      appendCliLine(contact.pubkeyPrefix, {
+        own: true,
+        text: line,
+        ts: Date.now(),
+      });
+      const prefix = contact.pubkeyPrefix;
+      return new Promise<string>((resolve, reject) => {
+        const queue = cliWaiters.get(prefix) ?? [];
+        const waiter: CliWaiter = {
+          resolve,
+          reject,
+          timer: setTimeout(() => {
+            const q = cliWaiters.get(prefix);
+            if (q)
+              cliWaiters.set(
+                prefix,
+                q.filter((w) => w !== waiter),
+              );
+            reject(new Error('Timed out'));
+          }, CLI_REPLY_TIMEOUT_MS),
+        };
+        queue.push(waiter);
+        cliWaiters.set(prefix, queue);
+        client.sendCliCommand(contact, line).catch((err: Error) => {
+          const q = cliWaiters.get(prefix);
+          if (q)
+            cliWaiters.set(
+              prefix,
+              q.filter((w) => w !== waiter),
+            );
+          clearTimeout(waiter.timer);
+          reject(err);
+        });
+      });
+    },
+    [client, appendCliLine],
+  );
+
   /** Saves a heard advert as a contact on the radio. */
   const addDiscoveredContact = useCallback(
     async (advert: Advert) => {
@@ -1650,6 +1739,7 @@ export function useMeshCore() {
     repeaterLogin,
     repeaterStatus,
     repeaterCli,
+    repeaterCliRequest,
     addDiscoveredContact,
     importContact,
     shareContact,

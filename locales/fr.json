@@ -487,7 +487,8 @@
       "guest": "Invité"
     },
     "tabs": {
-      "status": "État"
+      "status": "État",
+      "config": "Configuration"
     },
     "login": {
       "prompt": "Connectez-vous pour administrer ce nœud.",
@@ -535,7 +536,69 @@
     "floodDups": "Doublons flood",
     "directDups": "Doublons directs",
     "rxErrors": "Erreurs RX",
-    "dbm": "{{value}} dBm"
+    "dbm": "{{value}} dBm",
+    "config": {
+      "loading": "Chargement de la configuration…",
+      "readOnlyNotice": "Vous avez un accès en lecture seule (invité). Connectez-vous en tant qu’admin pour apporter des modifications.",
+      "requiresReboot": "Nécessite un redémarrage",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "range": "Doit être compris entre {{min}} et {{max}}.",
+      "bytes": "{{used}} / {{max}} octets",
+      "on": "Activé",
+      "off": "Désactivé",
+      "advanced": "Avancé",
+      "actionsTitle": "Actions",
+      "groups": {
+        "identity": "Identité et emplacement",
+        "routing": "Routage et advert"
+      },
+      "units": {
+        "dbm": "dBm",
+        "hours": "h",
+        "minutes": "min",
+        "percent": "%"
+      },
+      "fields": {
+        "name": { "label": "Nom" },
+        "lat": { "label": "Latitude" },
+        "lon": { "label": "Longitude" },
+        "radio": { "label": "Radio" },
+        "tx": { "label": "Puissance TX" },
+        "repeat": { "label": "Répéter" },
+        "floodAdvertInterval": { "label": "Intervalle d’advert flood" },
+        "advertInterval": { "label": "Intervalle d’advert zéro saut" },
+        "floodMax": { "label": "Sauts flood max." },
+        "txdelay": { "label": "Délai TX flood" },
+        "directTxdelay": { "label": "Délai TX direct" },
+        "dutycycle": { "label": "Cycle de service" },
+        "loopDetect": { "label": "Détection de boucle" },
+        "pathHashMode": { "label": "Taille du hash de chemin d’advert" },
+        "multiAcks": { "label": "Multi-ACK" }
+      },
+      "options": {
+        "loopDetect": {
+          "off": "Désactivé",
+          "minimal": "Minimal",
+          "moderate": "Modéré",
+          "strict": "Strict"
+        },
+        "pathHashMode": {
+          "0": "1 octet",
+          "1": "2 octets",
+          "2": "3 octets"
+        }
+      },
+      "actions": {
+        "reboot": {
+          "label": "Redémarrer",
+          "confirm": "Redémarrer ce nœud maintenant ?"
+        },
+        "advert": { "label": "Envoyer un advert flood" },
+        "advertZeroHop": { "label": "Envoyer un advert zéro saut" },
+        "clockSync": { "label": "Synchroniser l’horloge" }
+      }
+    }
   },
   "route": {
     "noRouteFloods": "Aucune route — flood",
@@ -752,6 +815,9 @@
     "rebootFailed": "Échec du redémarrage : {{error}}",
     "repeaterLoginFailed": "Échec de la connexion : {{error}}",
     "repeaterStatusFailed": "Échec de la récupération du statut : {{error}}",
-    "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}"
+    "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}",
+    "repeaterConfigSaved": "Paramètre mis à jour.",
+    "repeaterConfigError": "Le nœud a rejeté la modification : {{error}}",
+    "repeaterActionSent": "Commande envoyée."
   }
 }

@@ -487,7 +487,8 @@
       "guest": "Gast"
     },
     "tabs": {
-      "status": "Status"
+      "status": "Status",
+      "config": "Konfiguration"
     },
     "login": {
       "prompt": "Melden Sie sich an, um diesen Knoten zu verwalten.",
@@ -535,7 +536,69 @@
     "floodDups": "Flood-Duplikate",
     "directDups": "Direkt-Duplikate",
     "rxErrors": "RX-Fehler",
-    "dbm": "{{value}} dBm"
+    "dbm": "{{value}} dBm",
+    "config": {
+      "loading": "Konfiguration wird geladen…",
+      "readOnlyNotice": "Sie haben Nur-Lese-Zugriff (Gast). Melden Sie sich als Admin an, um Änderungen vorzunehmen.",
+      "requiresReboot": "Neustart erforderlich",
+      "save": "Speichern",
+      "saving": "Wird gespeichert…",
+      "range": "Muss zwischen {{min}} und {{max}} liegen.",
+      "bytes": "{{used}} / {{max}} Bytes",
+      "on": "Ein",
+      "off": "Aus",
+      "advanced": "Erweitert",
+      "actionsTitle": "Aktionen",
+      "groups": {
+        "identity": "Identität & Standort",
+        "routing": "Routing & Advert"
+      },
+      "units": {
+        "dbm": "dBm",
+        "hours": "Std.",
+        "minutes": "Min.",
+        "percent": "%"
+      },
+      "fields": {
+        "name": { "label": "Name" },
+        "lat": { "label": "Breitengrad" },
+        "lon": { "label": "Längengrad" },
+        "radio": { "label": "Funk" },
+        "tx": { "label": "Sendeleistung" },
+        "repeat": { "label": "Weiterleiten" },
+        "floodAdvertInterval": { "label": "Flood-Advert-Intervall" },
+        "advertInterval": { "label": "Zero-Hop-Advert-Intervall" },
+        "floodMax": { "label": "Max. Flood-Hops" },
+        "txdelay": { "label": "Flood-TX-Verzögerung" },
+        "directTxdelay": { "label": "Direkt-TX-Verzögerung" },
+        "dutycycle": { "label": "Duty Cycle" },
+        "loopDetect": { "label": "Schleifenerkennung" },
+        "pathHashMode": { "label": "Advert-Pfad-Hash-Größe" },
+        "multiAcks": { "label": "Multi-ACKs" }
+      },
+      "options": {
+        "loopDetect": {
+          "off": "Aus",
+          "minimal": "Minimal",
+          "moderate": "Moderat",
+          "strict": "Streng"
+        },
+        "pathHashMode": {
+          "0": "1 Byte",
+          "1": "2 Bytes",
+          "2": "3 Bytes"
+        }
+      },
+      "actions": {
+        "reboot": {
+          "label": "Neu starten",
+          "confirm": "Diesen Knoten jetzt neu starten?"
+        },
+        "advert": { "label": "Flood-Advert senden" },
+        "advertZeroHop": { "label": "Zero-Hop-Advert senden" },
+        "clockSync": { "label": "Uhr synchronisieren" }
+      }
+    }
   },
   "route": {
     "noRouteFloods": "Keine Route — Flood",
@@ -752,6 +815,9 @@
     "rebootFailed": "Neustart fehlgeschlagen: {{error}}",
     "repeaterLoginFailed": "Anmeldung fehlgeschlagen: {{error}}",
     "repeaterStatusFailed": "Status konnte nicht abgerufen werden: {{error}}",
-    "repeaterCliFailed": "Befehl konnte nicht gesendet werden: {{error}}"
+    "repeaterCliFailed": "Befehl konnte nicht gesendet werden: {{error}}",
+    "repeaterConfigSaved": "Einstellung aktualisiert.",
+    "repeaterConfigError": "Knoten hat die Änderung abgelehnt: {{error}}",
+    "repeaterActionSent": "Befehl gesendet."
   }
 }

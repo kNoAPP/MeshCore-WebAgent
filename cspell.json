@@ -59,6 +59,7 @@
     "Deutsch",
     "desync",
     "Dups",
+    "dutycycle",
     "ESP32",
     "Español",
     "favorited",
@@ -116,6 +117,7 @@
     "tailwindcss",
     "trailingslash",
     "trailingSlash",
+    "txdelay",
     "typeof",
     "UART",
     "Unfavorite",
@@ -129,6 +131,7 @@
     "webmanifest",
     "whitelabel",
     "Wordmark",
+    "zerohop",
     "zustand",
     "Zustand"
   ]

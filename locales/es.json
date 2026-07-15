@@ -487,7 +487,8 @@
       "guest": "Invitado"
     },
     "tabs": {
-      "status": "Estado"
+      "status": "Estado",
+      "config": "Configuración"
     },
     "login": {
       "prompt": "Inicia sesión para administrar este nodo.",
@@ -535,7 +536,69 @@
     "floodDups": "Duplicados flood",
     "directDups": "Duplicados directos",
     "rxErrors": "Errores RX",
-    "dbm": "{{value}} dBm"
+    "dbm": "{{value}} dBm",
+    "config": {
+      "loading": "Cargando configuración…",
+      "readOnlyNotice": "Tienes acceso de solo lectura (invitado). Inicia sesión como administrador para hacer cambios.",
+      "requiresReboot": "Requiere reinicio",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "range": "Debe estar entre {{min}} y {{max}}.",
+      "bytes": "{{used}} / {{max}} bytes",
+      "on": "Activado",
+      "off": "Desactivado",
+      "advanced": "Avanzado",
+      "actionsTitle": "Acciones",
+      "groups": {
+        "identity": "Identidad y ubicación",
+        "routing": "Enrutamiento y advert"
+      },
+      "units": {
+        "dbm": "dBm",
+        "hours": "h",
+        "minutes": "min",
+        "percent": "%"
+      },
+      "fields": {
+        "name": { "label": "Nombre" },
+        "lat": { "label": "Latitud" },
+        "lon": { "label": "Longitud" },
+        "radio": { "label": "Radio" },
+        "tx": { "label": "Potencia TX" },
+        "repeat": { "label": "Repetir" },
+        "floodAdvertInterval": { "label": "Intervalo de advert flood" },
+        "advertInterval": { "label": "Intervalo de advert cero saltos" },
+        "floodMax": { "label": "Máx. saltos flood" },
+        "txdelay": { "label": "Retardo TX flood" },
+        "directTxdelay": { "label": "Retardo TX directo" },
+        "dutycycle": { "label": "Ciclo de trabajo" },
+        "loopDetect": { "label": "Detección de bucles" },
+        "pathHashMode": { "label": "Tamaño de hash de ruta de advert" },
+        "multiAcks": { "label": "Multi-ACK" }
+      },
+      "options": {
+        "loopDetect": {
+          "off": "Desactivado",
+          "minimal": "Mínimo",
+          "moderate": "Moderado",
+          "strict": "Estricto"
+        },
+        "pathHashMode": {
+          "0": "1 byte",
+          "1": "2 bytes",
+          "2": "3 bytes"
+        }
+      },
+      "actions": {
+        "reboot": {
+          "label": "Reiniciar",
+          "confirm": "¿Reiniciar este nodo ahora?"
+        },
+        "advert": { "label": "Enviar advert flood" },
+        "advertZeroHop": { "label": "Enviar advert cero saltos" },
+        "clockSync": { "label": "Sincronizar reloj" }
+      }
+    }
   },
   "route": {
     "noRouteFloods": "Sin ruta — flood",
@@ -752,6 +815,9 @@
     "rebootFailed": "Error al reiniciar: {{error}}",
     "repeaterLoginFailed": "Error al iniciar sesión: {{error}}",
     "repeaterStatusFailed": "Error al obtener el estado: {{error}}",
-    "repeaterCliFailed": "Error al enviar el comando: {{error}}"
+    "repeaterCliFailed": "Error al enviar el comando: {{error}}",
+    "repeaterConfigSaved": "Ajuste actualizado.",
+    "repeaterConfigError": "El nodo rechazó el cambio: {{error}}",
+    "repeaterActionSent": "Comando enviado."
   }
 }
