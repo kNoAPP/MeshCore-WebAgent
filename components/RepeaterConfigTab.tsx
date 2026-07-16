@@ -115,10 +115,18 @@ export function RepeaterConfigTab({
   const [status, setStatus] = useState<Record<string, SaveStatus>>({});
   // The last error message per field, shown on the error chip's tooltip.
   const [errorMsg, setErrorMsg] = useState<Record<string, string>>({});
-  // Whether this node has GPS support compiled in. `null` until probed by the
-  // first Identity read; `false` hides the GPS controls (the firmware rejects
-  // the `gps` verbs on non-GPS builds), `true` reveals them.
-  const [gpsSupported, setGpsSupported] = useState<boolean | null>(null);
+  // Whether this node has GPS support compiled in. `null` until probed by an
+  // Identity read; `false` hides the GPS controls (the firmware rejects the
+  // `gps` verbs on non-GPS builds), `true` reveals them. Seeded from the
+  // session cache so a remount (e.g. tab switch) keeps the picker visible
+  // without re-probing.
+  const [gpsSupported, setGpsSupported] = useState<boolean | null>(() => {
+    const cfg =
+      useMeshStore.getState().adminSessions[contact.pubkeyPrefix]?.config;
+    return (cfg?.gps ?? '') !== '' || (cfg?.gpsAdvert ?? '') !== ''
+      ? true
+      : null;
+  });
   // Whether the shared radio/TX editor modal is open.
   const [radioEditOpen, setRadioEditOpen] = useState(false);
 
@@ -308,6 +316,20 @@ export function RepeaterConfigTab({
             )
           : undefined;
       if (!isValidValue(setting, next, maxBytes)) return;
+      // Setting a non-zero coordinate shrinks the name budget from 32 to 24
+      // bytes; refuse a coordinate that would leave the current name over that
+      // budget (the node would reject or clip it) and tell the user to shorten
+      // the name first, so the two never drift out of the documented limit.
+      if (setting.id === 'lat' || setting.id === 'lon') {
+        const lat = setting.id === 'lat' ? next : (draftsRef.current.lat ?? '');
+        const lon = setting.id === 'lon' ? next : (draftsRef.current.lon ?? '');
+        const name = draftsRef.current.name ?? valuesRef.current.name ?? '';
+        if (utf8ByteLength(name) > nameMaxBytes(lat, lon)) {
+          showToast(t('toast.repeaterNameTooLongForLocation'), 'error');
+          setDrafts((prev) => ({ ...prev, [id]: valuesRef.current[id] ?? '' }));
+          return;
+        }
+      }
       intentRef.current[id] = next;
       setDrafts((prev) => ({ ...prev, [id]: next }));
       setStatus((prev) => ({ ...prev, [id]: 'saving' }));
@@ -577,12 +599,12 @@ export function RepeaterConfigTab({
     nameBytes,
   });
 
-  // The advertised location source, mirroring the companion's Settings card:
-  // GPS when the module is on or the advert policy is `share`, else Fixed. Only
-  // meaningful once GPS support has been confirmed on this node.
-  const usingGps =
-    gpsSupported === true &&
-    (drafts.gps === 'on' || drafts.gpsAdvert === 'share');
+  // The advertised location source, mirroring the companion's Settings card.
+  // Keyed on the advert policy (`share` = live GPS) rather than an OR of the
+  // module + policy, so a half-applied write (e.g. module on but policy still
+  // `prefs`) reports the source that is actually advertised, and re-selecting
+  // reissues the write that didn't stick.
+  const usingGps = gpsSupported === true && drafts.gpsAdvert === 'share';
   const gpsSetting = REPEATER_GPS_SETTINGS.find((s) => s.id === 'gps');
   const gpsAdvertSetting = REPEATER_GPS_SETTINGS.find(
     (s) => s.id === 'gpsAdvert',
@@ -590,11 +612,12 @@ export function RepeaterConfigTab({
 
   // Switch the Fixed/GPS source: GPS turns the module on and advertises its
   // live fix (`share`); Fixed turns it off and advertises the stored lat/lon
-  // (`prefs`). Both writes go through the same serialized commit path as every
-  // other field, so one combined status covers the pair.
+  // (`prefs`). Each write goes through the same serialized commit path (which
+  // no-ops an unchanged field), so a partial failure stays retryable — re-
+  // selecting reissues only the field that didn't stick, and the row's single
+  // status reflects the pair.
   const selectSource = (nextUseGps: boolean) => {
-    if (readOnly || nextUseGps === usingGps) return;
-    if (!gpsSetting || !gpsAdvertSetting) return;
+    if (readOnly || !gpsSetting || !gpsAdvertSetting) return;
     void commit(gpsSetting, nextUseGps ? 'on' : 'off');
     void commit(gpsAdvertSetting, nextUseGps ? 'share' : 'prefs');
   };

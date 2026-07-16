@@ -5,6 +5,7 @@
     "saving": "Enregistrement…",
     "saved": "Enregistré",
     "saveFailed": "Échec de l’enregistrement",
+    "loading": "Chargement…",
     "remove": "Supprimer",
     "refresh": "Actualiser",
     "load": "Charger",
@@ -868,6 +869,7 @@
     "repeaterStatusFailed": "Échec de la récupération du statut : {{error}}",
     "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}",
     "repeaterConfigError": "Le nœud a rejeté la modification : {{error}}",
+    "repeaterNameTooLongForLocation": "Raccourcissez le nom du nœud à 24 octets ou moins avant de définir une position.",
     "repeaterActionSent": "Commande envoyée."
   }
 }

@@ -296,10 +296,12 @@ function NodeNameRow() {
   const [draft, setDraft] = useState(currentName);
   // Re-seed the editable draft when the radio reports a new name (e.g. after a
   // successful write) without a useEffect, via React's render-time state reset.
+  // A dirty draft is preserved: if the user has typed a newer name while an
+  // earlier save is still in flight, that in-flight update must not clobber it.
   const [known, setKnown] = useState(currentName);
   if (currentName !== known) {
     setKnown(currentName);
-    setDraft(currentName);
+    if (draft === known) setDraft(currentName);
   }
 
   // Writes only land on a fully connected link (the hook gates on it too); show

@@ -5,6 +5,7 @@
     "saving": "Guardando…",
     "saved": "Guardado",
     "saveFailed": "Error al guardar",
+    "loading": "Cargando…",
     "remove": "Eliminar",
     "refresh": "Actualizar",
     "load": "Cargar",
@@ -868,6 +869,7 @@
     "repeaterStatusFailed": "Error al obtener el estado: {{error}}",
     "repeaterCliFailed": "Error al enviar el comando: {{error}}",
     "repeaterConfigError": "El nodo rechazó el cambio: {{error}}",
+    "repeaterNameTooLongForLocation": "Acorta el nombre del nodo a 24 bytes o menos antes de establecer una ubicación.",
     "repeaterActionSent": "Comando enviado."
   }
 }

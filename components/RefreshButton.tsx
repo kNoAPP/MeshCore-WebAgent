@@ -68,12 +68,15 @@ export function RefreshButton({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const label = t(download && !busy ? 'common.load' : 'common.refresh');
+  const label = busy
+    ? t('common.loading')
+    : t(download ? 'common.load' : 'common.refresh');
   return (
     <button
       type='button'
       onClick={onClick}
       disabled={busy}
+      aria-busy={busy}
       aria-label={label}
       title={label}
       className={`inline-flex items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:bg-(--surface2) hover:text-(--text) disabled:opacity-50 ${className ?? ''}`}

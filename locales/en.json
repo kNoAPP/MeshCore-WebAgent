@@ -5,6 +5,7 @@
     "saving": "Saving…",
     "saved": "Saved",
     "saveFailed": "Save failed",
+    "loading": "Loading…",
     "remove": "Remove",
     "refresh": "Refresh",
     "load": "Load",
@@ -868,6 +869,7 @@
     "repeaterStatusFailed": "Failed to fetch status: {{error}}",
     "repeaterCliFailed": "Failed to send command: {{error}}",
     "repeaterConfigError": "Node rejected the change: {{error}}",
+    "repeaterNameTooLongForLocation": "Shorten the node name to 24 bytes or fewer before setting a location.",
     "repeaterActionSent": "Command sent."
   }
 }

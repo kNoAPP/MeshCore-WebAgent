@@ -5,6 +5,7 @@
     "saving": "Wird gespeichert…",
     "saved": "Gespeichert",
     "saveFailed": "Speichern fehlgeschlagen",
+    "loading": "Wird geladen…",
     "remove": "Entfernen",
     "refresh": "Aktualisieren",
     "load": "Laden",
@@ -868,6 +869,7 @@
     "repeaterStatusFailed": "Status konnte nicht abgerufen werden: {{error}}",
     "repeaterCliFailed": "Befehl konnte nicht gesendet werden: {{error}}",
     "repeaterConfigError": "Knoten hat die Änderung abgelehnt: {{error}}",
+    "repeaterNameTooLongForLocation": "Kürzen Sie den Knotennamen auf höchstens 24 Bytes, bevor Sie einen Standort festlegen.",
     "repeaterActionSent": "Befehl gesendet."
   }
 }
