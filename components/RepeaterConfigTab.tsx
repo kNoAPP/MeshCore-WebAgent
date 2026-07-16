@@ -382,6 +382,26 @@ export function RepeaterConfigTab({
     [enqueue, showToast, t, cacheValues],
   );
 
+  // A coordinate handed back by the map picker (the "Set on map" button below)
+  // is committed straight to the repeater on mount — picking the point is the
+  // write, mirroring the Settings location card. One-shot: the store's
+  // pendingLocation is cleared as soon as it's consumed here.
+  useEffect(() => {
+    const store = useMeshStore.getState();
+    const pending = store.pendingLocation;
+    if (!pending || store.locationPickReturn !== 'chat') return;
+    store.clearPendingLocation();
+    if (readOnly) return;
+    const latSetting = ALL_REPEATER_SETTINGS.find((s) => s.id === 'lat');
+    const lonSetting = ALL_REPEATER_SETTINGS.find((s) => s.id === 'lon');
+    // Defer out of the effect body so the commits' optimistic setState isn't a
+    // synchronous render cascade (react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      if (latSetting) void commit(latSetting, String(pending.lat));
+      if (lonSetting) void commit(lonSetting, String(pending.lon));
+    });
+  }, [commit, readOnly]);
+
   const runAction = useCallback(
     async (action: RepeaterAction) => {
       // Confirm success only after the send is accepted (or the node stays
@@ -1010,6 +1030,11 @@ function LocationRow({
   const { t } = useTranslation();
   const loading = latProps.loading || (lonProps?.loading ?? false);
   const loaded = latProps.value !== '' || (lonProps?.value ?? '') !== '';
+  const readOnly = latProps.readOnly;
+  // One status for the whole row, since lat and lon commit as a pair: any write
+  // in flight shows saving, any failure shows the error, else the saved tick.
+  const rowStatus = combineStatus(latProps.status, lonProps?.status);
+  const rowError = latProps.errorText ?? lonProps?.errorText;
   return (
     <div className={ROW_CLASS}>
       <div className='flex min-w-0 flex-1 items-center gap-1.5'>
@@ -1017,25 +1042,45 @@ function LocationRow({
           {t('repeaterAdmin.config.location')}
         </span>
       </div>
-      <div className='flex shrink-0 items-center gap-3'>
+      <div className='flex shrink-0 flex-wrap items-center justify-end gap-2'>
         <FieldSlot loading={loading} loaded={loaded}>
           <CoordField {...latProps} />
           {lonProps && <CoordField {...lonProps} />}
+          {!readOnly && (
+            <button
+              type='button'
+              onClick={() => useMeshStore.getState().startLocationPick('chat')}
+              className='shrink-0 rounded-md border border-(--border-control) px-3 py-1 text-xs text-(--text2) hover:text-(--text)'
+            >
+              {t('settings.setOnMap')}
+            </button>
+          )}
+          <SaveStatusChip status={rowStatus} errorText={rowError} />
         </FieldSlot>
       </div>
     </div>
   );
 }
 
-/** One coordinate input (lat or lon) with its own caption and status chip. */
+/**
+ * Combines two fields' save states into one: any in-flight write wins, then any
+ * error, then a saved tick, else idle. Lets the paired lat/lon row show a
+ * single status dot.
+ */
+function combineStatus(a?: SaveStatus, b?: SaveStatus): SaveStatus | undefined {
+  if (a === 'saving' || b === 'saving') return 'saving';
+  if (a === 'error' || b === 'error') return 'error';
+  if (a === 'saved' || b === 'saved') return 'saved';
+  return undefined;
+}
+
+/** One coordinate input (lat or lon) with its own caption. */
 function CoordField({
   setting,
   value,
   draft,
   onDraft,
   onCommit,
-  status,
-  errorText,
   readOnly,
 }: RowProps) {
   const { t } = useTranslation();
@@ -1059,7 +1104,6 @@ function CoordField({
         onChange={onDraft}
         onCommitEdit={commitEdit}
       />
-      <SaveStatusChip status={status} errorText={errorText} />
     </div>
   );
 }

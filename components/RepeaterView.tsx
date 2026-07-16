@@ -79,7 +79,14 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   const authed = login === 'admin' || login === 'guest';
   const prefix = contact.pubkeyPrefix;
 
-  const [tab, setTab] = useState<RepeaterTab>('status');
+  const [tab, setTab] = useState<RepeaterTab>(() => {
+    // Returning from the map picker (Set on map in the Config tab) reopens on
+    // Config so the just-picked coordinate lands where the user left off.
+    const s = useMeshStore.getState();
+    return s.pendingLocation && s.locationPickReturn === 'chat'
+      ? 'config'
+      : 'status';
+  });
   // True only during the initial credential probe (from a clean logged-out
   // state), so we show a brief spinner instead of flashing the login form
   // before auto-login runs. A `pending` login shows the disabled gate instead.

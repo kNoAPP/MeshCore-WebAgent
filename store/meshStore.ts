@@ -304,6 +304,12 @@ interface MeshState {
    * consumption by the Location card. One-shot: cleared once read.
    */
   pendingLocation: { lat: number; lon: number } | null;
+  /**
+   * The view the map picker returns to once a coordinate is confirmed or the
+   * pick is started — `settings` for the Settings location card, `chat` for a
+   * repeater's config tab. Both reuse the one-shot {@link pendingLocation}.
+   */
+  locationPickReturn: AppView;
   managePanel: { kind: 'contact' | 'channel' | 'advert'; id: string } | null;
   autoAddOpen: boolean;
   addChannelOpen: boolean;
@@ -390,9 +396,9 @@ interface MeshActions {
   showToast: (text: string, variant?: Toast['variant']) => void;
   dismissToast: () => void;
   setView: (view: AppView) => void;
-  /** Opens the map in location-pick mode. */
-  startLocationPick: () => void;
-  /** Confirms the picked coordinate (degrees) and returns to Settings. */
+  /** Opens the map to pick a location, returning to `returnTo` on confirm. */
+  startLocationPick: (returnTo?: AppView) => void;
+  /** Confirms the picked coordinate (degrees) and returns to the caller. */
   confirmLocationPick: (lat: number, lon: number) => void;
   /** Aborts location picking without a result, staying on the map. */
   cancelLocationPick: () => void;
@@ -475,6 +481,7 @@ const initialState: MeshState = {
   view: 'chat',
   mapPicking: false,
   pendingLocation: null,
+  locationPickReturn: 'settings',
   managePanel: null,
   autoAddOpen: false,
   addChannelOpen: false,
@@ -675,9 +682,14 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   dismissToast: () => set({ toast: null }),
   // Any manual tab switch also aborts an in-progress location pick.
   setView: (view) => set({ view, mapPicking: false, settingsSection: null }),
-  startLocationPick: () => set({ mapPicking: true, view: 'map' }),
+  startLocationPick: (returnTo = 'settings') =>
+    set({ mapPicking: true, view: 'map', locationPickReturn: returnTo }),
   confirmLocationPick: (lat, lon) =>
-    set({ mapPicking: false, view: 'settings', pendingLocation: { lat, lon } }),
+    set((s) => ({
+      mapPicking: false,
+      view: s.locationPickReturn,
+      pendingLocation: { lat, lon },
+    })),
   cancelLocationPick: () => set({ mapPicking: false }),
   clearPendingLocation: () => set({ pendingLocation: null }),
   setManagePanel: (managePanel) => set({ managePanel }),
@@ -699,6 +711,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       view: 'chat',
       mapPicking: false,
       pendingLocation: null,
+      locationPickReturn: 'settings',
       managePanel: null,
       autoAddOpen: false,
       addChannelOpen: false,
