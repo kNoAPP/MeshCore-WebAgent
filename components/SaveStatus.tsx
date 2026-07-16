@@ -4,6 +4,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /** A field's save lifecycle, shown as a small {@link SaveStatusChip}. */
 export type SaveStatus = 'saving' | 'saved' | 'error';
@@ -13,6 +14,10 @@ export type SaveStatus = 'saving' | 'saved' | 'error';
  * slot so it fades in and out in place instead of widening its row and shoving
  * the control sideways when a save starts or clears. When idle it shows a faint
  * dot, so the slot reads as an intentional gutter rather than blank space.
+ *
+ * The glyphs are decorative (`aria-hidden`); because these controls auto-save
+ * with no submit button, the lifecycle is also announced to screen readers via
+ * a localized `aria-live` status region so a write's start/finish isn't silent.
  */
 export function SaveStatusChip({
   status,
@@ -21,6 +26,15 @@ export function SaveStatusChip({
   status?: SaveStatus;
   errorText?: string;
 }) {
+  const { t } = useTranslation();
+  const announcement =
+    status === 'saving'
+      ? t('common.saving')
+      : status === 'saved'
+        ? t('common.saved')
+        : status === 'error'
+          ? (errorText ?? t('common.saveFailed'))
+          : '';
   return (
     <span className='inline-flex w-4 shrink-0 items-center justify-center'>
       {!status && (
@@ -39,13 +53,16 @@ export function SaveStatusChip({
       )}
       {status === 'error' && (
         <span
+          aria-hidden
           className='cursor-help text-xs text-(--red)'
           title={errorText}
-          aria-label={errorText}
         >
           ⚠
         </span>
       )}
+      <span role='status' aria-live='polite' className='sr-only'>
+        {announcement}
+      </span>
     </span>
   );
 }

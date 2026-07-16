@@ -2,6 +2,9 @@
   "common": {
     "cancel": "Cancelar",
     "save": "Guardar",
+    "saving": "Guardando…",
+    "saved": "Guardado",
+    "saveFailed": "Error al guardar",
     "remove": "Eliminar",
     "refresh": "Actualizar",
     "load": "Cargar",

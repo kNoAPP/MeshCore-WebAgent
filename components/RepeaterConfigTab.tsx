@@ -195,7 +195,7 @@ export function RepeaterConfigTab({
                 getCommand(setting),
               );
               if (!aliveRef.current) return;
-              if (isErrorReply(reply)) {
+              if (isErrorReply(reply, setting)) {
                 // The GPS verbs are rejected on nodes without GPS compiled in:
                 // treat any error on a GPS field as "unsupported", hiding the
                 // controls silently rather than surfacing a toast.
@@ -325,7 +325,7 @@ export function RepeaterConfigTab({
             contactRef.current,
             setCommand(setting, next),
           );
-          if (isErrorReply(setReply)) {
+          if (isErrorReply(setReply, setting)) {
             return { kind: 'rejected', reply: setReply.trim() };
           }
           try {
@@ -333,7 +333,7 @@ export function RepeaterConfigTab({
               contactRef.current,
               getCommand(setting),
             );
-            if (!isErrorReply(getReply)) {
+            if (!isErrorReply(getReply, setting)) {
               return {
                 kind: 'ok',
                 value: normalizeReply(setting, getReply) ?? next,
@@ -350,19 +350,16 @@ export function RepeaterConfigTab({
             error: outcome.reply,
           });
           showToast(message, 'error');
-          setStatus((prev) => ({ ...prev, [id]: 'error' }));
-          setErrorMsg((prev) => ({ ...prev, [id]: message }));
-          // Revert the field to its last-known value so it doesn't keep showing
-          // the rejected edit — but only if that edit is still what's shown, so
-          // a newer edit queued behind this one isn't clobbered.
-          setDrafts((prev) =>
-            prev[id] === next
-              ? { ...prev, [id]: valuesRef.current[id] ?? '' }
-              : prev,
-          );
-          // Drop the failed intent so a re-commit of the same value works,
-          // unless a newer edit has already superseded it.
+          // Only reconcile the field when this write still owns the latest
+          // intent, so a newer queued edit keeps its own `saving` state,
+          // draft, and intent rather than being flipped to this stale error.
           if (intentRef.current[id] === next) {
+            setStatus((prev) => ({ ...prev, [id]: 'error' }));
+            setErrorMsg((prev) => ({ ...prev, [id]: message }));
+            setDrafts((prev) => ({
+              ...prev,
+              [id]: valuesRef.current[id] ?? '',
+            }));
             intentRef.current[id] = valuesRef.current[id] ?? '';
           }
           return;
@@ -389,15 +386,18 @@ export function RepeaterConfigTab({
         }, 2000);
       } catch (err) {
         if (!aliveRef.current) return;
-        if (intentRef.current[id] === next) {
-          intentRef.current[id] = valuesRef.current[id] ?? '';
-        }
         const message = t('toast.repeaterCliFailed', {
           error: (err as Error).message,
         });
         showToast(message, 'error');
-        setStatus((prev) => ({ ...prev, [id]: 'error' }));
-        setErrorMsg((prev) => ({ ...prev, [id]: message }));
+        // Only reconcile when this write still owns the latest intent, so a
+        // newer queued edit's `saving` state isn't overwritten by this stale
+        // transport failure.
+        if (intentRef.current[id] === next) {
+          intentRef.current[id] = valuesRef.current[id] ?? '';
+          setStatus((prev) => ({ ...prev, [id]: 'error' }));
+          setErrorMsg((prev) => ({ ...prev, [id]: message }));
+        }
       }
     },
     [enqueue, showToast, t, cacheValues],
@@ -480,7 +480,7 @@ export function RepeaterConfigTab({
                   contactRef.current,
                   getCommand(setting),
                 );
-                if (!isErrorReply(getReply)) {
+                if (!isErrorReply(getReply, setting)) {
                   return normalizeReply(setting, getReply) ?? sent;
                 }
               } catch {
@@ -493,7 +493,7 @@ export function RepeaterConfigTab({
                 contactRef.current,
                 setCommand(radioSetting, radioStr),
               );
-              if (isErrorReply(reply)) {
+              if (isErrorReply(reply, radioSetting)) {
                 return { applied, rejected: reply.trim() };
               }
               applied.radio = await confirm(radioSetting, radioStr);
@@ -503,7 +503,7 @@ export function RepeaterConfigTab({
                 contactRef.current,
                 setCommand(txSetting, txStr),
               );
-              if (isErrorReply(reply)) {
+              if (isErrorReply(reply, txSetting)) {
                 return { applied, rejected: reply.trim() };
               }
               applied.tx = await confirm(txSetting, txStr);

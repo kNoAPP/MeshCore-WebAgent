@@ -2,6 +2,9 @@
   "common": {
     "cancel": "Annuler",
     "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "saved": "Enregistré",
+    "saveFailed": "Échec de l’enregistrement",
     "remove": "Supprimer",
     "refresh": "Actualiser",
     "load": "Charger",

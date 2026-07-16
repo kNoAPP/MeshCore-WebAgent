@@ -67,6 +67,13 @@ interface BaseSetting {
    * is replaced by the wire value (e.g. `gps <v>`, `gps advert <v>`).
    */
   setCmdTemplate?: string;
+  /**
+   * Extra reply prefixes (lowercase) that count as an error for THIS setting,
+   * for firmware failures emitted without an `Err` prefix — e.g. the GPS
+   * verbs' `gps toggle not found` / `can't find gps`. Scoped per setting so an
+   * identical node name isn't misread as an error.
+   */
+  errorTokens?: readonly string[];
 }
 
 /** An on/off flag; {@link on}/{@link off} are the exact wire tokens sent. */
@@ -133,9 +140,9 @@ export const PATH_HASH_MODE_OPTIONS = ['0', '1', '2'] as const;
 export const GPS_ADVERT_OPTIONS = ['none', 'share', 'prefs'] as const;
 
 /**
- * The common settings, grouped for display. Advanced routing knobs live in a
- * collapsed section (see {@link REPEATER_ADVANCED_SETTINGS}) rather than a
- * group so the tab can render them behind a disclosure.
+ * The common settings, grouped for display. The advanced routing knobs live in
+ * a separate list ({@link REPEATER_ADVANCED_SETTINGS}) rather than a group so
+ * the tab can render them as their own independently loaded card.
  */
 export const REPEATER_SETTING_GROUPS: readonly RepeaterSettingGroup[] = [
   {
@@ -210,7 +217,7 @@ export const REPEATER_SETTING_GROUPS: readonly RepeaterSettingGroup[] = [
   },
 ];
 
-/** Advanced routing settings, rendered behind a collapsed disclosure. */
+/** Advanced routing settings, rendered as their own always-visible card. */
 export const REPEATER_ADVANCED_SETTINGS: readonly RepeaterSetting[] = [
   {
     id: 'txdelay',
@@ -236,8 +243,11 @@ export const REPEATER_ADVANCED_SETTINGS: readonly RepeaterSetting[] = [
     kind: 'number',
     min: 1,
     max: 100,
-    step: 1,
-    integer: true,
+    // The firmware stores a fractional percentage (parsed as a float on set,
+    // reported to one decimal on get), so keep it decimal rather than rounding
+    // the cached value.
+    step: 0.5,
+    integer: false,
     unit: 'percent',
   },
   {
@@ -270,6 +280,7 @@ export const REPEATER_GPS_SETTINGS: readonly RepeaterSetting[] = [
     off: 'off',
     getCmd: 'gps',
     setCmdTemplate: 'gps <v>',
+    errorTokens: ['gps toggle not found', "can't find gps"],
   },
   {
     id: 'gpsAdvert',
@@ -278,6 +289,7 @@ export const REPEATER_GPS_SETTINGS: readonly RepeaterSetting[] = [
     options: GPS_ADVERT_OPTIONS,
     getCmd: 'gps advert',
     setCmdTemplate: 'gps advert <v>',
+    errorTokens: ["can't find gps"],
   },
 ];
 
@@ -338,16 +350,29 @@ export function setCommand(setting: RepeaterSetting, value: string): string {
  * either alone or followed by its error punctuation (`Err - …`, `Error, …`,
  * `ERROR: …`, `ERR: …`), the bare catch-all `??: …`, and the
  * `unknown config: …` / `Unknown command` rejections (emitted without an `Err`
- * prefix) for a key it doesn't know.
+ * prefix) for a key it doesn't know. A {@link setting} may also carry
+ * {@link RepeaterSetting.errorTokens} for firmware failures phrased without an
+ * `Err` prefix (e.g. the GPS verbs), matched only for that setting so an
+ * identical node name isn't misread.
  */
-export function isErrorReply(reply: string): boolean {
+export function isErrorReply(
+  reply: string,
+  setting?: RepeaterSetting,
+): boolean {
   const text = stripPrompt(reply);
-  return (
+  if (
     /^err(or)?(\s*[-,:]|$)/i.test(text) ||
     text.startsWith('??') ||
     /^unknown config:/i.test(text) ||
     /^unknown command$/i.test(text)
-  );
+  ) {
+    return true;
+  }
+  if (setting?.errorTokens) {
+    const lower = text.toLowerCase();
+    return setting.errorTokens.some((tok) => lower.startsWith(tok));
+  }
+  return false;
 }
 
 /**
