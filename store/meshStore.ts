@@ -806,7 +806,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
           ...state.adminSessions,
           [prefix]: {
             ...session,
-            config: { ...session.config, ...patch },
+            config: { ...(session.config ?? {}), ...patch },
           },
         },
       };

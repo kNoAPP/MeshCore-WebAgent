@@ -479,7 +479,12 @@ export function parseRadio(
 }
 
 /** Serializes four LoRa parameters into the `freq,bw,sf,cr` wire string. */
-export function formatRadio(freq: number, bw: number, sf: number, cr: number) {
+export function formatRadio(
+  freq: number,
+  bw: number,
+  sf: number,
+  cr: number,
+): string {
   return `${freq},${bw},${sf},${cr}`;
 }
 
