@@ -583,7 +583,7 @@ function LocationCard() {
           )}
         </div>
       )}
-      <div className='mt-3 flex gap-3'>
+      <div className='mt-3 flex items-end gap-3'>
         <div className='flex flex-1 flex-col gap-1 text-xs'>
           <label className='text-(--text2)'>{t('settings.latitude')}</label>
           <input
@@ -624,12 +624,10 @@ function LocationCard() {
             }`}
           />
         </div>
-      </div>
-      <div className='mt-3 flex items-center justify-between gap-2'>
         <button
           onClick={() => useMeshStore.getState().startLocationPick()}
           disabled={usingGps}
-          className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+          className='shrink-0 rounded-md border border-(--border-control) px-3 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
         >
           {t('settings.setOnMap')}
         </button>
