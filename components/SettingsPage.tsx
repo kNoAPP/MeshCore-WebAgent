@@ -422,7 +422,7 @@ function LocationCard() {
   // Last coordinate successfully written to the radio, so a blur that changed
   // nothing (or a re-blur of the same value) doesn't re-issue the write. Seeded
   // from the device's stored coordinate — not any pending map pick — and only
-  // advanced on a confirmed save, so a failed write stays retryable.
+  // advanced on a confirmed save, so a failed write can be retried.
   const lastSaved = useRef({
     lat: fmtDeg(useMeshStore.getState().selfInfo?.advLat),
     lon: fmtDeg(useMeshStore.getState().selfInfo?.advLon),
