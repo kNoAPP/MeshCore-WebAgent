@@ -587,7 +587,7 @@ function LocationCard() {
       )}
       <div className='mt-3 flex items-end gap-3'>
         <div className='flex flex-1 flex-col gap-1 text-xs'>
-          <label className='text-(--text2)'>{t('settings.latitude')}</label>
+          <label className='text-(--text)'>{t('settings.latitude')}</label>
           <input
             value={latStr}
             onChange={(e) => setLatStr(e.target.value)}
@@ -607,7 +607,7 @@ function LocationCard() {
           />
         </div>
         <div className='flex flex-1 flex-col gap-1 text-xs'>
-          <label className='text-(--text2)'>{t('settings.longitude')}</label>
+          <label className='text-(--text)'>{t('settings.longitude')}</label>
           <input
             value={lonStr}
             onChange={(e) => setLonStr(e.target.value)}
