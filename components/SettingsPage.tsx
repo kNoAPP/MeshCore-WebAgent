@@ -314,11 +314,20 @@ function NodeNameRow() {
   const valid = trimmed.length > 0 && !overLimit;
 
   // Commit on blur/Enter: push a valid, changed name, or revert an invalid edit
-  // back to the last known name.
+  // back to the last known name. On success, normalize the visible draft to the
+  // trimmed value actually sent — otherwise a whitespace-only edit the radio
+  // treats as unchanged (`currentName` never moves) would leave the field dirty
+  // and resend on every blur. Skip the reconcile if the user kept typing.
   const commit = () => {
     if (draft === currentName) return;
-    if (editable && valid) void runSave(() => setNodeName(trimmed));
-    else setDraft(currentName);
+    if (!editable || !valid) {
+      setDraft(currentName);
+      return;
+    }
+    const submitted = draft;
+    void runSave(() => setNodeName(trimmed)).then((ok) => {
+      if (ok) setDraft((cur) => (cur === submitted ? trimmed : cur));
+    });
   };
 
   return (

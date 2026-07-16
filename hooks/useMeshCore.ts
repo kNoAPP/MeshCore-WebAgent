@@ -351,6 +351,7 @@ function clearSessionState(): void {
   const store = useMeshStore.getState();
   store.setDeviceStats(null);
   store.setDeviceClock(null);
+  store.setDeviceBattery(null);
   rxPathBuffer.length = 0;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = null;

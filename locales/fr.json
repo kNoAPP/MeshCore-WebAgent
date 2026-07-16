@@ -631,7 +631,7 @@
         },
         "gpsAdvert": {
           "none": "Désactivé",
-          "share": "GPS (position en direct)",
+          "share": "GPS",
           "prefs": "Fixe"
         }
       },

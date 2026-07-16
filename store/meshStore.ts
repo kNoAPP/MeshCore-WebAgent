@@ -242,6 +242,14 @@ interface MeshState {
    */
   deviceStats: StatsResult | null;
   deviceClock: { time: number; skew: number } | null;
+  /**
+   * The Stats page's own battery/storage snapshot (including `null` when the
+   * device didn't report it), link-scoped alongside {@link deviceStats} so a
+   * radio switch or a timed-out read can't surface another link's reading. The
+   * header's {@link battery} is separate and deliberately retained on a null
+   * read.
+   */
+  deviceBattery: BatteryInfo | null;
 
   // Mesh data
   contacts: Record<string, Contact>;
@@ -361,6 +369,8 @@ interface MeshActions {
   setDeviceStats: (s: StatsResult | null) => void;
   /** Caches the last-read device clock (epoch seconds) and its skew. */
   setDeviceClock: (c: { time: number; skew: number } | null) => void;
+  /** Caches the Stats page's own battery snapshot (link-scoped, incl. null). */
+  setDeviceBattery: (b: BatteryInfo | null) => void;
   setContacts: (c: Record<string, Contact>) => void;
   setChannels: (ch: Record<number, Channel>) => void;
   setAdverts: (a: Record<string, Advert>) => void;
@@ -461,6 +471,7 @@ const initialState: MeshState = {
   syncProgress: null,
   deviceStats: null,
   deviceClock: null,
+  deviceBattery: null,
   contacts: {},
   channels: {},
   adverts: {},
@@ -516,6 +527,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setSyncProgress: (syncProgress) => set({ syncProgress }),
   setDeviceStats: (deviceStats) => set({ deviceStats }),
   setDeviceClock: (deviceClock) => set({ deviceClock }),
+  setDeviceBattery: (deviceBattery) => set({ deviceBattery }),
   setContacts: (contacts) => set({ contacts }),
   setChannels: (channels) => set({ channels }),
   setAdverts: (adverts) => set({ adverts }),

@@ -599,27 +599,27 @@ export function RepeaterConfigTab({
     nameBytes,
   });
 
-  // The advertised location source, mirroring the companion's Settings card.
-  // Keyed on the advert policy (`share` = live GPS) rather than an OR of the
-  // module + policy, so a half-applied write (e.g. module on but policy still
-  // `prefs`) reports the source that is actually advertised, and re-selecting
-  // reissues the write that didn't stick.
-  const usingGps = gpsSupported === true && drafts.gpsAdvert === 'share';
+  // The current advertised-location policy: `none` (don't advertise), `prefs`
+  // (the stored fixed lat/lon), or `share` (the live GPS fix). Empty until the
+  // GPS fields load. Keeping all three states distinct means a node set to
+  // `none` shows as Off rather than being collapsed into Fixed.
+  const advertPolicy = drafts.gpsAdvert ?? '';
+  // Under live GPS the coordinates come from the module, so the manual editor
+  // is disabled.
+  const usingGps = gpsSupported === true && advertPolicy === 'share';
   const gpsSetting = REPEATER_GPS_SETTINGS.find((s) => s.id === 'gps');
   const gpsAdvertSetting = REPEATER_GPS_SETTINGS.find(
     (s) => s.id === 'gpsAdvert',
   );
 
-  // Switch the Fixed/GPS source: GPS turns the module on and advertises its
-  // live fix (`share`); Fixed turns it off and advertises the stored lat/lon
-  // (`prefs`). Each write goes through the same serialized commit path (which
-  // no-ops an unchanged field), so a partial failure can be retried — re-
-  // selecting reissues only the field that didn't stick, and the row's single
-  // status reflects the pair.
-  const selectSource = (nextUseGps: boolean) => {
+  // Pick the advertised-location policy. `share` (GPS) also turns the module
+  // on; `none`/`prefs` turn it off. Each write runs through the same serialized
+  // commit path (which no-ops an unchanged field), so a partial failure can be
+  // fixed by re-selecting, and the row's single status reflects the pair.
+  const selectPolicy = (policy: (typeof GPS_ADVERT_OPTIONS)[number]) => {
     if (readOnly || !gpsSetting || !gpsAdvertSetting) return;
-    void commit(gpsSetting, nextUseGps ? 'on' : 'off');
-    void commit(gpsAdvertSetting, nextUseGps ? 'share' : 'prefs');
+    void commit(gpsSetting, policy === 'share' ? 'on' : 'off');
+    void commit(gpsAdvertSetting, policy);
   };
 
   return (
@@ -678,11 +678,11 @@ export function RepeaterConfigTab({
                       <Fragment key='location'>
                         {gpsSupported === true && (
                           <LocationSourceRow
-                            useGps={usingGps}
+                            policy={advertPolicy}
                             status={sourceStatus}
                             errorText={errorMsg.gps ?? errorMsg.gpsAdvert}
                             readOnly={readOnly || sourceStatus === 'saving'}
-                            onSelect={selectSource}
+                            onSelect={selectPolicy}
                           />
                         )}
                         <LocationRow
@@ -1139,29 +1139,32 @@ function TextField({
   );
 }
 
-/** The location sources offered on a GPS-capable node. */
-const LOCATION_SOURCES = [
-  { useGps: false, labelKey: 'settings.locationSourceFixed' },
-  { useGps: true, labelKey: 'settings.locationSourceGps' },
+/** The advertised-location policies offered on a GPS-capable node. */
+const LOCATION_POLICIES = [
+  { value: 'none', labelKey: 'repeaterAdmin.config.options.gpsAdvert.none' },
+  { value: 'prefs', labelKey: 'repeaterAdmin.config.options.gpsAdvert.prefs' },
+  { value: 'share', labelKey: 'repeaterAdmin.config.options.gpsAdvert.share' },
 ] as const;
 
 /**
- * The Fixed/GPS source picker for a GPS-capable node, mirroring the companion
- * radio's Settings location card. Fixed advertises the stored lat/lon; GPS
- * advertises the module's live fix (and disables the manual coordinate editor).
+ * The advertised-location picker for a GPS-capable node, mirroring the
+ * companion radio's Settings card. Off advertises no location; Fixed advertises
+ * the stored lat/lon; GPS advertises the module's live fix (and disables the
+ * manual coordinate editor). All three of the firmware's `gps advert` policies
+ * are distinct, so a node set to Off isn't shown as Fixed.
  */
 function LocationSourceRow({
-  useGps,
+  policy,
   status,
   errorText,
   readOnly,
   onSelect,
 }: {
-  useGps: boolean;
+  policy: string;
   status?: SaveStatus;
   errorText?: string;
   readOnly: boolean;
-  onSelect: (useGps: boolean) => void;
+  onSelect: (policy: (typeof GPS_ADVERT_OPTIONS)[number]) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -1177,16 +1180,16 @@ function LocationSourceRow({
           aria-label={t('settings.locationSource')}
           className='inline-flex rounded-md border border-(--border-control) p-0.5'
         >
-          {LOCATION_SOURCES.map(({ useGps: optGps, labelKey }) => {
-            const active = useGps === optGps;
+          {LOCATION_POLICIES.map(({ value, labelKey }) => {
+            const active = policy === value;
             return (
               <button
-                key={labelKey}
+                key={value}
                 type='button'
                 role='radio'
                 aria-checked={active}
                 disabled={readOnly}
-                onClick={() => onSelect(optGps)}
+                onClick={() => onSelect(value)}
                 className={`rounded px-3 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   active
                     ? 'bg-(--accent) font-semibold text-white'

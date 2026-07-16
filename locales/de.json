@@ -631,7 +631,7 @@
         },
         "gpsAdvert": {
           "none": "Aus",
-          "share": "GPS (Live-Position)",
+          "share": "GPS",
           "prefs": "Fest"
         }
       },

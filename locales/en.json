@@ -631,7 +631,7 @@
         },
         "gpsAdvert": {
           "none": "Off",
-          "share": "GPS (live fix)",
+          "share": "GPS",
           "prefs": "Fixed"
         }
       },

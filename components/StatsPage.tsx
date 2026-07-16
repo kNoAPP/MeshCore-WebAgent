@@ -26,12 +26,12 @@ export function StatsPage() {
     () => useMeshStore.getState().deviceStats,
   );
   // This session's battery/storage snapshot — the exact result of the last
-  // fetch, including null when the device didn't report it. Kept local (rather
-  // than reading the shared store) so a timed-out fetch surfaces the card's
-  // "unavailable" state here without clearing the header's last-known reading;
-  // seeded from the last-known reading so it survives navigation.
+  // fetch, including null when the device didn't report it. Read from the
+  // link-scoped `deviceBattery` cache (cleared alongside `deviceStats` on a
+  // session change), not the header's last-known reading, so a radio switch or
+  // timed-out read can't present another link's battery as this one's.
   const [battery, setBatteryLocal] = useState<BatteryInfo | null>(
-    () => useMeshStore.getState().battery,
+    () => useMeshStore.getState().deviceBattery,
   );
   // Skeletons only when there's nothing cached to show; a cached snapshot
   // renders immediately (no auto-refetch — the user Refreshes for fresh data).
@@ -105,6 +105,9 @@ export function StatsPage() {
         const b = await client.getBattery();
         if (gen !== session.current) return;
         setBatteryLocal(b);
+        // Cache the fetch's result (including null) link-scoped for the card,
+        // and refresh the header's last-known reading only on a real value.
+        useMeshStore.getState().setDeviceBattery(b);
         if (b) useMeshStore.getState().setBattery(b);
         await readClock(gen);
       } finally {
@@ -125,7 +128,7 @@ export function StatsPage() {
     prevClientRef.current = client;
     const st = useMeshStore.getState();
     setStats(st.deviceStats);
-    setBatteryLocal(st.battery);
+    setBatteryLocal(st.deviceBattery);
     setClock(st.deviceClock);
     setFetched(st.deviceStats != null);
     setLoading(st.deviceStats == null);
