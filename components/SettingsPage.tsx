@@ -626,16 +626,16 @@ function LocationCard() {
             }`}
           />
         </div>
-        <button
-          onClick={() => useMeshStore.getState().startLocationPick()}
-          disabled={usingGps}
-          className='shrink-0 rounded-md border border-(--border-control) px-3 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
-        >
-          {t('settings.setOnMap')}
-        </button>
-        <span className='self-center'>
+        <div className='flex shrink-0 items-center gap-2'>
+          <button
+            onClick={() => useMeshStore.getState().startLocationPick()}
+            disabled={usingGps}
+            className='rounded-md border border-(--border-control) px-3 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+          >
+            {t('settings.setOnMap')}
+          </button>
           <SaveStatusChip status={coordStatus} />
-        </span>
+        </div>
       </div>
     </Card>
   );
