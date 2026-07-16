@@ -576,6 +576,12 @@
         "tx": {
           "label": "Sendeleistung"
         },
+        "gps": {
+          "label": "GPS-Modul"
+        },
+        "gpsAdvert": {
+          "label": "Beworbener Standort"
+        },
         "repeat": {
           "label": "Weiterleiten"
         },
@@ -618,6 +624,11 @@
           "0": "1 Byte",
           "1": "2 Bytes",
           "2": "3 Bytes"
+        },
+        "gpsAdvert": {
+          "none": "Aus",
+          "share": "GPS (Live-Position)",
+          "prefs": "Fest"
         }
       },
       "actions": {

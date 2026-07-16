@@ -576,6 +576,12 @@
         "tx": {
           "label": "Puissance TX"
         },
+        "gps": {
+          "label": "Module GPS"
+        },
+        "gpsAdvert": {
+          "label": "Position annoncée"
+        },
         "repeat": {
           "label": "Répéter"
         },
@@ -618,6 +624,11 @@
           "0": "1 octet",
           "1": "2 octets",
           "2": "3 octets"
+        },
+        "gpsAdvert": {
+          "none": "Désactivé",
+          "share": "GPS (position en direct)",
+          "prefs": "Fixe"
         }
       },
       "actions": {

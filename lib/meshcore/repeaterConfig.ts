@@ -33,6 +33,8 @@ export type RepeaterSettingId =
   | 'lon'
   | 'radio'
   | 'tx'
+  | 'gps'
+  | 'gpsAdvert'
   | 'repeat'
   | 'floodAdvertInterval'
   | 'advertInterval'
@@ -55,6 +57,16 @@ interface BaseSetting {
   kind: RepeaterSettingKind;
   /** Whether the node must reboot before a change takes effect. */
   requiresReboot?: boolean;
+  /**
+   * Overrides the default `get <key>` read command, for firmware verbs that
+   * aren't `get <key>` (e.g. the GPS module's `gps` / `gps advert`).
+   */
+  getCmd?: string;
+  /**
+   * Overrides the default `set <key> <value>` write command; the literal `<v>`
+   * is replaced by the wire value (e.g. `gps <v>`, `gps advert <v>`).
+   */
+  setCmdTemplate?: string;
 }
 
 /** An on/off flag; {@link on}/{@link off} are the exact wire tokens sent. */
@@ -113,6 +125,12 @@ export const LOOP_DETECT_OPTIONS = [
 
 /** Advert path hash sizes (`0`=1 byte, `1`=2 byte, `2`=3 byte). */
 export const PATH_HASH_MODE_OPTIONS = ['0', '1', '2'] as const;
+
+/**
+ * GPS advert location policies (`gps advert <policy>`): don't advertise a
+ * location, advertise the live GPS fix, or advertise the stored fixed lat/lon.
+ */
+export const GPS_ADVERT_OPTIONS = ['none', 'share', 'prefs'] as const;
 
 /**
  * The common settings, grouped for display. Advanced routing knobs live in a
@@ -237,10 +255,37 @@ export const REPEATER_ADVANCED_SETTINGS: readonly RepeaterSetting[] = [
   { id: 'multiAcks', key: 'multi.acks', kind: 'toggle', on: '1', off: '0' },
 ];
 
+/**
+ * GPS controls, available only on nodes with GPS support compiled in (probed at
+ * runtime, since the firmware rejects these verbs otherwise). Unlike the rest
+ * of the catalog these use the firmware's dedicated `gps` / `gps advert` verbs
+ * rather than `get`/`set <key>`, supplied via the command overrides.
+ */
+export const REPEATER_GPS_SETTINGS: readonly RepeaterSetting[] = [
+  {
+    id: 'gps',
+    key: 'gps',
+    kind: 'toggle',
+    on: 'on',
+    off: 'off',
+    getCmd: 'gps',
+    setCmdTemplate: 'gps <v>',
+  },
+  {
+    id: 'gpsAdvert',
+    key: 'gps.advert',
+    kind: 'select',
+    options: GPS_ADVERT_OPTIONS,
+    getCmd: 'gps advert',
+    setCmdTemplate: 'gps advert <v>',
+  },
+];
+
 /** Every setting, flattened — groups first, then the advanced knobs. */
 export const ALL_REPEATER_SETTINGS: readonly RepeaterSetting[] = [
   ...REPEATER_SETTING_GROUPS.flatMap((g) => g.settings),
   ...REPEATER_ADVANCED_SETTINGS,
+  ...REPEATER_GPS_SETTINGS,
 ];
 
 /**
@@ -272,12 +317,14 @@ export const REPEATER_ACTIONS: readonly RepeaterAction[] = [
 
 /** Builds the `get` command that reads a setting's current value. */
 export function getCommand(setting: RepeaterSetting): string {
-  return `get ${setting.key}`;
+  return setting.getCmd ?? `get ${setting.key}`;
 }
 
 /** Builds the `set` command that writes a normalized wire {@link value}. */
 export function setCommand(setting: RepeaterSetting, value: string): string {
-  return `set ${setting.key} ${value}`;
+  return setting.setCmdTemplate
+    ? setting.setCmdTemplate.replace('<v>', value)
+    : `set ${setting.key} ${value}`;
 }
 
 /**
@@ -342,7 +389,9 @@ export function normalizeReply(
   const text = stripPrompt(reply);
   switch (setting.kind) {
     case 'toggle': {
-      const token = text.toLowerCase();
+      // Take the first token so the GPS module's rich status reply
+      // (`on, active, fix, 5 sats`) still reads as `on`.
+      const token = (text.split(/[\s,]/)[0] ?? '').toLowerCase();
       if (ON_TOKENS.has(token)) return setting.on;
       if (OFF_TOKENS.has(token)) return setting.off;
       return null;

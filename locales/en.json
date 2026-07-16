@@ -576,6 +576,12 @@
         "tx": {
           "label": "TX Power"
         },
+        "gps": {
+          "label": "GPS module"
+        },
+        "gpsAdvert": {
+          "label": "Advertised location"
+        },
         "repeat": {
           "label": "Repeat"
         },
@@ -618,6 +624,11 @@
           "0": "1 byte",
           "1": "2 bytes",
           "2": "3 bytes"
+        },
+        "gpsAdvert": {
+          "none": "Off",
+          "share": "GPS (live fix)",
+          "prefs": "Fixed"
         }
       },
       "actions": {

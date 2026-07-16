@@ -576,6 +576,12 @@
         "tx": {
           "label": "Potencia TX"
         },
+        "gps": {
+          "label": "Módulo GPS"
+        },
+        "gpsAdvert": {
+          "label": "Ubicación anunciada"
+        },
         "repeat": {
           "label": "Repetir"
         },
@@ -618,6 +624,11 @@
           "0": "1 byte",
           "1": "2 bytes",
           "2": "3 bytes"
+        },
+        "gpsAdvert": {
+          "none": "Desactivado",
+          "share": "GPS (en vivo)",
+          "prefs": "Fija"
         }
       },
       "actions": {

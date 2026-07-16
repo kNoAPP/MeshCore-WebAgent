@@ -10,6 +10,7 @@ import { useMeshCore } from '@/hooks/useMeshCore';
 import {
   REPEATER_SETTING_GROUPS,
   REPEATER_ADVANCED_SETTINGS,
+  REPEATER_GPS_SETTINGS,
   ALL_REPEATER_SETTINGS,
   REPEATER_ACTIONS,
   getCommand,
@@ -22,6 +23,7 @@ import {
   formatRadio,
   LOOP_DETECT_OPTIONS,
   PATH_HASH_MODE_OPTIONS,
+  GPS_ADVERT_OPTIONS,
 } from '@/lib/meshcore/repeaterConfig';
 import type {
   RepeaterSetting,
@@ -113,6 +115,10 @@ export function RepeaterConfigTab({
   const [status, setStatus] = useState<Record<string, SaveStatus>>({});
   // The last error message per field, shown on the error chip's tooltip.
   const [errorMsg, setErrorMsg] = useState<Record<string, string>>({});
+  // Whether this node has GPS support compiled in. `null` until probed by the
+  // first Identity read; `false` hides the GPS controls (the firmware rejects
+  // the `gps` verbs on non-GPS builds), `true` reveals them.
+  const [gpsSupported, setGpsSupported] = useState<boolean | null>(null);
   // Whether the shared radio/TX editor modal is open.
   const [radioEditOpen, setRadioEditOpen] = useState(false);
 
@@ -190,14 +196,25 @@ export function RepeaterConfigTab({
               );
               if (!aliveRef.current) return;
               if (isErrorReply(reply)) {
-                // A terminal rejection (e.g. the firmware lacks this setting):
-                // surface it and don't retry a command the node refused.
-                errored = true;
-                showToast(
-                  t('toast.repeaterConfigError', { error: reply.trim() }),
-                  'error',
-                );
+                // The GPS verbs are rejected on nodes without GPS compiled in:
+                // treat any error on a GPS field as "unsupported", hiding the
+                // controls silently rather than surfacing a toast.
+                if (setting.id === 'gps' || setting.id === 'gpsAdvert') {
+                  setGpsSupported(false);
+                  errored = true;
+                } else {
+                  // A terminal rejection (e.g. the firmware lacks this
+                  // setting): surface it and don't retry a refused command.
+                  errored = true;
+                  showToast(
+                    t('toast.repeaterConfigError', { error: reply.trim() }),
+                    'error',
+                  );
+                }
               } else {
+                if (setting.id === 'gps' || setting.id === 'gpsAdvert') {
+                  setGpsSupported(true);
+                }
                 parsed = normalizeReply(setting, reply);
               }
             } catch {
@@ -578,6 +595,13 @@ export function RepeaterConfigTab({
           const fields = group.settings.filter(
             (s) => s.id !== 'radio' && s.id !== 'tx',
           );
+          const isIdentity = group.id === 'identity';
+          // The Identity refresh also probes/loads the GPS controls, unless the
+          // node has already reported it lacks GPS support (so we stop asking).
+          const readFields =
+            isIdentity && gpsSupported !== false
+              ? [...fields, ...REPEATER_GPS_SETTINGS]
+              : fields;
           return (
             <Fragment key={group.id}>
               <Card
@@ -585,8 +609,8 @@ export function RepeaterConfigTab({
                 action={
                   readOnly ? undefined : (
                     <RefreshButton
-                      onClick={() => refreshSection(fields)}
-                      busy={sectionBusy(fields)}
+                      onClick={() => refreshSection(readFields)}
+                      busy={sectionBusy(readFields)}
                       download={!sectionLoaded(fields)}
                     />
                   )
@@ -607,6 +631,11 @@ export function RepeaterConfigTab({
                   }
                   return <SettingRow key={setting.id} {...rowProps(setting)} />;
                 })}
+                {isIdentity &&
+                  gpsSupported === true &&
+                  REPEATER_GPS_SETTINGS.map((setting) => (
+                    <SettingRow key={setting.id} {...rowProps(setting)} />
+                  ))}
               </Card>
               {group.id === 'identity' && (
                 <RadioSection
@@ -1318,6 +1347,11 @@ function optionLabel(
   if (id === 'loopDetect') {
     return t(
       `repeaterAdmin.config.options.loopDetect.${value as (typeof LOOP_DETECT_OPTIONS)[number]}`,
+    );
+  }
+  if (id === 'gpsAdvert') {
+    return t(
+      `repeaterAdmin.config.options.gpsAdvert.${value as (typeof GPS_ADVERT_OPTIONS)[number]}`,
     );
   }
   return t(
