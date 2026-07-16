@@ -613,7 +613,7 @@ export function RepeaterConfigTab({
   // Switch the Fixed/GPS source: GPS turns the module on and advertises its
   // live fix (`share`); Fixed turns it off and advertises the stored lat/lon
   // (`prefs`). Each write goes through the same serialized commit path (which
-  // no-ops an unchanged field), so a partial failure stays retryable — re-
+  // no-ops an unchanged field), so a partial failure can be retried — re-
   // selecting reissues only the field that didn't stick, and the row's single
   // status reflects the pair.
   const selectSource = (nextUseGps: boolean) => {
