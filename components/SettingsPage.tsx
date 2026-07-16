@@ -633,7 +633,9 @@ function LocationCard() {
         >
           {t('settings.setOnMap')}
         </button>
-        <SaveStatusChip status={coordStatus} />
+        <span className='self-center'>
+          <SaveStatusChip status={coordStatus} />
+        </span>
       </div>
     </Card>
   );
