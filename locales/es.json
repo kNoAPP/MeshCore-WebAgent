@@ -870,6 +870,7 @@
     "repeaterCliFailed": "Error al enviar el comando: {{error}}",
     "repeaterConfigError": "El nodo rechazó el cambio: {{error}}",
     "repeaterNameTooLongForLocation": "Acorta el nombre del nodo a 24 bytes o menos antes de establecer una ubicación.",
+    "repeaterLoadBeforeLocationEdit": "Carga el nombre y la ubicación del nodo antes de cambiar cualquiera de los dos.",
     "repeaterActionSent": "Comando enviado."
   }
 }

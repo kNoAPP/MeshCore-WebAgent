@@ -870,6 +870,7 @@
     "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}",
     "repeaterConfigError": "Le nœud a rejeté la modification : {{error}}",
     "repeaterNameTooLongForLocation": "Raccourcissez le nom du nœud à 24 octets ou moins avant de définir une position.",
+    "repeaterLoadBeforeLocationEdit": "Chargez le nom et la position du nœud avant de modifier l’un ou l’autre.",
     "repeaterActionSent": "Commande envoyée."
   }
 }

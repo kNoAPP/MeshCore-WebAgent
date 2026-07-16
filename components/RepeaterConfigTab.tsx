@@ -308,6 +308,32 @@ export function RepeaterConfigTab({
       // is still in flight isn't dropped as a no-op.
       const target = intentRef.current[id] ?? valuesRef.current[id] ?? '';
       if (next === target) return;
+      // The name and both coordinates are validated together against the
+      // location-aware 24-byte name budget, which needs all three loaded — a
+      // partial section read (e.g. a coordinate that timed out) would otherwise
+      // be treated as zero/empty and let an over-budget combination slip past.
+      // Block editing any of them until the trio is loaded.
+      if (
+        setting.id === 'name' ||
+        setting.id === 'lat' ||
+        setting.id === 'lon'
+      ) {
+        const loaded = (fid: string) => (valuesRef.current[fid] ?? '') !== '';
+        if (!loaded('name') || !loaded('lat') || !loaded('lon')) {
+          showToast(t('toast.repeaterLoadBeforeLocationEdit'), 'error');
+          setDrafts((prev) => ({ ...prev, [id]: valuesRef.current[id] ?? '' }));
+          return;
+        }
+        const name =
+          setting.id === 'name' ? next : (draftsRef.current.name ?? '');
+        const lat = setting.id === 'lat' ? next : (draftsRef.current.lat ?? '');
+        const lon = setting.id === 'lon' ? next : (draftsRef.current.lon ?? '');
+        if (utf8ByteLength(name) > nameMaxBytes(lat, lon)) {
+          showToast(t('toast.repeaterNameTooLongForLocation'), 'error');
+          setDrafts((prev) => ({ ...prev, [id]: valuesRef.current[id] ?? '' }));
+          return;
+        }
+      }
       const maxBytes =
         setting.kind === 'text'
           ? nameMaxBytes(
@@ -316,20 +342,6 @@ export function RepeaterConfigTab({
             )
           : undefined;
       if (!isValidValue(setting, next, maxBytes)) return;
-      // Setting a non-zero coordinate shrinks the name budget from 32 to 24
-      // bytes; refuse a coordinate that would leave the current name over that
-      // budget (the node would reject or clip it) and tell the user to shorten
-      // the name first, so the two never drift out of the documented limit.
-      if (setting.id === 'lat' || setting.id === 'lon') {
-        const lat = setting.id === 'lat' ? next : (draftsRef.current.lat ?? '');
-        const lon = setting.id === 'lon' ? next : (draftsRef.current.lon ?? '');
-        const name = draftsRef.current.name ?? valuesRef.current.name ?? '';
-        if (utf8ByteLength(name) > nameMaxBytes(lat, lon)) {
-          showToast(t('toast.repeaterNameTooLongForLocation'), 'error');
-          setDrafts((prev) => ({ ...prev, [id]: valuesRef.current[id] ?? '' }));
-          return;
-        }
-      }
       intentRef.current[id] = next;
       setDrafts((prev) => ({ ...prev, [id]: next }));
       setStatus((prev) => ({ ...prev, [id]: 'saving' }));
@@ -387,14 +399,16 @@ export function RepeaterConfigTab({
           return;
         }
         const confirmed = outcome.value;
-        // If a newer edit has already superseded this write, it now owns the
-        // visible draft and status — don't clobber them with this stale
-        // confirmation. (During 50→60→50, the 60 landing must not flip the
-        // shown 50 to "saved" before its own round trip finishes.) The newer
-        // write caches its own confirmed value when it settles.
+        // The device really is at `confirmed` now, so cache it unconditionally
+        // — even if a newer edit has since superseded this write. (During
+        // 50→60→50, caching the 60 it confirmed keeps the cache honest if the
+        // queued revert to 50 later fails.)
+        cacheValues({ [id]: confirmed });
+        // Only reconcile the visible draft/status/intent when this write still
+        // owns the latest intent, so a superseded confirmation doesn't flip a
+        // newer edit's shown value or spinner.
         if (intentRef.current[id] !== next) return;
         intentRef.current[id] = confirmed;
-        cacheValues({ [id]: confirmed });
         setDrafts((prev) => ({ ...prev, [id]: confirmed }));
         setStatus((prev) => ({ ...prev, [id]: 'saved' }));
         clearTimeout(savedTimers.current[id]);
@@ -480,43 +494,47 @@ export function RepeaterConfigTab({
         params.radioCr,
       );
       const txStr = String(params.txPower);
-      try {
-        // Both writes travel as one queued unit, so a concurrent field edit
-        // can't land between the LoRa quad and the TX power it pairs with.
-        // `applied` carries whatever was accepted before any rejection, so a
-        // half-applied pair still caches the half that stuck.
-        const { applied, rejected } = await enqueue(
-          async (): Promise<{ applied: ValueMap; rejected: string | null }> => {
-            const applied: ValueMap = {};
-            // Confirm a write with a re-read so the cached/shown value is the
-            // node's authoritative one (freq/bw/sf/cr and TX power may be
-            // clamped or rounded), matching the per-field commit contract.
-            // Falls back to the sent value if the confirming read is dropped
-            // or can't be parsed.
-            const confirm = async (
-              setting: RepeaterSetting,
-              sent: string,
-            ): Promise<string> => {
-              try {
-                const getReply = await requestRef.current(
-                  contactRef.current,
-                  getCommand(setting),
-                );
-                if (!isErrorReply(getReply, setting)) {
-                  return normalizeReply(setting, getReply) ?? sent;
-                }
-              } catch {
-                // Keep the value we just set if the confirm read fails.
+      // Both writes travel as one queued unit, so a concurrent field edit can't
+      // land between the LoRa quad and the TX power it pairs with. `applied`
+      // carries whatever was accepted before any rejection or transport
+      // failure, so a half-applied pair still caches the half that stuck.
+      const { applied, error } = await enqueue(
+        async (): Promise<{ applied: ValueMap; error: string | null }> => {
+          const applied: ValueMap = {};
+          // Confirm a write with a re-read so the cached/shown value is the
+          // node's authoritative one (freq/bw/sf/cr and TX power may be clamped
+          // or rounded), matching the per-field commit contract. Falls back to
+          // the sent value if the confirming read is dropped or unreadable.
+          const confirm = async (
+            setting: RepeaterSetting,
+            sent: string,
+          ): Promise<string> => {
+            try {
+              const getReply = await requestRef.current(
+                contactRef.current,
+                getCommand(setting),
+              );
+              if (!isErrorReply(getReply, setting)) {
+                return normalizeReply(setting, getReply) ?? sent;
               }
-              return sent;
-            };
+            } catch {
+              // Keep the value we just set if the confirm read fails.
+            }
+            return sent;
+          };
+          try {
             if (radioChanged) {
               const reply = await requestRef.current(
                 contactRef.current,
                 setCommand(radioSetting, radioStr),
               );
               if (isErrorReply(reply, radioSetting)) {
-                return { applied, rejected: reply.trim() };
+                return {
+                  applied,
+                  error: t('toast.repeaterConfigError', {
+                    error: reply.trim(),
+                  }),
+                };
               }
               applied.radio = await confirm(radioSetting, radioStr);
             }
@@ -526,35 +544,40 @@ export function RepeaterConfigTab({
                 setCommand(txSetting, txStr),
               );
               if (isErrorReply(reply, txSetting)) {
-                return { applied, rejected: reply.trim() };
+                return {
+                  applied,
+                  error: t('toast.repeaterConfigError', {
+                    error: reply.trim(),
+                  }),
+                };
               }
               applied.tx = await confirm(txSetting, txStr);
             }
-            return { applied, rejected: null };
-          },
-        );
-        if (!aliveRef.current) return false;
-        if (Object.keys(applied).length > 0) {
-          cacheValues(applied);
-          setDrafts((prev) => ({ ...prev, ...applied }));
-        }
-        if (rejected != null) {
-          showToast(
-            t('toast.repeaterConfigError', { error: rejected }),
-            'error',
-          );
-          return false;
-        }
-        showToast(t('toast.radioParamsSaved'), 'success');
-        return true;
-      } catch (err) {
-        if (!aliveRef.current) return false;
-        showToast(
-          t('toast.repeaterCliFailed', { error: (err as Error).message }),
-          'error',
-        );
+            return { applied, error: null };
+          } catch (err) {
+            // A transport failure mid-sequence (e.g. `set tx` times out after
+            // `set radio` stuck): return what already applied so the caller
+            // still caches it before reporting the error.
+            return {
+              applied,
+              error: t('toast.repeaterCliFailed', {
+                error: (err as Error).message,
+              }),
+            };
+          }
+        },
+      );
+      if (!aliveRef.current) return false;
+      if (Object.keys(applied).length > 0) {
+        cacheValues(applied);
+        setDrafts((prev) => ({ ...prev, ...applied }));
+      }
+      if (error != null) {
+        showToast(error, 'error');
         return false;
       }
+      showToast(t('toast.radioParamsSaved'), 'success');
+      return true;
     },
     [enqueue, showToast, t, cacheValues],
   );
@@ -574,6 +597,8 @@ export function RepeaterConfigTab({
   const txSetting = ALL_REPEATER_SETTINGS.find((s) => s.id === 'tx');
   const maxTxPower =
     txSetting && txSetting.kind === 'number' ? txSetting.max : 22;
+  const minTxPower =
+    txSetting && txSetting.kind === 'number' ? txSetting.min : 1;
   const radioModalFields =
     radioParsed && txValue !== '' && Number.isFinite(txNum)
       ? {
@@ -583,6 +608,7 @@ export function RepeaterConfigTab({
           radioCr: radioParsed.cr,
           txPower: txNum,
           maxTxPower,
+          minTxPower,
         }
       : null;
 
@@ -607,6 +633,13 @@ export function RepeaterConfigTab({
   // Under live GPS the coordinates come from the module, so the manual editor
   // is disabled.
   const usingGps = gpsSupported === true && advertPolicy === 'share';
+  // The name and both coordinates validate as a group against the location-
+  // aware name budget, so editing any of them is gated until all three have
+  // loaded (a partial section read must not let an over-budget combo through).
+  const identityLoaded =
+    (values.name ?? '') !== '' &&
+    (values.lat ?? '') !== '' &&
+    (values.lon ?? '') !== '';
   const gpsSetting = REPEATER_GPS_SETTINGS.find((s) => s.id === 'gps');
   const gpsAdvertSetting = REPEATER_GPS_SETTINGS.find(
     (s) => s.id === 'gpsAdvert',
@@ -665,11 +698,22 @@ export function RepeaterConfigTab({
                   // Latitude and longitude share one compact "Location" row,
                   // preceded by the Fixed/GPS source picker on GPS-capable
                   // nodes. Under GPS the coordinates are the live fix, so the
-                  // manual lat/lon editor (and Set on map) are disabled.
+                  // manual lat/lon editor (and Set on map) are disabled; the
+                  // whole trio is also locked until name + both coords load.
                   if (setting.id === 'lon') return null;
+                  if (setting.id === 'name') {
+                    return (
+                      <SettingRow
+                        key='name'
+                        {...rowProps(setting)}
+                        readOnly={readOnly || !identityLoaded}
+                      />
+                    );
+                  }
                   if (setting.id === 'lat') {
                     const lon = group.settings.find((s) => s.id === 'lon');
-                    const coordReadOnly = readOnly || usingGps;
+                    const coordReadOnly =
+                      readOnly || usingGps || !identityLoaded;
                     const sourceStatus = combineStatus(
                       status.gps,
                       status.gpsAdvert,

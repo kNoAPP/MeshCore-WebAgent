@@ -25,7 +25,15 @@ type RadioFields = Required<
     SelfInfo,
     'radioFreq' | 'radioBw' | 'radioSf' | 'radioCr' | 'txPower' | 'maxTxPower'
   >
->;
+> & {
+  /**
+   * Lowest selectable TX power (dBm). Defaults to the companion radio's
+   * {@link TX_POWER_MIN_DBM}; callers with a different floor (e.g. the
+   * repeater CLI's 1 dBm) pass their own so the editor can't send a value
+   * outside that device's contract.
+   */
+  minTxPower?: number;
+};
 
 /**
  * Returns the editor's radio fields when every one is present (modern
@@ -344,7 +352,7 @@ function RadioEditStep({
         </span>
         <input
           type='range'
-          min={TX_POWER_MIN_DBM}
+          min={fields.minTxPower ?? TX_POWER_MIN_DBM}
           max={fields.maxTxPower}
           step={1}
           value={draft.txPower}
