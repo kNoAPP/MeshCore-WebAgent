@@ -416,8 +416,9 @@ function LocationCard() {
   });
   const { status: coordStatus, run: runCoordSave } = useSaveStatus();
   const { status: sourceStatus, run: runSourceSave } = useSaveStatus();
+  const { status: advertiseStatus, run: runAdvertiseSave } = useSaveStatus();
   const savingSource = sourceStatus === 'saving';
-  const [savingAdvertise, setSavingAdvertise] = useState(false);
+  const savingAdvertise = advertiseStatus === 'saving';
   // Last coordinate written to the radio, so a blur that changed nothing (or a
   // re-blur of the same value) doesn't re-issue the write.
   const lastSaved = useRef({ lat: latStr, lon: lonStr });
@@ -490,15 +491,15 @@ function LocationCard() {
   // matching the current source, so peers get the right kind of coordinate.
   const toggleAdvertise = async () => {
     if (!editable || savingAdvertise) return;
-    setSavingAdvertise(true);
-    await setLocationPolicy(
-      advertising
-        ? ADVERT_LOC_POLICY.NONE
-        : usingGps
-          ? ADVERT_LOC_POLICY.SHARE
-          : ADVERT_LOC_POLICY.PREFS,
+    await runAdvertiseSave(() =>
+      setLocationPolicy(
+        advertising
+          ? ADVERT_LOC_POLICY.NONE
+          : usingGps
+            ? ADVERT_LOC_POLICY.SHARE
+            : ADVERT_LOC_POLICY.PREFS,
+      ),
     );
-    setSavingAdvertise(false);
   };
 
   // Switch the Fixed/GPS source by toggling the radio's GPS module. The store
@@ -526,17 +527,20 @@ function LocationCard() {
         className='flex w-full items-center justify-between gap-2 text-left text-xs text-(--text) disabled:cursor-not-allowed disabled:opacity-50'
       >
         <span>{t('settings.advertiseLocation')}</span>
-        <span
-          className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
-          style={{
-            background: advertising ? 'var(--accent)' : 'var(--border)',
-          }}
-        >
+        <span className='flex items-center gap-2'>
           <span
-            className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
-              advertising ? 'left-3.5' : 'left-0.5'
-            }`}
-          />
+            className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+            style={{
+              background: advertising ? 'var(--accent)' : 'var(--border)',
+            }}
+          >
+            <span
+              className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+                advertising ? 'left-3.5' : 'left-0.5'
+              }`}
+            />
+          </span>
+          <SaveStatusChip status={advertiseStatus} />
         </span>
       </button>
       {showSource && (
