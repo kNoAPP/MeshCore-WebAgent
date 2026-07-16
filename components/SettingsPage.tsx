@@ -545,34 +545,36 @@ function LocationCard() {
       </button>
       {showSource && (
         <div className='mt-3'>
-          <div className='mb-2 flex items-center gap-2 text-xs text-(--text2)'>
+          <div className='flex w-full items-center justify-between gap-2 text-xs text-(--text)'>
             <span>{t('settings.locationSource')}</span>
-            <SaveStatusChip status={sourceStatus} />
-          </div>
-          <div
-            role='radiogroup'
-            aria-label={t('settings.locationSource')}
-            className='inline-flex rounded-md border border-(--border-control) p-0.5'
-          >
-            {LOCATION_SOURCES.map(({ useGps, label }) => {
-              const active = usingGps === useGps;
-              return (
-                <button
-                  key={label}
-                  role='radio'
-                  aria-checked={active}
-                  disabled={!editable || savingSource}
-                  onClick={() => void selectSource(useGps)}
-                  className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                    active
-                      ? 'bg-(--accent) font-semibold text-white'
-                      : 'text-(--text2) hover:text-(--text)'
-                  }`}
-                >
-                  {t(label)}
-                </button>
-              );
-            })}
+            <span className='flex items-center gap-2'>
+              <div
+                role='radiogroup'
+                aria-label={t('settings.locationSource')}
+                className='inline-flex rounded-md border border-(--border-control) p-0.5'
+              >
+                {LOCATION_SOURCES.map(({ useGps, label }) => {
+                  const active = usingGps === useGps;
+                  return (
+                    <button
+                      key={label}
+                      role='radio'
+                      aria-checked={active}
+                      disabled={!editable || savingSource}
+                      onClick={() => void selectSource(useGps)}
+                      className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        active
+                          ? 'bg-(--accent) font-semibold text-white'
+                          : 'text-(--text2) hover:text-(--text)'
+                      }`}
+                    >
+                      {t(label)}
+                    </button>
+                  );
+                })}
+              </div>
+              <SaveStatusChip status={sourceStatus} />
+            </span>
           </div>
           {usingGps && (
             <p className='mt-2 text-xs text-(--text2)'>
