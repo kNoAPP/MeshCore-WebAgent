@@ -577,6 +577,28 @@ export function RepeaterConfigTab({
     nameBytes,
   });
 
+  // The advertised location source, mirroring the companion's Settings card:
+  // GPS when the module is on or the advert policy is `share`, else Fixed. Only
+  // meaningful once GPS support has been confirmed on this node.
+  const usingGps =
+    gpsSupported === true &&
+    (drafts.gps === 'on' || drafts.gpsAdvert === 'share');
+  const gpsSetting = REPEATER_GPS_SETTINGS.find((s) => s.id === 'gps');
+  const gpsAdvertSetting = REPEATER_GPS_SETTINGS.find(
+    (s) => s.id === 'gpsAdvert',
+  );
+
+  // Switch the Fixed/GPS source: GPS turns the module on and advertises its
+  // live fix (`share`); Fixed turns it off and advertises the stored lat/lon
+  // (`prefs`). Both writes go through the same serialized commit path as every
+  // other field, so one combined status covers the pair.
+  const selectSource = (nextUseGps: boolean) => {
+    if (readOnly || nextUseGps === usingGps) return;
+    if (!gpsSetting || !gpsAdvertSetting) return;
+    void commit(gpsSetting, nextUseGps ? 'on' : 'off');
+    void commit(gpsAdvertSetting, nextUseGps ? 'share' : 'prefs');
+  };
+
   return (
     <>
       <div className='mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 xl:grid-cols-2'>
@@ -617,25 +639,45 @@ export function RepeaterConfigTab({
                 }
               >
                 {fields.map((setting) => {
-                  // Latitude and longitude share one compact "Location" row.
+                  // Latitude and longitude share one compact "Location" row,
+                  // preceded by the Fixed/GPS source picker on GPS-capable
+                  // nodes. Under GPS the coordinates are the live fix, so the
+                  // manual lat/lon editor (and Set on map) are disabled.
                   if (setting.id === 'lon') return null;
                   if (setting.id === 'lat') {
                     const lon = group.settings.find((s) => s.id === 'lon');
+                    const coordReadOnly = readOnly || usingGps;
+                    const sourceStatus = combineStatus(
+                      status.gps,
+                      status.gpsAdvert,
+                    );
                     return (
-                      <LocationRow
-                        key='location'
-                        latProps={rowProps(setting)}
-                        lonProps={lon ? rowProps(lon) : undefined}
-                      />
+                      <Fragment key='location'>
+                        {gpsSupported === true && (
+                          <LocationSourceRow
+                            useGps={usingGps}
+                            status={sourceStatus}
+                            errorText={errorMsg.gps ?? errorMsg.gpsAdvert}
+                            readOnly={readOnly || sourceStatus === 'saving'}
+                            onSelect={selectSource}
+                          />
+                        )}
+                        <LocationRow
+                          latProps={{
+                            ...rowProps(setting),
+                            readOnly: coordReadOnly,
+                          }}
+                          lonProps={
+                            lon
+                              ? { ...rowProps(lon), readOnly: coordReadOnly }
+                              : undefined
+                          }
+                        />
+                      </Fragment>
                     );
                   }
                   return <SettingRow key={setting.id} {...rowProps(setting)} />;
                 })}
-                {isIdentity &&
-                  gpsSupported === true &&
-                  REPEATER_GPS_SETTINGS.map((setting) => (
-                    <SettingRow key={setting.id} {...rowProps(setting)} />
-                  ))}
               </Card>
               {group.id === 'identity' && (
                 <RadioSection
@@ -1071,6 +1113,71 @@ function TextField({
         className='w-full min-w-0 bg-transparent px-2 py-1 text-xs text-(--text) outline-none'
       />
     </Field>
+  );
+}
+
+/** The location sources offered on a GPS-capable node. */
+const LOCATION_SOURCES = [
+  { useGps: false, labelKey: 'settings.locationSourceFixed' },
+  { useGps: true, labelKey: 'settings.locationSourceGps' },
+] as const;
+
+/**
+ * The Fixed/GPS source picker for a GPS-capable node, mirroring the companion
+ * radio's Settings location card. Fixed advertises the stored lat/lon; GPS
+ * advertises the module's live fix (and disables the manual coordinate editor).
+ */
+function LocationSourceRow({
+  useGps,
+  status,
+  errorText,
+  readOnly,
+  onSelect,
+}: {
+  useGps: boolean;
+  status?: SaveStatus;
+  errorText?: string;
+  readOnly: boolean;
+  onSelect: (useGps: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className={ROW_CLASS}>
+      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
+        <span className='truncate text-(--text2)'>
+          {t('settings.locationSource')}
+        </span>
+      </div>
+      <div className='flex shrink-0 items-center gap-2'>
+        <div
+          role='radiogroup'
+          aria-label={t('settings.locationSource')}
+          className='inline-flex rounded-md border border-(--border-control) p-0.5'
+        >
+          {LOCATION_SOURCES.map(({ useGps: optGps, labelKey }) => {
+            const active = useGps === optGps;
+            return (
+              <button
+                key={labelKey}
+                type='button'
+                role='radio'
+                aria-checked={active}
+                disabled={readOnly}
+                onClick={() => onSelect(optGps)}
+                className={`rounded px-3 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  active
+                    ? 'bg-(--accent) font-semibold text-white'
+                    : 'text-(--text2) hover:text-(--text)'
+                }`}
+              >
+                {t(labelKey)}
+              </button>
+            );
+          })}
+        </div>
+        <SaveStatusChip status={status} errorText={errorText} />
+      </div>
+    </div>
   );
 }
 
