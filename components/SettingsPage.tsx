@@ -545,8 +545,15 @@ function LocationCard() {
       </button>
       {showSource && (
         <div className='mt-3'>
-          <div className='flex w-full items-center justify-between gap-2 text-xs text-(--text)'>
-            <span>{t('settings.locationSource')}</span>
+          <div className='flex w-full items-start justify-between gap-2 text-xs text-(--text)'>
+            <div className='flex flex-col gap-1'>
+              <span>{t('settings.locationSource')}</span>
+              {usingGps && (
+                <span className='text-(--text2)'>
+                  {t('settings.locationGpsHint')}
+                </span>
+              )}
+            </div>
             <span className='flex items-center gap-2'>
               <div
                 role='radiogroup'
@@ -576,11 +583,6 @@ function LocationCard() {
               <SaveStatusChip status={sourceStatus} />
             </span>
           </div>
-          {usingGps && (
-            <p className='mt-2 text-xs text-(--text2)'>
-              {t('settings.locationGpsHint')}
-            </p>
-          )}
         </div>
       )}
       <div className='mt-3 flex items-end gap-3'>
