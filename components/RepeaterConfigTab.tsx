@@ -351,9 +351,13 @@ export function RepeaterConfigTab({
           return;
         }
         const confirmed = outcome.value;
-        // Reconcile the intent to the node's authoritative value (which may be
-        // clamped/rounded), unless a newer edit is already the pending intent.
-        if (intentRef.current[id] === next) intentRef.current[id] = confirmed;
+        // If a newer edit has already superseded this write, it now owns the
+        // visible draft and status — don't clobber them with this stale
+        // confirmation. (During 50→60→50, the 60 landing must not flip the
+        // shown 50 to "saved" before its own round trip finishes.) The newer
+        // write caches its own confirmed value when it settles.
+        if (intentRef.current[id] !== next) return;
+        intentRef.current[id] = confirmed;
         cacheValues({ [id]: confirmed });
         setDrafts((prev) => ({ ...prev, [id]: confirmed }));
         setStatus((prev) => ({ ...prev, [id]: 'saved' }));
@@ -445,6 +449,28 @@ export function RepeaterConfigTab({
         const { applied, rejected } = await enqueue(
           async (): Promise<{ applied: ValueMap; rejected: string | null }> => {
             const applied: ValueMap = {};
+            // Confirm a write with a re-read so the cached/shown value is the
+            // node's authoritative one (freq/bw/sf/cr and TX power may be
+            // clamped or rounded), matching the per-field commit contract.
+            // Falls back to the sent value if the confirming read is dropped
+            // or can't be parsed.
+            const confirm = async (
+              setting: RepeaterSetting,
+              sent: string,
+            ): Promise<string> => {
+              try {
+                const getReply = await requestRef.current(
+                  contactRef.current,
+                  getCommand(setting),
+                );
+                if (!isErrorReply(getReply)) {
+                  return normalizeReply(setting, getReply) ?? sent;
+                }
+              } catch {
+                // Keep the value we just set if the confirm read fails.
+              }
+              return sent;
+            };
             if (radioChanged) {
               const reply = await requestRef.current(
                 contactRef.current,
@@ -453,7 +479,7 @@ export function RepeaterConfigTab({
               if (isErrorReply(reply)) {
                 return { applied, rejected: reply.trim() };
               }
-              applied.radio = radioStr;
+              applied.radio = await confirm(radioSetting, radioStr);
             }
             if (txChanged) {
               const reply = await requestRef.current(
@@ -463,7 +489,7 @@ export function RepeaterConfigTab({
               if (isErrorReply(reply)) {
                 return { applied, rejected: reply.trim() };
               }
-              applied.tx = txStr;
+              applied.tx = await confirm(txSetting, txStr);
             }
             return { applied, rejected: null };
           },

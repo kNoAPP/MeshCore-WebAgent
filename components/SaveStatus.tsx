@@ -59,14 +59,26 @@ export function SaveStatusChip({
 export function useSaveStatus() {
   const [status, setStatus] = useState<SaveStatus | undefined>();
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // A monotonic id per `run` call. Only the latest invocation may touch status,
+  // so a slower earlier save can't overwrite a newer one's spinner with its own
+  // `saved`/`error` (or clear the indicator via its timer) while the newer
+  // write is still in flight — the controls stay editable during a save.
+  const gen = useRef(0);
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const run = useCallback(async (save: () => Promise<boolean>) => {
+    const mine = ++gen.current;
     clearTimeout(timer.current);
     setStatus('saving');
     const ok = await save();
+    // A newer run started while this one was awaiting: it now owns the status.
+    if (gen.current !== mine) return ok;
     setStatus(ok ? 'saved' : 'error');
-    if (ok) timer.current = setTimeout(() => setStatus(undefined), 2000);
+    if (ok) {
+      timer.current = setTimeout(() => {
+        if (gen.current === mine) setStatus(undefined);
+      }, 2000);
+    }
     return ok;
   }, []);
 

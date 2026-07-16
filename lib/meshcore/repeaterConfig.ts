@@ -312,6 +312,17 @@ function stripPrompt(reply: string): string {
   return reply.trim().replace(/^>+\s*/, '');
 }
 
+/**
+ * Strips the CLI prompt from a reply while preserving the value's own
+ * surrounding whitespace. Firmware permits spaces in node names, so a full trim
+ * (as {@link stripPrompt} does) would silently rename a node whose name has
+ * leading or trailing spaces. Removes only a single leading prompt (`>` plus
+ * one optional separator space) and any trailing line terminators.
+ */
+function stripPromptPreservingValue(reply: string): string {
+  return reply.replace(/^\s*>+ ?/, '').replace(/[\r\n]+$/, '');
+}
+
 const ON_TOKENS = new Set(['on', '1', 'true', 'enabled', 'yes']);
 const OFF_TOKENS = new Set(['off', '0', 'false', 'disabled', 'no']);
 
@@ -358,7 +369,7 @@ export function normalizeReply(
       return quad.join(',');
     }
     case 'text':
-      return text;
+      return stripPromptPreservingValue(reply);
   }
 }
 

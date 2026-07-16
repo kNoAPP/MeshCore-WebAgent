@@ -419,9 +419,14 @@ function LocationCard() {
   const { status: advertiseStatus, run: runAdvertiseSave } = useSaveStatus();
   const savingSource = sourceStatus === 'saving';
   const savingAdvertise = advertiseStatus === 'saving';
-  // Last coordinate written to the radio, so a blur that changed nothing (or a
-  // re-blur of the same value) doesn't re-issue the write.
-  const lastSaved = useRef({ lat: latStr, lon: lonStr });
+  // Last coordinate successfully written to the radio, so a blur that changed
+  // nothing (or a re-blur of the same value) doesn't re-issue the write. Seeded
+  // from the device's stored coordinate — not any pending map pick — and only
+  // advanced on a confirmed save, so a failed write stays retryable.
+  const lastSaved = useRef({
+    lat: fmtDeg(useMeshStore.getState().selfInfo?.advLat),
+    lon: fmtDeg(useMeshStore.getState().selfInfo?.advLon),
+  });
 
   // A coordinate handed back by the map picker is saved immediately on mount —
   // choosing a point on the map is itself the commit, so there's no Save step.
@@ -435,8 +440,16 @@ function LocationCard() {
       (st.deviceInfo?.gpsEnabled ?? false) ||
       st.selfInfo?.advLocPolicy === ADVERT_LOC_POLICY.SHARE;
     if (!connected || gps) return;
-    lastSaved.current = { lat: String(pending.lat), lon: String(pending.lon) };
-    void runCoordSave(() => setLocation(pending.lat, pending.lon));
+    void runCoordSave(() => setLocation(pending.lat, pending.lon)).then(
+      (ok) => {
+        if (ok) {
+          lastSaved.current = {
+            lat: String(pending.lat),
+            lon: String(pending.lon),
+          };
+        }
+      },
+    );
   }, [runCoordSave, setLocation]);
 
   // Writes only land on a fully connected link (the hook gates on it too); show
