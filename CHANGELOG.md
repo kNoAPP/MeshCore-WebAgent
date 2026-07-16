@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.19.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.18.0...v1.19.0) (2026-07-16)
+
+
+### Features
+
+* add repeater admin panel with login gate and status dashboard ([#175](https://github.com/kNoAPP/MeshCore-WebAgent/issues/175)) ([0c02c01](https://github.com/kNoAPP/MeshCore-WebAgent/commit/0c02c01f77d162e26dfb24593710308adeb78785))
+* **protocol:** add client login, status, and CLI command methods ([#171](https://github.com/kNoAPP/MeshCore-WebAgent/issues/171)) ([3947a7c](https://github.com/kNoAPP/MeshCore-WebAgent/commit/3947a7c74acb5a2822b50cc15ef34ffd2492ab66))
+* **protocol:** add login, status request, and CLI text type ([#170](https://github.com/kNoAPP/MeshCore-WebAgent/issues/170)) ([fb8ec13](https://github.com/kNoAPP/MeshCore-WebAgent/commit/fb8ec132bd9a3d011d18d16002fb3f2a41404b42))
+* **repeater:** add config editor tab with structured get/set over CLI ([#176](https://github.com/kNoAPP/MeshCore-WebAgent/issues/176)) ([0888f2e](https://github.com/kNoAPP/MeshCore-WebAgent/commit/0888f2e88f07fbf0b310153e23e052d4abeff32b))
+* **store:** add repeater admin-session slice and hook wiring ([#174](https://github.com/kNoAPP/MeshCore-WebAgent/issues/174)) ([e63c001](https://github.com/kNoAPP/MeshCore-WebAgent/commit/e63c00139a553cdac0420b6cb52620325055892a))
+
+
+### Performance Improvements
+
+* **ai:** cache anthropic prompt prefix and trim automation token spend ([#159](https://github.com/kNoAPP/MeshCore-WebAgent/issues/159)) ([95a1db9](https://github.com/kNoAPP/MeshCore-WebAgent/commit/95a1db9ac48b78ec82a95af05e3d9eaa45949c90))
+
 ## [1.18.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.17.0...v1.18.0) (2026-07-06)
 
 
