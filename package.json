@@ -13,15 +13,15 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "fuse.js": "^7.4.2",
-    "i18next": "^26.3.5",
+    "fuse.js": "^7.5.0",
+    "i18next": "^26.3.6",
     "leaflet": "^1.9.4",
-    "lucide-react": "^1.23.0",
+    "lucide-react": "^1.24.0",
     "next": "16.2.10",
     "qrcode": "^1.5.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-i18next": "^17.0.8",
+    "react-i18next": "^17.0.10",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -34,12 +34,12 @@
     "@types/w3c-web-serial": "^1.0.8",
     "@types/web-bluetooth": "^0.0.21",
     "cspell": "^10.0.1",
-    "eslint": "^9.39.4",
+    "eslint": "^10.7.0",
     "eslint-config-next": "^16.2.10",
     "eslint-plugin-tsdoc": "^0.5.2",
-    "prettier": "^3.9.4",
+    "prettier": "^3.9.5",
     "tailwindcss": "^4",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "eslint-plugin-tsdoc": {
