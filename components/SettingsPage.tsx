@@ -548,11 +548,13 @@ function LocationCard() {
           <div className='flex w-full items-start justify-between gap-2 text-xs text-(--text)'>
             <div className='flex flex-col gap-1'>
               <span>{t('settings.locationSource')}</span>
-              {usingGps && (
-                <span className='text-(--text2)'>
-                  {t('settings.locationGpsHint')}
-                </span>
-              )}
+              <span className='text-(--text2)'>
+                {t(
+                  usingGps
+                    ? 'settings.locationGpsHint'
+                    : 'settings.locationFixedHint',
+                )}
+              </span>
             </div>
             <span className='flex items-center gap-2'>
               <div

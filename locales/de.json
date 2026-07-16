@@ -260,6 +260,7 @@
     "locationSourceFixed": "Fest",
     "locationSourceGps": "GPS",
     "locationGpsHint": "Das Funkgerät hängt den Live-Fix seines eigenen GPS-Moduls an. Funktioniert nur mit GPS-fähigen Funkgeräten.",
+    "locationFixedHint": "Das Funkgerät sendet die unten festgelegte feste Koordinate. Sein GPS-Modul bleibt ausgeschaltet.",
     "rebootHint": "Starte das Funkgerät neu. Die Verbindung wird während des Neustarts getrennt und stellt sich automatisch wieder her, sobald das Gerät zurück ist.",
     "reboot": "Gerät neu starten",
     "rebootConfirm": "Funkgerät jetzt neu starten?",

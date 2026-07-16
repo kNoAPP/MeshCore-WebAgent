@@ -260,6 +260,7 @@
     "locationSourceFixed": "Fixe",
     "locationSourceGps": "GPS",
     "locationGpsHint": "La radio joint la position en direct de son propre module GPS. Fonctionne uniquement sur les radios équipées d'un GPS.",
+    "locationFixedHint": "La radio diffuse la coordonnée fixe définie ci-dessous. Son module GPS reste désactivé.",
     "rebootHint": "Redémarrez la radio. La connexion sera coupée pendant le redémarrage et se rétablira automatiquement une fois l'appareil revenu.",
     "reboot": "Redémarrer l'appareil",
     "rebootConfirm": "Redémarrer la radio maintenant ?",

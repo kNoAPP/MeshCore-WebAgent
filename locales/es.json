@@ -260,6 +260,7 @@
     "locationSourceFixed": "Fija",
     "locationSourceGps": "GPS",
     "locationGpsHint": "La radio adjunta la posición en vivo de su propio módulo GPS. Solo funciona en radios con GPS.",
+    "locationFixedHint": "La radio anuncia la coordenada fija que definas abajo. Su módulo GPS permanece apagado.",
     "rebootHint": "Reinicia la radio. La conexión se cortará mientras se reinicia y se reconectará automáticamente cuando el dispositivo vuelva.",
     "reboot": "Reiniciar dispositivo",
     "rebootConfirm": "¿Reiniciar la radio ahora?",

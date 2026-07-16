@@ -260,6 +260,7 @@
     "locationSourceFixed": "Fixed",
     "locationSourceGps": "GPS",
     "locationGpsHint": "The radio attaches the live fix from its own GPS module. Only works on GPS-capable radios.",
+    "locationFixedHint": "The radio advertises the fixed coordinate you set below. Its GPS module stays off.",
     "rebootHint": "Restart the radio. The connection will drop while it reboots and reconnect automatically once the device comes back.",
     "reboot": "Reboot device",
     "rebootConfirm": "Reboot the radio now?",
