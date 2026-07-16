@@ -2,7 +2,13 @@
   "common": {
     "cancel": "Annuler",
     "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "saved": "Enregistré",
+    "saveFailed": "Échec de l’enregistrement",
+    "loading": "Chargement…",
     "remove": "Supprimer",
+    "refresh": "Actualiser",
+    "load": "Charger",
     "close": "Fermer",
     "add": "Ajouter",
     "manage": "Gérer",
@@ -138,8 +144,6 @@
   },
   "stats": {
     "title": "📊 Statistiques de l'appareil",
-    "refresh": "↻ Actualiser",
-    "refreshing": "⟳ Actualisation…",
     "card": {
       "storageBattery": "💾 Stockage et batterie",
       "core": "🖥️ Cœur",
@@ -260,6 +264,7 @@
     "locationSourceFixed": "Fixe",
     "locationSourceGps": "GPS",
     "locationGpsHint": "La radio joint la position en direct de son propre module GPS. Fonctionne uniquement sur les radios équipées d'un GPS.",
+    "locationFixedHint": "La radio diffuse la coordonnée fixe définie ci-dessous. Son module GPS reste désactivé.",
     "rebootHint": "Redémarrez la radio. La connexion sera coupée pendant le redémarrage et se rétablira automatiquement une fois l'appareil revenu.",
     "reboot": "Redémarrer l'appareil",
     "rebootConfirm": "Redémarrer la radio maintenant ?",
@@ -487,7 +492,8 @@
       "guest": "Invité"
     },
     "tabs": {
-      "status": "État"
+      "status": "État",
+      "config": "Configuration"
     },
     "login": {
       "prompt": "Connectez-vous pour administrer ce nœud.",
@@ -506,8 +512,6 @@
     "dashboard": {
       "accessAdmin": "Accès administrateur",
       "accessGuest": "Accès invité (lecture seule)",
-      "refresh": "Actualiser",
-      "refreshing": "Actualisation…",
       "logout": "Se déconnecter",
       "unavailable": "Aucun état reçu pour l’instant. Essayez d’actualiser."
     },
@@ -535,7 +539,118 @@
     "floodDups": "Doublons flood",
     "directDups": "Doublons directs",
     "rxErrors": "Erreurs RX",
-    "dbm": "{{value}} dBm"
+    "dbm": "{{value}} dBm",
+    "cli": {
+      "timedOut": "aucune réponse du nœud",
+      "disconnected": "non connecté",
+      "superseded": "annulé"
+    },
+    "config": {
+      "readingField": "Lecture…",
+      "readOnlyNotice": "L’accès invité est en lecture seule, et le répéteur ne répond aux lectures de configuration que pour un admin — les valeurs ne peuvent donc pas être chargées ici. Connectez-vous en tant qu’admin pour les voir et les modifier.",
+      "requiresReboot": "Nécessite un redémarrage",
+      "edit": "Modifier",
+      "advanced": "Avancé",
+      "actionsTitle": "Actions",
+      "location": "Emplacement",
+      "locationHint": "Coordonnées annoncées en degrés décimaux.",
+      "groups": {
+        "identity": "Identité et emplacement",
+        "routing": "Routage et advert"
+      },
+      "units": {
+        "dbm": "dBm",
+        "hours": "h",
+        "minutes": "min",
+        "percent": "%"
+      },
+      "fields": {
+        "name": {
+          "label": "Nom"
+        },
+        "lat": {
+          "label": "Latitude"
+        },
+        "lon": {
+          "label": "Longitude"
+        },
+        "radio": {
+          "label": "Radio"
+        },
+        "tx": {
+          "label": "Puissance TX"
+        },
+        "gps": {
+          "label": "Module GPS"
+        },
+        "gpsAdvert": {
+          "label": "Position annoncée"
+        },
+        "repeat": {
+          "label": "Répéter"
+        },
+        "floodAdvertInterval": {
+          "label": "Intervalle d’advert flood"
+        },
+        "advertInterval": {
+          "label": "Intervalle d’advert zéro saut"
+        },
+        "floodMax": {
+          "label": "Sauts flood max."
+        },
+        "txdelay": {
+          "label": "Délai TX flood"
+        },
+        "directTxdelay": {
+          "label": "Délai TX direct"
+        },
+        "dutycycle": {
+          "label": "Cycle de service"
+        },
+        "loopDetect": {
+          "label": "Détection de boucle"
+        },
+        "pathHashMode": {
+          "label": "Taille du hash de chemin d’advert"
+        },
+        "multiAcks": {
+          "label": "Multi-ACK"
+        }
+      },
+      "options": {
+        "loopDetect": {
+          "off": "Désactivé",
+          "minimal": "Minimal",
+          "moderate": "Modéré",
+          "strict": "Strict"
+        },
+        "pathHashMode": {
+          "0": "1 octet",
+          "1": "2 octets",
+          "2": "3 octets"
+        },
+        "gpsAdvert": {
+          "none": "Désactivé",
+          "share": "GPS",
+          "prefs": "Fixe"
+        }
+      },
+      "actions": {
+        "reboot": {
+          "label": "Redémarrer",
+          "confirm": "Redémarrer ce nœud maintenant ?"
+        },
+        "advert": {
+          "label": "Envoyer un advert flood"
+        },
+        "advertZeroHop": {
+          "label": "Envoyer un advert zéro saut"
+        },
+        "clockSync": {
+          "label": "Synchroniser l’horloge"
+        }
+      }
+    }
   },
   "route": {
     "noRouteFloods": "Aucune route — flood",
@@ -752,6 +867,10 @@
     "rebootFailed": "Échec du redémarrage : {{error}}",
     "repeaterLoginFailed": "Échec de la connexion : {{error}}",
     "repeaterStatusFailed": "Échec de la récupération du statut : {{error}}",
-    "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}"
+    "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}",
+    "repeaterConfigError": "Le nœud a rejeté la modification : {{error}}",
+    "repeaterNameTooLongForLocation": "Raccourcissez le nom du nœud à 24 octets ou moins avant de définir une position.",
+    "repeaterLoadBeforeLocationEdit": "Chargez le nom et la position du nœud avant de modifier l’un ou l’autre.",
+    "repeaterActionSent": "Commande envoyée."
   }
 }

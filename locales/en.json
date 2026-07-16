@@ -2,7 +2,13 @@
   "common": {
     "cancel": "Cancel",
     "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveFailed": "Save failed",
+    "loading": "Loading…",
     "remove": "Remove",
+    "refresh": "Refresh",
+    "load": "Load",
     "close": "Close",
     "add": "Add",
     "manage": "Manage",
@@ -138,8 +144,6 @@
   },
   "stats": {
     "title": "📊 Device Stats",
-    "refresh": "↻ Refresh",
-    "refreshing": "⟳ Refreshing…",
     "card": {
       "storageBattery": "💾 Storage & Battery",
       "core": "🖥️ Core",
@@ -260,6 +264,7 @@
     "locationSourceFixed": "Fixed",
     "locationSourceGps": "GPS",
     "locationGpsHint": "The radio attaches the live fix from its own GPS module. Only works on GPS-capable radios.",
+    "locationFixedHint": "The radio advertises the fixed coordinate you set below. Its GPS module stays off.",
     "rebootHint": "Restart the radio. The connection will drop while it reboots and reconnect automatically once the device comes back.",
     "reboot": "Reboot device",
     "rebootConfirm": "Reboot the radio now?",
@@ -487,7 +492,8 @@
       "guest": "Guest"
     },
     "tabs": {
-      "status": "Status"
+      "status": "Status",
+      "config": "Config"
     },
     "login": {
       "prompt": "Log in to administer this node.",
@@ -506,8 +512,6 @@
     "dashboard": {
       "accessAdmin": "Admin access",
       "accessGuest": "Guest access (read-only)",
-      "refresh": "Refresh",
-      "refreshing": "Refreshing…",
       "logout": "Log out",
       "unavailable": "No status received yet. Try refreshing."
     },
@@ -535,7 +539,118 @@
     "floodDups": "Flood Dups",
     "directDups": "Direct Dups",
     "rxErrors": "RX Errors",
-    "dbm": "{{value}} dBm"
+    "dbm": "{{value}} dBm",
+    "cli": {
+      "timedOut": "no reply from the node",
+      "disconnected": "not connected",
+      "superseded": "cancelled"
+    },
+    "config": {
+      "readingField": "Reading…",
+      "readOnlyNotice": "Guest access is read-only, and the repeater only answers config reads for an admin — so values can't be loaded here. Log in as admin to view and change them.",
+      "requiresReboot": "Requires reboot",
+      "edit": "Edit",
+      "advanced": "Advanced",
+      "actionsTitle": "Actions",
+      "location": "Location",
+      "locationHint": "Advertised coordinates in decimal degrees.",
+      "groups": {
+        "identity": "Identity & Location",
+        "routing": "Routing & Advert"
+      },
+      "units": {
+        "dbm": "dBm",
+        "hours": "hours",
+        "minutes": "min",
+        "percent": "%"
+      },
+      "fields": {
+        "name": {
+          "label": "Name"
+        },
+        "lat": {
+          "label": "Latitude"
+        },
+        "lon": {
+          "label": "Longitude"
+        },
+        "radio": {
+          "label": "Radio"
+        },
+        "tx": {
+          "label": "TX Power"
+        },
+        "gps": {
+          "label": "GPS module"
+        },
+        "gpsAdvert": {
+          "label": "Advertised location"
+        },
+        "repeat": {
+          "label": "Repeat"
+        },
+        "floodAdvertInterval": {
+          "label": "Flood advert interval"
+        },
+        "advertInterval": {
+          "label": "Zero-hop advert interval"
+        },
+        "floodMax": {
+          "label": "Max flood hops"
+        },
+        "txdelay": {
+          "label": "Flood TX delay"
+        },
+        "directTxdelay": {
+          "label": "Direct TX delay"
+        },
+        "dutycycle": {
+          "label": "Duty cycle"
+        },
+        "loopDetect": {
+          "label": "Loop detection"
+        },
+        "pathHashMode": {
+          "label": "Advert path hash size"
+        },
+        "multiAcks": {
+          "label": "Multi-acks"
+        }
+      },
+      "options": {
+        "loopDetect": {
+          "off": "Off",
+          "minimal": "Minimal",
+          "moderate": "Moderate",
+          "strict": "Strict"
+        },
+        "pathHashMode": {
+          "0": "1 byte",
+          "1": "2 bytes",
+          "2": "3 bytes"
+        },
+        "gpsAdvert": {
+          "none": "Off",
+          "share": "GPS",
+          "prefs": "Fixed"
+        }
+      },
+      "actions": {
+        "reboot": {
+          "label": "Reboot",
+          "confirm": "Reboot this node now?"
+        },
+        "advert": {
+          "label": "Send flood advert"
+        },
+        "advertZeroHop": {
+          "label": "Send zero-hop advert"
+        },
+        "clockSync": {
+          "label": "Sync clock"
+        }
+      }
+    }
   },
   "route": {
     "noRouteFloods": "No route — floods",
@@ -752,6 +867,10 @@
     "rebootFailed": "Failed to reboot: {{error}}",
     "repeaterLoginFailed": "Login failed: {{error}}",
     "repeaterStatusFailed": "Failed to fetch status: {{error}}",
-    "repeaterCliFailed": "Failed to send command: {{error}}"
+    "repeaterCliFailed": "Failed to send command: {{error}}",
+    "repeaterConfigError": "Node rejected the change: {{error}}",
+    "repeaterNameTooLongForLocation": "Shorten the node name to 24 bytes or fewer before setting a location.",
+    "repeaterLoadBeforeLocationEdit": "Load the node name and location before changing either.",
+    "repeaterActionSent": "Command sent."
   }
 }

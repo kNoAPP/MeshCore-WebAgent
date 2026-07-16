@@ -18,6 +18,7 @@ import type {
   SyncProgress,
   RepeaterStatus,
   RepeaterAccess,
+  StatsResult,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import type {
@@ -214,6 +215,13 @@ export interface AdminSession {
   login: AdminLoginState;
   status?: RepeaterStatus;
   cli: CliLine[];
+  /**
+   * Cache of the repeater's loaded/confirmed Config-tab values, keyed by
+   * setting id. Ephemeral (part of the session), so the Config fields stay
+   * populated when the user navigates away and back without re-reading, and
+   * clears on disconnect.
+   */
+  config?: Record<string, string>;
 }
 
 interface MeshState {
@@ -225,6 +233,23 @@ interface MeshState {
   deviceInfo: DeviceInfo | null;
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
+
+  /**
+   * Cached device Stats-page snapshot, so the cards stay populated when the
+   * user leaves the Stats view and returns without re-reading. Ephemeral
+   * (never persisted); cleared on disconnect. `deviceClock` holds the last read
+   * device time and its skew from this computer.
+   */
+  deviceStats: StatsResult | null;
+  deviceClock: { time: number; skew: number } | null;
+  /**
+   * The Stats page's own battery/storage snapshot (including `null` when the
+   * device didn't report it), link-scoped alongside {@link deviceStats} so a
+   * radio switch or a timed-out read can't surface another link's reading. The
+   * header's {@link battery} is separate and deliberately retained on a null
+   * read.
+   */
+  deviceBattery: BatteryInfo | null;
 
   // Mesh data
   contacts: Record<string, Contact>;
@@ -287,6 +312,12 @@ interface MeshState {
    * consumption by the Location card. One-shot: cleared once read.
    */
   pendingLocation: { lat: number; lon: number } | null;
+  /**
+   * The view the map picker returns to once a coordinate is confirmed or the
+   * pick is started — `settings` for the Settings location card, `chat` for a
+   * repeater's config tab. Both reuse the one-shot {@link pendingLocation}.
+   */
+  locationPickReturn: AppView;
   managePanel: { kind: 'contact' | 'channel' | 'advert'; id: string } | null;
   autoAddOpen: boolean;
   addChannelOpen: boolean;
@@ -334,6 +365,12 @@ interface MeshActions {
   setDeviceInfo: (info: DeviceInfo | null) => void;
   setBattery: (b: BatteryInfo | null) => void;
   setSyncProgress: (p: SyncProgress | null) => void;
+  /** Caches the device Stats-page snapshot so it survives leaving the view. */
+  setDeviceStats: (s: StatsResult | null) => void;
+  /** Caches the last-read device clock (epoch seconds) and its skew. */
+  setDeviceClock: (c: { time: number; skew: number } | null) => void;
+  /** Caches the Stats page's own battery snapshot (link-scoped, incl. null). */
+  setDeviceBattery: (b: BatteryInfo | null) => void;
   setContacts: (c: Record<string, Contact>) => void;
   setChannels: (ch: Record<number, Channel>) => void;
   setAdverts: (a: Record<string, Advert>) => void;
@@ -369,9 +406,9 @@ interface MeshActions {
   showToast: (text: string, variant?: Toast['variant']) => void;
   dismissToast: () => void;
   setView: (view: AppView) => void;
-  /** Opens the map in location-pick mode. */
-  startLocationPick: () => void;
-  /** Confirms the picked coordinate (degrees) and returns to Settings. */
+  /** Opens the map to pick a location, returning to `returnTo` on confirm. */
+  startLocationPick: (returnTo?: AppView) => void;
+  /** Confirms the picked coordinate (degrees) and returns to the caller. */
   confirmLocationPick: (lat: number, lon: number) => void;
   /** Aborts location picking without a result, staying on the map. */
   cancelLocationPick: () => void;
@@ -413,6 +450,8 @@ interface MeshActions {
   setAdminLogin: (prefix: string, login: AdminLoginState) => void;
   /** Stores the latest decoded status for a repeater's admin session. */
   setRepeaterStatus: (prefix: string, status: RepeaterStatus) => void;
+  /** Merges loaded/confirmed Config values into a repeater's session cache. */
+  mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
   appendCliLine: (prefix: string, line: CliLine) => void;
   /** Clears a repeater's CLI transcript, leaving the session intact. */
@@ -430,6 +469,9 @@ const initialState: MeshState = {
   deviceInfo: null,
   battery: null,
   syncProgress: null,
+  deviceStats: null,
+  deviceClock: null,
+  deviceBattery: null,
   contacts: {},
   channels: {},
   adverts: {},
@@ -450,6 +492,7 @@ const initialState: MeshState = {
   view: 'chat',
   mapPicking: false,
   pendingLocation: null,
+  locationPickReturn: 'settings',
   managePanel: null,
   autoAddOpen: false,
   addChannelOpen: false,
@@ -482,6 +525,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
   setBattery: (battery) => set({ battery }),
   setSyncProgress: (syncProgress) => set({ syncProgress }),
+  setDeviceStats: (deviceStats) => set({ deviceStats }),
+  setDeviceClock: (deviceClock) => set({ deviceClock }),
+  setDeviceBattery: (deviceBattery) => set({ deviceBattery }),
   setContacts: (contacts) => set({ contacts }),
   setChannels: (channels) => set({ channels }),
   setAdverts: (adverts) => set({ adverts }),
@@ -648,9 +694,14 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   dismissToast: () => set({ toast: null }),
   // Any manual tab switch also aborts an in-progress location pick.
   setView: (view) => set({ view, mapPicking: false, settingsSection: null }),
-  startLocationPick: () => set({ mapPicking: true, view: 'map' }),
+  startLocationPick: (returnTo = 'settings') =>
+    set({ mapPicking: true, view: 'map', locationPickReturn: returnTo }),
   confirmLocationPick: (lat, lon) =>
-    set({ mapPicking: false, view: 'settings', pendingLocation: { lat, lon } }),
+    set((s) => ({
+      mapPicking: false,
+      view: s.locationPickReturn,
+      pendingLocation: { lat, lon },
+    })),
   cancelLocationPick: () => set({ mapPicking: false }),
   clearPendingLocation: () => set({ pendingLocation: null }),
   setManagePanel: (managePanel) => set({ managePanel }),
@@ -672,6 +723,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       view: 'chat',
       mapPicking: false,
       pendingLocation: null,
+      locationPickReturn: 'settings',
       managePanel: null,
       autoAddOpen: false,
       addChannelOpen: false,
@@ -751,6 +803,22 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
           [prefix]: {
             ...session,
             cli: [...session.cli, line].slice(-CLI_LOG_LIMIT),
+          },
+        },
+      };
+    }),
+  mergeRepeaterConfig: (prefix, patch) =>
+    set((state) => {
+      const session = state.adminSessions[prefix] ?? {
+        login: 'loggedOut',
+        cli: [],
+      };
+      return {
+        adminSessions: {
+          ...state.adminSessions,
+          [prefix]: {
+            ...session,
+            config: { ...(session.config ?? {}), ...patch },
           },
         },
       };

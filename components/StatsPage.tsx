@@ -10,6 +10,7 @@ import type { StatsResult, BatteryInfo } from '@/types/meshcore';
 import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
 import { fmtUptime, fmtAirtime, fmtVoltage, fmtSkew } from '@/lib/utils';
 import { StatCard } from './StatCard';
+import { RefreshButton } from './RefreshButton';
 
 /**
  * Device stats page. Fetches battery + all stats pages when the stats view
@@ -19,27 +20,38 @@ import { StatCard } from './StatCard';
 export function StatsPage() {
   const { t, i18n } = useTranslation();
   const { client, view } = useMeshStore();
-  const [stats, setStats] = useState<StatsResult | null>(null);
+  // Seed from the cached snapshot so the cards stay populated when the user
+  // leaves the Stats view and returns; the store is the cache's home.
+  const [stats, setStats] = useState<StatsResult | null>(
+    () => useMeshStore.getState().deviceStats,
+  );
   // This session's battery/storage snapshot — the exact result of the last
-  // fetch, including null when the device didn't report it. Kept local (rather
-  // than reading the shared store) so a timed-out fetch surfaces the card's
-  // "unavailable" state here without clearing the header's last-known reading.
-  const [battery, setBatteryLocal] = useState<BatteryInfo | null>(null);
-  // Starts true so the very first paint shows shimmer skeletons instead of a
-  // blank grid (the auto-fetch effect runs just after mount). Toggled on for
-  // refreshes too, and cleared once a fetch settles.
-  const [loading, setLoading] = useState(true);
+  // fetch, including null when the device didn't report it. Read from the
+  // link-scoped `deviceBattery` cache (cleared alongside `deviceStats` on a
+  // session change), not the header's last-known reading, so a radio switch or
+  // timed-out read can't present another link's battery as this one's.
+  const [battery, setBatteryLocal] = useState<BatteryInfo | null>(
+    () => useMeshStore.getState().deviceBattery,
+  );
+  // Skeletons only when there's nothing cached to show; a cached snapshot
+  // renders immediately (no auto-refetch — the user Refreshes for fresh data).
+  const [loading, setLoading] = useState(
+    () => useMeshStore.getState().deviceStats == null,
+  );
   // True once a fetch has completed at least once this session. Distinct from
   // `loading`: it gates the "unavailable" cards so they appear only after a
-  // real attempt, not during the initial blank render.
-  const [fetched, setFetched] = useState(false);
+  // real attempt, not during the initial blank render. A cached snapshot counts
+  // as already fetched.
+  const [fetched, setFetched] = useState(
+    () => useMeshStore.getState().deviceStats != null,
+  );
   // The device clock (epoch seconds) and its skew from this computer at the
   // moment it was read, or null when there's no readable time — the radio
   // lacks GET_DEVICE_TIME (older firmware) or its clock is unset. The clock
   // card shows "not reported" while null (once fetched), matching the other
-  // cards so the grid doesn't reflow.
+  // cards so the grid doesn't reflow. Seeded from the cache.
   const [clock, setClock] = useState<{ time: number; skew: number } | null>(
-    null,
+    () => useMeshStore.getState().deviceClock,
   );
   const [resyncing, setResyncing] = useState(false);
 
@@ -62,11 +74,12 @@ export function StatsPage() {
         return;
       }
       if (gen !== session.current) return;
-      setClock(
+      const next =
         dt !== null && dt > 0
           ? { time: dt, skew: dt - Math.floor(Date.now() / 1000) }
-          : null,
-      );
+          : null;
+      setClock(next);
+      useMeshStore.getState().setDeviceClock(next);
     },
     [client],
   );
@@ -87,10 +100,14 @@ export function StatsPage() {
         const s = await client.getStats();
         if (gen !== session.current) return;
         setStats(s);
+        useMeshStore.getState().setDeviceStats(s);
         setFetched(true);
         const b = await client.getBattery();
         if (gen !== session.current) return;
         setBatteryLocal(b);
+        // Cache the fetch's result (including null) link-scoped for the card,
+        // and refresh the header's last-known reading only on a real value.
+        useMeshStore.getState().setDeviceBattery(b);
         if (b) useMeshStore.getState().setBattery(b);
         await readClock(gen);
       } finally {
@@ -100,11 +117,34 @@ export function StatsPage() {
     [client, readClock],
   );
 
+  // On a reconnect the client is swapped and the link-scoped store cache is
+  // cleared, but this page stays mounted with the previous session's local
+  // snapshot. Drop it (and show loading) so a failed re-read can't keep
+  // displaying the old radio's counters. Skips the initial mount so the
+  // cache-seeded snapshot survives navigating away and back.
+  const prevClientRef = useRef(client);
+  useEffect(() => {
+    if (prevClientRef.current === client) return;
+    prevClientRef.current = client;
+    const st = useMeshStore.getState();
+    setStats(st.deviceStats);
+    setBatteryLocal(st.deviceBattery);
+    setClock(st.deviceClock);
+    setFetched(st.deviceStats != null);
+    setLoading(st.deviceStats == null);
+  }, [client]);
+
   // Auto-fetch when the stats view opens or the client changes (a reconnect
-  // swaps in a fresh client, which must re-read against the new link). Only
-  // setState happens after an await, never synchronously in the effect body.
+  // swaps in a fresh client, which must re-read against the new link). Skips
+  // the read when a cached snapshot is already showing — the user Refreshes for
+  // fresh data — so returning to the view keeps its cards populated. That cache
+  // is link-scoped: clearSessionState() drops it as each session begins, so a
+  // reconnect still re-reads here rather than resurfacing the old link's
+  // counters. Only setState happens after an await, never synchronously in the
+  // effect body.
   useEffect(() => {
     if (view !== 'stats' || !client) return;
+    if (useMeshStore.getState().deviceStats != null) return;
     void runFetch(++session.current);
   }, [view, client, runFetch]);
 
@@ -289,20 +329,14 @@ export function StatsPage() {
 
   return (
     <div className='flex flex-1 flex-col overflow-y-auto p-7'>
-      <div className='mx-auto w-full max-w-3xl'>
+      <div className='mx-auto w-full max-w-6xl'>
         {/* Header */}
         <div className='mb-5 flex items-center justify-between'>
           <h2 className='text-base font-bold'>{t('stats.title')}</h2>
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className='rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50'
-          >
-            {loading ? t('stats.refreshing') : t('stats.refresh')}
-          </button>
+          <RefreshButton onClick={refresh} busy={loading} />
         </div>
 
-        <div className='grid grid-cols-2 gap-4'>
+        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
           {cards.map(({ title, labels, rows }) =>
             loading ? (
               <StatCard

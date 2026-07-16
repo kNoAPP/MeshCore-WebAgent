@@ -5,7 +5,6 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
 import {
   RADIO_FREQ_MIN_MHZ,
@@ -26,7 +25,15 @@ type RadioFields = Required<
     SelfInfo,
     'radioFreq' | 'radioBw' | 'radioSf' | 'radioCr' | 'txPower' | 'maxTxPower'
   >
->;
+> & {
+  /**
+   * Lowest selectable TX power (dBm). Defaults to the companion radio's
+   * {@link TX_POWER_MIN_DBM}; callers with a different floor (e.g. the
+   * repeater CLI's 1 dBm) pass their own so the editor can't send a value
+   * outside that device's contract.
+   */
+  minTxPower?: number;
+};
 
 /**
  * Returns the editor's radio fields when every one is present (modern
@@ -94,22 +101,24 @@ type RadioDraft = {
 };
 
 /**
- * Two-step editor for the radio's LoRa parameters, launched from the Settings
- * Radio card. The first step edits a draft seeded from `fields`; the second
- * confirms, warning that a wrong frequency/bandwidth/SF/CR can silently isolate
- * the node from the mesh and showing each current→new value for easy revert.
- * Apply writes the changes via {@link useMeshCore.applyRadioParams} and closes
- * on success; a failed or rejected write keeps the editor open.
+ * Two-step editor for a node's LoRa parameters, launched from the Settings
+ * Radio card and the repeater Config tab. The first step edits a draft seeded
+ * from `fields`; the second confirms, warning that a wrong
+ * frequency/bandwidth/SF/CR can silently isolate the node from the mesh and
+ * showing each current→new value for easy revert. Apply writes the changes via
+ * the caller-supplied {@link onApply} (the local radio or a remote repeater's
+ * CLI) and closes on success; a failed or rejected write keeps the editor open.
  */
 export function RadioSettingsModal({
   fields,
+  onApply,
   onClose,
 }: {
   fields: RadioFields;
+  onApply: (params: RadioParams) => Promise<boolean>;
   onClose: () => void;
 }) {
   const { t, num, crLabel } = useRadioFormat();
-  const { applyRadioParams } = useMeshCore();
 
   const [draft, setDraft] = useState<RadioDraft>(() => ({
     freq: String(fields.radioFreq),
@@ -165,7 +174,7 @@ export function RadioSettingsModal({
       txPower: draft.txPower,
     };
     setSaving(true);
-    const ok = await applyRadioParams(proposed);
+    const ok = await onApply(proposed);
     setSaving(false);
     if (ok) onClose();
   };
@@ -343,7 +352,7 @@ function RadioEditStep({
         </span>
         <input
           type='range'
-          min={TX_POWER_MIN_DBM}
+          min={fields.minTxPower ?? TX_POWER_MIN_DBM}
           max={fields.maxTxPower}
           step={1}
           value={draft.txPower}

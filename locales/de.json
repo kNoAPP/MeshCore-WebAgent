@@ -2,7 +2,13 @@
   "common": {
     "cancel": "Abbrechen",
     "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "saved": "Gespeichert",
+    "saveFailed": "Speichern fehlgeschlagen",
+    "loading": "Wird geladen…",
     "remove": "Entfernen",
+    "refresh": "Aktualisieren",
+    "load": "Laden",
     "close": "Schließen",
     "add": "Hinzufügen",
     "manage": "Verwalten",
@@ -138,8 +144,6 @@
   },
   "stats": {
     "title": "📊 Gerätestatistik",
-    "refresh": "↻ Aktualisieren",
-    "refreshing": "⟳ Aktualisiere…",
     "card": {
       "storageBattery": "💾 Speicher & Akku",
       "core": "🖥️ Kern",
@@ -260,6 +264,7 @@
     "locationSourceFixed": "Fest",
     "locationSourceGps": "GPS",
     "locationGpsHint": "Das Funkgerät hängt den Live-Fix seines eigenen GPS-Moduls an. Funktioniert nur mit GPS-fähigen Funkgeräten.",
+    "locationFixedHint": "Das Funkgerät sendet die unten festgelegte feste Koordinate. Sein GPS-Modul bleibt ausgeschaltet.",
     "rebootHint": "Starte das Funkgerät neu. Die Verbindung wird während des Neustarts getrennt und stellt sich automatisch wieder her, sobald das Gerät zurück ist.",
     "reboot": "Gerät neu starten",
     "rebootConfirm": "Funkgerät jetzt neu starten?",
@@ -487,7 +492,8 @@
       "guest": "Gast"
     },
     "tabs": {
-      "status": "Status"
+      "status": "Status",
+      "config": "Konfiguration"
     },
     "login": {
       "prompt": "Melden Sie sich an, um diesen Knoten zu verwalten.",
@@ -506,8 +512,6 @@
     "dashboard": {
       "accessAdmin": "Admin-Zugriff",
       "accessGuest": "Gastzugriff (nur Lesen)",
-      "refresh": "Aktualisieren",
-      "refreshing": "Wird aktualisiert…",
       "logout": "Abmelden",
       "unavailable": "Noch kein Status empfangen. Bitte aktualisieren."
     },
@@ -535,7 +539,118 @@
     "floodDups": "Flood-Duplikate",
     "directDups": "Direkt-Duplikate",
     "rxErrors": "RX-Fehler",
-    "dbm": "{{value}} dBm"
+    "dbm": "{{value}} dBm",
+    "cli": {
+      "timedOut": "keine Antwort vom Knoten",
+      "disconnected": "nicht verbunden",
+      "superseded": "abgebrochen"
+    },
+    "config": {
+      "readingField": "Wird gelesen…",
+      "readOnlyNotice": "Gastzugriff ist schreibgeschützt, und der Repeater beantwortet Konfigurationsabfragen nur für einen Admin — daher können hier keine Werte geladen werden. Melden Sie sich als Admin an, um sie anzuzeigen und zu ändern.",
+      "requiresReboot": "Neustart erforderlich",
+      "edit": "Bearbeiten",
+      "advanced": "Erweitert",
+      "actionsTitle": "Aktionen",
+      "location": "Standort",
+      "locationHint": "Angekündigte Koordinaten in Dezimalgrad.",
+      "groups": {
+        "identity": "Identität & Standort",
+        "routing": "Routing & Advert"
+      },
+      "units": {
+        "dbm": "dBm",
+        "hours": "Std.",
+        "minutes": "Min.",
+        "percent": "%"
+      },
+      "fields": {
+        "name": {
+          "label": "Name"
+        },
+        "lat": {
+          "label": "Breitengrad"
+        },
+        "lon": {
+          "label": "Längengrad"
+        },
+        "radio": {
+          "label": "Funk"
+        },
+        "tx": {
+          "label": "Sendeleistung"
+        },
+        "gps": {
+          "label": "GPS-Modul"
+        },
+        "gpsAdvert": {
+          "label": "Beworbener Standort"
+        },
+        "repeat": {
+          "label": "Weiterleiten"
+        },
+        "floodAdvertInterval": {
+          "label": "Flood-Advert-Intervall"
+        },
+        "advertInterval": {
+          "label": "Zero-Hop-Advert-Intervall"
+        },
+        "floodMax": {
+          "label": "Max. Flood-Hops"
+        },
+        "txdelay": {
+          "label": "Flood-TX-Verzögerung"
+        },
+        "directTxdelay": {
+          "label": "Direkt-TX-Verzögerung"
+        },
+        "dutycycle": {
+          "label": "Duty Cycle"
+        },
+        "loopDetect": {
+          "label": "Schleifenerkennung"
+        },
+        "pathHashMode": {
+          "label": "Advert-Pfad-Hash-Größe"
+        },
+        "multiAcks": {
+          "label": "Multi-ACKs"
+        }
+      },
+      "options": {
+        "loopDetect": {
+          "off": "Aus",
+          "minimal": "Minimal",
+          "moderate": "Moderat",
+          "strict": "Streng"
+        },
+        "pathHashMode": {
+          "0": "1 Byte",
+          "1": "2 Bytes",
+          "2": "3 Bytes"
+        },
+        "gpsAdvert": {
+          "none": "Aus",
+          "share": "GPS",
+          "prefs": "Fest"
+        }
+      },
+      "actions": {
+        "reboot": {
+          "label": "Neu starten",
+          "confirm": "Diesen Knoten jetzt neu starten?"
+        },
+        "advert": {
+          "label": "Flood-Advert senden"
+        },
+        "advertZeroHop": {
+          "label": "Zero-Hop-Advert senden"
+        },
+        "clockSync": {
+          "label": "Uhr synchronisieren"
+        }
+      }
+    }
   },
   "route": {
     "noRouteFloods": "Keine Route — Flood",
@@ -752,6 +867,10 @@
     "rebootFailed": "Neustart fehlgeschlagen: {{error}}",
     "repeaterLoginFailed": "Anmeldung fehlgeschlagen: {{error}}",
     "repeaterStatusFailed": "Status konnte nicht abgerufen werden: {{error}}",
-    "repeaterCliFailed": "Befehl konnte nicht gesendet werden: {{error}}"
+    "repeaterCliFailed": "Befehl konnte nicht gesendet werden: {{error}}",
+    "repeaterConfigError": "Knoten hat die Änderung abgelehnt: {{error}}",
+    "repeaterNameTooLongForLocation": "Kürzen Sie den Knotennamen auf höchstens 24 Bytes, bevor Sie einen Standort festlegen.",
+    "repeaterLoadBeforeLocationEdit": "Laden Sie Name und Standort des Knotens, bevor Sie eines von beiden ändern.",
+    "repeaterActionSent": "Befehl gesendet."
   }
 }

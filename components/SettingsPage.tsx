@@ -3,9 +3,8 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pencil } from 'lucide-react';
 import { useMeshStore, type SettingsSection } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
@@ -20,10 +19,12 @@ import {
   ADVERT_LOC_POLICY,
 } from '@/lib/meshcore/constants';
 import type { SelfInfo } from '@/types/meshcore';
+import { Card as SharedCard, type CardProps } from './Card';
 import { CopyButton } from './CopyButton';
 import { ModalShell } from './ModalShell';
 import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
+import { SaveStatusChip, useSaveStatus } from './SaveStatus';
 import { AiSettingsBody } from './AiSettings';
 import { AutomationSettingsBody } from './AutomationPanel';
 import { SUPPORTED_UNIT_SYSTEMS, type UnitSystem } from '@/lib/units/config';
@@ -49,6 +50,7 @@ import {
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { status, selfInfo, deviceInfo: device } = useMeshStore();
+  const { applyRadioParams } = useMeshCore();
   const settingsSection = useMeshStore((s) => s.settingsSection);
   const clearSettingsSection = useMeshStore((s) => s.clearSettingsSection);
 
@@ -215,6 +217,7 @@ export function SettingsPage() {
       {radioEditOpen && fields && (
         <RadioSettingsModal
           fields={fields}
+          onApply={applyRadioParams}
           onClose={() => setRadioEditOpen(false)}
         />
       )}
@@ -274,12 +277,12 @@ function ShareNodeModal({
 }
 
 /**
- * The Identity section's node-name row with inline editing: a pencil reveals a
- * text input with Save/Cancel and a live UTF-8 byte counter. Save writes the
- * name to the radio via {@link useMeshCore.setNodeName} (the store — and so the
- * header and this row — update through `onSelfInfo` on success). Empty names
- * are rejected and the name is capped at {@link MAX_ADVERT_NAME_BYTES}; the
- * editor stays open on a failed write so the typed name isn't lost. Editing is
+ * The Identity section's node-name row: an always-editable inline text input
+ * with a live UTF-8 byte counter and a save-status chip, mirroring the repeater
+ * name field. A valid, changed name commits on blur/Enter via {@link
+ * useMeshCore.setNodeName} (the store — and so the header and this row — update
+ * through `onSelfInfo` on success); an invalid edit (empty or over {@link
+ * MAX_ADVERT_NAME_BYTES}) reverts to the last known name on blur. Editing is
  * gated to a fully connected link, matching every other radio write.
  */
 function NodeNameRow() {
@@ -287,110 +290,81 @@ function NodeNameRow() {
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const status = useMeshStore((s) => s.status);
   const { setNodeName } = useMeshCore();
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState('');
-  const [saving, setSaving] = useState(false);
+  const { status: saveStatus, run: runSave } = useSaveStatus();
 
   const currentName = selfInfo?.name ?? '';
+  const [draft, setDraft] = useState(currentName);
+  // Re-seed the editable draft when the radio reports a new name (e.g. after a
+  // successful write) without a useEffect, via React's render-time state reset.
+  // A dirty draft is preserved: if the user has typed a newer name while an
+  // earlier save is still in flight, that in-flight update must not clobber it.
+  const [known, setKnown] = useState(currentName);
+  if (currentName !== known) {
+    setKnown(currentName);
+    if (draft === known) setDraft(currentName);
+  }
+
   // Writes only land on a fully connected link (the hook gates on it too); show
-  // the affordance disabled while reconnecting rather than hiding it.
+  // the field disabled while reconnecting rather than hiding it.
   const editable = status === 'connected';
 
-  const trimmed = value.trim();
+  const trimmed = draft.trim();
   const byteCount = utf8ByteLength(trimmed);
   const overLimit = byteCount > MAX_ADVERT_NAME_BYTES;
-  // Gate Save on `editable` too: if the link drops mid-edit the write would be
-  // silently swallowed by the hook's connected-link check, with no toast.
-  const canSave = editable && trimmed.length > 0 && !overLimit && !saving;
+  const valid = trimmed.length > 0 && !overLimit;
 
-  const start = () => {
-    setValue(currentName);
-    setEditing(true);
+  // Commit on blur/Enter: push a valid, changed name, or revert an invalid edit
+  // back to the last known name. On success, normalize the visible draft to the
+  // trimmed value actually sent — otherwise a whitespace-only edit the radio
+  // treats as unchanged (`currentName` never moves) would leave the field dirty
+  // and resend on every blur. Skip the reconcile if the user kept typing.
+  const commit = () => {
+    if (draft === currentName) return;
+    if (!editable || !valid) {
+      setDraft(currentName);
+      return;
+    }
+    const submitted = draft;
+    void runSave(() => setNodeName(trimmed)).then((ok) => {
+      if (ok) setDraft((cur) => (cur === submitted ? trimmed : cur));
+    });
   };
-
-  const save = async () => {
-    if (!canSave) return;
-    setSaving(true);
-    const ok = await setNodeName(trimmed);
-    setSaving(false);
-    if (ok) setEditing(false);
-  };
-
-  const rowBorder = { borderColor: 'var(--border)' };
-
-  if (!editing) {
-    return (
-      <div
-        className='flex items-center justify-between gap-3 border-b py-1.5 text-xs'
-        style={rowBorder}
-      >
-        <span className='shrink-0 text-(--text2)'>
-          {t('settings.nodeName')}
-        </span>
-        <span className='flex min-w-0 items-center gap-1.5'>
-          <span className='truncate font-semibold'>
-            {currentName || t('common.unknown')}
-          </span>
-          <button
-            onClick={start}
-            disabled={!editable}
-            aria-label={t('settings.editName')}
-            title={t('settings.editName')}
-            className='shrink-0 text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-(--text2)'
-          >
-            <Pencil size={13} />
-          </button>
-        </span>
-      </div>
-    );
-  }
 
   return (
     <div
-      className='flex flex-col gap-1.5 border-b py-1.5 text-xs'
-      style={rowBorder}
+      className='flex items-center justify-between gap-3 border-b py-1.5 text-xs'
+      style={{ borderColor: 'var(--border)' }}
     >
-      <div className='flex items-center gap-2'>
-        <span className='shrink-0 text-(--text2)'>
-          {t('settings.nodeName')}
-        </span>
-        <input
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void save();
-            else if (e.key === 'Escape') setEditing(false);
-          }}
-          aria-label={t('settings.nodeName')}
-          className='min-w-0 flex-1 rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent)'
-        />
-        <span
-          className={`shrink-0 text-[11px] ${
-            overLimit
-              ? 'text-(--red)'
-              : byteCount > MAX_ADVERT_NAME_BYTES - 6
-                ? 'text-(--yellow)'
-                : 'text-(--text2)'
-          }`}
+      <span className='shrink-0 text-(--text2)'>{t('settings.nodeName')}</span>
+      <div className='flex shrink-0 items-center gap-2'>
+        <div
+          className={`flex w-52 items-center overflow-hidden rounded-md border bg-(--surface) focus-within:border-(--accent) ${
+            !valid && draft.trim() !== ''
+              ? 'border-(--red)'
+              : 'border-(--border-control)'
+          } ${!editable ? 'opacity-60' : ''}`}
         >
-          {byteCount}/{MAX_ADVERT_NAME_BYTES}
-        </span>
-      </div>
-      <div className='flex justify-end gap-2'>
-        <button
-          onClick={() => setEditing(false)}
-          className='rounded-md px-2.5 py-1 text-xs text-(--text) hover:bg-(--surface)'
-        >
-          {t('common.cancel')}
-        </button>
-        <button
-          onClick={() => void save()}
-          disabled={!canSave}
-          className='rounded-md bg-(--accent) px-2.5 py-1 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
-        >
-          {t('common.save')}
-        </button>
+          <input
+            type='text'
+            value={draft}
+            disabled={!editable}
+            aria-label={t('settings.nodeName')}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
+            className='w-full min-w-0 bg-transparent px-2 py-1 text-xs text-(--text) outline-none'
+          />
+          <span
+            className={`border-l border-(--border-control) px-1.5 py-1 text-[11px] whitespace-nowrap ${
+              overLimit ? 'text-(--red)' : 'text-(--text2)'
+            }`}
+          >
+            {byteCount}/{MAX_ADVERT_NAME_BYTES}
+          </span>
+        </div>
+        <SaveStatusChip status={saveStatus} />
       </div>
     </div>
   );
@@ -451,17 +425,43 @@ function LocationCard() {
     const p = useMeshStore.getState().pendingLocation;
     return p ? String(p.lon) : fmtDeg(useMeshStore.getState().selfInfo?.advLon);
   });
-  const [saving, setSaving] = useState(false);
-  const [savingAdvertise, setSavingAdvertise] = useState(false);
-  const [savingSource, setSavingSource] = useState(false);
+  const { status: coordStatus, run: runCoordSave } = useSaveStatus();
+  const { status: sourceStatus, run: runSourceSave } = useSaveStatus();
+  const { status: advertiseStatus, run: runAdvertiseSave } = useSaveStatus();
+  const savingSource = sourceStatus === 'saving';
+  const savingAdvertise = advertiseStatus === 'saving';
+  // Last coordinate successfully written to the radio, so a blur that changed
+  // nothing (or a re-blur of the same value) doesn't re-issue the write. Seeded
+  // from the device's stored coordinate — not any pending map pick — and only
+  // advanced on a confirmed save, so a failed write can be retried.
+  const lastSaved = useRef({
+    lat: fmtDeg(useMeshStore.getState().selfInfo?.advLat),
+    lon: fmtDeg(useMeshStore.getState().selfInfo?.advLon),
+  });
 
-  // Clear the consumed one-shot signal so a later remount seeds from the live
-  // location, not a stale pick. Touches only the store, never local state.
+  // A coordinate handed back by the map picker is saved immediately on mount —
+  // choosing a point on the map is itself the commit, so there's no Save step.
   useEffect(() => {
-    if (useMeshStore.getState().pendingLocation) {
-      useMeshStore.getState().clearPendingLocation();
-    }
-  }, []);
+    const pending = useMeshStore.getState().pendingLocation;
+    if (!pending) return;
+    useMeshStore.getState().clearPendingLocation();
+    const st = useMeshStore.getState();
+    const connected = st.status === 'connected';
+    const gps =
+      (st.deviceInfo?.gpsEnabled ?? false) ||
+      st.selfInfo?.advLocPolicy === ADVERT_LOC_POLICY.SHARE;
+    if (!connected || gps) return;
+    void runCoordSave(() => setLocation(pending.lat, pending.lon)).then(
+      (ok) => {
+        if (ok) {
+          lastSaved.current = {
+            lat: String(pending.lat),
+            lon: String(pending.lon),
+          };
+        }
+      },
+    );
+  }, [runCoordSave, setLocation]);
 
   // Writes only land on a fully connected link (the hook gates on it too); show
   // the affordance disabled while reconnecting rather than hiding it.
@@ -497,28 +497,33 @@ function LocationCard() {
     Number.isFinite(lonNum) &&
     lonNum >= ADVERT_LON_MIN &&
     lonNum <= ADVERT_LON_MAX;
-  const canSave = editable && !usingGps && latValid && lonValid && !saving;
+  const canSave = editable && !usingGps && latValid && lonValid;
 
-  const save = async () => {
+  // Commit typed coordinates on blur/Enter: a valid, changed pair is written
+  // straight to the radio (no Save button); an invalid edit is left in place,
+  // flagged red, for the user to fix.
+  const commitCoords = async () => {
     if (!canSave) return;
-    setSaving(true);
-    await setLocation(latNum, lonNum);
-    setSaving(false);
+    if (latStr === lastSaved.current.lat && lonStr === lastSaved.current.lon) {
+      return;
+    }
+    const ok = await runCoordSave(() => setLocation(latNum, lonNum));
+    if (ok) lastSaved.current = { lat: latStr, lon: lonStr };
   };
 
   // Flip the advert policy between off (`NONE`) and a location-bearing policy
   // matching the current source, so peers get the right kind of coordinate.
   const toggleAdvertise = async () => {
     if (!editable || savingAdvertise) return;
-    setSavingAdvertise(true);
-    await setLocationPolicy(
-      advertising
-        ? ADVERT_LOC_POLICY.NONE
-        : usingGps
-          ? ADVERT_LOC_POLICY.SHARE
-          : ADVERT_LOC_POLICY.PREFS,
+    await runAdvertiseSave(() =>
+      setLocationPolicy(
+        advertising
+          ? ADVERT_LOC_POLICY.NONE
+          : usingGps
+            ? ADVERT_LOC_POLICY.SHARE
+            : ADVERT_LOC_POLICY.PREFS,
+      ),
     );
-    setSavingAdvertise(false);
   };
 
   // Switch the Fixed/GPS source by toggling the radio's GPS module. The store
@@ -526,9 +531,7 @@ function LocationCard() {
   // choice to keep; a failed write leaves the radio (and the UI) untouched.
   const selectSource = async (nextUseGps: boolean) => {
     if (!editable || savingSource || nextUseGps === usingGps) return;
-    setSavingSource(true);
-    await setLocationSource(nextUseGps);
-    setSavingSource(false);
+    await runSourceSave(() => setLocationSource(nextUseGps));
   };
 
   return (
@@ -548,62 +551,76 @@ function LocationCard() {
         className='flex w-full items-center justify-between gap-2 text-left text-xs text-(--text) disabled:cursor-not-allowed disabled:opacity-50'
       >
         <span>{t('settings.advertiseLocation')}</span>
-        <span
-          className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
-          style={{
-            background: advertising ? 'var(--accent)' : 'var(--border)',
-          }}
-        >
+        <span className='flex items-center gap-2'>
           <span
-            className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
-              advertising ? 'left-3.5' : 'left-0.5'
-            }`}
-          />
+            className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+            style={{
+              background: advertising ? 'var(--accent)' : 'var(--border)',
+            }}
+          >
+            <span
+              className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+                advertising ? 'left-3.5' : 'left-0.5'
+              }`}
+            />
+          </span>
+          <SaveStatusChip status={advertiseStatus} />
         </span>
       </button>
       {showSource && (
         <div className='mt-3'>
-          <div className='mb-2 text-xs text-(--text2)'>
-            {t('settings.locationSource')}
+          <div className='flex w-full items-start justify-between gap-2 text-xs text-(--text)'>
+            <div className='flex flex-col gap-1'>
+              <span>{t('settings.locationSource')}</span>
+              <span className='text-(--text2)'>
+                {t(
+                  usingGps
+                    ? 'settings.locationGpsHint'
+                    : 'settings.locationFixedHint',
+                )}
+              </span>
+            </div>
+            <span className='flex items-center gap-2'>
+              <div
+                role='radiogroup'
+                aria-label={t('settings.locationSource')}
+                className='inline-flex rounded-md border border-(--border-control) p-0.5'
+              >
+                {LOCATION_SOURCES.map(({ useGps, label }) => {
+                  const active = usingGps === useGps;
+                  return (
+                    <button
+                      key={label}
+                      role='radio'
+                      aria-checked={active}
+                      disabled={!editable || savingSource}
+                      onClick={() => void selectSource(useGps)}
+                      className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        active
+                          ? 'bg-(--accent) font-semibold text-white'
+                          : 'text-(--text2) hover:text-(--text)'
+                      }`}
+                    >
+                      {t(label)}
+                    </button>
+                  );
+                })}
+              </div>
+              <SaveStatusChip status={sourceStatus} />
+            </span>
           </div>
-          <div
-            role='radiogroup'
-            aria-label={t('settings.locationSource')}
-            className='inline-flex rounded-md border border-(--border-control) p-0.5'
-          >
-            {LOCATION_SOURCES.map(({ useGps, label }) => {
-              const active = usingGps === useGps;
-              return (
-                <button
-                  key={label}
-                  role='radio'
-                  aria-checked={active}
-                  disabled={!editable || savingSource}
-                  onClick={() => void selectSource(useGps)}
-                  className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                    active
-                      ? 'bg-(--accent) font-semibold text-white'
-                      : 'text-(--text2) hover:text-(--text)'
-                  }`}
-                >
-                  {t(label)}
-                </button>
-              );
-            })}
-          </div>
-          {usingGps && (
-            <p className='mt-2 text-xs text-(--text2)'>
-              {t('settings.locationGpsHint')}
-            </p>
-          )}
         </div>
       )}
-      <div className='mt-3 flex gap-3'>
+      <div className='mt-3 flex items-end gap-3'>
         <div className='flex flex-1 flex-col gap-1 text-xs'>
-          <label className='text-(--text2)'>{t('settings.latitude')}</label>
+          <label className='text-(--text)'>{t('settings.latitude')}</label>
           <input
             value={latStr}
             onChange={(e) => setLatStr(e.target.value)}
+            onBlur={() => void commitCoords()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
             disabled={usingGps}
             inputMode='decimal'
             placeholder='0.000000'
@@ -616,10 +633,14 @@ function LocationCard() {
           />
         </div>
         <div className='flex flex-1 flex-col gap-1 text-xs'>
-          <label className='text-(--text2)'>{t('settings.longitude')}</label>
+          <label className='text-(--text)'>{t('settings.longitude')}</label>
           <input
             value={lonStr}
             onChange={(e) => setLonStr(e.target.value)}
+            onBlur={() => void commitCoords()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
             disabled={usingGps}
             inputMode='decimal'
             placeholder='0.000000'
@@ -631,22 +652,16 @@ function LocationCard() {
             }`}
           />
         </div>
-      </div>
-      <div className='mt-3 flex items-center justify-between gap-2'>
-        <button
-          onClick={() => useMeshStore.getState().startLocationPick()}
-          disabled={usingGps}
-          className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
-        >
-          {t('settings.setOnMap')}
-        </button>
-        <button
-          onClick={() => void save()}
-          disabled={!canSave}
-          className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
-        >
-          {t('common.save')}
-        </button>
+        <div className='flex shrink-0 items-center gap-2'>
+          <button
+            onClick={() => useMeshStore.getState().startLocationPick()}
+            disabled={usingGps}
+            className='rounded-md border border-(--border-control) px-3 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+          >
+            {t('settings.setOnMap')}
+          </button>
+          <SaveStatusChip status={coordStatus} />
+        </div>
       </div>
     </Card>
   );
@@ -807,39 +822,18 @@ function DisplayCard() {
 }
 
 /**
- * A titled card for one settings group. `action` renders an optional control
- * (e.g. an Edit button) on the right of the card heading.
- *
- * @param section - deep-link anchor id, so the command palette can scroll to
- * and flash this card.
+ * The shared {@link SharedCard}, keyed by settings section rather than a raw
+ * element id, so the command palette can scroll to and flash a card.
  */
 function Card({
-  title,
-  action,
-  className,
   section,
-  children,
-}: {
-  title: string;
-  action?: React.ReactNode;
-  className?: string;
-  section?: SettingsSection;
-  children: React.ReactNode;
-}) {
+  ...rest
+}: Omit<CardProps, 'anchorId'> & { section?: SettingsSection }) {
   return (
-    <div
-      id={section ? `settings-${section}` : undefined}
-      className={`rounded-lg p-3.5 ${className ?? ''}`}
-      style={{ background: 'var(--surface2)' }}
-    >
-      <div className='mb-2.5 flex items-center justify-between gap-2'>
-        <h3 className='text-[11px] font-bold tracking-widest text-(--accent) uppercase'>
-          {title}
-        </h3>
-        {action}
-      </div>
-      {children}
-    </div>
+    <SharedCard
+      anchorId={section ? `settings-${section}` : undefined}
+      {...rest}
+    />
   );
 }
 

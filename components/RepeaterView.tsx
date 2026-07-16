@@ -17,6 +17,8 @@ import {
 import { formatPubkey } from '@/lib/utils';
 import { RouteChip } from './RouteChip';
 import { StatCard } from './StatCard';
+import { RefreshButton } from './RefreshButton';
+import { RepeaterConfigTab } from './RepeaterConfigTab';
 import type { Contact, RepeaterAccess, RepeaterStatus } from '@/types/meshcore';
 
 /** Coarse Li-ion voltage → charge mapping, clamped to 0–100%. */
@@ -33,8 +35,8 @@ function approxBatteryPercent(milliVolts: number): number {
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
-/** Admin tabs in display order; Config/Neighbors/Console come in 7.5/7.6. */
-const TABS = ['status'] as const;
+/** Admin tabs in display order; Neighbors/Console come in later tasks. */
+const TABS = ['status', 'config'] as const;
 type RepeaterTab = (typeof TABS)[number];
 
 /**
@@ -77,7 +79,14 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   const authed = login === 'admin' || login === 'guest';
   const prefix = contact.pubkeyPrefix;
 
-  const [tab, setTab] = useState<RepeaterTab>('status');
+  const [tab, setTab] = useState<RepeaterTab>(() => {
+    // Returning from the map picker (Set on map in the Config tab) reopens on
+    // Config so the just-picked coordinate lands where the user left off.
+    const s = useMeshStore.getState();
+    return s.pendingLocation && s.locationPickReturn === 'chat'
+      ? 'config'
+      : 'status';
+  });
   // True only during the initial credential probe (from a clean logged-out
   // state), so we show a brief spinner instead of flashing the login form
   // before auto-login runs. A `pending` login shows the disabled gate instead.
@@ -168,6 +177,12 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
               <StatusDashboard
                 status={session?.status}
                 onRefresh={() => repeaterStatus(contact)}
+              />
+            )}
+            {tab === 'config' && (
+              <RepeaterConfigTab
+                contact={contact}
+                readOnly={login !== 'admin'}
               />
             )}
           </div>
@@ -367,8 +382,15 @@ function StatusDashboard({
   onRefresh: () => Promise<void>;
 }) {
   const { t, i18n } = useTranslation();
-  const [loading, setLoading] = useState(true);
+  // Skeletons only when there's no cached status; a cached snapshot (kept in
+  // the admin session) renders immediately so returning to the tab stays
+  // populated.
+  const [loading, setLoading] = useState(status == null);
   const fetched = useRef(false);
+  // Whether a cached status was present at mount, so the auto-read is skipped
+  // when returning to an already-loaded tab (the user Refreshes for fresh
+  // data).
+  const hadCache = useRef(status != null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -379,17 +401,20 @@ function StatusDashboard({
     }
   }, [onRefresh]);
 
-  // Auto-fetch once on first entry. The ref guard keeps StrictMode's
-  // double-invoke (and identity churn in `refresh`) from firing a second
-  // request.
+  // Auto-fetch once on first entry, unless a cached status is already showing.
+  // The ref guard keeps StrictMode's double-invoke (and identity churn in
+  // `refresh`) from firing a second request.
   useEffect(() => {
     if (fetched.current) return;
     fetched.current = true;
+    if (hadCache.current) return;
     void refresh();
   }, [refresh]);
 
   const num = (n: number) => n.toLocaleString(i18n.language);
   const dbm = (n: number) => t('repeaterAdmin.dbm', { value: num(n) });
+  // Shared responsive layout for the stat cards (loading and loaded).
+  const gridClass = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
   const s = status;
   // Include a row only when the firmware reported that field.
   const opt = (
@@ -489,21 +514,13 @@ function StatusDashboard({
   ];
 
   return (
-    <div className='space-y-4'>
+    <div className='mx-auto w-full max-w-6xl space-y-4'>
       <div className='flex justify-end'>
-        <button
-          onClick={() => void refresh()}
-          disabled={loading}
-          className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50'
-        >
-          {loading
-            ? t('repeaterAdmin.dashboard.refreshing')
-            : t('repeaterAdmin.dashboard.refresh')}
-        </button>
+        <RefreshButton onClick={() => void refresh()} busy={loading} />
       </div>
 
       {loading ? (
-        <div className='grid grid-cols-2 gap-4'>
+        <div className={gridClass}>
           {cards.map(({ title: cardTitle, labels }) => (
             <StatCard
               key={cardTitle}
@@ -514,7 +531,7 @@ function StatusDashboard({
           ))}
         </div>
       ) : status ? (
-        <div className='grid grid-cols-2 gap-4'>
+        <div className={gridClass}>
           {cards
             .filter((c) => c.rows && c.rows.length > 0)
             .map(({ title: cardTitle, rows }) => (
