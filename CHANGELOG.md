@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.20.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.19.0...v1.20.0) (2026-07-17)
+
+
+### Features
+
+* **repeater:** add map-based neighbors tab ([#182](https://github.com/kNoAPP/MeshCore-WebAgent/issues/182)) ([3595a21](https://github.com/kNoAPP/MeshCore-WebAgent/commit/3595a21da456827928584d9a8e3247b2fdb931f6))
+* **repeater:** add neighbors list and raw CLI console tabs ([#177](https://github.com/kNoAPP/MeshCore-WebAgent/issues/177)) ([7b3772f](https://github.com/kNoAPP/MeshCore-WebAgent/commit/7b3772f4b58525b8e363d9897fd95e676de93144))
+
 ## [1.19.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.18.0...v1.19.0) (2026-07-16)
 
 
