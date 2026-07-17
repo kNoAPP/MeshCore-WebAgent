@@ -140,7 +140,6 @@ const cliWaiters = new Map<string, CliWaiter>();
 // leaves only after the previous reply lands (or times out) and the waiter
 // above is never ambiguous.
 const cliQueues = new Map<string, Promise<unknown>>();
-const CLI_REPLY_TIMEOUT_MS = 10000;
 let echoWindow: EchoWindow | null = null;
 // Recent group-text RX-log packets awaiting correlation to a decoded inbound
 // channel message. Each entry holds the ordered per-hop repeater hashes.
@@ -1287,13 +1286,26 @@ export function useMeshCore() {
           // radio.
           cliWaiters.set(prefix, waiter);
           client.sendCliCommand(contact, line).then(
-            () => {
+            (receipt) => {
               if (cliWaiters.get(prefix) !== waiter) return;
+              // Wait the radio's estimated round-trip (scaled by the same grace
+              // as a direct-message ACK), not a fixed budget: a CLI reply over
+              // a multi-hop path can take far longer than a couple of seconds.
+              // A too-short wait would time out prematurely, and the caller's
+              // retry would re-send while the real reply is still in flight —
+              // flooding the mesh and stranding the late reply with no waiter.
+              // Fall back to a safe budget when the receipt has no estimate.
+              const timeoutMs = receipt
+                ? Math.max(
+                    MIN_ACK_TIMEOUT_MS,
+                    receipt.suggestedTimeoutMs * ACK_TIMEOUT_GRACE,
+                  )
+                : DEFAULT_ACK_TIMEOUT_MS;
               waiter.timer = setTimeout(() => {
                 if (cliWaiters.get(prefix) !== waiter) return;
                 takeCliWaiter(prefix);
                 reject(new CliTimeoutError());
-              }, CLI_REPLY_TIMEOUT_MS);
+              }, timeoutMs);
             },
             (err: Error) => {
               if (cliWaiters.get(prefix) === waiter) takeCliWaiter(prefix);
