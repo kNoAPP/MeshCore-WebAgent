@@ -49,11 +49,11 @@ export interface Neighbor {
  * under 134 bytes (`formatNeighborsReply`), well inside the 160-byte message
  * limit, so the list always arrives in a single `onCliReply` frame — there is
  * nothing to accumulate across frames. Strict by design: only a line matching
- * the exact three-field grammar — an 8-hex prefix, a base-10 age, and a signed
- * base-10 SNR — yields a row, so the firmware's `-none-` sentinel, an error
- * reply, or any malformed/truncated line is skipped rather than surfacing a
- * bogus (and potentially over-broad) neighbor. The leading `"> "` CLI prompt is
- * stripped before parsing.
+ * the exact three-field grammar — an 8-hex prefix, a `uint32` age, and an
+ * `int8` SNR (all in range) — yields a row, so the firmware's `-none-`
+ * sentinel, an error reply, or any malformed/truncated line is skipped rather
+ * than surfacing a bogus (and potentially over-broad) neighbor. The leading
+ * `"> "` CLI prompt is stripped before parsing.
  */
 export function parseNeighborsReply(text: string): Neighbor[] {
   const nowSecs = Math.floor(Date.now() / 1000);
@@ -73,10 +73,17 @@ export function parseNeighborsReply(text: string): Neighbor[] {
     ) {
       continue;
     }
+    const age = Number(ageField);
+    const snrQuarters = Number(snrField);
+    // Enforce the firmware wire types: the age is a `uint32` seconds-ago and
+    // the SNR a raw `int8` (quarter-dB). A value out of range is a malformed
+    // row (e.g. an over-long digit run that still fit in one reply), so skip it
+    // rather than surface an absurd last-heard or SNR.
+    if (age > 0xffffffff || snrQuarters < -128 || snrQuarters > 127) continue;
     neighbors.push({
       prefix: prefix.toLowerCase(),
-      lastHeard: nowSecs - Number(ageField),
-      snr: Number(snrField) / 4,
+      lastHeard: nowSecs - age,
+      snr: snrQuarters / 4,
     });
   }
   return neighbors;
