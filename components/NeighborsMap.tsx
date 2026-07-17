@@ -4,6 +4,7 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import {
   locateNeighborNode,
@@ -80,10 +81,17 @@ export function NeighborsMap({
 }) {
   const contacts = useMeshStore((s) => s.contacts);
   const adverts = useMeshStore((s) => s.advertCache);
+  // Subscribes to the locale so a language switch re-renders (and, via the
+  // memo dependency below, rebuilds the localized SNR edge labels).
+  const { i18n } = useTranslation();
 
   const { nodes, edges } = useMemo(
     () => buildNeighborMap(contact, neighbors, contacts, adverts),
-    [contact, neighbors, contacts, adverts],
+    // `i18n.language` isn't referenced in the callback, but it drives the
+    // localized SNR edge labels through `formatSnr`, so a locale switch must
+    // rebuild the map data.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contact, neighbors, contacts, adverts, i18n.language],
   );
 
   // Capture the opening viewport once, framing the initial node set; later
