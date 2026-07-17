@@ -80,11 +80,14 @@ interface EchoWindow {
 // The single CLI request outstanding for one repeater, resolved (or timed out)
 // when its reply arrives via onCliReply. reject fires on timeout or session
 // teardown. `timer` is armed only after the send is acked, so it may be unset
-// while the send is still in flight.
+// while the send is still in flight. `token` is the admin-session token this
+// command was sent under, so a reply arriving after a logout/re-login can be
+// kept out of the new session's transcript.
 interface CliWaiter {
   resolve: (text: string) => void;
   reject: (err: Error) => void;
   timer?: ReturnType<typeof setTimeout>;
+  token: number | undefined;
 }
 
 // The repeater accepted the send but never answered. Distinct from a send
@@ -140,7 +143,6 @@ const cliWaiters = new Map<string, CliWaiter>();
 // leaves only after the previous reply lands (or times out) and the waiter
 // above is never ambiguous.
 const cliQueues = new Map<string, Promise<unknown>>();
-const CLI_REPLY_TIMEOUT_MS = 10000;
 let echoWindow: EchoWindow | null = null;
 // Recent group-text RX-log packets awaiting correlation to a decoded inbound
 // channel message. Each entry holds the ordered per-hop repeater hashes.
@@ -627,12 +629,26 @@ export function useMeshCore() {
           // A queued frame can fire this after teardown; skip it so a late
           // reply can't recreate adminSessions that reset() just cleared.
           if (!canTransmit(c)) return;
-          appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
+          const waiter = takeCliWaiter(pubkeyPrefix);
+          const currentToken =
+            useMeshStore.getState().adminSessions[pubkeyPrefix]?.token;
+          // Append to the transcript only when the reply belongs to the current
+          // session. A waiter carries the token of the session that issued the
+          // command, so a reply to a command from a session that has since
+          // ended — logout leaves the transport connected — is dropped from the
+          // new session's transcript. A reply with no waiter (unsolicited, or
+          // late after a timeout) is shown only while some session is active.
+          const belongsToCurrent = waiter
+            ? waiter.token === currentToken
+            : currentToken != null;
+          if (belongsToCurrent) {
+            appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
+          }
           // Replies carry no correlation id, so this one answers the single
           // command outstanding for this repeater (enqueueCli guarantees there
-          // is at most one). A reply with nothing waiting — unsolicited, or
-          // late for a request that already timed out — is transcript-only.
-          takeCliWaiter(pubkeyPrefix)?.resolve(text);
+          // is at most one). The stale waiter is still resolved so its queued
+          // slot drains, even when its reply was dropped from the transcript.
+          waiter?.resolve(text);
         },
         onAdvertsUpdated: (adverts) => {
           const next = { ...adverts };
@@ -1267,6 +1283,13 @@ export function useMeshCore() {
   const repeaterCliRequest = useCallback(
     (contact: Contact, cmd: string): Promise<string> => {
       const prefix = contact.pubkeyPrefix;
+      // Capture the session identity at enqueue time so a command can be tied
+      // to the exact login it was issued under, not merely "some authed
+      // session". A logout + re-login (even as a guest, which firmware may
+      // still treat as admin via a retained ACL) mints a new token, so a write
+      // queued under the old session is rejected rather than transmitted.
+      const enqueuedToken =
+        useMeshStore.getState().adminSessions[prefix]?.token;
       return enqueueCli(prefix, () => {
         // Re-checked inside the queue: the link can drop while queued behind an
         // earlier command's full round trip.
@@ -1275,25 +1298,57 @@ export function useMeshCore() {
             new Error(i18n.t('repeaterAdmin.cli.disconnected')),
           );
         }
+        // Also re-check the admin session: logging out clears it *without*
+        // disconnecting the radio, so a command still queued behind a slow
+        // reply must not transmit afterwards — that would let a write (e.g.
+        // `reboot`) fire from a session the user already ended. The token must
+        // still match the session captured at enqueue, so a reset-then-re-login
+        // can't inherit a stale command either.
+        const session = useMeshStore.getState().adminSessions[prefix];
+        if (
+          !session ||
+          (session.login !== 'admin' && session.login !== 'guest') ||
+          session.token !== enqueuedToken
+        ) {
+          return Promise.reject(
+            new Error(i18n.t('repeaterAdmin.cli.loggedOut')),
+          );
+        }
         // `sendCliCommand` truncates to MAX_MSG_BYTES UTF-8 bytes, so normalize
         // once and echo exactly what the repeater will receive.
         const line = truncateUtf8(cmd, MAX_MSG_BYTES);
         appendCliLine(prefix, { own: true, text: line, ts: Date.now() });
         return new Promise<string>((resolve, reject) => {
-          const waiter: CliWaiter = { resolve, reject };
+          // Tag the waiter with the session it was sent under, so a reply that
+          // lands after a logout/re-login is dropped from the new session's
+          // transcript (see onCliReply).
+          const waiter: CliWaiter = { resolve, reject, token: enqueuedToken };
           // Register *before* sending so a reply that beats the SENT/OK ack
           // still lands. Arm the reply timeout only once the send is acked, so
           // it measures the reply round trip, not time spent queued in the
           // radio.
           cliWaiters.set(prefix, waiter);
           client.sendCliCommand(contact, line).then(
-            () => {
+            (receipt) => {
               if (cliWaiters.get(prefix) !== waiter) return;
+              // Wait the radio's estimated round-trip (scaled by the same grace
+              // as a direct-message ACK), not a fixed budget: a CLI reply over
+              // a multi-hop path can take far longer than a couple of seconds.
+              // A too-short wait would time out prematurely, and the caller's
+              // retry would re-send while the real reply is still in flight —
+              // flooding the mesh and stranding the late reply with no waiter.
+              // Fall back to a safe budget when the receipt has no estimate.
+              const timeoutMs = receipt
+                ? Math.max(
+                    MIN_ACK_TIMEOUT_MS,
+                    receipt.suggestedTimeoutMs * ACK_TIMEOUT_GRACE,
+                  )
+                : DEFAULT_ACK_TIMEOUT_MS;
               waiter.timer = setTimeout(() => {
                 if (cliWaiters.get(prefix) !== waiter) return;
                 takeCliWaiter(prefix);
                 reject(new CliTimeoutError());
-              }, CLI_REPLY_TIMEOUT_MS);
+              }, timeoutMs);
             },
             (err: Error) => {
               if (cliWaiters.get(prefix) === waiter) takeCliWaiter(prefix);

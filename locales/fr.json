@@ -493,7 +493,9 @@
     },
     "tabs": {
       "status": "État",
-      "config": "Configuration"
+      "config": "Configuration",
+      "neighbors": "Voisins",
+      "console": "Console"
     },
     "login": {
       "prompt": "Connectez-vous pour administrer ce nœud.",
@@ -543,11 +545,31 @@
     "cli": {
       "timedOut": "aucune réponse du nœud",
       "disconnected": "non connecté",
+      "loggedOut": "déconnecté",
       "superseded": "annulé"
+    },
+    "neighbors": {
+      "node": "Nœud",
+      "lastHeard": "Entendu pour la dernière fois",
+      "snr": "SNR",
+      "empty": "Aucun voisin entendu récemment.",
+      "error": "Impossible de charger les voisins. Essayez d’actualiser.",
+      "remove": "Supprimer",
+      "removing": "Suppression…",
+      "removeConfirm": "Supprimer ?",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "console": {
+      "empty": "Aucune sortie pour l’instant. Envoyez une commande pour commencer.",
+      "transcriptLabel": "Sortie de la console",
+      "inputLabel": "Commande",
+      "placeholder": "Saisir une commande (ex. ver, get radio)",
+      "send": "Envoyer",
+      "clear": "Effacer"
     },
     "config": {
       "readingField": "Lecture…",
-      "readOnlyNotice": "L’accès invité est en lecture seule, et le répéteur ne répond aux lectures de configuration que pour un admin — les valeurs ne peuvent donc pas être chargées ici. Connectez-vous en tant qu’admin pour les voir et les modifier.",
       "requiresReboot": "Nécessite un redémarrage",
       "edit": "Modifier",
       "advanced": "Avancé",

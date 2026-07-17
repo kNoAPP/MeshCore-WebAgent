@@ -820,16 +820,24 @@ export class MeshCoreClient {
    * Sends a remote-admin CLI command to a repeater or room server. The command
    * travels as a direct message tagged {@link TXT_TYPE.CLI_DATA}; the reply
    * arrives asynchronously and is delivered via
-   * {@link MeshCoreCallbacks.onCliReply}, never the chat stream. Resolves once
-   * the radio accepts the send (`SENT`/`OK`).
+   * {@link MeshCoreCallbacks.onCliReply}, never the chat stream.
+   *
+   * @returns the send receipt (carrying the radio's estimated round-trip
+   * timeout) when the radio replies `SENT`, or `null` if it only acked `OK`.
+   * The caller uses the estimate to wait long enough for the CLI reply over a
+   * multi-hop path instead of a fixed budget.
    */
-  async sendCliCommand(contact: Contact, command: string): Promise<void> {
+  async sendCliCommand(
+    contact: Contact,
+    command: string,
+  ): Promise<SendReceipt | null> {
     const prefix = contact.pubkeyBytes.slice(0, 6);
-    await this.cmd(
+    const d = await this.cmd(
       buildSendDirectMsg(prefix, command, 0, TXT_TYPE.CLI_DATA),
       [RESP.SENT, RESP.OK],
       10000,
     );
+    return d[0] === RESP.SENT ? parseMsgSent(d) : null;
   }
 
   /**

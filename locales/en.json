@@ -493,7 +493,9 @@
     },
     "tabs": {
       "status": "Status",
-      "config": "Config"
+      "config": "Config",
+      "neighbors": "Neighbors",
+      "console": "Console"
     },
     "login": {
       "prompt": "Log in to administer this node.",
@@ -543,11 +545,31 @@
     "cli": {
       "timedOut": "no reply from the node",
       "disconnected": "not connected",
+      "loggedOut": "logged out",
       "superseded": "cancelled"
+    },
+    "neighbors": {
+      "node": "Node",
+      "lastHeard": "Last heard",
+      "snr": "SNR",
+      "empty": "No neighbors heard recently.",
+      "error": "Couldn't load neighbors. Try refreshing.",
+      "remove": "Remove",
+      "removing": "Removing…",
+      "removeConfirm": "Remove?",
+      "confirm": "Remove",
+      "cancel": "Cancel"
+    },
+    "console": {
+      "empty": "No output yet. Send a command to get started.",
+      "transcriptLabel": "Console output",
+      "inputLabel": "Command",
+      "placeholder": "Type a command (e.g. ver, get radio)",
+      "send": "Send",
+      "clear": "Clear"
     },
     "config": {
       "readingField": "Reading…",
-      "readOnlyNotice": "Guest access is read-only, and the repeater only answers config reads for an admin — so values can't be loaded here. Log in as admin to view and change them.",
       "requiresReboot": "Requires reboot",
       "edit": "Edit",
       "advanced": "Advanced",

@@ -27,6 +27,7 @@ import type {
   AuditEntry,
 } from '@/types/automation';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
+import type { Neighbor } from '@/lib/meshcore/repeaterCli';
 import { convoId } from '@/lib/utils';
 import i18n from '@/lib/i18n';
 import {
@@ -53,6 +54,14 @@ const AUDIT_LOG_LIMIT = 200;
 
 /** Cap on a per-repeater CLI transcript, oldest lines dropped past it. */
 const CLI_LOG_LIMIT = 200;
+
+/**
+ * Monotonic source of {@link AdminSession.token} values. Each newly created
+ * session gets a fresh token so a queued CLI command can tell whether the
+ * session it was enqueued under is still the current one.
+ */
+let adminSessionSeq = 0;
+const nextAdminSessionToken = (): number => ++adminSessionSeq;
 
 const DEFAULT_AUTOADD_CONFIG: AutoAddConfig = {
   mode: 'all',
@@ -213,6 +222,15 @@ export interface CliLine {
  */
 export interface AdminSession {
   login: AdminLoginState;
+  /**
+   * Unique per-instance token, assigned when the session is created and
+   * preserved across all its later mutations (status/CLI/config/neighbors).
+   * Lets a queued CLI command detect that the session it was enqueued under has
+   * since been reset (logout) or replaced by a re-login — so a stale command
+   * (e.g. a write queued before logout) is rejected instead of transmitting
+   * from a different session.
+   */
+  token: number;
   status?: RepeaterStatus;
   cli: CliLine[];
   /**
@@ -222,6 +240,13 @@ export interface AdminSession {
    * clears on disconnect.
    */
   config?: Record<string, string>;
+  /**
+   * Cache of the repeater's last-read neighbors list. Ephemeral (part of the
+   * session), so the Neighbors tab stays populated when the user navigates
+   * away and back without re-reading, and clears on disconnect. `undefined`
+   * until the first read; an empty array is a settled "no neighbors" result.
+   */
+  neighbors?: Neighbor[];
 }
 
 interface MeshState {
@@ -450,6 +475,8 @@ interface MeshActions {
   setAdminLogin: (prefix: string, login: AdminLoginState) => void;
   /** Stores the latest decoded status for a repeater's admin session. */
   setRepeaterStatus: (prefix: string, status: RepeaterStatus) => void;
+  /** Caches the last-read neighbors list for a repeater's admin session. */
+  setRepeaterNeighbors: (prefix: string, neighbors: Neighbor[]) => void;
   /** Merges loaded/confirmed Config values into a repeater's session cache. */
   mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
@@ -768,7 +795,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setAdminLogin: (prefix, login) =>
     set((state) => {
-      const session = state.adminSessions[prefix] ?? { login, cli: [] };
+      const session = state.adminSessions[prefix] ?? {
+        login,
+        cli: [],
+        token: nextAdminSessionToken(),
+      };
       return {
         adminSessions: {
           ...state.adminSessions,
@@ -791,11 +822,26 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       },
     });
   },
+  setRepeaterNeighbors: (prefix, neighbors) => {
+    const { adminSessions } = get();
+    const session = adminSessions[prefix];
+    // Neighbors belong to a live, authenticated session. Drop a late reply
+    // that lands after log-out or before login completes, matching
+    // setRepeaterStatus, so it can't resurrect a logged-out session.
+    if (session?.login !== 'admin' && session?.login !== 'guest') return;
+    set({
+      adminSessions: {
+        ...adminSessions,
+        [prefix]: { ...session, neighbors },
+      },
+    });
+  },
   appendCliLine: (prefix, line) =>
     set((state) => {
       const session = state.adminSessions[prefix] ?? {
         login: 'loggedOut',
         cli: [],
+        token: nextAdminSessionToken(),
       };
       return {
         adminSessions: {
@@ -812,6 +858,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       const session = state.adminSessions[prefix] ?? {
         login: 'loggedOut',
         cli: [],
+        token: nextAdminSessionToken(),
       };
       return {
         adminSessions: {

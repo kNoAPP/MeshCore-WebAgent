@@ -493,7 +493,9 @@
     },
     "tabs": {
       "status": "Estado",
-      "config": "Configuración"
+      "config": "Configuración",
+      "neighbors": "Vecinos",
+      "console": "Consola"
     },
     "login": {
       "prompt": "Inicia sesión para administrar este nodo.",
@@ -543,11 +545,31 @@
     "cli": {
       "timedOut": "sin respuesta del nodo",
       "disconnected": "sin conexión",
+      "loggedOut": "sesión cerrada",
       "superseded": "cancelado"
+    },
+    "neighbors": {
+      "node": "Nodo",
+      "lastHeard": "Escuchado por última vez",
+      "snr": "SNR",
+      "empty": "No se han escuchado vecinos recientemente.",
+      "error": "No se pudieron cargar los vecinos. Intenta actualizar.",
+      "remove": "Eliminar",
+      "removing": "Eliminando…",
+      "removeConfirm": "¿Eliminar?",
+      "confirm": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "console": {
+      "empty": "Aún no hay salida. Envía un comando para empezar.",
+      "transcriptLabel": "Salida de la consola",
+      "inputLabel": "Comando",
+      "placeholder": "Escribe un comando (p. ej. ver, get radio)",
+      "send": "Enviar",
+      "clear": "Limpiar"
     },
     "config": {
       "readingField": "Leyendo…",
-      "readOnlyNotice": "El acceso de invitado es de solo lectura, y el repetidor solo responde a las lecturas de configuración para un administrador, por lo que aquí no se pueden cargar valores. Inicia sesión como administrador para verlos y cambiarlos.",
       "requiresReboot": "Requiere reinicio",
       "edit": "Editar",
       "advanced": "Avanzado",

@@ -493,7 +493,9 @@
     },
     "tabs": {
       "status": "Status",
-      "config": "Konfiguration"
+      "config": "Konfiguration",
+      "neighbors": "Nachbarn",
+      "console": "Konsole"
     },
     "login": {
       "prompt": "Melden Sie sich an, um diesen Knoten zu verwalten.",
@@ -543,11 +545,31 @@
     "cli": {
       "timedOut": "keine Antwort vom Knoten",
       "disconnected": "nicht verbunden",
+      "loggedOut": "abgemeldet",
       "superseded": "abgebrochen"
+    },
+    "neighbors": {
+      "node": "Knoten",
+      "lastHeard": "Zuletzt gehört",
+      "snr": "SNR",
+      "empty": "Kürzlich keine Nachbarn gehört.",
+      "error": "Nachbarn konnten nicht geladen werden. Bitte aktualisieren.",
+      "remove": "Entfernen",
+      "removing": "Wird entfernt…",
+      "removeConfirm": "Entfernen?",
+      "confirm": "Entfernen",
+      "cancel": "Abbrechen"
+    },
+    "console": {
+      "empty": "Noch keine Ausgabe. Senden Sie einen Befehl, um zu beginnen.",
+      "transcriptLabel": "Konsolenausgabe",
+      "inputLabel": "Befehl",
+      "placeholder": "Befehl eingeben (z. B. ver, get radio)",
+      "send": "Senden",
+      "clear": "Leeren"
     },
     "config": {
       "readingField": "Wird gelesen…",
-      "readOnlyNotice": "Gastzugriff ist schreibgeschützt, und der Repeater beantwortet Konfigurationsabfragen nur für einen Admin — daher können hier keine Werte geladen werden. Melden Sie sich als Admin an, um sie anzuzeigen und zu ändern.",
       "requiresReboot": "Neustart erforderlich",
       "edit": "Bearbeiten",
       "advanced": "Erweitert",

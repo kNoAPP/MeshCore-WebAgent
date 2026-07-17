@@ -92,7 +92,7 @@ export function RepeaterConfigTab({
   readOnly: boolean;
 }) {
   const { t } = useTranslation();
-  const { repeaterCliRequest, repeaterCli, clearRepeaterCli } = useMeshCore();
+  const { repeaterCliRequest, repeaterCli } = useMeshCore();
   const showToast = useMeshStore((s) => s.showToast);
 
   // Loaded/confirmed values are cached in the per-repeater session so the tab
@@ -282,19 +282,21 @@ export function RepeaterConfigTab({
     [read],
   );
 
-  // Track liveness for in-flight reads/commits, and on unmount drop any pending
-  // CLI request so its reply can't reach a new panel. Nothing is read here —
-  // the user pulls each section on demand.
+  // Track liveness for in-flight reads/commits, and clear pending save-status
+  // timers on unmount. The in-flight CLI request is deliberately *not*
+  // cancelled here: cancelling rejects its queued slot and advances the CLI
+  // send queue while the repeater may still be replying, so a command sent from
+  // another tab (e.g. Console) could consume this request's late reply. The
+  // `aliveRef` guard stops the read loop after the current round trip instead,
+  // letting the outstanding request consume its own reply/timeout.
   useEffect(() => {
     aliveRef.current = true;
     const timers = savedTimers.current;
-    const prefix = contactRef.current.pubkeyPrefix;
     return () => {
       aliveRef.current = false;
-      clearRepeaterCli(prefix);
       for (const timer of Object.values(timers)) clearTimeout(timer);
     };
-  }, [clearRepeaterCli]);
+  }, []);
 
   // Commits a field's new value: sends its `set`, then re-reads so the field
   // reflects the node's authoritative value (which may be rounded/clamped). A
@@ -658,15 +660,6 @@ export function RepeaterConfigTab({
   return (
     <>
       <div className='mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 xl:grid-cols-2'>
-        {readOnly && (
-          <p
-            className='rounded-md border border-(--border) p-3 text-xs text-(--text2) xl:col-span-2'
-            style={{ background: 'var(--surface2)' }}
-          >
-            {t('repeaterAdmin.config.readOnlyNotice')}
-          </p>
-        )}
-
         {REPEATER_SETTING_GROUPS.map((group) => {
           // Radio + TX power live in their own card (see RadioSection), like
           // the Settings page; keep them out of the group they're cataloged in.
@@ -1515,23 +1508,61 @@ function ActionsSection({
   );
 }
 
-/** Resolves a select option to its localized label. */
+/**
+ * Select-option wire value to its localized-label key. An
+ * `as const satisfies Record<(typeof OPTIONS)[number], string>` map per
+ * setting: the keys resolve to a checked literal union (never a bare template
+ * literal, per the localization rule) and the map must stay exhaustive over
+ * each setting's options, so adding an option without a label fails the build.
+ */
+const OPTION_LABEL_KEYS = {
+  loopDetect: {
+    off: 'repeaterAdmin.config.options.loopDetect.off',
+    minimal: 'repeaterAdmin.config.options.loopDetect.minimal',
+    moderate: 'repeaterAdmin.config.options.loopDetect.moderate',
+    strict: 'repeaterAdmin.config.options.loopDetect.strict',
+  },
+  gpsAdvert: {
+    none: 'repeaterAdmin.config.options.gpsAdvert.none',
+    share: 'repeaterAdmin.config.options.gpsAdvert.share',
+    prefs: 'repeaterAdmin.config.options.gpsAdvert.prefs',
+  },
+  pathHashMode: {
+    '0': 'repeaterAdmin.config.options.pathHashMode.0',
+    '1': 'repeaterAdmin.config.options.pathHashMode.1',
+    '2': 'repeaterAdmin.config.options.pathHashMode.2',
+  },
+} as const satisfies {
+  loopDetect: Record<(typeof LOOP_DETECT_OPTIONS)[number], string>;
+  gpsAdvert: Record<(typeof GPS_ADVERT_OPTIONS)[number], string>;
+  pathHashMode: Record<(typeof PATH_HASH_MODE_OPTIONS)[number], string>;
+};
+
+/**
+ * Resolves a select option to its localized label.
+ *
+ * @remarks
+ * The label key comes from {@link OPTION_LABEL_KEYS} (a checked literal union),
+ * but `t()` is called through a string-typed alias: i18next's typed `t()`
+ * exceeds TypeScript's instantiation depth for these deeply-nested keys once
+ * the catalog is this large — even a single concrete literal trips it — so the
+ * alias only sidesteps that depth limit at the call site, while the keys
+ * themselves stay validated and exhaustive in the map above.
+ */
 function optionLabel(
   t: ReturnType<typeof useTranslation>['t'],
   id: SelectSetting['id'],
   value: string,
 ): string {
+  const translate = t as (key: string) => string;
   if (id === 'loopDetect') {
-    return t(
-      `repeaterAdmin.config.options.loopDetect.${value as (typeof LOOP_DETECT_OPTIONS)[number]}`,
-    );
+    const key = value as (typeof LOOP_DETECT_OPTIONS)[number];
+    return translate(OPTION_LABEL_KEYS.loopDetect[key]);
   }
   if (id === 'gpsAdvert') {
-    return t(
-      `repeaterAdmin.config.options.gpsAdvert.${value as (typeof GPS_ADVERT_OPTIONS)[number]}`,
-    );
+    const key = value as (typeof GPS_ADVERT_OPTIONS)[number];
+    return translate(OPTION_LABEL_KEYS.gpsAdvert[key]);
   }
-  return t(
-    `repeaterAdmin.config.options.pathHashMode.${value as (typeof PATH_HASH_MODE_OPTIONS)[number]}`,
-  );
+  const key = value as (typeof PATH_HASH_MODE_OPTIONS)[number];
+  return translate(OPTION_LABEL_KEYS.pathHashMode[key]);
 }
