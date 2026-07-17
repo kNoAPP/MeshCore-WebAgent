@@ -493,7 +493,9 @@
     },
     "tabs": {
       "status": "Status",
-      "config": "Konfiguration"
+      "config": "Konfiguration",
+      "neighbors": "Nachbarn",
+      "console": "Konsole"
     },
     "login": {
       "prompt": "Melden Sie sich an, um diesen Knoten zu verwalten.",
@@ -544,6 +546,24 @@
       "timedOut": "keine Antwort vom Knoten",
       "disconnected": "nicht verbunden",
       "superseded": "abgebrochen"
+    },
+    "neighbors": {
+      "node": "Knoten",
+      "lastHeard": "Zuletzt gehört",
+      "snr": "SNR",
+      "loading": "Nachbarn werden geladen…",
+      "empty": "Kürzlich keine Nachbarn gehört.",
+      "remove": "Entfernen",
+      "removing": "Wird entfernt…",
+      "removeConfirm": "Entfernen?",
+      "confirm": "Entfernen",
+      "cancel": "Abbrechen"
+    },
+    "console": {
+      "empty": "Noch keine Ausgabe. Senden Sie einen Befehl, um zu beginnen.",
+      "placeholder": "Befehl eingeben (z. B. ver, get radio)",
+      "send": "Senden",
+      "clear": "Leeren"
     },
     "config": {
       "readingField": "Wird gelesen…",

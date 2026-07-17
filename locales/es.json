@@ -493,7 +493,9 @@
     },
     "tabs": {
       "status": "Estado",
-      "config": "Configuración"
+      "config": "Configuración",
+      "neighbors": "Vecinos",
+      "console": "Consola"
     },
     "login": {
       "prompt": "Inicia sesión para administrar este nodo.",
@@ -544,6 +546,24 @@
       "timedOut": "sin respuesta del nodo",
       "disconnected": "sin conexión",
       "superseded": "cancelado"
+    },
+    "neighbors": {
+      "node": "Nodo",
+      "lastHeard": "Escuchado por última vez",
+      "snr": "SNR",
+      "loading": "Cargando vecinos…",
+      "empty": "No se han escuchado vecinos recientemente.",
+      "remove": "Eliminar",
+      "removing": "Eliminando…",
+      "removeConfirm": "¿Eliminar?",
+      "confirm": "Eliminar",
+      "cancel": "Cancelar"
+    },
+    "console": {
+      "empty": "Aún no hay salida. Envía un comando para empezar.",
+      "placeholder": "Escribe un comando (p. ej. ver, get radio)",
+      "send": "Enviar",
+      "clear": "Limpiar"
     },
     "config": {
       "readingField": "Leyendo…",

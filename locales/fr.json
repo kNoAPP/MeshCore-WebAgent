@@ -493,7 +493,9 @@
     },
     "tabs": {
       "status": "État",
-      "config": "Configuration"
+      "config": "Configuration",
+      "neighbors": "Voisins",
+      "console": "Console"
     },
     "login": {
       "prompt": "Connectez-vous pour administrer ce nœud.",
@@ -544,6 +546,24 @@
       "timedOut": "aucune réponse du nœud",
       "disconnected": "non connecté",
       "superseded": "annulé"
+    },
+    "neighbors": {
+      "node": "Nœud",
+      "lastHeard": "Entendu pour la dernière fois",
+      "snr": "SNR",
+      "loading": "Chargement des voisins…",
+      "empty": "Aucun voisin entendu récemment.",
+      "remove": "Supprimer",
+      "removing": "Suppression…",
+      "removeConfirm": "Supprimer ?",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "console": {
+      "empty": "Aucune sortie pour l’instant. Envoyez une commande pour commencer.",
+      "placeholder": "Saisir une commande (ex. ver, get radio)",
+      "send": "Envoyer",
+      "clear": "Effacer"
     },
     "config": {
       "readingField": "Lecture…",

@@ -21,8 +21,6 @@ import {
   nameMaxBytes,
   parseRadio,
   formatRadio,
-  LOOP_DETECT_OPTIONS,
-  PATH_HASH_MODE_OPTIONS,
   GPS_ADVERT_OPTIONS,
 } from '@/lib/meshcore/repeaterConfig';
 import type {
@@ -1521,17 +1519,16 @@ function optionLabel(
   id: SelectSetting['id'],
   value: string,
 ): string {
+  // The option value is one of the setting's own options by construction, so
+  // the computed key is always valid. It's passed through a plainly-typed `t`
+  // because resolving these template-literal keys against i18next's full typed
+  // key union exceeds TypeScript's instantiation depth as the catalog grows.
+  const translate = t as (key: string) => string;
   if (id === 'loopDetect') {
-    return t(
-      `repeaterAdmin.config.options.loopDetect.${value as (typeof LOOP_DETECT_OPTIONS)[number]}`,
-    );
+    return translate(`repeaterAdmin.config.options.loopDetect.${value}`);
   }
   if (id === 'gpsAdvert') {
-    return t(
-      `repeaterAdmin.config.options.gpsAdvert.${value as (typeof GPS_ADVERT_OPTIONS)[number]}`,
-    );
+    return translate(`repeaterAdmin.config.options.gpsAdvert.${value}`);
   }
-  return t(
-    `repeaterAdmin.config.options.pathHashMode.${value as (typeof PATH_HASH_MODE_OPTIONS)[number]}`,
-  );
+  return translate(`repeaterAdmin.config.options.pathHashMode.${value}`);
 }

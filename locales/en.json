@@ -493,7 +493,9 @@
     },
     "tabs": {
       "status": "Status",
-      "config": "Config"
+      "config": "Config",
+      "neighbors": "Neighbors",
+      "console": "Console"
     },
     "login": {
       "prompt": "Log in to administer this node.",
@@ -544,6 +546,24 @@
       "timedOut": "no reply from the node",
       "disconnected": "not connected",
       "superseded": "cancelled"
+    },
+    "neighbors": {
+      "node": "Node",
+      "lastHeard": "Last heard",
+      "snr": "SNR",
+      "loading": "Loading neighbors…",
+      "empty": "No neighbors heard recently.",
+      "remove": "Remove",
+      "removing": "Removing…",
+      "removeConfirm": "Remove?",
+      "confirm": "Remove",
+      "cancel": "Cancel"
+    },
+    "console": {
+      "empty": "No output yet. Send a command to get started.",
+      "placeholder": "Type a command (e.g. ver, get radio)",
+      "send": "Send",
+      "clear": "Clear"
     },
     "config": {
       "readingField": "Reading…",

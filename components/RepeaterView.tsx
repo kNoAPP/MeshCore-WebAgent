@@ -8,8 +8,10 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
+import { parseNeighborsReply, type Neighbor } from '@/lib/meshcore/repeaterCli';
 import {
   formatAirtime,
+  formatRelative,
   formatSnr,
   formatUptime,
   formatVoltage,
@@ -35,8 +37,8 @@ function approxBatteryPercent(milliVolts: number): number {
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
-/** Admin tabs in display order; Neighbors/Console come in later tasks. */
-const TABS = ['status', 'config'] as const;
+/** Admin tabs in display order. */
+const TABS = ['status', 'config', 'neighbors', 'console'] as const;
 type RepeaterTab = (typeof TABS)[number];
 
 /**
@@ -185,6 +187,10 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
                 readOnly={login !== 'admin'}
               />
             )}
+            {tab === 'neighbors' && (
+              <NeighborsTab contact={contact} isAdmin={login === 'admin'} />
+            )}
+            {tab === 'console' && <ConsoleTab contact={contact} />}
           </div>
         </>
       ) : (
@@ -543,6 +549,291 @@ function StatusDashboard({
           {t('repeaterAdmin.dashboard.unavailable')}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Resolves a neighbor's public-key prefix to a saved contact's name, matching
+ * a contact whose full key (or its own stored prefix) begins with the reported
+ * prefix, or vice versa — the two prefix lengths need not match. Returns `null`
+ * when no contact corresponds, so the caller shows the raw hex prefix instead.
+ */
+function resolveNeighborName(
+  prefix: string,
+  contacts: Record<string, Contact>,
+): string | null {
+  const lower = prefix.toLowerCase();
+  for (const c of Object.values(contacts)) {
+    const key = c.pubkey.toLowerCase();
+    const keyPrefix = c.pubkeyPrefix.toLowerCase();
+    if (
+      key.startsWith(lower) ||
+      keyPrefix.startsWith(lower) ||
+      lower.startsWith(keyPrefix)
+    ) {
+      return c.name || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * The Neighbors tab: the repeater's up-to-8 most recently heard nodes, read via
+ * the `neighbors` CLI command and parsed by {@link parseNeighborsReply}. Each
+ * row shows the node (resolved to a saved contact's name when known), how long
+ * ago it was heard, and its SNR. Admins get a per-row Remove (with an inline
+ * confirm) that sends `neighbor.remove <prefix>` for that exact prefix — never
+ * a blank/space prefix, which the firmware would treat as "remove all". Fetches
+ * once on entry and again on demand via Refresh.
+ */
+function NeighborsTab({
+  contact,
+  isAdmin,
+}: {
+  contact: Contact;
+  isAdmin: boolean;
+}) {
+  const { t } = useTranslation();
+  const { repeaterCliRequest, repeaterCli, clearRepeaterCli } = useMeshCore();
+  const contacts = useMeshStore((s) => s.contacts);
+  const prefix = contact.pubkeyPrefix;
+
+  const [neighbors, setNeighbors] = useState<Neighbor[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  // The prefix whose Remove is awaiting inline confirmation, or `null`.
+  const [confirming, setConfirming] = useState<string | null>(null);
+  // Prefixes with a `neighbor.remove` in flight, so their row disables.
+  const [removing, setRemoving] = useState<Set<string>>(() => new Set());
+  const fetched = useRef(false);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setConfirming(null);
+    try {
+      const reply = await repeaterCliRequest(contact, 'neighbors');
+      setNeighbors(parseNeighborsReply(reply));
+    } catch {
+      // A timeout or dropped link leaves the list empty; the empty state and
+      // the Refresh button let the user retry. The hook owns any toast.
+      setNeighbors([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [contact, repeaterCliRequest]);
+
+  // Fetch once on first entry; the ref guard survives StrictMode's double
+  // mount.
+  useEffect(() => {
+    if (fetched.current) return;
+    fetched.current = true;
+    void refresh();
+  }, [refresh]);
+
+  // Drop any pending `neighbors`/`neighbor.remove` waiter on tab unmount.
+  useEffect(() => () => clearRepeaterCli(prefix), [clearRepeaterCli, prefix]);
+
+  const remove = async (neighborPrefix: string) => {
+    // Guard against an empty/space prefix, which the firmware treats as
+    // "remove all neighbors".
+    if (neighborPrefix.trim() === '') return;
+    setConfirming(null);
+    setRemoving((prev) => new Set(prev).add(neighborPrefix));
+    const ok = await repeaterCli(contact, `neighbor.remove ${neighborPrefix}`);
+    setRemoving((prev) => {
+      const next = new Set(prev);
+      next.delete(neighborPrefix);
+      return next;
+    });
+    if (ok) await refresh();
+  };
+
+  return (
+    <div className='mx-auto w-full max-w-4xl space-y-4'>
+      <div className='flex justify-end'>
+        <RefreshButton onClick={() => void refresh()} busy={loading} />
+      </div>
+
+      {neighbors && neighbors.length > 0 ? (
+        <div className='overflow-hidden rounded-lg border border-(--border)'>
+          <table className='w-full text-sm'>
+            <thead>
+              <tr className='border-b border-(--border) text-left text-xs text-(--text2)'>
+                <th className='px-3 py-2 font-medium'>
+                  {t('repeaterAdmin.neighbors.node')}
+                </th>
+                <th className='px-3 py-2 font-medium'>
+                  {t('repeaterAdmin.neighbors.lastHeard')}
+                </th>
+                <th className='px-3 py-2 font-medium'>
+                  {t('repeaterAdmin.neighbors.snr')}
+                </th>
+                {isAdmin && <th className='px-3 py-2' />}
+              </tr>
+            </thead>
+            <tbody>
+              {neighbors.map((n) => {
+                const name = resolveNeighborName(n.prefix, contacts);
+                const busy = removing.has(n.prefix);
+                return (
+                  <tr
+                    key={n.prefix}
+                    className='border-b border-(--border) last:border-0'
+                  >
+                    <td className='px-3 py-2'>
+                      {name ? (
+                        <span className='text-(--text)'>{name}</span>
+                      ) : (
+                        <span className='font-mono text-xs text-(--text2)'>
+                          {n.prefix}
+                        </span>
+                      )}
+                    </td>
+                    <td className='px-3 py-2 text-(--text2)'>
+                      {formatRelative(n.lastHeard)}
+                    </td>
+                    <td className='px-3 py-2 text-(--text2)'>
+                      {formatSnr(n.snr)}
+                    </td>
+                    {isAdmin && (
+                      <td className='px-3 py-2 text-right'>
+                        {confirming === n.prefix ? (
+                          <span className='inline-flex items-center gap-2'>
+                            <span className='text-xs text-(--text2)'>
+                              {t('repeaterAdmin.neighbors.removeConfirm')}
+                            </span>
+                            <button
+                              onClick={() => void remove(n.prefix)}
+                              disabled={busy}
+                              className='rounded-md border border-(--red) px-2 py-0.5 text-xs text-(--red) hover:bg-(--red-dim) hover:text-white disabled:opacity-50'
+                            >
+                              {t('repeaterAdmin.neighbors.confirm')}
+                            </button>
+                            <button
+                              onClick={() => setConfirming(null)}
+                              disabled={busy}
+                              className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs text-(--text2) hover:bg-(--surface2) disabled:opacity-50'
+                            >
+                              {t('repeaterAdmin.neighbors.cancel')}
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setConfirming(n.prefix)}
+                            disabled={busy}
+                            className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs text-(--text2) hover:bg-(--surface2) disabled:opacity-50'
+                          >
+                            {busy
+                              ? t('repeaterAdmin.neighbors.removing')
+                              : t('repeaterAdmin.neighbors.remove')}
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className='text-sm text-(--text2)'>
+          {loading
+            ? t('repeaterAdmin.neighbors.loading')
+            : t('repeaterAdmin.neighbors.empty')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The Console tab: a raw CLI transcript bound to the per-repeater
+ * `adminSessions[prefix].cli` log, with a text input that sends arbitrary
+ * commands via `repeaterCli`. Outgoing lines (the `own` flag) render distinctly
+ * from the node's replies, which arrive unordered but append chronologically.
+ * Clear empties the transcript (bounded by the store). Guests may send
+ * read-only commands; the node rejects unauthorized writes with an `Err - …`
+ * line shown verbatim.
+ */
+function ConsoleTab({ contact }: { contact: Contact }) {
+  const { t } = useTranslation();
+  const { repeaterCli } = useMeshCore();
+  const prefix = contact.pubkeyPrefix;
+  const log = useMeshStore((s) => s.adminSessions[prefix]?.cli);
+  const clearCliLog = useMeshStore((s) => s.clearCliLog);
+  const [input, setInput] = useState('');
+  const endRef = useRef<HTMLDivElement>(null);
+
+  // Keep the newest line in view as the transcript grows.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: 'end' });
+  }, [log]);
+
+  const send = () => {
+    const cmd = input.trim();
+    if (cmd === '') return;
+    setInput('');
+    void repeaterCli(contact, cmd);
+  };
+
+  const lines = log ?? [];
+
+  return (
+    <div className='mx-auto flex h-full w-full max-w-4xl flex-col gap-3'>
+      <div className='flex justify-end'>
+        <button
+          onClick={() => clearCliLog(prefix)}
+          disabled={lines.length === 0}
+          className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) hover:bg-(--surface2) disabled:opacity-50'
+        >
+          {t('repeaterAdmin.console.clear')}
+        </button>
+      </div>
+
+      <div className='flex-1 overflow-y-auto rounded-lg border border-(--border) bg-(--surface) p-3 font-mono text-xs'>
+        {lines.length === 0 ? (
+          <p className='text-(--text2)'>{t('repeaterAdmin.console.empty')}</p>
+        ) : (
+          lines.map((line, i) => (
+            <div
+              key={i}
+              className={
+                line.own
+                  ? 'wrap-break-word whitespace-pre-wrap text-(--accent)'
+                  : 'wrap-break-word whitespace-pre-wrap text-(--text)'
+              }
+            >
+              {line.own ? `> ${line.text}` : line.text}
+            </div>
+          ))
+        )}
+        <div ref={endRef} />
+      </div>
+
+      <form
+        className='flex gap-2'
+        onSubmit={(e) => {
+          e.preventDefault();
+          send();
+        }}
+      >
+        <input
+          type='text'
+          autoComplete='off'
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={t('repeaterAdmin.console.placeholder')}
+          className='flex-1 rounded-md border border-(--border-control) bg-(--surface) px-2.5 py-1.5 font-mono text-sm text-(--text) outline-none focus:border-(--accent)'
+        />
+        <button
+          type='submit'
+          disabled={input.trim() === ''}
+          className='rounded-md bg-(--accent) px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
+        >
+          {t('repeaterAdmin.console.send')}
+        </button>
+      </form>
     </div>
   );
 }
