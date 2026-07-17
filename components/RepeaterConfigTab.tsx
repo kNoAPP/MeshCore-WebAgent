@@ -92,7 +92,7 @@ export function RepeaterConfigTab({
   readOnly: boolean;
 }) {
   const { t } = useTranslation();
-  const { repeaterCliRequest, repeaterCli, clearRepeaterCli } = useMeshCore();
+  const { repeaterCliRequest, repeaterCli } = useMeshCore();
   const showToast = useMeshStore((s) => s.showToast);
 
   // Loaded/confirmed values are cached in the per-repeater session so the tab
@@ -282,19 +282,21 @@ export function RepeaterConfigTab({
     [read],
   );
 
-  // Track liveness for in-flight reads/commits, and on unmount drop any pending
-  // CLI request so its reply can't reach a new panel. Nothing is read here —
-  // the user pulls each section on demand.
+  // Track liveness for in-flight reads/commits, and clear pending save-status
+  // timers on unmount. The in-flight CLI request is deliberately *not*
+  // cancelled here: cancelling rejects its queued slot and advances the CLI
+  // send queue while the repeater may still be replying, so a command sent from
+  // another tab (e.g. Console) could consume this request's late reply. The
+  // `aliveRef` guard stops the read loop after the current round trip instead,
+  // letting the outstanding request consume its own reply/timeout.
   useEffect(() => {
     aliveRef.current = true;
     const timers = savedTimers.current;
-    const prefix = contactRef.current.pubkeyPrefix;
     return () => {
       aliveRef.current = false;
-      clearRepeaterCli(prefix);
       for (const timer of Object.values(timers)) clearTimeout(timer);
     };
-  }, [clearRepeaterCli]);
+  }, []);
 
   // Commits a field's new value: sends its `set`, then re-reads so the field
   // reflects the node's authoritative value (which may be rounded/clamped). A
