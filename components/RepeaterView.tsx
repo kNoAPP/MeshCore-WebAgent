@@ -204,12 +204,7 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
                 onRefresh={() => repeaterStatus(contact)}
               />
             )}
-            {activeTab === 'config' && (
-              <RepeaterConfigTab
-                contact={contact}
-                readOnly={login !== 'admin'}
-              />
-            )}
+            {activeTab === 'config' && <RepeaterConfigTab contact={contact} />}
             {activeTab === 'neighbors' && (
               <NeighborsTab contact={contact} isAdmin={login === 'admin'} />
             )}
