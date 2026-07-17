@@ -570,7 +570,6 @@
     },
     "config": {
       "readingField": "Reading…",
-      "readOnlyNotice": "Guest access is read-only, and the repeater only answers config reads for an admin — so values can't be loaded here. Log in as admin to view and change them.",
       "requiresReboot": "Requires reboot",
       "edit": "Edit",
       "advanced": "Advanced",

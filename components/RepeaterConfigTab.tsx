@@ -660,15 +660,6 @@ export function RepeaterConfigTab({
   return (
     <>
       <div className='mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 xl:grid-cols-2'>
-        {readOnly && (
-          <p
-            className='rounded-md border border-(--border) p-3 text-xs text-(--text2) xl:col-span-2'
-            style={{ background: 'var(--surface2)' }}
-          >
-            {t('repeaterAdmin.config.readOnlyNotice')}
-          </p>
-        )}
-
         {REPEATER_SETTING_GROUPS.map((group) => {
           // Radio + TX power live in their own card (see RadioSection), like
           // the Settings page; keep them out of the group they're cataloged in.

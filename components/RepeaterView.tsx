@@ -84,15 +84,17 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   const prefix = contact.pubkeyPrefix;
 
   // Which tabs this session may see. Status is available to guests too (the
-  // firmware answers a status request for any authed client), but the CLI
-  // surfaces are admin-only: current repeater/room firmware handles remote
+  // firmware answers a status request for any authed client), but every other
+  // surface is admin-only: current repeater/room firmware handles remote
   // `TXT_TYPE_CLI_DATA` only for `client->isAdmin()`, so a guest gets no reply
-  // at all. Neighbors is additionally repeater-only — a room server's
-  // `formatNeighborsReply` returns "not supported".
+  // to a config read, neighbors query, or console command. Neighbors is
+  // additionally repeater-only — a room server's `formatNeighborsReply`
+  // returns "not supported".
   const isAdmin = login === 'admin';
   const isRepeater = contact.advType === ADV_TYPE_REPEATER;
   const tabs = useMemo<RepeaterTab[]>(() => {
-    const list: RepeaterTab[] = ['status', 'config'];
+    const list: RepeaterTab[] = ['status'];
+    if (isAdmin) list.push('config');
     if (isAdmin && isRepeater) list.push('neighbors');
     if (isAdmin) list.push('console');
     return list;

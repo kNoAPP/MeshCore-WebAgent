@@ -570,7 +570,6 @@
     },
     "config": {
       "readingField": "Lecture…",
-      "readOnlyNotice": "L’accès invité est en lecture seule, et le répéteur ne répond aux lectures de configuration que pour un admin — les valeurs ne peuvent donc pas être chargées ici. Connectez-vous en tant qu’admin pour les voir et les modifier.",
       "requiresReboot": "Nécessite un redémarrage",
       "edit": "Modifier",
       "advanced": "Avancé",
