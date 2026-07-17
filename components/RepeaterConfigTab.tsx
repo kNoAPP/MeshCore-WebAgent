@@ -82,15 +82,8 @@ const RADIO_FIELDS: readonly RepeaterSetting[] = ALL_REPEATER_SETTINGS.filter(
  * the matching `set` (on toggle/select change, slider release, or blur/Enter
  * for typed fields) and re-reads to confirm. The composite radio parameters and
  * TX power are edited together in the shared {@link RadioSettingsModal}.
- * Renders read-only when `readOnly` (guest).
  */
-export function RepeaterConfigTab({
-  contact,
-  readOnly,
-}: {
-  contact: Contact;
-  readOnly: boolean;
-}) {
+export function RepeaterConfigTab({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
   const { repeaterCliRequest, repeaterCli } = useMeshCore();
   const showToast = useMeshStore((s) => s.showToast);
@@ -450,7 +443,6 @@ export function RepeaterConfigTab({
     const pending = store.pendingLocation;
     if (!pending || store.locationPickReturn !== 'chat') return;
     store.clearPendingLocation();
-    if (readOnly) return;
     const latSetting = ALL_REPEATER_SETTINGS.find((s) => s.id === 'lat');
     const lonSetting = ALL_REPEATER_SETTINGS.find((s) => s.id === 'lon');
     // Defer out of the effect body so the commits' optimistic setState isn't a
@@ -459,7 +451,7 @@ export function RepeaterConfigTab({
       if (latSetting) void commit(latSetting, String(pending.lat));
       if (lonSetting) void commit(lonSetting, String(pending.lon));
     });
-  }, [commit, readOnly]);
+  }, [commit]);
 
   const runAction = useCallback(
     async (action: RepeaterAction) => {
@@ -623,7 +615,6 @@ export function RepeaterConfigTab({
     status: status[setting.id],
     errorText: errorMsg[setting.id],
     loading: pending.has(setting.id),
-    readOnly,
     nameBytes,
   });
 
@@ -652,7 +643,7 @@ export function RepeaterConfigTab({
   // commit path (which no-ops an unchanged field), so a partial failure can be
   // fixed by re-selecting, and the row's single status reflects the pair.
   const selectPolicy = (policy: (typeof GPS_ADVERT_OPTIONS)[number]) => {
-    if (readOnly || !gpsSetting || !gpsAdvertSetting) return;
+    if (!gpsSetting || !gpsAdvertSetting) return;
     void commit(gpsSetting, policy === 'share' ? 'on' : 'off');
     void commit(gpsAdvertSetting, policy);
   };
@@ -678,13 +669,11 @@ export function RepeaterConfigTab({
               <Card
                 title={t(`repeaterAdmin.config.groups.${group.id}`)}
                 action={
-                  readOnly ? undefined : (
-                    <RefreshButton
-                      onClick={() => refreshSection(readFields)}
-                      busy={sectionBusy(readFields)}
-                      download={!sectionLoaded(fields)}
-                    />
-                  )
+                  <RefreshButton
+                    onClick={() => refreshSection(readFields)}
+                    busy={sectionBusy(readFields)}
+                    download={!sectionLoaded(fields)}
+                  />
                 }
               >
                 {fields.map((setting) => {
@@ -699,14 +688,13 @@ export function RepeaterConfigTab({
                       <SettingRow
                         key='name'
                         {...rowProps(setting)}
-                        readOnly={readOnly || !identityLoaded}
+                        disabled={!identityLoaded}
                       />
                     );
                   }
                   if (setting.id === 'lat') {
                     const lon = group.settings.find((s) => s.id === 'lon');
-                    const coordReadOnly =
-                      readOnly || usingGps || !identityLoaded;
+                    const coordDisabled = usingGps || !identityLoaded;
                     const sourceStatus = combineStatus(
                       status.gps,
                       status.gpsAdvert,
@@ -718,18 +706,18 @@ export function RepeaterConfigTab({
                             policy={advertPolicy}
                             status={sourceStatus}
                             errorText={errorMsg.gps ?? errorMsg.gpsAdvert}
-                            readOnly={readOnly || sourceStatus === 'saving'}
+                            disabled={sourceStatus === 'saving'}
                             onSelect={selectPolicy}
                           />
                         )}
                         <LocationRow
                           latProps={{
                             ...rowProps(setting),
-                            readOnly: coordReadOnly,
+                            disabled: coordDisabled,
                           }}
                           lonProps={
                             lon
-                              ? { ...rowProps(lon), readOnly: coordReadOnly }
+                              ? { ...rowProps(lon), disabled: coordDisabled }
                               : undefined
                           }
                         />
@@ -745,7 +733,6 @@ export function RepeaterConfigTab({
                   txValue={values.tx ?? ''}
                   busy={sectionBusy(RADIO_FIELDS)}
                   loaded={sectionLoaded(RADIO_FIELDS)}
-                  readOnly={readOnly}
                   onEdit={() => setRadioEditOpen(true)}
                   onRefresh={() => refreshSection(RADIO_FIELDS)}
                 />
@@ -757,13 +744,11 @@ export function RepeaterConfigTab({
         <Card
           title={t('repeaterAdmin.config.advanced')}
           action={
-            readOnly ? undefined : (
-              <RefreshButton
-                onClick={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
-                busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
-                download={!sectionLoaded(REPEATER_ADVANCED_SETTINGS)}
-              />
-            )
+            <RefreshButton
+              onClick={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
+              busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
+              download={!sectionLoaded(REPEATER_ADVANCED_SETTINGS)}
+            />
           }
         >
           {REPEATER_ADVANCED_SETTINGS.map((setting) => (
@@ -771,7 +756,7 @@ export function RepeaterConfigTab({
           ))}
         </Card>
 
-        {!readOnly && <ActionsSection onRun={runAction} />}
+        <ActionsSection onRun={runAction} />
       </div>
 
       {radioEditOpen && radioModalFields && (
@@ -795,7 +780,7 @@ interface RowProps {
   status?: SaveStatus;
   errorText?: string;
   loading: boolean;
-  readOnly: boolean;
+  disabled?: boolean;
   nameBytes: number;
 }
 
@@ -813,7 +798,7 @@ function SettingRow({
   status,
   errorText,
   loading,
-  readOnly,
+  disabled,
   nameBytes,
 }: RowProps) {
   const { t } = useTranslation();
@@ -845,7 +830,6 @@ function SettingRow({
             <SwitchControl
               setting={setting}
               value={draft}
-              disabled={readOnly}
               ariaLabel={label}
               onSelect={onCommit}
             />
@@ -854,7 +838,6 @@ function SettingRow({
             <SliderField
               setting={setting}
               value={draft}
-              disabled={readOnly}
               ariaLabel={label}
               onChange={onDraft}
               onCommitEdit={commitEdit}
@@ -864,7 +847,6 @@ function SettingRow({
             <SelectField
               setting={setting}
               value={draft}
-              disabled={readOnly}
               ariaLabel={label}
               onSelect={onCommit}
             />
@@ -874,7 +856,7 @@ function SettingRow({
               value={draft}
               maxBytes={maxBytes ?? setting.maxBytes}
               valid={valid}
-              disabled={readOnly}
+              disabled={!!disabled}
               ariaLabel={label}
               onChange={onDraft}
               onCommitEdit={commitEdit}
@@ -961,13 +943,11 @@ function Field({
 function SwitchControl({
   setting,
   value,
-  disabled,
   ariaLabel,
   onSelect,
 }: {
   setting: ToggleSetting;
   value: string;
-  disabled: boolean;
   ariaLabel: string;
   onSelect: (value: string) => void;
 }) {
@@ -978,9 +958,8 @@ function SwitchControl({
       role='switch'
       aria-checked={on}
       aria-label={ariaLabel}
-      disabled={disabled}
       onClick={() => onSelect(on ? setting.off : setting.on)}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
         on ? 'bg-(--accent)' : 'bg-(--border-control)'
       }`}
     >
@@ -1052,14 +1031,12 @@ function NumberField({
 function SliderField({
   setting,
   value,
-  disabled,
   ariaLabel,
   onChange,
   onCommitEdit,
 }: {
   setting: NumberSetting;
   value: string;
-  disabled: boolean;
   ariaLabel: string;
   onChange: (value: string) => void;
   onCommitEdit: () => void;
@@ -1079,11 +1056,10 @@ function SliderField({
         max={setting.max}
         step={setting.step === 'any' ? undefined : setting.step}
         value={slider}
-        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         onPointerUp={onCommitEdit}
         onKeyUp={onCommitEdit}
-        className='w-40 accent-(--accent) disabled:opacity-60'
+        className='w-40 accent-(--accent)'
       />
       <span className='w-20 shrink-0 text-right text-xs text-(--text) tabular-nums'>
         {fmtNum(slider, i18n.language)}
@@ -1097,13 +1073,11 @@ function SliderField({
 function SelectField({
   setting,
   value,
-  disabled,
   ariaLabel,
   onSelect,
 }: {
   setting: SelectSetting;
   value: string;
-  disabled: boolean;
   ariaLabel: string;
   onSelect: (value: string) => void;
 }) {
@@ -1111,10 +1085,9 @@ function SelectField({
   return (
     <select
       value={value}
-      disabled={disabled}
       aria-label={ariaLabel}
       onChange={(e) => onSelect(e.target.value)}
-      className='rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent) disabled:opacity-60'
+      className='rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent)'
     >
       {!setting.options.includes(value) && (
         <option value={value} disabled>
@@ -1194,13 +1167,13 @@ function LocationSourceRow({
   policy,
   status,
   errorText,
-  readOnly,
+  disabled,
   onSelect,
 }: {
   policy: string;
   status?: SaveStatus;
   errorText?: string;
-  readOnly: boolean;
+  disabled: boolean;
   onSelect: (policy: (typeof GPS_ADVERT_OPTIONS)[number]) => void;
 }) {
   const { t } = useTranslation();
@@ -1225,7 +1198,7 @@ function LocationSourceRow({
                 type='button'
                 role='radio'
                 aria-checked={active}
-                disabled={readOnly}
+                disabled={disabled}
                 onClick={() => onSelect(value)}
                 className={`rounded px-3 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   active
@@ -1255,7 +1228,7 @@ function LocationRow({
   const { t } = useTranslation();
   const loading = latProps.loading || (lonProps?.loading ?? false);
   const loaded = latProps.value !== '' || (lonProps?.value ?? '') !== '';
-  const readOnly = latProps.readOnly;
+  const disabled = latProps.disabled ?? false;
   // One status for the whole row, since lat and lon commit as a pair: any write
   // in flight shows saving, any failure shows the error, else the saved tick.
   const rowStatus = combineStatus(latProps.status, lonProps?.status);
@@ -1271,7 +1244,7 @@ function LocationRow({
         <FieldSlot loading={loading} loaded={loaded}>
           <CoordField {...latProps} />
           {lonProps && <CoordField {...lonProps} />}
-          {!readOnly && (
+          {!disabled && (
             <button
               type='button'
               onClick={() => useMeshStore.getState().startLocationPick('chat')}
@@ -1306,7 +1279,7 @@ function CoordField({
   draft,
   onDraft,
   onCommit,
-  readOnly,
+  disabled,
 }: RowProps) {
   const { t } = useTranslation();
   const label = t(`repeaterAdmin.config.fields.${setting.id}.label`);
@@ -1323,7 +1296,7 @@ function CoordField({
         setting={setting as NumberSetting}
         value={draft}
         valid={valid}
-        disabled={readOnly}
+        disabled={!!disabled}
         ariaLabel={label}
         width='w-36'
         onChange={onDraft}
@@ -1351,7 +1324,6 @@ function RadioSection({
   txValue,
   busy,
   loaded,
-  readOnly,
   onEdit,
   onRefresh,
 }: {
@@ -1359,7 +1331,6 @@ function RadioSection({
   txValue: string;
   busy: boolean;
   loaded: boolean;
-  readOnly: boolean;
   onEdit: () => void;
   onRefresh: () => void;
 }) {
@@ -1399,21 +1370,17 @@ function RadioSection({
     <Card
       title={t('repeaterAdmin.config.fields.radio.label')}
       action={
-        // Guests get no CLI reply, so the read/edit controls are hidden — the
-        // read-only notice explains why the values can't be shown.
-        readOnly ? undefined : (
-          <div className='flex items-center gap-2'>
-            <RebootPill />
-            <RefreshButton onClick={onRefresh} busy={busy} download={!loaded} />
-            <button
-              onClick={onEdit}
-              disabled={!ready}
-              className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
-            >
-              {t('repeaterAdmin.config.edit')}
-            </button>
-          </div>
-        )
+        <div className='flex items-center gap-2'>
+          <RebootPill />
+          <RefreshButton onClick={onRefresh} busy={busy} download={!loaded} />
+          <button
+            onClick={onEdit}
+            disabled={!ready}
+            className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+          >
+            {t('repeaterAdmin.config.edit')}
+          </button>
+        </div>
       }
     >
       {rows.map((row) => (
