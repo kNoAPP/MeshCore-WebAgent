@@ -93,7 +93,7 @@ export function NeighborsMap({
   }));
 
   return (
-    <div className='relative flex h-80 w-full overflow-hidden rounded-lg border border-(--border) sm:h-96'>
+    <div className='relative flex h-full w-full overflow-hidden rounded-lg border border-(--border)'>
       <BaseLeafletMap
         nodes={nodes}
         edges={edges}
