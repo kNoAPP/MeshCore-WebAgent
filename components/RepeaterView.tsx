@@ -614,9 +614,9 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   const neighbors = useMeshStore((s) => s.adminSessions[prefix]?.neighbors);
   const setRepeaterNeighbors = useMeshStore((s) => s.setRepeaterNeighbors);
 
-  // The spatial view is worthwhile only when the repeater itself is located
-  // and at least one neighbor resolves to a saved contact/advert with a fix;
-  // otherwise there's nothing to anchor or draw, so the table stands alone.
+  // The map renders only when the repeater itself is located and at least one
+  // neighbor resolves to a saved contact/advert with a fix; otherwise there is
+  // nothing to anchor or draw, so the tab shows an explanatory placeholder.
   const mappableCount = useMemo(() => {
     if (!contact.advLat || !contact.advLon) return 0;
     return (neighbors ?? []).filter((n) =>
@@ -710,9 +710,11 @@ function NeighborsTab({ contact }: { contact: Contact }) {
               ? t('repeaterAdmin.neighbors.error')
               : loading
                 ? t('repeaterAdmin.neighbors.loading')
-                : neighbors && neighbors.length > 0
-                  ? t('repeaterAdmin.neighbors.noLocation')
-                  : t('repeaterAdmin.neighbors.empty')}
+                : !(neighbors && neighbors.length > 0)
+                  ? t('repeaterAdmin.neighbors.empty')
+                  : contact.advLat && contact.advLon
+                    ? t('repeaterAdmin.neighbors.noLocation')
+                    : t('repeaterAdmin.neighbors.noAnchor')}
           </p>
         </div>
       )}

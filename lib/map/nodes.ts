@@ -174,10 +174,11 @@ function neighborPrefixMatches(
  * Resolves a neighbor's public-key prefix (from a `neighbors` reply) to a
  * located map node, matching saved contacts first — a contact opens its manage
  * panel — then the advert cache. A matched contact prefers its own fix but
- * falls back to a cached advert fix for the same node (the advert cache
- * preserves a known location even when the contact table is stale/unlocated),
- * staying a `contact` node either way. Returns `null` when no corresponding
- * node has a GPS fix, so the caller keeps that neighbor out of the map. See
+ * falls back to a cached advert fix for the *same* node, matched by the
+ * contact's full public key (not the shorter neighbor prefix) so a 4-byte
+ * prefix collision can't lend another node's coordinates; it stays a `contact`
+ * node either way. Returns `null` when no corresponding node has a GPS fix, so
+ * the caller keeps that neighbor out of the map. See
  * {@link neighborPrefixMatches} for the prefix rule.
  */
 export function locateNeighborNode(
@@ -185,21 +186,18 @@ export function locateNeighborNode(
   contacts: Record<string, Contact>,
   adverts: Record<string, Advert>,
 ): MapNode | null {
-  // Resolve the matching advert (and its fix) once: it both anchors the
-  // advert-only case and backfills a located contact that lacks its own fix.
-  const advert = Object.values(adverts).find((a) =>
-    neighborPrefixMatches(prefix, a.pubkey, a.pubkeyPrefix),
-  );
-  const advertCoords = advert
-    ? contactCoords(advert.advLat, advert.advLon)
-    : null;
-
   const contact = Object.values(contacts).find((c) =>
     neighborPrefixMatches(prefix, c.pubkey, c.pubkeyPrefix),
   );
   if (contact) {
+    // Back up an unlocated contact only with an advert for the exact same node
+    // (full-key match), never one merely sharing the 4-byte neighbor prefix.
+    const cached = Object.values(adverts).find(
+      (a) => a.pubkey.toLowerCase() === contact.pubkey.toLowerCase(),
+    );
     const coords =
-      contactCoords(contact.advLat, contact.advLon) ?? advertCoords;
+      contactCoords(contact.advLat, contact.advLon) ??
+      (cached ? contactCoords(cached.advLat, cached.advLon) : null);
     if (!coords) return null;
     return {
       key: contact.pubkeyPrefix,
@@ -213,14 +211,21 @@ export function locateNeighborNode(
     };
   }
 
-  if (advert && advertCoords) {
+  // No saved contact: locate via the advert cache, matched by the neighbor
+  // prefix.
+  const advert = Object.values(adverts).find((a) =>
+    neighborPrefixMatches(prefix, a.pubkey, a.pubkeyPrefix),
+  );
+  if (advert) {
+    const coords = contactCoords(advert.advLat, advert.advLon);
+    if (!coords) return null;
     return {
       key: advert.pubkeyPrefix,
       pubkeyPrefix: advert.pubkeyPrefix,
       name: advert.name || advert.pubkeyPrefix.slice(0, 8),
       advType: advert.advType,
-      lat: advertCoords.lat,
-      lon: advertCoords.lon,
+      lat: coords.lat,
+      lon: coords.lon,
       kind: 'advert',
       favorite: false,
     };

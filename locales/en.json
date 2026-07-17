@@ -552,7 +552,8 @@
       "empty": "No neighbors heard recently.",
       "error": "Couldn't load neighbors. Try refreshing.",
       "loading": "Loading neighbors…",
-      "noLocation": "Neighbors were heard, but none could be placed on the map — they have no known location."
+      "noLocation": "Neighbors were heard, but none could be placed on the map — they have no known location.",
+      "noAnchor": "This repeater has no advertised location, so its neighbors can't be shown on the map."
     },
     "console": {
       "empty": "No output yet. Send a command to get started.",
