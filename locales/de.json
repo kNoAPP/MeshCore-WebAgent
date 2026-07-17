@@ -561,6 +561,7 @@
     },
     "console": {
       "empty": "Noch keine Ausgabe. Senden Sie einen Befehl, um zu beginnen.",
+      "transcriptLabel": "Konsolenausgabe",
       "inputLabel": "Befehl",
       "placeholder": "Befehl eingeben (z. B. ver, get radio)",
       "send": "Senden",

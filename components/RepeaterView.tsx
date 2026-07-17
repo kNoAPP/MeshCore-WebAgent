@@ -10,6 +10,7 @@ import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { parseNeighborsReply } from '@/lib/meshcore/repeaterCli';
+import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
 import { ADV_TYPE_REPEATER } from '@/lib/meshcore/constants';
 import {
   formatAirtime,
@@ -96,7 +97,6 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
     if (isAdmin) list.push('console');
     return list;
   }, [isAdmin, isRepeater]);
-
   const [tab, setTab] = useState<RepeaterTab>(() => {
     // Returning from the map picker (Set on map in the Config tab) reopens on
     // Config so the just-picked coordinate lands where the user left off.
@@ -105,6 +105,11 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
       ? 'config'
       : 'status';
   });
+  // The selected tab clamped to what this session may see. `tab` persists a
+  // logout/re-login (the view stays mounted), so an admin who was on
+  // Neighbors/Console and logs back in as a guest must not keep rendering a
+  // now-hidden panel — fall back to Status.
+  const activeTab = tabs.includes(tab) ? tab : 'status';
   // True only during the initial credential probe (from a clean logged-out
   // state), so we show a brief spinner instead of flashing the login form
   // before auto-login runs. A `pending` login shows the disabled gate instead.
@@ -189,24 +194,24 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
 
       {authed ? (
         <>
-          <TabBar tabs={tabs} active={tab} onSelect={setTab} />
+          <TabBar tabs={tabs} active={activeTab} onSelect={setTab} />
           <div className='flex-1 overflow-y-auto p-4'>
-            {tab === 'status' && (
+            {activeTab === 'status' && (
               <StatusDashboard
                 status={session?.status}
                 onRefresh={() => repeaterStatus(contact)}
               />
             )}
-            {tab === 'config' && (
+            {activeTab === 'config' && (
               <RepeaterConfigTab
                 contact={contact}
                 readOnly={login !== 'admin'}
               />
             )}
-            {tab === 'neighbors' && (
+            {activeTab === 'neighbors' && (
               <NeighborsTab contact={contact} isAdmin={login === 'admin'} />
             )}
-            {tab === 'console' && <ConsoleTab contact={contact} />}
+            {activeTab === 'console' && <ConsoleTab contact={contact} />}
           </div>
         </>
       ) : (
@@ -572,12 +577,15 @@ function StatusDashboard({
 }
 
 /**
- * Prefixes with a `neighbors` read currently in flight, tracked at module scope
- * (not per-tab) so switching away and back — which unmounts the Neighbors tab —
- * can't queue a second read while the first is still outstanding on a slow
- * route. Added when a read starts, removed when it settles.
+ * In-flight `neighbors` reads, keyed by repeater prefix and tracked at module
+ * scope (not per-tab). Storing the promise — rather than a plain flag — lets a
+ * remount (tab switch) *join* the outstanding read instead of starting a
+ * duplicate or briefly showing a false empty: every mount awaits the same
+ * promise and reflects its settlement (data via the store, or an error). The
+ * entry is removed when the read settles. The promise resolves the raw reply
+ * text so each joiner can apply it; it rejects on transport failure.
  */
-const neighborsInFlight = new Set<string>();
+const neighborsRequests = new Map<string, Promise<string>>();
 
 /**
  * Resolves a neighbor's public-key prefix to a saved contact's name, matching
@@ -647,35 +655,47 @@ function NeighborsTab({
   const hadCache = useRef(neighbors != null);
 
   const refresh = useCallback(async () => {
-    // Skip if a read for this repeater is already outstanding (e.g. queued from
-    // a previous mount): the reply lands in the store cache regardless.
-    if (neighborsInFlight.has(prefix)) return;
-    neighborsInFlight.add(prefix);
     setLoading(true);
     setErrored(false);
     setConfirming(null);
     try {
-      const reply = await repeaterCliRequest(contact, 'neighbors');
+      // Join an outstanding read for this repeater if one exists, else start
+      // one. Sharing the promise dedupes concurrent reads and lets a remount
+      // await the same settlement instead of showing a transient false empty.
+      let request = neighborsRequests.get(prefix);
+      if (!request) {
+        request = repeaterCliRequest(contact, 'neighbors').finally(() => {
+          neighborsRequests.delete(prefix);
+        });
+        neighborsRequests.set(prefix, request);
+      }
+      const reply = await request;
+      // A protocol-level rejection (`Err …`/`Unknown command`, e.g. on firmware
+      // without the command) resolves the request but is not an empty list —
+      // treat it as an error so it isn't cached as "no neighbors".
+      if (isErrorReply(reply)) {
+        setErrored(true);
+        return;
+      }
       setRepeaterNeighbors(prefix, parseNeighborsReply(reply));
     } catch {
       // A timeout or dropped link is an error, not "no neighbors": surface an
       // error state and preserve any cached list rather than clearing it.
       setErrored(true);
     } finally {
-      neighborsInFlight.delete(prefix);
       setLoading(false);
     }
   }, [contact, prefix, repeaterCliRequest, setRepeaterNeighbors]);
 
-  // Fetch once on first entry, unless a cached list is already showing or a
-  // read is already outstanding for this repeater. The ref guard survives
-  // StrictMode's double mount.
+  // Fetch once on first entry, unless a cached list is already showing. The
+  // ref guard survives StrictMode's double mount; `refresh` itself joins an
+  // outstanding read, so a remount mid-flight won't duplicate it.
   useEffect(() => {
     if (fetched.current) return;
     fetched.current = true;
-    if (hadCache.current || neighborsInFlight.has(prefix)) return;
+    if (hadCache.current) return;
     void refresh();
-  }, [refresh, prefix]);
+  }, [refresh]);
 
   // `formatRelative` reads the clock only at render, and this tab is otherwise
   // static, so tick periodically to keep the last-heard ages current.
@@ -820,9 +840,9 @@ function NeighborsTab({
  * `adminSessions[prefix].cli` log, with a text input that sends arbitrary
  * commands via `repeaterCli`. Outgoing lines (the `own` flag) render distinctly
  * from the node's replies, which arrive unordered but append chronologically.
- * Clear empties the transcript (bounded by the store). Guests may send
- * read-only commands; the node rejects unauthorized writes with an `Err - …`
- * line shown verbatim.
+ * Clear empties the transcript (bounded by the store). Admin-only: current
+ * repeater/room firmware answers remote `CLI_DATA` only for an admin client, so
+ * the tab is gated to admins (see the tab list) — a guest would get no reply.
  */
 function ConsoleTab({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
@@ -860,7 +880,12 @@ function ConsoleTab({ contact }: { contact: Contact }) {
           <Trash2 size={14} />
         </button>
 
-        <div className='h-full overflow-y-auto p-3 font-mono text-xs'>
+        <div
+          role='log'
+          aria-live='polite'
+          aria-label={t('repeaterAdmin.console.transcriptLabel')}
+          className='h-full overflow-y-auto p-3 font-mono text-xs'
+        >
           {lines.length === 0 ? (
             <p className='text-(--text2)'>{t('repeaterAdmin.console.empty')}</p>
           ) : (

@@ -561,6 +561,7 @@
     },
     "console": {
       "empty": "No output yet. Send a command to get started.",
+      "transcriptLabel": "Console output",
       "inputLabel": "Command",
       "placeholder": "Type a command (e.g. ver, get radio)",
       "send": "Send",

@@ -561,6 +561,7 @@
     },
     "console": {
       "empty": "Aún no hay salida. Envía un comando para empezar.",
+      "transcriptLabel": "Salida de la consola",
       "inputLabel": "Comando",
       "placeholder": "Escribe un comando (p. ej. ver, get radio)",
       "send": "Enviar",
