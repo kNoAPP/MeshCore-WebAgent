@@ -551,7 +551,6 @@
       "node": "Nodo",
       "lastHeard": "Escuchado por última vez",
       "snr": "SNR",
-      "loading": "Cargando vecinos…",
       "empty": "No se han escuchado vecinos recientemente.",
       "remove": "Eliminar",
       "removing": "Eliminando…",
@@ -561,6 +560,7 @@
     },
     "console": {
       "empty": "Aún no hay salida. Envía un comando para empezar.",
+      "inputLabel": "Comando",
       "placeholder": "Escribe un comando (p. ej. ver, get radio)",
       "send": "Enviar",
       "clear": "Limpiar"

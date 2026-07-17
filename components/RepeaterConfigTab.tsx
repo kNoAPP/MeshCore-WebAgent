@@ -21,6 +21,8 @@ import {
   nameMaxBytes,
   parseRadio,
   formatRadio,
+  LOOP_DETECT_OPTIONS,
+  PATH_HASH_MODE_OPTIONS,
   GPS_ADVERT_OPTIONS,
 } from '@/lib/meshcore/repeaterConfig';
 import type {
@@ -1513,22 +1515,61 @@ function ActionsSection({
   );
 }
 
-/** Resolves a select option to its localized label. */
+/**
+ * Select-option wire value to its localized-label key. An
+ * `as const satisfies Record<(typeof OPTIONS)[number], string>` map per
+ * setting: the keys resolve to a checked literal union (never a bare template
+ * literal, per the localization rule) and the map must stay exhaustive over
+ * each setting's options, so adding an option without a label fails the build.
+ */
+const OPTION_LABEL_KEYS = {
+  loopDetect: {
+    off: 'repeaterAdmin.config.options.loopDetect.off',
+    minimal: 'repeaterAdmin.config.options.loopDetect.minimal',
+    moderate: 'repeaterAdmin.config.options.loopDetect.moderate',
+    strict: 'repeaterAdmin.config.options.loopDetect.strict',
+  },
+  gpsAdvert: {
+    none: 'repeaterAdmin.config.options.gpsAdvert.none',
+    share: 'repeaterAdmin.config.options.gpsAdvert.share',
+    prefs: 'repeaterAdmin.config.options.gpsAdvert.prefs',
+  },
+  pathHashMode: {
+    '0': 'repeaterAdmin.config.options.pathHashMode.0',
+    '1': 'repeaterAdmin.config.options.pathHashMode.1',
+    '2': 'repeaterAdmin.config.options.pathHashMode.2',
+  },
+} as const satisfies {
+  loopDetect: Record<(typeof LOOP_DETECT_OPTIONS)[number], string>;
+  gpsAdvert: Record<(typeof GPS_ADVERT_OPTIONS)[number], string>;
+  pathHashMode: Record<(typeof PATH_HASH_MODE_OPTIONS)[number], string>;
+};
+
+/**
+ * Resolves a select option to its localized label.
+ *
+ * @remarks
+ * The label key comes from {@link OPTION_LABEL_KEYS} (a checked literal union),
+ * but `t()` is called through a string-typed alias: i18next's typed `t()`
+ * exceeds TypeScript's instantiation depth for these deeply-nested keys once
+ * the catalog is this large — even a single concrete literal trips it — so the
+ * alias only sidesteps that depth limit at the call site, while the keys
+ * themselves stay validated and exhaustive in the map above.
+ */
 function optionLabel(
   t: ReturnType<typeof useTranslation>['t'],
   id: SelectSetting['id'],
   value: string,
 ): string {
-  // The option value is one of the setting's own options by construction, so
-  // the computed key is always valid. It's passed through a plainly-typed `t`
-  // because resolving these template-literal keys against i18next's full typed
-  // key union exceeds TypeScript's instantiation depth as the catalog grows.
   const translate = t as (key: string) => string;
   if (id === 'loopDetect') {
-    return translate(`repeaterAdmin.config.options.loopDetect.${value}`);
+    const key = value as (typeof LOOP_DETECT_OPTIONS)[number];
+    return translate(OPTION_LABEL_KEYS.loopDetect[key]);
   }
   if (id === 'gpsAdvert') {
-    return translate(`repeaterAdmin.config.options.gpsAdvert.${value}`);
+    const key = value as (typeof GPS_ADVERT_OPTIONS)[number];
+    return translate(OPTION_LABEL_KEYS.gpsAdvert[key]);
   }
-  return translate(`repeaterAdmin.config.options.pathHashMode.${value}`);
+  const key = value as (typeof PATH_HASH_MODE_OPTIONS)[number];
+  return translate(OPTION_LABEL_KEYS.pathHashMode[key]);
 }

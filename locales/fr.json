@@ -551,7 +551,6 @@
       "node": "Nœud",
       "lastHeard": "Entendu pour la dernière fois",
       "snr": "SNR",
-      "loading": "Chargement des voisins…",
       "empty": "Aucun voisin entendu récemment.",
       "remove": "Supprimer",
       "removing": "Suppression…",
@@ -561,6 +560,7 @@
     },
     "console": {
       "empty": "Aucune sortie pour l’instant. Envoyez une commande pour commencer.",
+      "inputLabel": "Commande",
       "placeholder": "Saisir une commande (ex. ver, get radio)",
       "send": "Envoyer",
       "clear": "Effacer"

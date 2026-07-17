@@ -551,7 +551,6 @@
       "node": "Knoten",
       "lastHeard": "Zuletzt gehört",
       "snr": "SNR",
-      "loading": "Nachbarn werden geladen…",
       "empty": "Kürzlich keine Nachbarn gehört.",
       "remove": "Entfernen",
       "removing": "Wird entfernt…",
@@ -561,6 +560,7 @@
     },
     "console": {
       "empty": "Noch keine Ausgabe. Senden Sie einen Befehl, um zu beginnen.",
+      "inputLabel": "Befehl",
       "placeholder": "Befehl eingeben (z. B. ver, get radio)",
       "send": "Senden",
       "clear": "Leeren"

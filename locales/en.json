@@ -551,7 +551,6 @@
       "node": "Node",
       "lastHeard": "Last heard",
       "snr": "SNR",
-      "loading": "Loading neighbors…",
       "empty": "No neighbors heard recently.",
       "remove": "Remove",
       "removing": "Removing…",
@@ -561,6 +560,7 @@
     },
     "console": {
       "empty": "No output yet. Send a command to get started.",
+      "inputLabel": "Command",
       "placeholder": "Type a command (e.g. ver, get radio)",
       "send": "Send",
       "clear": "Clear"

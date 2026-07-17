@@ -5,10 +5,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Trash2 } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
-import { parseNeighborsReply, type Neighbor } from '@/lib/meshcore/repeaterCli';
+import { parseNeighborsReply } from '@/lib/meshcore/repeaterCli';
 import {
   formatAirtime,
   formatRelative,
@@ -595,43 +596,57 @@ function NeighborsTab({
   isAdmin: boolean;
 }) {
   const { t } = useTranslation();
-  const { repeaterCliRequest, repeaterCli, clearRepeaterCli } = useMeshCore();
+  const { repeaterCliRequest, repeaterCli } = useMeshCore();
   const contacts = useMeshStore((s) => s.contacts);
   const prefix = contact.pubkeyPrefix;
 
-  const [neighbors, setNeighbors] = useState<Neighbor[] | null>(null);
+  // Cached in the per-repeater session so the list stays populated across
+  // navigation; the store is its source of truth. `undefined` until the first
+  // read, an empty array once a read settles with no neighbors.
+  const neighbors = useMeshStore((s) => s.adminSessions[prefix]?.neighbors);
+  const setRepeaterNeighbors = useMeshStore((s) => s.setRepeaterNeighbors);
+
   const [loading, setLoading] = useState(false);
   // The prefix whose Remove is awaiting inline confirmation, or `null`.
   const [confirming, setConfirming] = useState<string | null>(null);
   // Prefixes with a `neighbor.remove` in flight, so their row disables.
   const [removing, setRemoving] = useState<Set<string>>(() => new Set());
   const fetched = useRef(false);
+  // Whether a cached list was present at mount, so the auto-read is skipped
+  // when returning to an already-loaded tab (the user Refreshes for fresh
+  // data).
+  const hadCache = useRef(neighbors != null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setConfirming(null);
     try {
       const reply = await repeaterCliRequest(contact, 'neighbors');
-      setNeighbors(parseNeighborsReply(reply));
+      setRepeaterNeighbors(prefix, parseNeighborsReply(reply));
     } catch {
       // A timeout or dropped link leaves the list empty; the empty state and
       // the Refresh button let the user retry. The hook owns any toast.
-      setNeighbors([]);
+      setRepeaterNeighbors(prefix, []);
     } finally {
       setLoading(false);
     }
-  }, [contact, repeaterCliRequest]);
+  }, [contact, prefix, repeaterCliRequest, setRepeaterNeighbors]);
 
-  // Fetch once on first entry; the ref guard survives StrictMode's double
-  // mount.
+  // Fetch once on first entry, unless a cached list is already showing. The
+  // ref guard survives StrictMode's double mount.
   useEffect(() => {
     if (fetched.current) return;
     fetched.current = true;
+    if (hadCache.current) return;
     void refresh();
   }, [refresh]);
 
-  // Drop any pending `neighbors`/`neighbor.remove` waiter on tab unmount.
-  useEffect(() => () => clearRepeaterCli(prefix), [clearRepeaterCli, prefix]);
+  // The in-flight `neighbors` request is deliberately *not* cancelled on
+  // unmount. Cancelling would reject its queued CLI slot, letting the queue
+  // advance while the repeater is still replying — a late reply could then
+  // resolve the next command's waiter (e.g. one sent from the Console tab). The
+  // result is cached in the store, so letting the request run to completion is
+  // both correct and harmless when the user has navigated away.
 
   const remove = async (neighborPrefix: string) => {
     // Guard against an empty/space prefix, which the firmware treats as
@@ -649,13 +664,9 @@ function NeighborsTab({
   };
 
   return (
-    <div className='mx-auto w-full max-w-4xl space-y-4'>
-      <div className='flex justify-end'>
-        <RefreshButton onClick={() => void refresh()} busy={loading} />
-      </div>
-
-      {neighbors && neighbors.length > 0 ? (
-        <div className='overflow-hidden rounded-lg border border-(--border)'>
+    <div className='mx-auto w-full max-w-4xl'>
+      <div className='relative overflow-hidden rounded-lg border border-(--border)'>
+        {(neighbors && neighbors.length > 0) || loading ? (
           <table className='w-full text-sm'>
             <thead>
               <tr className='border-b border-(--border) text-left text-xs text-(--text2)'>
@@ -668,11 +679,16 @@ function NeighborsTab({
                 <th className='px-3 py-2 font-medium'>
                   {t('repeaterAdmin.neighbors.snr')}
                 </th>
-                {isAdmin && <th className='px-3 py-2' />}
+                <th className='px-3 py-1 text-right'>
+                  <RefreshButton
+                    onClick={() => void refresh()}
+                    busy={loading}
+                  />
+                </th>
               </tr>
             </thead>
             <tbody>
-              {neighbors.map((n) => {
+              {(neighbors ?? []).map((n) => {
                 const name = resolveNeighborName(n.prefix, contacts);
                 const busy = removing.has(n.prefix);
                 return (
@@ -695,9 +711,9 @@ function NeighborsTab({
                     <td className='px-3 py-2 text-(--text2)'>
                       {formatSnr(n.snr)}
                     </td>
-                    {isAdmin && (
-                      <td className='px-3 py-2 text-right'>
-                        {confirming === n.prefix ? (
+                    <td className='px-3 py-2 text-right'>
+                      {isAdmin &&
+                        (confirming === n.prefix ? (
                           <span className='inline-flex items-center gap-2'>
                             <span className='text-xs text-(--text2)'>
                               {t('repeaterAdmin.neighbors.removeConfirm')}
@@ -727,22 +743,26 @@ function NeighborsTab({
                               ? t('repeaterAdmin.neighbors.removing')
                               : t('repeaterAdmin.neighbors.remove')}
                           </button>
-                        )}
-                      </td>
-                    )}
+                        ))}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-        </div>
-      ) : (
-        <p className='text-sm text-(--text2)'>
-          {loading
-            ? t('repeaterAdmin.neighbors.loading')
-            : t('repeaterAdmin.neighbors.empty')}
-        </p>
-      )}
+        ) : (
+          <>
+            <RefreshButton
+              onClick={() => void refresh()}
+              busy={loading}
+              className='absolute top-2 right-2 z-10 bg-(--surface)'
+            />
+            <p className='p-3 pr-14 text-sm text-(--text2)'>
+              {t('repeaterAdmin.neighbors.empty')}
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -780,35 +800,37 @@ function ConsoleTab({ contact }: { contact: Contact }) {
   const lines = log ?? [];
 
   return (
-    <div className='mx-auto flex h-full w-full max-w-4xl flex-col gap-3'>
-      <div className='flex justify-end'>
+    <div className='flex h-full w-full flex-col gap-3'>
+      <div className='relative flex-1 overflow-hidden rounded-lg border border-(--border) bg-(--surface)'>
         <button
           onClick={() => clearCliLog(prefix)}
           disabled={lines.length === 0}
-          className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) hover:bg-(--surface2) disabled:opacity-50'
+          aria-label={t('repeaterAdmin.console.clear')}
+          title={t('repeaterAdmin.console.clear')}
+          className='absolute top-2 right-2 z-10 rounded-md border border-(--border-control) bg-(--surface) p-1.5 text-(--text2) hover:bg-(--surface2) hover:text-(--text) disabled:opacity-50 disabled:hover:bg-(--surface) disabled:hover:text-(--text2)'
         >
-          {t('repeaterAdmin.console.clear')}
+          <Trash2 size={14} />
         </button>
-      </div>
 
-      <div className='flex-1 overflow-y-auto rounded-lg border border-(--border) bg-(--surface) p-3 font-mono text-xs'>
-        {lines.length === 0 ? (
-          <p className='text-(--text2)'>{t('repeaterAdmin.console.empty')}</p>
-        ) : (
-          lines.map((line, i) => (
-            <div
-              key={i}
-              className={
-                line.own
-                  ? 'wrap-break-word whitespace-pre-wrap text-(--accent)'
-                  : 'wrap-break-word whitespace-pre-wrap text-(--text)'
-              }
-            >
-              {line.own ? `> ${line.text}` : line.text}
-            </div>
-          ))
-        )}
-        <div ref={endRef} />
+        <div className='h-full overflow-y-auto p-3 font-mono text-xs'>
+          {lines.length === 0 ? (
+            <p className='text-(--text2)'>{t('repeaterAdmin.console.empty')}</p>
+          ) : (
+            lines.map((line, i) => (
+              <div
+                key={i}
+                className={
+                  line.own
+                    ? 'wrap-break-word whitespace-pre-wrap text-(--accent)'
+                    : 'wrap-break-word whitespace-pre-wrap text-(--text)'
+                }
+              >
+                {line.own ? `> ${line.text}` : line.text}
+              </div>
+            ))
+          )}
+          <div ref={endRef} />
+        </div>
       </div>
 
       <form
@@ -821,6 +843,7 @@ function ConsoleTab({ contact }: { contact: Contact }) {
         <input
           type='text'
           autoComplete='off'
+          aria-label={t('repeaterAdmin.console.inputLabel')}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t('repeaterAdmin.console.placeholder')}
