@@ -3,13 +3,14 @@
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { parseNeighborsReply } from '@/lib/meshcore/repeaterCli';
+import { ADV_TYPE_REPEATER } from '@/lib/meshcore/constants';
 import {
   formatAirtime,
   formatRelative,
@@ -38,9 +39,8 @@ function approxBatteryPercent(milliVolts: number): number {
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
-/** Admin tabs in display order. */
-const TABS = ['status', 'config', 'neighbors', 'console'] as const;
-type RepeaterTab = (typeof TABS)[number];
+/** All admin tabs; the visible subset is gated per session. */
+type RepeaterTab = 'status' | 'config' | 'neighbors' | 'console';
 
 /**
  * The main-window remote-admin view for a repeater or room server, shown in
@@ -81,6 +81,21 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   const login = session?.login ?? 'loggedOut';
   const authed = login === 'admin' || login === 'guest';
   const prefix = contact.pubkeyPrefix;
+
+  // Which tabs this session may see. Status is available to guests too (the
+  // firmware answers a status request for any authed client), but the CLI
+  // surfaces are admin-only: current repeater/room firmware handles remote
+  // `TXT_TYPE_CLI_DATA` only for `client->isAdmin()`, so a guest gets no reply
+  // at all. Neighbors is additionally repeater-only — a room server's
+  // `formatNeighborsReply` returns "not supported".
+  const isAdmin = login === 'admin';
+  const isRepeater = contact.advType === ADV_TYPE_REPEATER;
+  const tabs = useMemo<RepeaterTab[]>(() => {
+    const list: RepeaterTab[] = ['status', 'config'];
+    if (isAdmin && isRepeater) list.push('neighbors');
+    if (isAdmin) list.push('console');
+    return list;
+  }, [isAdmin, isRepeater]);
 
   const [tab, setTab] = useState<RepeaterTab>(() => {
     // Returning from the map picker (Set on map in the Config tab) reopens on
@@ -174,7 +189,7 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
 
       {authed ? (
         <>
-          <TabBar active={tab} onSelect={setTab} />
+          <TabBar tabs={tabs} active={tab} onSelect={setTab} />
           <div className='flex-1 overflow-y-auto p-4'>
             {tab === 'status' && (
               <StatusDashboard
@@ -234,11 +249,13 @@ function AccessChip({ access }: { access: RepeaterAccess }) {
   );
 }
 
-/** The admin tab strip. Data-driven off {@link TABS} so 7.5/7.6 extend it. */
+/** The admin tab strip. Data-driven off the caller's visible-tab list. */
 function TabBar({
+  tabs,
   active,
   onSelect,
 }: {
+  tabs: readonly RepeaterTab[];
   active: RepeaterTab;
   onSelect: (tab: RepeaterTab) => void;
 }) {
@@ -246,15 +263,15 @@ function TabBar({
   return (
     <div
       role='tablist'
-      className='flex shrink-0 gap-1 border-b border-(--border) px-3'
+      className='flex shrink-0 gap-1 overflow-x-auto border-b border-(--border) px-3'
     >
-      {TABS.map((id) => (
+      {tabs.map((id) => (
         <button
           key={id}
           role='tab'
           aria-selected={active === id}
           onClick={() => onSelect(id)}
-          className={`-mb-px border-b-2 px-3 py-2 text-sm ${
+          className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap ${
             active === id
               ? 'border-(--accent) font-medium text-(--text)'
               : 'border-transparent text-(--text2) hover:text-(--text)'
@@ -555,6 +572,14 @@ function StatusDashboard({
 }
 
 /**
+ * Prefixes with a `neighbors` read currently in flight, tracked at module scope
+ * (not per-tab) so switching away and back — which unmounts the Neighbors tab —
+ * can't queue a second read while the first is still outstanding on a slow
+ * route. Added when a read starts, removed when it settles.
+ */
+const neighborsInFlight = new Set<string>();
+
+/**
  * Resolves a neighbor's public-key prefix to a saved contact's name, matching
  * a contact whose full key (or its own stored prefix) begins with the reported
  * prefix, or vice versa — the two prefix lengths need not match. Returns `null`
@@ -607,6 +632,10 @@ function NeighborsTab({
   const setRepeaterNeighbors = useMeshStore((s) => s.setRepeaterNeighbors);
 
   const [loading, setLoading] = useState(false);
+  // Set when a read fails (timeout/disconnect). Distinct from a settled empty
+  // list so the tab can show an error (and keep any cached rows) instead of a
+  // false "no neighbors".
+  const [errored, setErrored] = useState(false);
   // The prefix whose Remove is awaiting inline confirmation, or `null`.
   const [confirming, setConfirming] = useState<string | null>(null);
   // Prefixes with a `neighbor.remove` in flight, so their row disables.
@@ -618,28 +647,43 @@ function NeighborsTab({
   const hadCache = useRef(neighbors != null);
 
   const refresh = useCallback(async () => {
+    // Skip if a read for this repeater is already outstanding (e.g. queued from
+    // a previous mount): the reply lands in the store cache regardless.
+    if (neighborsInFlight.has(prefix)) return;
+    neighborsInFlight.add(prefix);
     setLoading(true);
+    setErrored(false);
     setConfirming(null);
     try {
       const reply = await repeaterCliRequest(contact, 'neighbors');
       setRepeaterNeighbors(prefix, parseNeighborsReply(reply));
     } catch {
-      // A timeout or dropped link leaves the list empty; the empty state and
-      // the Refresh button let the user retry. The hook owns any toast.
-      setRepeaterNeighbors(prefix, []);
+      // A timeout or dropped link is an error, not "no neighbors": surface an
+      // error state and preserve any cached list rather than clearing it.
+      setErrored(true);
     } finally {
+      neighborsInFlight.delete(prefix);
       setLoading(false);
     }
   }, [contact, prefix, repeaterCliRequest, setRepeaterNeighbors]);
 
-  // Fetch once on first entry, unless a cached list is already showing. The
-  // ref guard survives StrictMode's double mount.
+  // Fetch once on first entry, unless a cached list is already showing or a
+  // read is already outstanding for this repeater. The ref guard survives
+  // StrictMode's double mount.
   useEffect(() => {
     if (fetched.current) return;
     fetched.current = true;
-    if (hadCache.current) return;
+    if (hadCache.current || neighborsInFlight.has(prefix)) return;
     void refresh();
-  }, [refresh]);
+  }, [refresh, prefix]);
+
+  // `formatRelative` reads the clock only at render, and this tab is otherwise
+  // static, so tick periodically to keep the last-heard ages current.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   // The in-flight `neighbors` request is deliberately *not* cancelled on
   // unmount. Cancelling would reject its queued CLI slot, letting the queue
@@ -667,89 +711,91 @@ function NeighborsTab({
     <div className='mx-auto w-full max-w-4xl'>
       <div className='relative overflow-hidden rounded-lg border border-(--border)'>
         {(neighbors && neighbors.length > 0) || loading ? (
-          <table className='w-full text-sm'>
-            <thead>
-              <tr className='border-b border-(--border) text-left text-xs text-(--text2)'>
-                <th className='px-3 py-2 font-medium'>
-                  {t('repeaterAdmin.neighbors.node')}
-                </th>
-                <th className='px-3 py-2 font-medium'>
-                  {t('repeaterAdmin.neighbors.lastHeard')}
-                </th>
-                <th className='px-3 py-2 font-medium'>
-                  {t('repeaterAdmin.neighbors.snr')}
-                </th>
-                <th className='px-3 py-1 text-right'>
-                  <RefreshButton
-                    onClick={() => void refresh()}
-                    busy={loading}
-                  />
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {(neighbors ?? []).map((n) => {
-                const name = resolveNeighborName(n.prefix, contacts);
-                const busy = removing.has(n.prefix);
-                return (
-                  <tr
-                    key={n.prefix}
-                    className='border-b border-(--border) last:border-0'
-                  >
-                    <td className='px-3 py-2'>
-                      {name ? (
-                        <span className='text-(--text)'>{name}</span>
-                      ) : (
-                        <span className='font-mono text-xs text-(--text2)'>
-                          {n.prefix}
-                        </span>
-                      )}
-                    </td>
-                    <td className='px-3 py-2 text-(--text2)'>
-                      {formatRelative(n.lastHeard)}
-                    </td>
-                    <td className='px-3 py-2 text-(--text2)'>
-                      {formatSnr(n.snr)}
-                    </td>
-                    <td className='px-3 py-2 text-right'>
-                      {isAdmin &&
-                        (confirming === n.prefix ? (
-                          <span className='inline-flex items-center gap-2'>
-                            <span className='text-xs text-(--text2)'>
-                              {t('repeaterAdmin.neighbors.removeConfirm')}
-                            </span>
-                            <button
-                              onClick={() => void remove(n.prefix)}
-                              disabled={busy}
-                              className='rounded-md border border-(--red) px-2 py-0.5 text-xs text-(--red) hover:bg-(--red-dim) hover:text-white disabled:opacity-50'
-                            >
-                              {t('repeaterAdmin.neighbors.confirm')}
-                            </button>
-                            <button
-                              onClick={() => setConfirming(null)}
-                              disabled={busy}
-                              className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs text-(--text2) hover:bg-(--surface2) disabled:opacity-50'
-                            >
-                              {t('repeaterAdmin.neighbors.cancel')}
-                            </button>
-                          </span>
+          <div className='overflow-x-auto'>
+            <table className='w-full text-sm'>
+              <thead>
+                <tr className='border-b border-(--border) text-left text-xs text-(--text2)'>
+                  <th className='px-3 py-2 font-medium'>
+                    {t('repeaterAdmin.neighbors.node')}
+                  </th>
+                  <th className='px-3 py-2 font-medium'>
+                    {t('repeaterAdmin.neighbors.lastHeard')}
+                  </th>
+                  <th className='px-3 py-2 font-medium'>
+                    {t('repeaterAdmin.neighbors.snr')}
+                  </th>
+                  <th className='px-3 py-1 text-right'>
+                    <RefreshButton
+                      onClick={() => void refresh()}
+                      busy={loading}
+                    />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(neighbors ?? []).map((n) => {
+                  const name = resolveNeighborName(n.prefix, contacts);
+                  const busy = removing.has(n.prefix);
+                  return (
+                    <tr
+                      key={n.prefix}
+                      className='border-b border-(--border) last:border-0'
+                    >
+                      <td className='px-3 py-2'>
+                        {name ? (
+                          <span className='text-(--text)'>{name}</span>
                         ) : (
-                          <button
-                            onClick={() => setConfirming(n.prefix)}
-                            disabled={busy}
-                            className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs text-(--text2) hover:bg-(--surface2) disabled:opacity-50'
-                          >
-                            {busy
-                              ? t('repeaterAdmin.neighbors.removing')
-                              : t('repeaterAdmin.neighbors.remove')}
-                          </button>
-                        ))}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          <span className='font-mono text-xs text-(--text2)'>
+                            {n.prefix}
+                          </span>
+                        )}
+                      </td>
+                      <td className='px-3 py-2 text-(--text2)'>
+                        {formatRelative(n.lastHeard)}
+                      </td>
+                      <td className='px-3 py-2 text-(--text2)'>
+                        {formatSnr(n.snr)}
+                      </td>
+                      <td className='px-3 py-2 text-right'>
+                        {isAdmin &&
+                          (confirming === n.prefix ? (
+                            <span className='inline-flex items-center gap-2'>
+                              <span className='text-xs whitespace-nowrap text-(--text2)'>
+                                {t('repeaterAdmin.neighbors.removeConfirm')}
+                              </span>
+                              <button
+                                onClick={() => void remove(n.prefix)}
+                                disabled={busy}
+                                className='rounded-md border border-(--red) px-2 py-0.5 text-xs text-(--red) hover:bg-(--red-dim) hover:text-white disabled:opacity-50'
+                              >
+                                {t('repeaterAdmin.neighbors.confirm')}
+                              </button>
+                              <button
+                                onClick={() => setConfirming(null)}
+                                disabled={busy}
+                                className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs text-(--text2) hover:bg-(--surface2) disabled:opacity-50'
+                              >
+                                {t('repeaterAdmin.neighbors.cancel')}
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setConfirming(n.prefix)}
+                              disabled={busy}
+                              className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs whitespace-nowrap text-(--text2) hover:bg-(--surface2) disabled:opacity-50'
+                            >
+                              {busy
+                                ? t('repeaterAdmin.neighbors.removing')
+                                : t('repeaterAdmin.neighbors.remove')}
+                            </button>
+                          ))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <>
             <RefreshButton
@@ -758,7 +804,9 @@ function NeighborsTab({
               className='absolute top-2 right-2 z-10 bg-(--surface)'
             />
             <p className='p-3 pr-14 text-sm text-(--text2)'>
-              {t('repeaterAdmin.neighbors.empty')}
+              {errored
+                ? t('repeaterAdmin.neighbors.error')
+                : t('repeaterAdmin.neighbors.empty')}
             </p>
           </>
         )}

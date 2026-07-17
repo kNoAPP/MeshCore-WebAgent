@@ -552,6 +552,7 @@
       "lastHeard": "Escuchado por última vez",
       "snr": "SNR",
       "empty": "No se han escuchado vecinos recientemente.",
+      "error": "No se pudieron cargar los vecinos. Intenta actualizar.",
       "remove": "Eliminar",
       "removing": "Eliminando…",
       "removeConfirm": "¿Eliminar?",

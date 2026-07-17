@@ -552,6 +552,7 @@
       "lastHeard": "Last heard",
       "snr": "SNR",
       "empty": "No neighbors heard recently.",
+      "error": "Couldn't load neighbors. Try refreshing.",
       "remove": "Remove",
       "removing": "Removing…",
       "removeConfirm": "Remove?",

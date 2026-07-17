@@ -552,6 +552,7 @@
       "lastHeard": "Entendu pour la dernière fois",
       "snr": "SNR",
       "empty": "Aucun voisin entendu récemment.",
+      "error": "Impossible de charger les voisins. Essayez d’actualiser.",
       "remove": "Supprimer",
       "removing": "Suppression…",
       "removeConfirm": "Supprimer ?",
