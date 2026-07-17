@@ -24,6 +24,20 @@ export interface MapNode {
   favorite: boolean;
 }
 
+/**
+ * A link drawn between two located nodes, with an optional label rendered as a
+ * permanent tooltip at the line's midpoint (e.g. a repeater→neighbor edge
+ * labeled with its link SNR). Endpoints are decimal degrees.
+ */
+export interface MapEdge {
+  /** Stable key, distinct across the plotted edge set. */
+  key: string;
+  from: [number, number];
+  to: [number, number];
+  /** Midpoint label, already localized/formatted by the caller. */
+  label?: string;
+}
+
 /** Decimal-degree coordinates of a node with a fix, or `null` if unset. */
 type DegCoords = { lat: number; lon: number } | null;
 
@@ -116,4 +130,91 @@ export function collectMapNodes(
   }
 
   return nodes;
+}
+
+/**
+ * The administered repeater's own advertised position as an anchor map node,
+ * or `null` when it reports no fix. Plotted with its normal category style (a
+ * red repeater circle) so the Neighbors map can radiate SNR links from it.
+ */
+export function repeaterAnchorNode(contact: Contact): MapNode | null {
+  const coords = contactCoords(contact.advLat, contact.advLon);
+  if (!coords) return null;
+  return {
+    key: contact.pubkeyPrefix,
+    pubkeyPrefix: contact.pubkeyPrefix,
+    name: contact.name || contact.pubkeyPrefix.slice(0, 8),
+    advType: contact.advType,
+    lat: coords.lat,
+    lon: coords.lon,
+    kind: 'contact',
+    favorite: (contact.flags & FAVORITE_FLAG) !== 0,
+  };
+}
+
+/**
+ * Whether a neighbor's `neighbors`-reply prefix identifies a stored node. The
+ * neighbor prefix (8 hex, 4 bytes) is shorter than a stored contact/advert
+ * prefix (12 hex), so a match is a stored key that begins with it; the reverse
+ * (`prefix.startsWith(keyPrefix)`) is kept so an unusually short stored prefix
+ * still resolves. Comparison is case-insensitive.
+ */
+function neighborPrefixMatches(
+  prefix: string,
+  pubkey: string,
+  keyPrefix: string,
+): boolean {
+  const lower = prefix.toLowerCase();
+  const key = pubkey.toLowerCase();
+  const kp = keyPrefix.toLowerCase();
+  return key.startsWith(lower) || kp.startsWith(lower) || lower.startsWith(kp);
+}
+
+/**
+ * Resolves a neighbor's public-key prefix (from a `neighbors` reply) to a
+ * located map node, matching saved contacts first — a contact opens its manage
+ * panel — then the advert cache. Returns `null` when no corresponding node has
+ * a GPS fix, so the caller keeps that neighbor in the table rather than
+ * dropping it. See {@link neighborPrefixMatches} for the prefix rule.
+ */
+export function locateNeighborNode(
+  prefix: string,
+  contacts: Record<string, Contact>,
+  adverts: Record<string, Advert>,
+): MapNode | null {
+  for (const contact of Object.values(contacts)) {
+    if (!neighborPrefixMatches(prefix, contact.pubkey, contact.pubkeyPrefix)) {
+      continue;
+    }
+    const coords = contactCoords(contact.advLat, contact.advLon);
+    if (!coords) return null;
+    return {
+      key: contact.pubkeyPrefix,
+      pubkeyPrefix: contact.pubkeyPrefix,
+      name: contact.name || contact.pubkeyPrefix.slice(0, 8),
+      advType: contact.advType,
+      lat: coords.lat,
+      lon: coords.lon,
+      kind: 'contact',
+      favorite: (contact.flags & FAVORITE_FLAG) !== 0,
+    };
+  }
+  for (const advert of Object.values(adverts)) {
+    if (!neighborPrefixMatches(prefix, advert.pubkey, advert.pubkeyPrefix)) {
+      continue;
+    }
+    const coords = contactCoords(advert.advLat, advert.advLon);
+    if (!coords) return null;
+    return {
+      key: advert.pubkeyPrefix,
+      pubkeyPrefix: advert.pubkeyPrefix,
+      name: advert.name || advert.pubkeyPrefix.slice(0, 8),
+      advType: advert.advType,
+      lat: coords.lat,
+      lon: coords.lon,
+      kind: 'advert',
+      favorite: false,
+    };
+  }
+  return null;
 }

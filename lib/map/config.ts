@@ -41,6 +41,24 @@ export const MAX_MAP_MARKERS = 2000;
 export const MAP_MARKER_SIZE_PX = 16;
 
 /**
+ * Stroke weight, in pixels, of a link polyline (e.g. a repeater→neighbor edge
+ * on the Neighbors map). The line's color follows the theme via the
+ * `.meshcore-edge` rule in `app/globals.css`.
+ */
+export const MAP_EDGE_WEIGHT = 2.5;
+
+/** Opacity of a link polyline, softened so it reads under its node markers. */
+export const MAP_EDGE_OPACITY = 0.8;
+
+/**
+ * The opening viewport for a Leaflet map: either a fixed `center`/`zoom`, or a
+ * set of `bounds` (one `[lat, lon]` per node) to frame with
+ * {@link https://leafletjs.com/reference.html#map-fitbounds | fitBounds}.
+ */
+export type StartView =
+  { center: [number, number]; zoom: number } | { bounds: [number, number][] };
+
+/**
  * Persisted, user-tunable map state. `center`/`zoom` restore the last viewport.
  */
 export interface MapPrefs {
