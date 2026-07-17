@@ -27,6 +27,7 @@ import type {
   AuditEntry,
 } from '@/types/automation';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
+import type { Neighbor } from '@/lib/meshcore/repeaterCli';
 import { convoId } from '@/lib/utils';
 import i18n from '@/lib/i18n';
 import {
@@ -222,6 +223,13 @@ export interface AdminSession {
    * clears on disconnect.
    */
   config?: Record<string, string>;
+  /**
+   * Cache of the repeater's last-read neighbors list. Ephemeral (part of the
+   * session), so the Neighbors tab stays populated when the user navigates
+   * away and back without re-reading, and clears on disconnect. `undefined`
+   * until the first read; an empty array is a settled "no neighbors" result.
+   */
+  neighbors?: Neighbor[];
 }
 
 interface MeshState {
@@ -450,6 +458,8 @@ interface MeshActions {
   setAdminLogin: (prefix: string, login: AdminLoginState) => void;
   /** Stores the latest decoded status for a repeater's admin session. */
   setRepeaterStatus: (prefix: string, status: RepeaterStatus) => void;
+  /** Caches the last-read neighbors list for a repeater's admin session. */
+  setRepeaterNeighbors: (prefix: string, neighbors: Neighbor[]) => void;
   /** Merges loaded/confirmed Config values into a repeater's session cache. */
   mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
@@ -788,6 +798,20 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       adminSessions: {
         ...adminSessions,
         [prefix]: { ...session, status },
+      },
+    });
+  },
+  setRepeaterNeighbors: (prefix, neighbors) => {
+    const { adminSessions } = get();
+    const session = adminSessions[prefix];
+    // Neighbors belong to a live, authenticated session. Drop a late reply
+    // that lands after log-out or before login completes, matching
+    // setRepeaterStatus, so it can't resurrect a logged-out session.
+    if (session?.login !== 'admin' && session?.login !== 'guest') return;
+    set({
+      adminSessions: {
+        ...adminSessions,
+        [prefix]: { ...session, neighbors },
       },
     });
   },
