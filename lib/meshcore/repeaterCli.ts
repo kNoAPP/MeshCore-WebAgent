@@ -45,14 +45,16 @@ export interface Neighbor {
  * recover dB, and the seconds-ago field is converted to an absolute epoch.
  *
  * @remarks
- * Parses the whole reply as one block. The firmware caps the entire reply at
- * under 134 bytes (`formatNeighborsReply`), well inside the 160-byte message
- * limit, so the list always arrives in a single `onCliReply` frame — there is
- * nothing to accumulate across frames. Strict by design: only a line matching
- * the exact three-field grammar — an 8-hex prefix, a `uint32` age, and an
- * `int8` SNR (all in range) — yields a row, so the firmware's `-none-`
- * sentinel, an error reply, or any malformed/truncated line is skipped rather
- * than surfacing a bogus (and potentially over-broad) neighbor. The leading
+ * Parses the whole reply as one block. The firmware stops appending rows once
+ * the reply reaches 134 bytes (it checks `dp - reply < 134` before each row in
+ * `formatNeighborsReply`), so one final row can carry it to roughly 159 bytes —
+ * still within the 160-byte message limit, so the list always arrives in a
+ * single `onCliReply` frame and there is nothing to accumulate across frames.
+ * Strict by design: only a line matching the exact three-field grammar — an
+ * 8-hex prefix, a `uint32` age, and an `int8` SNR (all in range) — yields a
+ * row, so the firmware's `-none-` sentinel, an error reply, or any
+ * malformed/truncated line is skipped rather than surfacing a bogus (and
+ * potentially over-broad) neighbor. The leading
  * `"> "` CLI prompt is stripped before parsing.
  */
 export function parseNeighborsReply(text: string): Neighbor[] {

@@ -1266,6 +1266,13 @@ export function useMeshCore() {
   const repeaterCliRequest = useCallback(
     (contact: Contact, cmd: string): Promise<string> => {
       const prefix = contact.pubkeyPrefix;
+      // Capture the session identity at enqueue time so a command can be tied
+      // to the exact login it was issued under, not merely "some authed
+      // session". A logout + re-login (even as a guest, which firmware may
+      // still treat as admin via a retained ACL) mints a new token, so a write
+      // queued under the old session is rejected rather than transmitted.
+      const enqueuedToken =
+        useMeshStore.getState().adminSessions[prefix]?.token;
       return enqueueCli(prefix, () => {
         // Re-checked inside the queue: the link can drop while queued behind an
         // earlier command's full round trip.
@@ -1277,9 +1284,15 @@ export function useMeshCore() {
         // Also re-check the admin session: logging out clears it *without*
         // disconnecting the radio, so a command still queued behind a slow
         // reply must not transmit afterwards — that would let a write (e.g.
-        // `reboot`) fire from a session the user already ended.
-        const login = useMeshStore.getState().adminSessions[prefix]?.login;
-        if (login !== 'admin' && login !== 'guest') {
+        // `reboot`) fire from a session the user already ended. The token must
+        // still match the session captured at enqueue, so a reset-then-re-login
+        // can't inherit a stale command either.
+        const session = useMeshStore.getState().adminSessions[prefix];
+        if (
+          !session ||
+          (session.login !== 'admin' && session.login !== 'guest') ||
+          session.token !== enqueuedToken
+        ) {
           return Promise.reject(
             new Error(i18n.t('repeaterAdmin.cli.loggedOut')),
           );

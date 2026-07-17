@@ -55,6 +55,14 @@ const AUDIT_LOG_LIMIT = 200;
 /** Cap on a per-repeater CLI transcript, oldest lines dropped past it. */
 const CLI_LOG_LIMIT = 200;
 
+/**
+ * Monotonic source of {@link AdminSession.token} values. Each newly created
+ * session gets a fresh token so a queued CLI command can tell whether the
+ * session it was enqueued under is still the current one.
+ */
+let adminSessionSeq = 0;
+const nextAdminSessionToken = (): number => ++adminSessionSeq;
+
 const DEFAULT_AUTOADD_CONFIG: AutoAddConfig = {
   mode: 'all',
   chat: true,
@@ -214,6 +222,15 @@ export interface CliLine {
  */
 export interface AdminSession {
   login: AdminLoginState;
+  /**
+   * Unique per-instance token, assigned when the session is created and
+   * preserved across all its later mutations (status/CLI/config/neighbors).
+   * Lets a queued CLI command detect that the session it was enqueued under has
+   * since been reset (logout) or replaced by a re-login — so a stale command
+   * (e.g. a write queued before logout) is rejected instead of transmitting
+   * from a different session.
+   */
+  token: number;
   status?: RepeaterStatus;
   cli: CliLine[];
   /**
@@ -778,7 +795,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setAdminLogin: (prefix, login) =>
     set((state) => {
-      const session = state.adminSessions[prefix] ?? { login, cli: [] };
+      const session = state.adminSessions[prefix] ?? {
+        login,
+        cli: [],
+        token: nextAdminSessionToken(),
+      };
       return {
         adminSessions: {
           ...state.adminSessions,
@@ -820,6 +841,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       const session = state.adminSessions[prefix] ?? {
         login: 'loggedOut',
         cli: [],
+        token: nextAdminSessionToken(),
       };
       return {
         adminSessions: {
@@ -836,6 +858,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       const session = state.adminSessions[prefix] ?? {
         login: 'loggedOut',
         cli: [],
+        token: nextAdminSessionToken(),
       };
       return {
         adminSessions: {
