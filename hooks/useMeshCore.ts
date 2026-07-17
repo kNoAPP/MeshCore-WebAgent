@@ -80,11 +80,14 @@ interface EchoWindow {
 // The single CLI request outstanding for one repeater, resolved (or timed out)
 // when its reply arrives via onCliReply. reject fires on timeout or session
 // teardown. `timer` is armed only after the send is acked, so it may be unset
-// while the send is still in flight.
+// while the send is still in flight. `token` is the admin-session token this
+// command was sent under, so a reply arriving after a logout/re-login can be
+// kept out of the new session's transcript.
 interface CliWaiter {
   resolve: (text: string) => void;
   reject: (err: Error) => void;
   timer?: ReturnType<typeof setTimeout>;
+  token: number | undefined;
 }
 
 // The repeater accepted the send but never answered. Distinct from a send
@@ -626,12 +629,26 @@ export function useMeshCore() {
           // A queued frame can fire this after teardown; skip it so a late
           // reply can't recreate adminSessions that reset() just cleared.
           if (!canTransmit(c)) return;
-          appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
+          const waiter = takeCliWaiter(pubkeyPrefix);
+          const currentToken =
+            useMeshStore.getState().adminSessions[pubkeyPrefix]?.token;
+          // Append to the transcript only when the reply belongs to the current
+          // session. A waiter carries the token of the session that issued the
+          // command, so a reply to a command from a session that has since
+          // ended — logout leaves the transport connected — is dropped from the
+          // new session's transcript. A reply with no waiter (unsolicited, or
+          // late after a timeout) is shown only while some session is active.
+          const belongsToCurrent = waiter
+            ? waiter.token === currentToken
+            : currentToken != null;
+          if (belongsToCurrent) {
+            appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
+          }
           // Replies carry no correlation id, so this one answers the single
           // command outstanding for this repeater (enqueueCli guarantees there
-          // is at most one). A reply with nothing waiting — unsolicited, or
-          // late for a request that already timed out — is transcript-only.
-          takeCliWaiter(pubkeyPrefix)?.resolve(text);
+          // is at most one). The stale waiter is still resolved so its queued
+          // slot drains, even when its reply was dropped from the transcript.
+          waiter?.resolve(text);
         },
         onAdvertsUpdated: (adverts) => {
           const next = { ...adverts };
@@ -1302,7 +1319,10 @@ export function useMeshCore() {
         const line = truncateUtf8(cmd, MAX_MSG_BYTES);
         appendCliLine(prefix, { own: true, text: line, ts: Date.now() });
         return new Promise<string>((resolve, reject) => {
-          const waiter: CliWaiter = { resolve, reject };
+          // Tag the waiter with the session it was sent under, so a reply that
+          // lands after a logout/re-login is dropped from the new session's
+          // transcript (see onCliReply).
+          const waiter: CliWaiter = { resolve, reject, token: enqueuedToken };
           // Register *before* sending so a reply that beats the SENT/OK ack
           // still lands. Arm the reply timeout only once the send is acked, so
           // it measures the reply round trip, not time spent queued in the
