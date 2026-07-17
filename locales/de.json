@@ -545,6 +545,7 @@
     "cli": {
       "timedOut": "keine Antwort vom Knoten",
       "disconnected": "nicht verbunden",
+      "loggedOut": "abgemeldet",
       "superseded": "abgebrochen"
     },
     "neighbors": {

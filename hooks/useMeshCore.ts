@@ -1274,6 +1274,16 @@ export function useMeshCore() {
             new Error(i18n.t('repeaterAdmin.cli.disconnected')),
           );
         }
+        // Also re-check the admin session: logging out clears it *without*
+        // disconnecting the radio, so a command still queued behind a slow
+        // reply must not transmit afterwards — that would let a write (e.g.
+        // `reboot`) fire from a session the user already ended.
+        const login = useMeshStore.getState().adminSessions[prefix]?.login;
+        if (login !== 'admin' && login !== 'guest') {
+          return Promise.reject(
+            new Error(i18n.t('repeaterAdmin.cli.loggedOut')),
+          );
+        }
         // `sendCliCommand` truncates to MAX_MSG_BYTES UTF-8 bytes, so normalize
         // once and echo exactly what the repeater will receive.
         const line = truncateUtf8(cmd, MAX_MSG_BYTES);

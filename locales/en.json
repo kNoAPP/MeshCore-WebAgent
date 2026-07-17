@@ -545,6 +545,7 @@
     "cli": {
       "timedOut": "no reply from the node",
       "disconnected": "not connected",
+      "loggedOut": "logged out",
       "superseded": "cancelled"
     },
     "neighbors": {

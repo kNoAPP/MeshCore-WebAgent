@@ -545,6 +545,7 @@
     "cli": {
       "timedOut": "aucune réponse du nœud",
       "disconnected": "non connecté",
+      "loggedOut": "déconnecté",
       "superseded": "annulé"
     },
     "neighbors": {

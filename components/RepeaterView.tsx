@@ -724,7 +724,13 @@ function NeighborsTab({
       next.delete(neighborPrefix);
       return next;
     });
-    if (ok) await refresh();
+    // Only refresh if still an admin session. Removal is admin-only, and
+    // logging out mid-request (which leaves the transport connected) must not
+    // let the follow-up `neighbors` read fire from an ended session. A plain
+    // tab switch keeps the session, so the shared cache still refreshes.
+    const stillAdmin =
+      useMeshStore.getState().adminSessions[prefix]?.login === 'admin';
+    if (ok && stillAdmin) await refresh();
   };
 
   return (
