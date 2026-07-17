@@ -549,16 +549,11 @@
       "superseded": "annulé"
     },
     "neighbors": {
-      "node": "Nœud",
-      "lastHeard": "Entendu pour la dernière fois",
-      "snr": "SNR",
       "empty": "Aucun voisin entendu récemment.",
       "error": "Impossible de charger les voisins. Essayez d’actualiser.",
-      "remove": "Supprimer",
-      "removing": "Suppression…",
-      "removeConfirm": "Supprimer ?",
-      "confirm": "Supprimer",
-      "cancel": "Annuler"
+      "loading": "Chargement des voisins…",
+      "noLocation": "Des voisins ont été entendus, mais aucun n’a pu être placé sur la carte — aucun emplacement connu.",
+      "noAnchor": "Ce répéteur n’a pas d’emplacement annoncé, ses voisins ne peuvent donc pas être affichés sur la carte."
     },
     "console": {
       "empty": "Aucune sortie pour l’instant. Envoyez une commande pour commencer.",

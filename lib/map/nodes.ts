@@ -24,6 +24,20 @@ export interface MapNode {
   favorite: boolean;
 }
 
+/**
+ * A link drawn between two located nodes, with an optional label rendered as a
+ * permanent tooltip at the line's midpoint (e.g. a repeater→neighbor edge
+ * labeled with its link SNR). Endpoints are decimal degrees.
+ */
+export interface MapEdge {
+  /** Stable key, distinct across the plotted edge set. */
+  key: string;
+  from: [number, number];
+  to: [number, number];
+  /** Midpoint label, already localized/formatted by the caller. */
+  label?: string;
+}
+
 /** Decimal-degree coordinates of a node with a fix, or `null` if unset. */
 type DegCoords = { lat: number; lon: number } | null;
 
@@ -116,4 +130,106 @@ export function collectMapNodes(
   }
 
   return nodes;
+}
+
+/**
+ * The administered repeater's own advertised position as an anchor map node,
+ * or `null` when it reports no fix. Plotted with its normal category style (a
+ * red repeater circle) so the Neighbors map can radiate SNR links from it.
+ */
+export function repeaterAnchorNode(contact: Contact): MapNode | null {
+  const coords = contactCoords(contact.advLat, contact.advLon);
+  if (!coords) return null;
+  return {
+    key: contact.pubkeyPrefix,
+    pubkeyPrefix: contact.pubkeyPrefix,
+    name: contact.name || contact.pubkeyPrefix.slice(0, 8),
+    advType: contact.advType,
+    lat: coords.lat,
+    lon: coords.lon,
+    kind: 'contact',
+    favorite: (contact.flags & FAVORITE_FLAG) !== 0,
+  };
+}
+
+/**
+ * Whether a neighbor's `neighbors`-reply prefix identifies a stored node. The
+ * neighbor prefix (8 hex, 4 bytes) is shorter than a stored contact/advert
+ * prefix (12 hex), so a match is a stored key that begins with it; the reverse
+ * (`prefix.startsWith(keyPrefix)`) is kept so an unusually short stored prefix
+ * still resolves. Comparison is case-insensitive.
+ */
+function neighborPrefixMatches(
+  prefix: string,
+  pubkey: string,
+  keyPrefix: string,
+): boolean {
+  const lower = prefix.toLowerCase();
+  const key = pubkey.toLowerCase();
+  const kp = keyPrefix.toLowerCase();
+  return key.startsWith(lower) || kp.startsWith(lower) || lower.startsWith(kp);
+}
+
+/**
+ * Resolves a neighbor's public-key prefix (from a `neighbors` reply) to a
+ * located map node, matching saved contacts first — a contact opens its manage
+ * panel — then the advert cache. A matched contact prefers its own fix but
+ * falls back to a cached advert fix for the *same* node, matched by the
+ * contact's full public key (not the shorter neighbor prefix) so a 4-byte
+ * prefix collision can't lend another node's coordinates; it stays a `contact`
+ * node either way. Returns `null` when no corresponding node has a GPS fix, so
+ * the caller keeps that neighbor out of the map. See
+ * {@link neighborPrefixMatches} for the prefix rule.
+ */
+export function locateNeighborNode(
+  prefix: string,
+  contacts: Record<string, Contact>,
+  adverts: Record<string, Advert>,
+): MapNode | null {
+  const contact = Object.values(contacts).find((c) =>
+    neighborPrefixMatches(prefix, c.pubkey, c.pubkeyPrefix),
+  );
+  if (contact) {
+    // Back up an unlocated contact only with an advert for the exact same node
+    // (full-key match), never one merely sharing the 4-byte neighbor prefix.
+    const cached = Object.values(adverts).find(
+      (a) => a.pubkey.toLowerCase() === contact.pubkey.toLowerCase(),
+    );
+    const coords =
+      contactCoords(contact.advLat, contact.advLon) ??
+      (cached ? contactCoords(cached.advLat, cached.advLon) : null);
+    if (!coords) return null;
+    return {
+      key: contact.pubkeyPrefix,
+      pubkeyPrefix: contact.pubkeyPrefix,
+      name: contact.name || contact.pubkeyPrefix.slice(0, 8),
+      advType: contact.advType,
+      lat: coords.lat,
+      lon: coords.lon,
+      kind: 'contact',
+      favorite: (contact.flags & FAVORITE_FLAG) !== 0,
+    };
+  }
+
+  // No saved contact: locate via the advert cache, matched by the neighbor
+  // prefix.
+  const advert = Object.values(adverts).find((a) =>
+    neighborPrefixMatches(prefix, a.pubkey, a.pubkeyPrefix),
+  );
+  if (advert) {
+    const coords = contactCoords(advert.advLat, advert.advLon);
+    if (!coords) return null;
+    return {
+      key: advert.pubkeyPrefix,
+      pubkeyPrefix: advert.pubkeyPrefix,
+      name: advert.name || advert.pubkeyPrefix.slice(0, 8),
+      advType: advert.advType,
+      lat: coords.lat,
+      lon: coords.lon,
+      kind: 'advert',
+      favorite: false,
+    };
+  }
+
+  return null;
 }

@@ -6,75 +6,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { useMeshStore } from '@/store/meshStore';
 import { collectMapNodes, selfMapNode, type MapNode } from '@/lib/map/nodes';
 import {
   DEFAULT_MAP_PREFS,
   MAP_MARKER_SIZE_PX,
   MAX_MAP_MARKERS,
-  TILE_ATTRIBUTION,
-  TILE_URLS,
   type MapPrefs,
+  type StartView,
 } from '@/lib/map/config';
-import {
-  FAVORITE_OUTLINE,
-  FAVORITE_OUTLINE_WIDTH,
-  LEGEND_CATEGORIES,
-  MARKER_STYLES,
-  markerStyle,
-  shapeSvg,
-} from '@/lib/map/markers';
-
-/**
- * The single-world extent, in decimal degrees. Longitude spans the full globe;
- * latitude is clamped to the Web Mercator limit (±85.05113°) so the bounds line
- * up exactly with the tile grid's top and bottom edges — no blank strip at the
- * poles.
- */
-const WORLD_BOUNDS: L.LatLngBoundsExpression = [
-  [-85.05112878, -180],
-  [85.05112878, 180],
-];
-
-/** Escapes a string for safe insertion into marker/tooltip HTML. */
-function escapeHtml(value: string): string {
-  return value.replace(
-    /[&<>"']/g,
-    (c) =>
-      ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-      })[c] as string,
-  );
-}
-
-/**
- * Builds a `divIcon` for a node — category shape/color, self ringed, and a
- * gold border on favorited contacts.
- */
-function nodeIcon(node: MapNode): L.DivIcon {
-  const { shape, color } = markerStyle(node.advType);
-  const cls =
-    node.kind === 'self'
-      ? 'map-marker map-marker-self'
-      : node.kind === 'advert'
-        ? 'map-marker map-marker-cached'
-        : 'map-marker';
-  const size = MAP_MARKER_SIZE_PX;
-  const svg = node.favorite
-    ? shapeSvg(shape, color, size, FAVORITE_OUTLINE, FAVORITE_OUTLINE_WIDTH)
-    : shapeSvg(shape, color, size);
-  return L.divIcon({
-    html: `<div class="${cls}" style="width:${size}px;height:${size}px">${svg}</div>`,
-    className: '',
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
-}
+import { BaseLeafletMap } from './BaseLeafletMap';
+import { MapLegend } from './MapLegend';
 
 /**
  * A draggable pin used only in location-pick mode: a filled accent circle with
@@ -89,13 +31,6 @@ function pickIcon(): L.DivIcon {
     iconAnchor: [size / 2, size / 2],
   });
 }
-
-/**
- * The opening viewport: either a fixed `center`/`zoom`, or a set of `bounds`
- * (one `[lat, lon]` per node) to frame with {@link L.Map.fitBounds}.
- */
-type StartView =
-  { center: [number, number]; zoom: number } | { bounds: [number, number][] };
 
 /**
  * Picks the starting viewport: the persisted center/zoom if the user has panned
@@ -131,31 +66,21 @@ export function MapView() {
     [contacts, advertCache, self?.pubkeyPrefix],
   );
 
-  return <LeafletMap self={self} nodes={nodes} />;
+  return <MapPage self={self} nodes={nodes} />;
 }
 
-/** The interactive Leaflet map; this node's marker shows when located. */
-function LeafletMap({
-  self,
-  nodes,
-}: {
-  self: MapNode | null;
-  nodes: MapNode[];
-}) {
+/**
+ * The Map page: composes {@link BaseLeafletMap} with the page-specific
+ * concerns — viewport persistence, the favorites-only filter, the marker cap,
+ * location-pick mode, and the legend. This node's marker shows when located.
+ */
+function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   const { t } = useTranslation();
-  const theme = useMeshStore((s) => s.theme);
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const markerLayerRef = useRef<L.LayerGroup | null>(null);
-  // Signature of the currently plotted markers; lets the marker effect skip a
-  // rebuild when nothing changed. Reset whenever the layer is (re)created so a
-  // fresh, empty layer is always repopulated (e.g. StrictMode's remount).
-  const markerSigRef = useRef<string>('');
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
-  // When set (from Settings' Location card), the map runs in location-pick
-  // mode: a confirm/cancel banner and a draggable click-to-place pin.
   const mapPicking = useMeshStore((s) => s.mapPicking);
+
+  // The Leaflet map, once created — needed to wire location-pick mode against
+  // it. Held in state so the pick effect re-runs when the map (re)mounts.
+  const [map, setMap] = useState<L.Map | null>(null);
   const pickMarkerRef = useRef<L.Marker | null>(null);
   // Latest self, read imperatively when entering pick mode. Keeping it out of
   // the pick effect's deps means a mid-pick reconnect (which hands us a new
@@ -185,126 +110,19 @@ function LeafletMap({
     [nodes, favoritesOnly],
   );
 
-  // Create the map once. The persist-on-move handler reads live store state via
-  // getState(), so the effect needs no reactive deps.
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const map = L.map(containerRef.current, {
-      // Lock to a single world so markers (which Leaflet renders only on the
-      // primary copy) can't disagree with a basemap repeated at low zoom. The
-      // opening viewport is applied below, once the min zoom is known.
-      maxBounds: WORLD_BOUNDS,
-      maxBoundsViscosity: 1,
-    });
-    mapRef.current = map;
-
-    // Never let the viewport show blank space around the world: the minimum
-    // zoom is the smallest level at which the world still covers the whole
-    // container, recomputed whenever the container resizes.
-    const clampMinZoom = () => {
-      map.setMinZoom(map.getBoundsZoom(WORLD_BOUNDS, true));
-    };
-    clampMinZoom();
-    map.on('resize', clampMinZoom);
-
-    // Apply the opening viewport now, before the persist handler is wired, so
-    // this programmatic move never writes prefs for a user who hasn't panned.
-    // The `bounds` case frames every located node; `maxZoom` keeps a single
-    // node (or a tight cluster) from slamming all the way to street level.
-    if ('bounds' in startView) {
-      map.fitBounds(startView.bounds, { padding: [40, 40], maxZoom: 13 });
-    } else {
-      map.setView(startView.center, startView.zoom);
-    }
-
-    markerLayerRef.current = L.layerGroup().addTo(map);
-    // A brand-new, empty layer: force the next marker effect to rebuild rather
-    // than short-circuit on a signature left over from the previous layer.
-    markerSigRef.current = '';
-
-    // `noWrap` keeps the basemap to one world (matching the bounded view);
-    // `detectRetina` swaps in `@2x` tiles (via the `{r}` token) on hi-DPI
-    // displays so labels stay crisp under the app's 1.25 CSS zoom.
-    tileLayerRef.current = L.tileLayer(
-      TILE_URLS[useMeshStore.getState().theme],
-      {
-        attribution: TILE_ATTRIBUTION,
-        subdomains: 'abcd',
-        maxZoom: 20,
-        noWrap: true,
-        detectRetina: true,
-      },
-    ).addTo(map);
-
-    const persist = () => {
-      const c = map.getCenter();
-      useMeshStore.getState().setMapPrefs({
-        center: [c.lat, c.lng],
-        zoom: map.getZoom(),
-      });
-    };
-    map.on('moveend', persist);
-
-    return () => {
-      map.off('moveend', persist);
-      map.off('resize', clampMinZoom);
-      map.remove();
-      mapRef.current = null;
-      markerLayerRef.current = null;
-      tileLayerRef.current = null;
-    };
-  }, [startView]);
-
-  // Point the single tile layer at the active theme's CARTO style; light/dark
-  // just swaps the URL template, avoiding a remove/re-add flash.
-  useEffect(() => {
-    tileLayerRef.current?.setUrl(TILE_URLS[theme]);
-  }, [theme]);
-
-  // Rebuild markers when the plotted node set changes. The advert cache can
-  // hold thousands of nodes and refresh several times a second on a busy mesh,
-  // so skip the (up to MAX_MAP_MARKERS) DOM rebuild when nothing actually
-  // plotted changed — a refresh that only bumps `lastHeard`, or touches an
-  // off-map/over-cap node, moves no marker and must not churn the layer.
-  useEffect(() => {
-    const layer = markerLayerRef.current;
-    if (!layer) return;
-    const all = self ? [self, ...visible] : visible;
-    const rendered = all.slice(0, MAX_MAP_MARKERS);
-    const sig = rendered
-      .map(
-        (n) =>
-          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.name}`,
-      )
-      .join('|');
-    // `t` (locale) drives the self tooltip and `mapPicking` gates click wiring,
-    // so both belong in the signature that decides whether a rebuild is needed.
-    const fullSig = `${mapPicking ? 'pick' : ''}|${t('map.self')}|${sig}`;
-    if (fullSig === markerSigRef.current) return;
-    markerSigRef.current = fullSig;
-
-    layer.clearLayers();
-    for (const node of rendered) {
-      const marker = L.marker([node.lat, node.lon], { icon: nodeIcon(node) });
-      const label =
-        node.kind === 'self' ? t('map.self') : escapeHtml(node.name);
-      marker.bindTooltip(label, { direction: 'top' });
-      if ((node.kind === 'contact' || node.kind === 'advert') && !mapPicking) {
-        const kind = node.kind;
-        const id = node.pubkeyPrefix;
-        marker.on('click', () =>
-          useMeshStore.getState().setManagePanel({ kind, id }),
-        );
-      }
-      marker.addTo(layer);
-    }
-  }, [self, visible, t, mapPicking]);
+  const total = visible.length + (self ? 1 : 0);
+  const capped = total > MAX_MAP_MARKERS;
+  // Self first so it survives the cap, then the visible set, trimmed to the
+  // DOM-node budget the base map plots.
+  const plotted = useMemo(
+    () => (self ? [self, ...visible] : visible).slice(0, MAX_MAP_MARKERS),
+    [self, visible],
+  );
 
   // Location-pick mode: place/move a draggable pin on map clicks and pre-seed
   // it at this node's advertised location (if any). Wired only while picking so
   // normal map clicks stay inert otherwise.
   useEffect(() => {
-    const map = mapRef.current;
     if (!map || !mapPicking) return;
 
     const place = (lat: number, lon: number) => {
@@ -341,14 +159,29 @@ function LeafletMap({
       pickMarkerRef.current = null;
       setPickedPoint(null);
     };
-  }, [mapPicking]);
-
-  const total = visible.length + (self ? 1 : 0);
-  const capped = total > MAX_MAP_MARKERS;
+  }, [map, mapPicking]);
 
   return (
-    <div className='meshcore-map relative isolate flex-1'>
-      <div ref={containerRef} className='absolute inset-0' />
+    <BaseLeafletMap
+      nodes={plotted}
+      startView={startView}
+      onNodeClick={
+        mapPicking
+          ? undefined
+          : (node) => {
+              // Self is never clickable; the base map only invokes this for
+              // contact/advert markers.
+              if (node.kind === 'self') return;
+              useMeshStore
+                .getState()
+                .setManagePanel({ kind: node.kind, id: node.pubkeyPrefix });
+            }
+      }
+      onMoveEnd={(center, zoom) =>
+        useMeshStore.getState().setMapPrefs({ center, zoom })
+      }
+      onMapReady={setMap}
+    >
       <div className='pointer-events-none absolute inset-x-0 top-0 z-1000 flex flex-col items-start gap-2 p-3'>
         {capped && (
           <span className='pointer-events-auto rounded-md border border-(--border) bg-(--surface)/90 px-2.5 py-1 text-xs text-(--text2) backdrop-blur'>
@@ -386,107 +219,29 @@ function LeafletMap({
           </div>
         </div>
       )}
-      <MapLegend
-        favoritesOnly={favoritesOnly}
-        onToggleFavoritesOnly={() => setFavoritesOnly((v) => !v)}
-      />
-    </div>
-  );
-}
-
-/**
- * A collapsible key, pinned to the map's bottom-right corner, pairing each node
- * category with the colored shape used to plot it, plus a switch to limit the
- * map to favorited contacts. Collapsed state is transient UI, so it lives in
- * local component state rather than the store.
- *
- * @param favoritesOnly - whether the map is currently filtered to favorites.
- * @param onToggleFavoritesOnly - flips the favorites-only filter.
- */
-function MapLegend({
-  favoritesOnly,
-  onToggleFavoritesOnly,
-}: {
-  favoritesOnly: boolean;
-  onToggleFavoritesOnly: () => void;
-}) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div className='pointer-events-auto absolute right-3 bottom-8 z-1000 overflow-hidden rounded-md border border-(--border) bg-(--surface)/90 text-(--text) backdrop-blur'>
-      <button
-        type='button'
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className='flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-xs font-semibold tracking-wide text-(--text2) uppercase hover:text-(--accent)'
-      >
-        {t('map.legend.title')}
-        <Chevron open={open} />
-      </button>
-      {open && (
-        <>
-          <ul className='flex flex-col gap-1.5 px-2.5 pt-0.5 pb-2'>
-            {LEGEND_CATEGORIES.map((category) => {
-              const style = MARKER_STYLES[category];
-              return (
-                <li
-                  key={category}
-                  className='flex items-center gap-2 text-xs whitespace-nowrap'
-                >
-                  <span
-                    className='flex h-3.5 w-3.5 shrink-0 items-center justify-center'
-                    aria-hidden='true'
-                    dangerouslySetInnerHTML={{
-                      __html: shapeSvg(style.shape, style.color, 14),
-                    }}
-                  />
-                  {t(style.labelKey)}
-                </li>
-              );
-            })}
-          </ul>
-          <button
-            type='button'
-            role='switch'
-            aria-checked={favoritesOnly}
-            onClick={onToggleFavoritesOnly}
-            className='flex w-full items-center justify-between gap-3 border-t border-(--border) px-2.5 py-2 text-xs whitespace-nowrap hover:text-(--accent)'
+      <MapLegend>
+        <button
+          type='button'
+          role='switch'
+          aria-checked={favoritesOnly}
+          onClick={() => setFavoritesOnly((v) => !v)}
+          className='flex w-full items-center justify-between gap-3 border-t border-(--border) px-2.5 py-2 text-xs whitespace-nowrap hover:text-(--accent)'
+        >
+          <span>{t('map.legend.favoritesOnly')}</span>
+          <span
+            className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+            style={{
+              background: favoritesOnly ? 'var(--accent)' : 'var(--border)',
+            }}
           >
-            <span>{t('map.legend.favoritesOnly')}</span>
             <span
-              className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
-              style={{
-                background: favoritesOnly ? 'var(--accent)' : 'var(--border)',
-              }}
-            >
-              <span
-                className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
-                  favoritesOnly ? 'left-3.5' : 'left-0.5'
-                }`}
-              />
-            </span>
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
-
-/** Caret that flips to indicate the legend's expanded/collapsed state. */
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      viewBox='0 0 16 16'
-      className={`h-3 w-3 transition-transform ${open ? '' : 'rotate-180'}`}
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='1.8'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      aria-hidden='true'
-    >
-      <path d='M4 10l4-4 4 4' />
-    </svg>
+              className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+                favoritesOnly ? 'left-3.5' : 'left-0.5'
+              }`}
+            />
+          </span>
+        </button>
+      </MapLegend>
+    </BaseLeafletMap>
   );
 }

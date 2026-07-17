@@ -232,3 +232,16 @@ html {
 .meshcore-map .leaflet-tooltip-top::before {
   border-top-color: var(--surface);
 }
+/* Repeater→neighbor link lines. The class beats Leaflet's default `stroke`
+ * attribute (specificity 0), so the color follows the theme accent. */
+.meshcore-map .meshcore-edge {
+  stroke: var(--accent);
+}
+/* SNR labels pinned at each link's midpoint: compact and non-interactive so
+ * they never intercept a marker click. */
+.meshcore-map .meshcore-edge-label {
+  padding: 1px 5px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
