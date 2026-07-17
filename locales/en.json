@@ -549,10 +549,16 @@
       "superseded": "cancelled"
     },
     "neighbors": {
+      "node": "Node",
+      "lastHeard": "Last heard",
+      "snr": "SNR",
       "empty": "No neighbors heard recently.",
       "error": "Couldn't load neighbors. Try refreshing.",
-      "loading": "Loading neighbors…",
-      "noLocation": "Neighbors were heard, but none could be placed on the map — they have no known location."
+      "remove": "Remove",
+      "removing": "Removing…",
+      "removeConfirm": "Remove?",
+      "confirm": "Remove",
+      "cancel": "Cancel"
     },
     "console": {
       "empty": "No output yet. Send a command to get started.",

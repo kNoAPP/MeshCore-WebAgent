@@ -16,6 +16,7 @@ import { ADV_TYPE_REPEATER } from '@/lib/meshcore/constants';
 import { locateNeighborNode } from '@/lib/map/nodes';
 import {
   formatAirtime,
+  formatRelative,
   formatSnr,
   formatUptime,
   formatVoltage,
@@ -214,7 +215,9 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
               />
             )}
             {activeTab === 'config' && <RepeaterConfigTab contact={contact} />}
-            {activeTab === 'neighbors' && <NeighborsTab contact={contact} />}
+            {activeTab === 'neighbors' && (
+              <NeighborsTab contact={contact} isAdmin={login === 'admin'} />
+            )}
             {activeTab === 'console' && <ConsoleTab contact={contact} />}
           </div>
         </>
@@ -592,18 +595,51 @@ function StatusDashboard({
 const neighborsRequests = new Map<string, Promise<string>>();
 
 /**
- * The Neighbors tab: a spatial view of the repeater's up-to-8 most recently
- * heard nodes, read via the `neighbors` CLI command and parsed by
- * {@link parseNeighborsReply}. Each neighbor that resolves to a located contact
- * or advert is plotted on {@link NeighborsMap} with an SNR-labeled link from
- * the repeater; a Refresh control on the map re-reads the list. When nothing
- * can be mapped (the repeater or its neighbors lack a location, or none were
- * heard), a placeholder explains why. Fetches once on entry and again on
- * demand.
+ * Resolves a neighbor's public-key prefix to a saved contact's name, matching
+ * a contact whose full key (or its own stored prefix) begins with the reported
+ * prefix, or vice versa — the two prefix lengths need not match. Returns `null`
+ * when no contact corresponds, so the caller shows the raw hex prefix instead.
  */
-function NeighborsTab({ contact }: { contact: Contact }) {
+function resolveNeighborName(
+  prefix: string,
+  contacts: Record<string, Contact>,
+): string | null {
+  const lower = prefix.toLowerCase();
+  for (const c of Object.values(contacts)) {
+    const key = c.pubkey.toLowerCase();
+    const keyPrefix = c.pubkeyPrefix.toLowerCase();
+    if (
+      key.startsWith(lower) ||
+      keyPrefix.startsWith(lower) ||
+      lower.startsWith(keyPrefix)
+    ) {
+      return c.name || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * The Neighbors tab: the repeater's up-to-8 most recently heard nodes, read
+ * via the `neighbors` CLI command and parsed by {@link parseNeighborsReply}.
+ * Neighbors that resolve to a located contact/advert are plotted on
+ * {@link NeighborsMap} with an SNR-labeled link from the repeater; the rest
+ * stay in the list below so none silently disappears (issue #178). Each row
+ * shows the node (a contact's name when known), its age, and SNR. Admins get a
+ * per-row Remove (inline confirm) that sends `neighbor.remove <prefix>` for
+ * that exact prefix — never a blank/space prefix, which the firmware treats as
+ * "remove all". Refresh lives on the map when shown, else in the list. Fetches
+ * once on entry and again on demand.
+ */
+function NeighborsTab({
+  contact,
+  isAdmin,
+}: {
+  contact: Contact;
+  isAdmin: boolean;
+}) {
   const { t } = useTranslation();
-  const { repeaterCliRequest } = useMeshCore();
+  const { repeaterCliRequest, repeaterCli } = useMeshCore();
   const contacts = useMeshStore((s) => s.contacts);
   const advertCache = useMeshStore((s) => s.advertCache);
   const prefix = contact.pubkeyPrefix;
@@ -616,19 +652,24 @@ function NeighborsTab({ contact }: { contact: Contact }) {
 
   // The spatial view is worthwhile only when the repeater itself is located
   // and at least one neighbor resolves to a saved contact/advert with a fix;
-  // otherwise there's nothing to anchor or draw, so the table stands alone.
+  // otherwise there's nothing to anchor or draw, so the list stands alone.
   const mappableCount = useMemo(() => {
     if (!contact.advLat || !contact.advLon) return 0;
     return (neighbors ?? []).filter((n) =>
       locateNeighborNode(n.prefix, contacts, advertCache),
     ).length;
   }, [contact.advLat, contact.advLon, neighbors, contacts, advertCache]);
+  const showMap = mappableCount > 0;
 
   const [loading, setLoading] = useState(false);
   // Set when a read fails (timeout/disconnect). Distinct from a settled empty
-  // list so the tab can show an error (and keep any cached data) instead of a
+  // list so the tab can show an error (and keep any cached rows) instead of a
   // false "no neighbors".
   const [errored, setErrored] = useState(false);
+  // The prefix whose Remove is awaiting inline confirmation, or `null`.
+  const [confirming, setConfirming] = useState<string | null>(null);
+  // Prefixes with a `neighbor.remove` in flight, so their row disables.
+  const [removing, setRemoving] = useState<Set<string>>(() => new Set());
   const fetched = useRef(false);
   // Whether a cached list was present at mount, so the auto-read is skipped
   // when returning to an already-loaded tab (the user Refreshes for fresh
@@ -638,6 +679,7 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     setErrored(false);
+    setConfirming(null);
     try {
       // Join an outstanding read for this repeater if one exists, else start
       // one. Sharing the promise dedupes concurrent reads and lets a remount
@@ -677,6 +719,14 @@ function NeighborsTab({ contact }: { contact: Contact }) {
     void refresh();
   }, [refresh]);
 
+  // `formatRelative` reads the clock only at render, and this tab is otherwise
+  // static, so tick periodically to keep the last-heard ages current.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   // The in-flight `neighbors` request is deliberately *not* cancelled on
   // unmount. Cancelling would reject its queued CLI slot, letting the queue
   // advance while the repeater is still replying — a late reply could then
@@ -684,9 +734,30 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   // result is cached in the store, so letting the request run to completion is
   // both correct and harmless when the user has navigated away.
 
+  const remove = async (neighborPrefix: string) => {
+    // Guard against an empty/space prefix, which the firmware treats as
+    // "remove all neighbors".
+    if (neighborPrefix.trim() === '') return;
+    setConfirming(null);
+    setRemoving((prev) => new Set(prev).add(neighborPrefix));
+    const ok = await repeaterCli(contact, `neighbor.remove ${neighborPrefix}`);
+    setRemoving((prev) => {
+      const next = new Set(prev);
+      next.delete(neighborPrefix);
+      return next;
+    });
+    // Only refresh if still an admin session. Removal is admin-only, and
+    // logging out mid-request (which leaves the transport connected) must not
+    // let the follow-up `neighbors` read fire from an ended session. A plain
+    // tab switch keeps the session, so the shared cache still refreshes.
+    const stillAdmin =
+      useMeshStore.getState().adminSessions[prefix]?.login === 'admin';
+    if (ok && stillAdmin) await refresh();
+  };
+
   return (
-    <div className='h-full w-full'>
-      {mappableCount > 0 ? (
+    <div className='w-full space-y-4'>
+      {showMap && (
         <NeighborsMap
           contact={contact}
           neighbors={neighbors ?? []}
@@ -698,24 +769,111 @@ function NeighborsTab({ contact }: { contact: Contact }) {
             />
           }
         />
-      ) : (
-        <div className='relative flex h-full w-full items-center justify-center overflow-hidden rounded-lg border border-(--border)'>
-          <RefreshButton
-            onClick={() => void refresh()}
-            busy={loading}
-            className='absolute top-2 right-2 z-10 bg-(--surface)'
-          />
-          <p className='px-6 text-center text-sm text-(--text2)'>
-            {errored
-              ? t('repeaterAdmin.neighbors.error')
-              : loading
-                ? t('repeaterAdmin.neighbors.loading')
-                : neighbors && neighbors.length > 0
-                  ? t('repeaterAdmin.neighbors.noLocation')
-                  : t('repeaterAdmin.neighbors.empty')}
-          </p>
-        </div>
       )}
+      <div className='relative overflow-hidden rounded-lg border border-(--border)'>
+        {(neighbors && neighbors.length > 0) || loading ? (
+          <div className='overflow-x-auto'>
+            <table className='w-full text-sm'>
+              <thead>
+                <tr className='border-b border-(--border) text-left text-xs text-(--text2)'>
+                  <th className='px-3 py-2 font-medium'>
+                    {t('repeaterAdmin.neighbors.node')}
+                  </th>
+                  <th className='px-3 py-2 font-medium'>
+                    {t('repeaterAdmin.neighbors.lastHeard')}
+                  </th>
+                  <th className='px-3 py-2 font-medium'>
+                    {t('repeaterAdmin.neighbors.snr')}
+                  </th>
+                  <th className='px-3 py-1 text-right'>
+                    {!showMap && (
+                      <RefreshButton
+                        onClick={() => void refresh()}
+                        busy={loading}
+                      />
+                    )}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(neighbors ?? []).map((n) => {
+                  const name = resolveNeighborName(n.prefix, contacts);
+                  const busy = removing.has(n.prefix);
+                  return (
+                    <tr
+                      key={n.prefix}
+                      className='border-b border-(--border) last:border-0'
+                    >
+                      <td className='px-3 py-2'>
+                        {name ? (
+                          <span className='text-(--text)'>{name}</span>
+                        ) : (
+                          <span className='font-mono text-xs text-(--text2)'>
+                            {n.prefix}
+                          </span>
+                        )}
+                      </td>
+                      <td className='px-3 py-2 text-(--text2)'>
+                        {formatRelative(n.lastHeard)}
+                      </td>
+                      <td className='px-3 py-2 text-(--text2)'>
+                        {formatSnr(n.snr)}
+                      </td>
+                      <td className='px-3 py-2 text-right'>
+                        {isAdmin &&
+                          (confirming === n.prefix ? (
+                            <span className='inline-flex items-center gap-2'>
+                              <span className='text-xs whitespace-nowrap text-(--text2)'>
+                                {t('repeaterAdmin.neighbors.removeConfirm')}
+                              </span>
+                              <button
+                                onClick={() => void remove(n.prefix)}
+                                disabled={busy}
+                                className='rounded-md border border-(--red) px-2 py-0.5 text-xs text-(--red) hover:bg-(--red-dim) hover:text-white disabled:opacity-50'
+                              >
+                                {t('repeaterAdmin.neighbors.confirm')}
+                              </button>
+                              <button
+                                onClick={() => setConfirming(null)}
+                                disabled={busy}
+                                className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs text-(--text2) hover:bg-(--surface2) disabled:opacity-50'
+                              >
+                                {t('repeaterAdmin.neighbors.cancel')}
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setConfirming(n.prefix)}
+                              disabled={busy}
+                              className='rounded-md border border-(--border-control) px-2 py-0.5 text-xs whitespace-nowrap text-(--text2) hover:bg-(--surface2) disabled:opacity-50'
+                            >
+                              {busy
+                                ? t('repeaterAdmin.neighbors.removing')
+                                : t('repeaterAdmin.neighbors.remove')}
+                            </button>
+                          ))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <>
+            <RefreshButton
+              onClick={() => void refresh()}
+              busy={loading}
+              className='absolute top-2 right-2 z-10 bg-(--surface)'
+            />
+            <p className='p-3 pr-14 text-sm text-(--text2)'>
+              {errored
+                ? t('repeaterAdmin.neighbors.error')
+                : t('repeaterAdmin.neighbors.empty')}
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }

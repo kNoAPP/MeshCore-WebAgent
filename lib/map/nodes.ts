@@ -173,20 +173,33 @@ function neighborPrefixMatches(
 /**
  * Resolves a neighbor's public-key prefix (from a `neighbors` reply) to a
  * located map node, matching saved contacts first — a contact opens its manage
- * panel — then the advert cache. Returns `null` when no corresponding node has
- * a GPS fix, so the caller keeps that neighbor in the table rather than
- * dropping it. See {@link neighborPrefixMatches} for the prefix rule.
+ * panel — then the advert cache. A matched contact prefers its own fix but
+ * falls back to a cached advert fix for the same node (the advert cache
+ * preserves a known location even when the contact table is stale/unlocated),
+ * staying a `contact` node either way. Returns `null` when no corresponding
+ * node has a GPS fix, so the caller keeps that neighbor out of the map. See
+ * {@link neighborPrefixMatches} for the prefix rule.
  */
 export function locateNeighborNode(
   prefix: string,
   contacts: Record<string, Contact>,
   adverts: Record<string, Advert>,
 ): MapNode | null {
-  for (const contact of Object.values(contacts)) {
-    if (!neighborPrefixMatches(prefix, contact.pubkey, contact.pubkeyPrefix)) {
-      continue;
-    }
-    const coords = contactCoords(contact.advLat, contact.advLon);
+  // Resolve the matching advert (and its fix) once: it both anchors the
+  // advert-only case and backfills a located contact that lacks its own fix.
+  const advert = Object.values(adverts).find((a) =>
+    neighborPrefixMatches(prefix, a.pubkey, a.pubkeyPrefix),
+  );
+  const advertCoords = advert
+    ? contactCoords(advert.advLat, advert.advLon)
+    : null;
+
+  const contact = Object.values(contacts).find((c) =>
+    neighborPrefixMatches(prefix, c.pubkey, c.pubkeyPrefix),
+  );
+  if (contact) {
+    const coords =
+      contactCoords(contact.advLat, contact.advLon) ?? advertCoords;
     if (!coords) return null;
     return {
       key: contact.pubkeyPrefix,
@@ -199,22 +212,19 @@ export function locateNeighborNode(
       favorite: (contact.flags & FAVORITE_FLAG) !== 0,
     };
   }
-  for (const advert of Object.values(adverts)) {
-    if (!neighborPrefixMatches(prefix, advert.pubkey, advert.pubkeyPrefix)) {
-      continue;
-    }
-    const coords = contactCoords(advert.advLat, advert.advLon);
-    if (!coords) return null;
+
+  if (advert && advertCoords) {
     return {
       key: advert.pubkeyPrefix,
       pubkeyPrefix: advert.pubkeyPrefix,
       name: advert.name || advert.pubkeyPrefix.slice(0, 8),
       advType: advert.advType,
-      lat: coords.lat,
-      lon: coords.lon,
+      lat: advertCoords.lat,
+      lon: advertCoords.lon,
       kind: 'advert',
       favorite: false,
     };
   }
+
   return null;
 }

@@ -549,10 +549,16 @@
       "superseded": "cancelado"
     },
     "neighbors": {
+      "node": "Nodo",
+      "lastHeard": "Escuchado por última vez",
+      "snr": "SNR",
       "empty": "No se han escuchado vecinos recientemente.",
       "error": "No se pudieron cargar los vecinos. Intenta actualizar.",
-      "loading": "Cargando vecinos…",
-      "noLocation": "Se escucharon vecinos, pero ninguno pudo ubicarse en el mapa: no tienen una ubicación conocida."
+      "remove": "Eliminar",
+      "removing": "Eliminando…",
+      "removeConfirm": "¿Eliminar?",
+      "confirm": "Eliminar",
+      "cancel": "Cancelar"
     },
     "console": {
       "empty": "Aún no hay salida. Envía un comando para empezar.",

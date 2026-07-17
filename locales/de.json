@@ -549,10 +549,16 @@
       "superseded": "abgebrochen"
     },
     "neighbors": {
+      "node": "Knoten",
+      "lastHeard": "Zuletzt gehört",
+      "snr": "SNR",
       "empty": "Kürzlich keine Nachbarn gehört.",
       "error": "Nachbarn konnten nicht geladen werden. Bitte aktualisieren.",
-      "loading": "Nachbarn werden geladen…",
-      "noLocation": "Nachbarn wurden gehört, aber keiner konnte auf der Karte platziert werden — kein bekannter Standort."
+      "remove": "Entfernen",
+      "removing": "Wird entfernt…",
+      "removeConfirm": "Entfernen?",
+      "confirm": "Entfernen",
+      "cancel": "Abbrechen"
     },
     "console": {
       "empty": "Noch keine Ausgabe. Senden Sie einen Befehl, um zu beginnen.",
