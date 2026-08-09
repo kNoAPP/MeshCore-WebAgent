@@ -506,6 +506,8 @@
       "guestHint": "Accès en lecture seule",
       "password": "Mot de passe",
       "passwordPlaceholder": "Saisir le mot de passe",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe",
       "submit": "Se connecter",
       "loggingIn": "Connexion…",
       "checking": "Vérification des identifiants enregistrés…",
