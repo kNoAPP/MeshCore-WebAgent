@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.22.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.21.0...v1.22.0) (2026-08-09)
+
+
+### Features
+
+* add show/hide password toggle to repeater login ([#198](https://github.com/kNoAPP/MeshCore-WebAgent/issues/198)) ([9e4df29](https://github.com/kNoAPP/MeshCore-WebAgent/commit/9e4df297eb177b27ccb17635b62acc64fae7819b))
+
+
+### Bug Fixes
+
+* **client:** drain CHANNEL_DATA_RECV frames when polling messages ([#202](https://github.com/kNoAPP/MeshCore-WebAgent/issues/202)) ([935db2c](https://github.com/kNoAPP/MeshCore-WebAgent/commit/935db2cf3d53933402db5ad9900624a3e861d01f))
+* **client:** prune deleted contacts and surface CONTACTS_FULL ([#201](https://github.com/kNoAPP/MeshCore-WebAgent/issues/201)) ([94cdd68](https://github.com/kNoAPP/MeshCore-WebAgent/commit/94cdd68e5f43141da2109459640003796abb4d53))
+
 ## [1.21.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.20.0...v1.21.0) (2026-08-09)
 
 
