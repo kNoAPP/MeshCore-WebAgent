@@ -111,6 +111,7 @@
     "resizable",
     "Retina",
     "RSSI",
+    "rxgain",
     "snr",
     "SNR",
     "SNRF",
