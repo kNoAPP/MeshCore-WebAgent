@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.21.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.20.0...v1.21.0) (2026-08-09)
+
+
+### Features
+
+* **repeater:** add v1.17.0 cad and radio.fem.rxgain CLI settings ([#192](https://github.com/kNoAPP/MeshCore-WebAgent/issues/192)) ([1561060](https://github.com/kNoAPP/MeshCore-WebAgent/commit/1561060ee372c1185d08009013a73d112476d78a))
+
 ## [1.20.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.19.0...v1.20.0) (2026-07-17)
 
 
