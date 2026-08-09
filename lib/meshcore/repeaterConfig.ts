@@ -17,11 +17,7 @@ import { utf8ByteLength } from '@/lib/utils';
 
 /** The editor control a {@link RepeaterSetting} renders. */
 export type RepeaterSettingKind =
-  | 'toggle'
-  | 'number'
-  | 'text'
-  | 'select'
-  | 'radio';
+  'toggle' | 'number' | 'text' | 'select' | 'radio';
 
 /** Unit suffix after a numeric value (i18n key under `config.units`). */
 export type RepeaterSettingUnit = 'dbm' | 'hours' | 'minutes' | 'percent';
@@ -126,11 +122,7 @@ export interface RadioSetting extends BaseSetting {
 
 /** One editable repeater setting. */
 export type RepeaterSetting =
-  | ToggleSetting
-  | NumberSetting
-  | TextSetting
-  | SelectSetting
-  | RadioSetting;
+  ToggleSetting | NumberSetting | TextSetting | SelectSetting | RadioSetting;
 
 /** A visual grouping of settings in the Config tab. */
 export interface RepeaterSettingGroup {
@@ -343,10 +335,7 @@ export const ALL_REPEATER_SETTINGS: readonly RepeaterSetting[] = [
  */
 /** i18n-safe action ids (copy under `repeaterAdmin.config.actions.<id>`). */
 export type RepeaterActionId =
-  | 'reboot'
-  | 'advert'
-  | 'advertZeroHop'
-  | 'clockSync';
+  'reboot' | 'advert' | 'advertZeroHop' | 'clockSync';
 
 export interface RepeaterAction {
   /** i18n-safe id; label/confirm copy live under `config.actions.<id>`. */

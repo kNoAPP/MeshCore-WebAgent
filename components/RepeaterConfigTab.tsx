@@ -54,8 +54,7 @@ const ROW_CLASS =
  * (which may be rounded or clamped from what was sent), or its error reply.
  */
 type CommitOutcome =
-  | { kind: 'ok'; value: string }
-  | { kind: 'rejected'; reply: string };
+  { kind: 'ok'; value: string } | { kind: 'rejected'; reply: string };
 
 /**
  * How many times a prefill re-requests fields that didn't answer. CLI replies

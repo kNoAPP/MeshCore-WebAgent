@@ -289,10 +289,7 @@ export interface ActiveConvo {
 
 /** Connection lifecycle state. */
 export type ConnectionStatus =
-  | 'disconnected'
-  | 'connecting'
-  | 'connected'
-  | 'reconnecting';
+  'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
 /** Progress of the initial connect sync, for the loading UI. */
 export interface SyncProgress {
