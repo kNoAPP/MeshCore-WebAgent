@@ -770,6 +770,10 @@ export class MeshCoreClient {
       RESP.CHANNEL_MSG_V3,
       RESP.CONTACT_MSG,
       RESP.CONTACT_MSG_V3,
+      // Group datagrams share the offline queue with text messages. Nothing
+      // consumes them here, but they must be accepted or the drain stalls on a
+      // timeout and leaves real messages queued behind them.
+      RESP.CHANNEL_DATA_RECV,
       RESP.NO_MORE_MESSAGES,
     ];
     try {
