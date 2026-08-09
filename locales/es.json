@@ -506,6 +506,8 @@
       "guestHint": "Acceso de solo lectura",
       "password": "Contraseña",
       "passwordPlaceholder": "Introduce la contraseña",
+      "showPassword": "Mostrar contraseña",
+      "hidePassword": "Ocultar contraseña",
       "submit": "Iniciar sesión",
       "loggingIn": "Iniciando sesión…",
       "checking": "Comprobando credenciales guardadas…",
