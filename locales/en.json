@@ -506,6 +506,8 @@
       "guestHint": "Read-only access",
       "password": "Password",
       "passwordPlaceholder": "Enter password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
       "submit": "Log in",
       "loggingIn": "Logging in…",
       "checking": "Checking saved credentials…",
