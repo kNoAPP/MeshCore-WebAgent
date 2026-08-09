@@ -391,7 +391,6 @@ function LoginGate({
             type='button'
             onClick={() => setShowPassword((v) => !v)}
             disabled={pending}
-            aria-pressed={showPassword}
             aria-label={t(
               showPassword
                 ? 'repeaterAdmin.login.hidePassword'
