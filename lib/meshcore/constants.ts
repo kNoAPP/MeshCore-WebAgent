@@ -121,6 +121,26 @@ export const RESP = {
   PUSH_STATUS_RESPONSE: 0x87,
   PUSH_LOG_RX_DATA: 0x88,
   PUSH_NEW_ADVERT: 0x8a,
+  /**
+   * Push announcing the radio evicted a contact: `[0x8f][32-byte pubkey]`.
+   * Emitted when auto-add's "overwrite oldest" mode
+   * ({@link AUTOADD.OVERWRITE_OLDEST}) reclaims a slot for a newly heard node,
+   * so the contact no longer exists on the radio.
+   *
+   * @see `PUSH_CODE_CONTACT_DELETED` and `MyMesh::onContactOverwrite` in the
+   * firmware's `examples/companion_radio/MyMesh.cpp`. Not yet listed in the
+   * published protocol docs.
+   */
+  PUSH_CONTACT_DELETED: 0x8f,
+  /**
+   * Push signalling contact storage is full, so a heard node was discarded
+   * instead of added. Payload is the code byte alone.
+   *
+   * @see `PUSH_CODE_CONTACTS_FULL` and `MyMesh::onContactsFull` in the
+   * firmware's `examples/companion_radio/MyMesh.cpp`. Not yet listed in the
+   * published protocol docs.
+   */
+  PUSH_CONTACTS_FULL: 0x90,
 } as const;
 
 /**

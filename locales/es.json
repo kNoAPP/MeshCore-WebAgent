@@ -861,6 +861,7 @@
     "contactAlreadyAdded": "“{{name}}” ya está añadido",
     "addContactFailed": "Fallo al añadir contacto: {{error}}",
     "contactRemoved": "Contacto eliminado",
+    "contactsFull": "El almacenamiento de contactos está lleno: no se añaden nodos nuevos. Elimina contactos o activa «Sobrescribir el más antiguo» en los ajustes de adición automática.",
     "removeContactFailed": "Fallo al eliminar contacto: {{error}}",
     "alreadyJoined": "Ya unido a “{{name}}”",
     "allSlotsFull": "Todas las ranuras de canal están llenas",

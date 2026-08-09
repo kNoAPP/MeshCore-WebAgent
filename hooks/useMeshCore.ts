@@ -624,6 +624,7 @@ export function useMeshCore() {
         onBattery: (b) => setBattery(b),
         onSyncProgress: (p) => setSyncProgress(p),
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
+        onContactsFull: () => showToast(i18n.t('toast.contactsFull'), 'error'),
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
         onCliReply: ({ pubkeyPrefix, text }) => {
           // A queued frame can fire this after teardown; skip it so a late

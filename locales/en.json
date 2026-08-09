@@ -861,6 +861,7 @@
     "contactAlreadyAdded": "“{{name}}” is already added",
     "addContactFailed": "Failed to add contact: {{error}}",
     "contactRemoved": "Contact removed",
+    "contactsFull": "Contact storage is full — new nodes aren't being added. Remove contacts or enable “Overwrite oldest” in Auto-add settings.",
     "removeContactFailed": "Failed to remove contact: {{error}}",
     "alreadyJoined": "Already joined “{{name}}”",
     "allSlotsFull": "All channel slots are full",

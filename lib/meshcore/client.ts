@@ -131,6 +131,10 @@ export const CONTACTS_IDLE_TIMEOUT_MS = 8000;
  */
 export const APP_START_TIMEOUT_MS = 40000;
 
+// A full contact table makes the radio push CONTACTS_FULL for every node it
+// hears, so the notification is rate-limited to keep it from drowning the UI.
+const CONTACTS_FULL_NOTIFY_INTERVAL_MS = 300000;
+
 type RespCode = number;
 
 interface PendingCmd {
@@ -170,6 +174,12 @@ export interface MeshCoreCallbacks {
    * The contact table changed (after a sync, add, remove, or favorite toggle).
    */
   onContactsUpdated?: (contacts: Record<string, Contact>) => void;
+  /**
+   * The radio's contact storage is full, so a heard node was discarded rather
+   * than added. Throttled to at most once per
+   * {@link CONTACTS_FULL_NOTIFY_INTERVAL_MS}.
+   */
+  onContactsFull?: () => void;
   /** The channel list changed. */
   onChannelsUpdated?: (channels: Record<number, Channel>) => void;
   /** The heard-adverts log changed (a node advertised or re-advertised). */
@@ -242,6 +252,12 @@ export class MeshCoreClient {
   private rearmContactsIdle: (() => void) | null = null;
   private contactsTotal = 0;
   private contactsSeen = 0;
+  // Contacts streamed by the in-flight enumeration. Swapped in wholesale at
+  // END_OF_CONTACTS so the table reconciles (entries the radio no longer
+  // reports are dropped); a stalled sync discards it and keeps the last good
+  // snapshot rather than pruning against a partial read.
+  private pendingContacts: Record<string, Contact> | null = null;
+  private contactsFullNotifiedAt = 0;
   private initialSync = false;
   private _closed = false;
 
@@ -501,6 +517,28 @@ export class MeshCoreClient {
       }
       return;
     }
+    if (type === RESP.PUSH_CONTACT_DELETED && d.length >= 7) {
+      // The radio evicted this contact to make room for a newly heard node.
+      // Its advert entry stays: the node is still on the air, so the map keeps
+      // showing it and the user can add it back.
+      const prefix = toHex(d.slice(1, 7));
+      if (this.contacts[prefix]) {
+        delete this.contacts[prefix];
+        this.callbacks.onContactsUpdated?.(this.contacts);
+      }
+      return;
+    }
+    if (type === RESP.PUSH_CONTACTS_FULL) {
+      const now = Date.now();
+      if (
+        now - this.contactsFullNotifiedAt >=
+        CONTACTS_FULL_NOTIFY_INTERVAL_MS
+      ) {
+        this.contactsFullNotifiedAt = now;
+        this.callbacks.onContactsFull?.();
+      }
+      return;
+    }
     if (type === RESP.PUSH_LOG_RX_DATA) {
       const pkt = parseLogRxData(d);
       if (pkt) this.callbacks.onLogRx?.(pkt);
@@ -534,12 +572,13 @@ export class MeshCoreClient {
             ? new DataView(d.buffer, d.byteOffset).getUint32(1, true)
             : 0;
         this.contactsSeen = 0;
+        this.pendingContacts = {};
         return;
       }
       if (type === RESP.CONTACT && this.contactsStarted) {
         this.rearmContactsIdle?.();
         const c = parseContact(d);
-        if (c) this.contacts[c.pubkeyPrefix] = c;
+        if (c && this.pendingContacts) this.pendingContacts[c.pubkeyPrefix] = c;
         this.contactsSeen++;
         if (this.contactsTotal > 0) {
           const frac = Math.min(1, this.contactsSeen / this.contactsTotal);
@@ -554,6 +593,10 @@ export class MeshCoreClient {
       }
       if (type === RESP.END_OF_CONTACTS) {
         this.collectingContacts = false;
+        // A complete enumeration is authoritative, so it replaces the table —
+        // contacts deleted on the radio (evicted, or removed from another
+        // client) disappear instead of lingering for the session.
+        if (this.pendingContacts) this.contacts = this.pendingContacts;
         this.contactsResolve?.();
         return;
       }
@@ -653,6 +696,7 @@ export class MeshCoreClient {
       const finish = () => {
         clearTimeout(timer);
         this.collectingContacts = false;
+        this.pendingContacts = null;
         this.rearmContactsIdle = null;
         this.contactsResolve = null;
         resolve();
