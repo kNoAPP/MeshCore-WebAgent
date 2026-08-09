@@ -17,7 +17,11 @@ import { utf8ByteLength } from '@/lib/utils';
 
 /** The editor control a {@link RepeaterSetting} renders. */
 export type RepeaterSettingKind =
-  'toggle' | 'number' | 'text' | 'select' | 'radio';
+  | 'toggle'
+  | 'number'
+  | 'text'
+  | 'select'
+  | 'radio';
 
 /** Unit suffix after a numeric value (i18n key under `config.units`). */
 export type RepeaterSettingUnit = 'dbm' | 'hours' | 'minutes' | 'percent';
@@ -44,7 +48,9 @@ export type RepeaterSettingId =
   | 'dutycycle'
   | 'loopDetect'
   | 'pathHashMode'
-  | 'multiAcks';
+  | 'multiAcks'
+  | 'cad'
+  | 'radioFemRxgain';
 
 interface BaseSetting {
   /**
@@ -74,6 +80,13 @@ interface BaseSetting {
    * identical node name isn't misread as an error.
    */
   errorTokens?: readonly string[];
+  /**
+   * Marks a setting the node may legitimately not have — a newer firmware key
+   * (`??: <key>`) or a board-specific capability (`Error: unsupported`). A
+   * rejection hides the row silently instead of surfacing a toast, the way the
+   * GPS verbs are handled.
+   */
+  optional?: boolean;
 }
 
 /** An on/off flag; {@link on}/{@link off} are the exact wire tokens sent. */
@@ -113,7 +126,11 @@ export interface RadioSetting extends BaseSetting {
 
 /** One editable repeater setting. */
 export type RepeaterSetting =
-  ToggleSetting | NumberSetting | TextSetting | SelectSetting | RadioSetting;
+  | ToggleSetting
+  | NumberSetting
+  | TextSetting
+  | SelectSetting
+  | RadioSetting;
 
 /** A visual grouping of settings in the Config tab. */
 export interface RepeaterSettingGroup {
@@ -263,6 +280,26 @@ export const REPEATER_ADVANCED_SETTINGS: readonly RepeaterSetting[] = [
     options: PATH_HASH_MODE_OPTIONS,
   },
   { id: 'multiAcks', key: 'multi.acks', kind: 'toggle', on: '1', off: '0' },
+  // Firmware v1.17+: hardware channel-activity detection, off by default
+  // because CAD still suffers multi-second radio lock-ups on some boards.
+  {
+    id: 'cad',
+    key: 'cad',
+    kind: 'toggle',
+    on: 'on',
+    off: 'off',
+    optional: true,
+  },
+  // Firmware v1.17+, and only on boards whose LoRa front-end module has a
+  // controllable LNA (some Heltec boards); others answer `Error: unsupported`.
+  {
+    id: 'radioFemRxgain',
+    key: 'radio.fem.rxgain',
+    kind: 'toggle',
+    on: 'on',
+    off: 'off',
+    optional: true,
+  },
 ];
 
 /**
@@ -306,7 +343,10 @@ export const ALL_REPEATER_SETTINGS: readonly RepeaterSetting[] = [
  */
 /** i18n-safe action ids (copy under `repeaterAdmin.config.actions.<id>`). */
 export type RepeaterActionId =
-  'reboot' | 'advert' | 'advertZeroHop' | 'clockSync';
+  | 'reboot'
+  | 'advert'
+  | 'advertZeroHop'
+  | 'clockSync';
 
 export interface RepeaterAction {
   /** i18n-safe id; label/confirm copy live under `config.actions.<id>`. */

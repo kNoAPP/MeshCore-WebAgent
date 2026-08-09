@@ -56,7 +56,8 @@ export const MAP_EDGE_OPACITY = 0.8;
  * {@link https://leafletjs.com/reference.html#map-fitbounds | fitBounds}.
  */
 export type StartView =
-  { center: [number, number]; zoom: number } | { bounds: [number, number][] };
+  | { center: [number, number]; zoom: number }
+  | { bounds: [number, number][] };
 
 /**
  * Persisted, user-tunable map state. `center`/`zoom` restore the last viewport.

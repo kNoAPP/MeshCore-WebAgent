@@ -54,7 +54,8 @@ const ROW_CLASS =
  * (which may be rounded or clamped from what was sent), or its error reply.
  */
 type CommitOutcome =
-  { kind: 'ok'; value: string } | { kind: 'rejected'; reply: string };
+  | { kind: 'ok'; value: string }
+  | { kind: 'rejected'; reply: string };
 
 /**
  * How many times a prefill re-requests fields that didn't answer. CLI replies
@@ -120,6 +121,10 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       ? true
       : null;
   });
+  // Ids of `optional` settings this node rejected (a firmware key it predates,
+  // or a board capability it lacks). Their rows are dropped from the UI and
+  // from later reads instead of surfacing an error.
+  const [unsupported, setUnsupported] = useState<Set<string>>(() => new Set());
   // Whether the shared radio/TX editor modal is open.
   const [radioEditOpen, setRadioEditOpen] = useState(false);
 
@@ -203,6 +208,13 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                 if (setting.id === 'gps' || setting.id === 'gpsAdvert') {
                   setGpsSupported(false);
                   errored = true;
+                } else if (setting.optional) {
+                  // A key this node's firmware or board doesn't have: drop the
+                  // row rather than blaming the user for a missing feature.
+                  errored = true;
+                  setUnsupported((prev) =>
+                    prev.has(setting.id) ? prev : new Set(prev).add(setting.id),
+                  );
                 } else {
                   // A terminal rejection (e.g. the firmware lacks this
                   // setting): surface it and don't retry a refused command.
@@ -577,6 +589,11 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
   );
 
   const nameBytes = nameMaxBytes(drafts.lat ?? '', drafts.lon ?? '');
+  // The advanced knobs this node actually has; ones it rejected are dropped so
+  // they neither render nor get re-requested on the next Refresh.
+  const advancedSettings = REPEATER_ADVANCED_SETTINGS.filter(
+    (s) => !unsupported.has(s.id),
+  );
   const sectionBusy = (settings: readonly RepeaterSetting[]) =>
     settings.some((s) => pending.has(s.id));
   // A section is "unloaded" until at least one of its fields has a value; its
@@ -745,13 +762,13 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           title={t('repeaterAdmin.config.advanced')}
           action={
             <RefreshButton
-              onClick={() => refreshSection(REPEATER_ADVANCED_SETTINGS)}
-              busy={sectionBusy(REPEATER_ADVANCED_SETTINGS)}
-              download={!sectionLoaded(REPEATER_ADVANCED_SETTINGS)}
+              onClick={() => refreshSection(advancedSettings)}
+              busy={sectionBusy(advancedSettings)}
+              download={!sectionLoaded(advancedSettings)}
             />
           }
         >
-          {REPEATER_ADVANCED_SETTINGS.map((setting) => (
+          {advancedSettings.map((setting) => (
             <SettingRow key={setting.id} {...rowProps(setting)} />
           ))}
         </Card>

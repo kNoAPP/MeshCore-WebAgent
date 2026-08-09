@@ -632,6 +632,12 @@
         },
         "multiAcks": {
           "label": "Multi-ACK"
+        },
+        "cad": {
+          "label": "CAD por hardware"
+        },
+        "radioFemRxgain": {
+          "label": "Ganancia RX del FEM"
         }
       },
       "options": {
