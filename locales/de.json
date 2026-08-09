@@ -506,6 +506,8 @@
       "guestHint": "Nur-Lese-Zugriff",
       "password": "Passwort",
       "passwordPlaceholder": "Passwort eingeben",
+      "showPassword": "Passwort anzeigen",
+      "hidePassword": "Passwort verbergen",
       "submit": "Anmelden",
       "loggingIn": "Anmeldung…",
       "checking": "Gespeicherte Anmeldedaten werden geprüft…",

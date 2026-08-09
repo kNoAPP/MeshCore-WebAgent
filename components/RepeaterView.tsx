@@ -3,10 +3,17 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import dynamic from 'next/dynamic';
-import { Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
@@ -308,7 +315,9 @@ function LoginGate({
   onSubmit: (password: string, kind: RepeaterAccess, remember: boolean) => void;
 }) {
   const { t } = useTranslation();
+  const passwordId = useId();
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [kind, setKind] = useState<RepeaterAccess>('admin');
   const [remember, setRemember] = useState(false);
 
@@ -359,21 +368,46 @@ function LoginGate({
         ))}
       </div>
 
-      <label className='block'>
-        <span className='mb-1 block text-xs text-(--text2)'>
+      <div>
+        <label
+          htmlFor={passwordId}
+          className='mb-1 block text-xs text-(--text2)'
+        >
           {t('repeaterAdmin.login.password')}
-        </span>
-        <input
-          type='password'
-          autoComplete='off'
-          autoFocus
-          disabled={pending}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder={t('repeaterAdmin.login.passwordPlaceholder')}
-          className='w-full rounded-md border border-(--border-control) bg-(--surface) px-2 py-1.5 text-sm text-(--text) outline-none focus:border-(--accent) disabled:opacity-50'
-        />
-      </label>
+        </label>
+        <div className='relative'>
+          <input
+            id={passwordId}
+            type={showPassword ? 'text' : 'password'}
+            autoComplete='off'
+            autoFocus
+            disabled={pending}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={t('repeaterAdmin.login.passwordPlaceholder')}
+            className='w-full rounded-md border border-(--border-control) bg-(--surface) py-1.5 pr-9 pl-2 text-sm text-(--text) outline-none focus:border-(--accent) disabled:opacity-50'
+          />
+          <button
+            type='button'
+            onClick={() => setShowPassword((v) => !v)}
+            disabled={pending}
+            aria-pressed={showPassword}
+            aria-label={t(
+              showPassword
+                ? 'repeaterAdmin.login.hidePassword'
+                : 'repeaterAdmin.login.showPassword',
+            )}
+            title={t(
+              showPassword
+                ? 'repeaterAdmin.login.hidePassword'
+                : 'repeaterAdmin.login.showPassword',
+            )}
+            className='absolute inset-y-0 right-0 flex items-center px-2 text-(--text2) hover:text-(--text) disabled:opacity-50'
+          >
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
+      </div>
 
       <label className='flex items-center gap-2 text-sm text-(--text)'>
         <input
