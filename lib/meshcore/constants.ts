@@ -83,6 +83,17 @@ export const RESP = {
   CUSTOM_VARS: 0x15,
   STATS: 0x18,
   AUTOADD_CONFIG: 0x19,
+  /**
+   * An inbound group datagram (radio-level `PAYLOAD_TYPE_GRP_DATA`) handed
+   * back by {@link CMD.SYNC_NEXT_MESSAGE}: `[0x1b][SNR][2 reserved]` followed
+   * by `[channel idx][path len][data type (uint16)][data len][payload]`. The
+   * app has no consumer for datagrams, so it only needs to be drained from the
+   * offline queue like any other queued message.
+   *
+   * @see ["Receive Channel Data Datagram"](https://docs.meshcore.io/companion_protocol/#receive-channel-data-datagram)
+   * and `MyMesh::onChannelDataRecv` in `companion_radio/MyMesh.cpp`.
+   */
+  CHANNEL_DATA_RECV: 0x1b,
   PUSH_ADVERT: 0x80,
   PUSH_PATH_UPDATED: 0x81,
   PUSH_SEND_CONFIRMED: 0x82,
