@@ -863,6 +863,7 @@
     "contactAlreadyAdded": "« {{name}} » est déjà ajouté",
     "addContactFailed": "Échec de l'ajout du contact : {{error}}",
     "contactRemoved": "Contact supprimé",
+    "contactsFull": "Le stockage des contacts est plein : les nouveaux nœuds ne sont pas ajoutés. Supprimez des contacts ou activez « Écraser le plus ancien » dans les paramètres d’ajout automatique.",
     "removeContactFailed": "Échec de la suppression du contact : {{error}}",
     "alreadyJoined": "Déjà rejoint « {{name}} »",
     "allSlotsFull": "Tous les emplacements de canal sont pleins",
