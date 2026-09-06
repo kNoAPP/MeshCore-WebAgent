@@ -448,7 +448,6 @@
   },
   "manage": {
     "removeChannelConfirm": "¿Eliminar este canal de la radio?",
-    "publicChannelCantRemove": "El canal Público no se puede eliminar",
     "removeChannel": "Eliminar canal",
     "removeContactConfirm": "¿Eliminar este contacto de la radio?",
     "advertHint": "Descubierto por su anuncio y almacenado en este navegador; no está guardado en tu radio.",
@@ -765,7 +764,10 @@
     "create": "Crear",
     "join": "Unirse",
     "review": "Revisar",
+    "restore": "Restaurar",
     "mode": {
+      "joinPublicLabel": "Público",
+      "joinPublicHint": "Restaura el canal Público predeterminado de MeshCore con su clave conocida. Es un canal normal: puedes eliminarlo y volver a añadirlo cuando quieras.",
       "createLabel": "Crear privado",
       "createHint": "Genera una clave secreta aleatoria. Compártela para que otros puedan unirse.",
       "joinPrivateLabel": "Unirse a privado",

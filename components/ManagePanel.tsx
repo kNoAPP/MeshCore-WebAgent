@@ -21,6 +21,7 @@ import {
   channelHashHex,
   deriveHashtagSecret,
   bytesEqual,
+  isPublicChannelSecret,
   formatLatLon,
   formatPubkey,
 } from '@/lib/utils';
@@ -85,7 +86,7 @@ function ManagePanelView() {
     if (!channel) return null;
     return (
       <ModalShell
-        title={`${idx === 0 ? '📢' : '🔒'} ${channel.name || t('common.channelName', { index: idx })}`}
+        title={`${isPublicChannelSecret(channel.secret) ? '📢' : '🔒'} ${channel.name || t('common.channelName', { index: idx })}`}
         onClose={close}
       >
         <ChannelDetails channel={channel} />
@@ -101,12 +102,8 @@ function ManagePanelView() {
         ) : (
           <div className='mt-6 flex justify-end border-t border-(--border) pt-4'>
             <button
-              disabled={idx === 0}
               onClick={() => setConfirming(true)}
-              title={
-                idx === 0 ? t('manage.publicChannelCantRemove') : undefined
-              }
-              className='rounded-md bg-(--red-dim) px-3 py-1.5 text-sm text-white hover:bg-(--red-dim-hover) disabled:opacity-40 disabled:hover:bg-(--red-dim)'
+              className='rounded-md bg-(--red-dim) px-3 py-1.5 text-sm text-white hover:bg-(--red-dim-hover)'
             >
               {t('manage.removeChannel')}
             </button>
@@ -351,13 +348,13 @@ function ChannelDetails({ channel }: { channel: Channel }) {
       if (!secret) {
         if (active) {
           setHash('');
-          setType(channel.idx === 0 ? 'Public' : 'Private');
+          setType('Private');
         }
         return;
       }
       const h = await channelHashHex(secret);
       let kind: 'Public' | 'Hashtag' | 'Private';
-      if (channel.idx === 0) {
+      if (isPublicChannelSecret(secret)) {
         kind = 'Public';
       } else if (
         channel.name.startsWith('#') &&

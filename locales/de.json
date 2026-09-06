@@ -448,7 +448,6 @@
   },
   "manage": {
     "removeChannelConfirm": "Diesen Kanal vom Funkgerät entfernen?",
-    "publicChannelCantRemove": "Der öffentliche Kanal kann nicht entfernt werden",
     "removeChannel": "Kanal entfernen",
     "removeContactConfirm": "Diesen Kontakt vom Funkgerät entfernen?",
     "advertHint": "Aus seiner Aussendung erkannt und in diesem Browser zwischengespeichert – nicht auf dem Funkgerät gespeichert.",
@@ -765,7 +764,10 @@
     "create": "Erstellen",
     "join": "Beitreten",
     "review": "Prüfen",
+    "restore": "Wiederherstellen",
     "mode": {
+      "joinPublicLabel": "Öffentlich",
+      "joinPublicHint": "Stellt den Standard-Kanal „Öffentlich“ von MeshCore mit seinem allgemein bekannten Schlüssel wieder her. Er ist ein gewöhnlicher Kanal — entferne ihn und füge ihn jederzeit wieder hinzu.",
       "createLabel": "Privat erstellen",
       "createHint": "Generiert einen zufälligen geheimen Schlüssel. Teile ihn, damit andere beitreten können.",
       "joinPrivateLabel": "Privat beitreten",

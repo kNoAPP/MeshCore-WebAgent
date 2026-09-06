@@ -127,7 +127,7 @@ export function buildSetCustomVar(name: string, value: string): Uint8Array {
 /**
  * Requests one channel slot's `CHANNEL_INFO`.
  *
- * @param idx - channel index 0–7; 0 is the reserved Public channel.
+ * @param idx - channel slot index, 0 to the radio's channel count.
  */
 export function buildGetChannelInfo(idx: number): Uint8Array {
   return new Uint8Array([CMD.GET_CHANNEL_INFO, idx]);
@@ -299,7 +299,7 @@ export function buildRemoveContact(pubkey: Uint8Array): Uint8Array {
  * Writes a channel slot. Joining/creating passes a name + secret; removing a
  * slot passes an empty name and zeroed secret.
  *
- * @param idx - channel slot 0–7 (0 = Public, not removable).
+ * @param idx - channel slot index; any slot may be written or cleared.
  * @param name - channel name; truncated to 32 bytes.
  * @param secret - 16-byte channel secret; truncated/used as the first 16 bytes.
  */

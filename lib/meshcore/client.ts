@@ -27,6 +27,7 @@ import {
   AUTOADD,
   MANUAL_ADD_OFF,
   MANUAL_ADD_ON,
+  MAX_CHANNEL_SLOTS,
   TXT_TYPE,
 } from './constants';
 import {
@@ -616,8 +617,15 @@ export class MeshCoreClient {
     }
     if (type === RESP.CHANNEL_INFO) {
       const ch = parseChannelInfo(d);
-      if (ch?.name) {
-        this.channels[ch.idx] = ch;
+      if (ch) {
+        // A free slot answers with an empty name and a zeroed secret (that's
+        // also how a channel is removed), so drop it from the mirror instead of
+        // listing a channel the radio doesn't have.
+        if (ch.name || ch.secret?.some((b) => b !== 0)) {
+          this.channels[ch.idx] = ch;
+        } else {
+          delete this.channels[ch.idx];
+        }
         this.callbacks.onChannelsUpdated?.(this.channels);
       }
     }
@@ -719,13 +727,17 @@ export class MeshCoreClient {
   }
 
   private async syncChannels(): Promise<void> {
-    for (let i = 0; i <= 7; i++) {
-      this.reportSync('channels', 45 + (30 * i) / 8, i + 1, 8);
+    for (let i = 0; i < MAX_CHANNEL_SLOTS; i++) {
+      this.reportSync(
+        'channels',
+        45 + (30 * i) / MAX_CHANNEL_SLOTS,
+        i + 1,
+        MAX_CHANNEL_SLOTS,
+      );
       try {
         await this.cmd(buildGetChannelInfo(i), [RESP.CHANNEL_INFO], 2000);
       } catch {}
     }
-    if (!this.channels[0]) this.channels[0] = { idx: 0, name: 'Public' };
     this.callbacks.onChannelsUpdated?.(this.channels);
   }
 
@@ -954,9 +966,9 @@ export class MeshCoreClient {
   }
 
   /**
-   * Writes a channel slot (create or join).
+   * Writes a channel slot (create, join, or restore).
    *
-   * @param idx - channel slot 0–7.
+   * @param idx - channel slot index.
    * @param secret - 16-byte channel secret.
    */
   async setChannel(
@@ -970,12 +982,11 @@ export class MeshCoreClient {
   }
 
   /**
-   * Removes a channel slot by clearing its name and secret.
-   *
-   * @throws if `idx` is 0 — the Public channel is reserved and not removable.
+   * Removes a channel slot by clearing its name and secret. Every slot is
+   * removable — including the one holding the Public channel, which the radio
+   * treats like any other channel and which can be restored later.
    */
   async removeChannel(idx: number): Promise<void> {
-    if (idx === 0) throw new Error('The Public channel cannot be removed');
     await this.cmd(
       buildSetChannel(idx, '', new Uint8Array(16)),
       [RESP.OK],

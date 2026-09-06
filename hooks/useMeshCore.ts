@@ -41,6 +41,7 @@ import {
   FAVORITE_FLAG,
   ERR_CODE,
   ADVERT_LOC_POLICY,
+  MAX_CHANNEL_SLOTS,
   MAX_MSG_BYTES,
 } from '@/lib/meshcore/constants';
 import { splitPathHashes } from '@/lib/meshcore/parsers';
@@ -1582,10 +1583,12 @@ export function useMeshCore() {
   );
 
   /**
-   * Joins or creates a channel, placing it in the lowest free slot (1–7).
+   * Joins, creates, or restores a channel, placing it in the lowest free slot.
+   * Every slot is fair game — including slot 0, which holds nothing special
+   * once the Public channel that ships there has been removed.
    *
    * @remarks No-ops with a toast if the secret already matches a joined
-   * channel, or if all private slots are full.
+   * channel, or if all slots are full.
    */
   const addChannel = useCallback(
     async (name: string, secret: Uint8Array) => {
@@ -1600,9 +1603,9 @@ export function useMeshCore() {
         );
         return;
       }
-      // Indices 1-7 are private channels; pick the lowest free slot
+      // Pick the lowest free slot
       let idx = -1;
-      for (let i = 1; i <= 7; i++) {
+      for (let i = 0; i < MAX_CHANNEL_SLOTS; i++) {
         if (!client.channels[i]) {
           idx = i;
           break;
@@ -1625,7 +1628,9 @@ export function useMeshCore() {
     [client, showToast],
   );
 
-  /** Removes a channel slot (rejected by the client for the Public channel). */
+  /**
+   * Removes a channel slot. The Public channel is removable like any other.
+   */
   const removeChannel = useCallback(
     async (idx: number) => {
       if (!canTransmit(client)) return;
