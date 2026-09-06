@@ -221,6 +221,38 @@ export const TXT_TYPE = {
 export const MAX_MSG_BYTES = 160;
 
 /**
+ * The well-known 16-byte secret of MeshCore's default **Public** channel
+ * (`PUBLIC_GROUP_PSK`, base64 `izOH6cXN6mrJ5e26oRXNcg==`). The Public channel
+ * is identified by this secret, never by its slot: the firmware pre-configures
+ * it into the first free slot on a factory-fresh radio, but `SET_CHANNEL`
+ * treats every slot alike, so it can be removed, re-added, or live anywhere.
+ *
+ * @see `PUBLIC_GROUP_PSK` in the companion radio's `MyMesh.cpp` and the
+ * "Channel Types" section of
+ * {@link https://docs.meshcore.io/companion_protocol/}.
+ */
+export const PUBLIC_CHANNEL_SECRET = new Uint8Array([
+  0x8b, 0x33, 0x87, 0xe9, 0xc5, 0xcd, 0xea, 0x6a, 0xc9, 0xe5, 0xed, 0xba, 0xa1,
+  0x15, 0xcd, 0x72,
+]);
+
+/**
+ * The name the firmware gives the Public channel when it pre-configures it —
+ * reused when the user restores it after a removal.
+ *
+ * @see `addChannel("Public", PUBLIC_GROUP_PSK)` in the companion radio's
+ * `MyMesh.cpp`.
+ */
+export const PUBLIC_CHANNEL_NAME = 'Public';
+
+/**
+ * Number of channel slots the app syncs and can allocate. The radio reports its
+ * own limit in `DEVICE_INFO` (`maxChannels`), which is board dependent; this is
+ * the common 8-slot build.
+ */
+export const MAX_CHANNEL_SLOTS = 8;
+
+/**
  * Maximum node (advert) name length in **UTF-8 bytes**, matching the firmware's
  * `node_name[32]` buffer with one byte reserved for the null terminator. A
  * `SET_ADVERT_NAME` payload longer than this is truncated by the firmware, so

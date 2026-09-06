@@ -5,6 +5,7 @@ import {
   ADV_TYPE_REPEATER,
   ADV_TYPE_ROOM,
   ADV_TYPE_SENSOR,
+  PUBLIC_CHANNEL_SECRET,
 } from '@/lib/meshcore/constants';
 import type { Contact } from '@/types/meshcore';
 
@@ -82,6 +83,15 @@ export function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+/**
+ * Whether a channel secret is MeshCore's well-known Public channel key. The
+ * slot index says nothing: the Public channel can be removed and re-added in
+ * any slot, so it is only ever identified by {@link PUBLIC_CHANNEL_SECRET}.
+ */
+export function isPublicChannelSecret(secret?: Uint8Array): boolean {
+  return !!secret && bytesEqual(secret, PUBLIC_CHANNEL_SECRET);
 }
 
 /**

@@ -14,7 +14,12 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { ADV_ICON, utf8ByteLength, formatPubkey } from '@/lib/utils';
+import {
+  ADV_ICON,
+  utf8ByteLength,
+  formatPubkey,
+  isPublicChannelSecret,
+} from '@/lib/utils';
 import { formatDateDivider } from '@/lib/i18n/format';
 import { flashTarget } from '@/lib/ui/flash';
 import { MessageBubble } from './MessageBubble';
@@ -78,7 +83,8 @@ function splitChannelMessage(text: string): {
  * autocomplete, retry actions, and a repeater-can't-message guard.
  */
 export function ChatArea() {
-  const { activeConvo, msgHistory, contacts, deviceName } = useMeshStore();
+  const { activeConvo, msgHistory, contacts, channels, deviceName } =
+    useMeshStore();
   const scrollToMsgId = useMeshStore((s) => s.scrollToMsgId);
   const setScrollToMsgId = useMeshStore((s) => s.setScrollToMsgId);
   const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
@@ -343,9 +349,13 @@ export function ChatArea() {
     activeConvo.kind === 'direct'
       ? contacts[activeConvo.rawId as string]
       : undefined;
+  const channel =
+    activeConvo.kind === 'channel'
+      ? channels[activeConvo.rawId as number]
+      : undefined;
   const icon =
     activeConvo.kind === 'channel'
-      ? activeConvo.rawId === 0
+      ? isPublicChannelSecret(channel?.secret)
         ? '📢'
         : '🔒'
       : directContact && directContact.flags & FAVORITE_FLAG
