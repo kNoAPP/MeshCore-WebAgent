@@ -981,15 +981,26 @@ export class MeshCoreClient {
    * Removes a channel slot by clearing its name and secret. Every slot is
    * removable — including the one holding the Public channel, which the radio
    * treats like any other channel and which can be restored later.
+   *
+   * @remarks Drops the slot from the mirror before the write and restores it if
+   * the radio rejects it, so a send issued during the round trip can't pass a
+   * `channels[idx]` check and then land after the slot is cleared.
    */
   async removeChannel(idx: number): Promise<void> {
-    await this.cmd(
-      buildSetChannel(idx, '', new Uint8Array(16)),
-      [RESP.OK],
-      5000,
-    );
+    const prev = this.channels[idx];
     delete this.channels[idx];
     this.callbacks.onChannelsUpdated?.(this.channels);
+    try {
+      await this.cmd(
+        buildSetChannel(idx, '', new Uint8Array(16)),
+        [RESP.OK],
+        5000,
+      );
+    } catch (err) {
+      if (prev) this.channels[idx] = prev;
+      this.callbacks.onChannelsUpdated?.(this.channels);
+      throw err;
+    }
   }
 
   /**
