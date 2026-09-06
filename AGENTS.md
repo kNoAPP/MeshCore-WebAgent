@@ -40,6 +40,7 @@ before working in that area:
 | `architecture`              | Navigating the codebase, stack, or data flow          |
 | `code-style`                | Writing or reviewing any source file (incl. comments) |
 | `commits`                   | Writing commit messages or naming branches            |
+| `completing-tickets`        | Delivering a GitHub Issue end to end                  |
 | `protocol`                  | Touching anything in `lib/meshcore/`                  |
 | `pull-requests`             | Preparing or describing a pull request                |
 | `resolving-review-feedback` | Resolving or responding to PR review feedback         |
