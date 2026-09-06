@@ -1584,8 +1584,8 @@ export function useMeshCore() {
 
   /**
    * Joins, creates, or restores a channel, placing it in the lowest free slot.
-   * Every slot is fair game — including slot 0, which holds nothing special
-   * once the Public channel that ships there has been removed.
+   * Slot 0 is included — it is only free once the Public channel the firmware
+   * ships there has been removed.
    *
    * @remarks No-ops with a toast if the secret already matches a joined
    * channel, or if all slots are full.
@@ -1603,7 +1603,6 @@ export function useMeshCore() {
         );
         return;
       }
-      // Pick the lowest free slot
       let idx = -1;
       for (let i = 0; i < MAX_CHANNEL_SLOTS; i++) {
         if (!client.channels[i]) {
@@ -1628,9 +1627,7 @@ export function useMeshCore() {
     [client, showToast],
   );
 
-  /**
-   * Removes a channel slot. The Public channel is removable like any other.
-   */
+  /** Removes a channel slot; the Public channel is removable like any other. */
   const removeChannel = useCallback(
     async (idx: number) => {
       if (!canTransmit(client)) return;

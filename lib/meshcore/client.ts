@@ -968,7 +968,7 @@ export class MeshCoreClient {
   /**
    * Writes a channel slot (create, join, or restore).
    *
-   * @param idx - channel slot index.
+   * @param idx - channel slot index, 0 to the radio's channel count.
    * @param secret - 16-byte channel secret.
    */
   async setChannel(
