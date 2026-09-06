@@ -1,10 +1,10 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-/** Matches the `.msg-flash` animation duration in `app/globals.css`. */
+// Must match the `.msg-flash` animation duration in `app/globals.css`.
 const FLASH_DURATION_MS = 1600;
 
-/** In-flight flash teardown per element, so a new call can cancel it. */
+// In-flight flash teardown per element, so a new call can cancel it.
 const activeFlashes = new WeakMap<HTMLElement, () => void>();
 
 /**

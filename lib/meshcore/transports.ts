@@ -10,12 +10,9 @@ import {
   BLE_TX_CHAR_UUID,
 } from './constants';
 
-/**
- * Shared close-detection plumbing for the transports: a single `onClose`
- * listener fired at most once per open session, suppressed when the close was
- * caller-initiated (a planned {@link ITransport.close}), and re-armable so a
- * reopened transport can signal a fresh drop.
- */
+// Fires `onClose` at most once per open session, suppressed when the close was
+// caller-initiated, and re-armable so a reopened transport can signal a fresh
+// drop.
 abstract class BaseTransport {
   private closeListener: (() => void) | null = null;
   private fired = false;
@@ -36,7 +33,6 @@ abstract class BaseTransport {
     }
   }
 
-  /** Notifies the listener of an unexpected drop, once per open session. */
   protected fireClose(): void {
     if (this.fired || this.planned) return;
     this.fired = true;
@@ -48,7 +44,6 @@ abstract class BaseTransport {
     }
   }
 
-  /** Re-arms drop detection for a reopened session. */
   protected armForReopen(): void {
     this.fired = false;
     this.planned = false;
@@ -68,7 +63,7 @@ abstract class BaseTransport {
     return this.reopening;
   }
 
-  /** Transport-specific reopen body; serialized by {@link reopen}. */
+  // Serialized by `reopen`.
   protected abstract performReopen(): Promise<void>;
 }
 
@@ -102,7 +97,6 @@ export class USBTransport extends BaseTransport implements ITransport {
     this.info = port.getInfo();
   }
 
-  /** Opens `port` at {@link USB_BAUD_RATE}, adopts it, and takes the writer. */
   private async openPort(port: SerialPort): Promise<void> {
     await port.open({ baudRate: USB_BAUD_RATE });
     this.port = port;
@@ -114,13 +108,10 @@ export class USBTransport extends BaseTransport implements ITransport {
     await this.openPort(this.port);
   }
 
-  /**
-   * Serial ports the device may live behind after a reboot or replug. The
-   * original handle comes first — it uniquely identifies the device, so it
-   * can't rebind to a different radio. A VID/PID match (the re-enumerated
-   * device) is added only when exactly one exists; shared bridge-chip VID/PIDs
-   * make two or more matches ambiguous, so we fail reopen rather than guess.
-   */
+  // The original handle comes first — it uniquely identifies the device, so it
+  // can't rebind to a different radio. A VID/PID match (the re-enumerated
+  // device) is added only when exactly one exists; shared bridge-chip VID/PIDs
+  // make two or more matches ambiguous, so reopen fails rather than guesses.
   private async candidatePorts(): Promise<SerialPort[]> {
     let ports: SerialPort[] = [];
     try {
@@ -142,11 +133,8 @@ export class USBTransport extends BaseTransport implements ITransport {
     return fallback.length === 1 ? [this.port, fallback[0]] : [this.port];
   }
 
-  /**
-   * Opens the first candidate port that accepts a connection, adopting it as
-   * the live port. Throws if none open (device not back yet), so the caller's
-   * backoff loop retries until the radio re-enumerates.
-   */
+  // Throws if no candidate opens (device not back yet), so the caller's backoff
+  // loop retries until the radio re-enumerates.
   private async reopenPort(): Promise<void> {
     let lastErr: unknown = new Error('No serial port available');
     for (const port of await this.candidatePorts()) {
@@ -193,13 +181,10 @@ export class USBTransport extends BaseTransport implements ITransport {
     this.fireClose();
   }
 
-  /**
-   * Reopens the radio's serial port after a drop and re-attaches the read loop
-   * on the next {@link startReading}. A reboot or replug can re-enumerate the
-   * device under a fresh `SerialPort` object, so {@link reopenPort} re-acquires
-   * the live port rather than reusing the (possibly invalidated) original
-   * handle — permission persists, so no new chooser prompt is needed.
-   */
+  // A reboot or replug can re-enumerate the device under a fresh `SerialPort`
+  // object, so `reopenPort` re-acquires the live port rather than reusing the
+  // (possibly invalidated) original handle — permission persists, so no new
+  // chooser prompt is needed.
   protected async performReopen(): Promise<void> {
     // Suppress the old read loop's close signal and cancel its pending read so
     // it releases the stream's reader lock before we re-open the port —
@@ -342,10 +327,6 @@ export class BLETransport extends BaseTransport implements ITransport {
     } catch {}
   };
 
-  /**
-   * Reconnects GATT to the same device after a drop and re-attaches
-   * notifications on the next {@link startReading}.
-   */
   protected async performReopen(): Promise<void> {
     this.started = false;
     // Detach the old notification listener before reconnecting: open() can hand
@@ -438,7 +419,6 @@ export class WiFiTransport extends BaseTransport implements ITransport {
       this.parser!.feed(new Uint8Array(e.data as ArrayBuffer));
   }
 
-  /** Reopens the WebSocket to the same bridge URL after a drop. */
   protected async performReopen(): Promise<void> {
     // A reopen can follow a non-drop failure (a rebooting radio that accepted
     // the socket but never answered the handshake), where the prior socket is

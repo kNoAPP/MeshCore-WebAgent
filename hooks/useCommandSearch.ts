@@ -33,14 +33,12 @@ import {
   type PageRecord,
 } from '@/lib/search/commandSearch';
 
-/** Cap on messages fed to the index, so a huge history stays responsive. */
+// Bounded so a huge history stays responsive.
 const MESSAGE_SCAN_CAP = 2000;
 
-/** Max results shown per group. */
 const GROUP_LIMIT = 6;
-/** Messages are the primary use case, so they get a larger cap. */
+// Messages are the primary use case, so they get a larger cap.
 const MESSAGE_LIMIT = 8;
-/** Recent conversations shown for an empty query. */
 const RECENT_LIMIT = 6;
 
 /** A titled block of results the palette renders as one section. */
@@ -58,7 +56,6 @@ export interface CommandGroup {
   results: CommandResult[];
 }
 
-/** Pulls the match ranges for a given Fuse key, for snippet highlighting. */
 function highlightFor(
   result: FuseResult<MessageRecord>,
   key: string,
@@ -66,7 +63,6 @@ function highlightFor(
   return result.matches?.find((m) => m.key === key)?.indices;
 }
 
-/** Builds a message result's secondary hint (`sender · conversation`). */
 function messageHint(record: MessageRecord): string {
   return record.sender
     ? `${record.sender} · ${record.convo.label}`

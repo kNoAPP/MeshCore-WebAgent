@@ -19,7 +19,6 @@ import { RADIO_PRESETS } from '@/lib/meshcore/radioPresets';
 import { fmtNum } from '@/lib/utils';
 import type { RadioParams, SelfInfo } from '@/types/meshcore';
 
-/** The radio fields the editor needs; gates editing when any is missing. */
 type RadioFields = Required<
   Pick<
     SelfInfo,
@@ -62,7 +61,6 @@ export function radioFields(info: SelfInfo | null): RadioFields | null {
   };
 }
 
-/** Standard option list plus the device's current value if it isn't one. */
 function withCurrent(values: readonly number[], current: number): number[] {
   if (values.includes(current)) return [...values];
   return [...values, current].sort((a, b) => a - b);
@@ -74,11 +72,6 @@ function scaled(mhzOrKhz: number): number {
   return Math.round(mhzOrKhz * RADIO_PARAM_SCALE);
 }
 
-/**
- * Localized formatters shared by the editor's steps, bound to the active
- * language: `num` for plain numbers and `crLabel` for the `4/n` coding-rate
- * label.
- */
 function useRadioFormat() {
   const { t, i18n } = useTranslation();
   return {
@@ -88,10 +81,8 @@ function useRadioFormat() {
   };
 }
 
-/**
- * The editor's in-progress draft: frequency as the raw `<input>` string (parsed
- * and validated on the fly), the rest as their wire values.
- */
+// Frequency is the raw `<input>` string, parsed and validated on the fly; the
+// rest are wire values.
 type RadioDraft = {
   freq: string;
   bw: number;
@@ -241,7 +232,6 @@ export function RadioSettingsModal({
   );
 }
 
-/** The edit form: region preset picker plus each editable LoRa parameter. */
 function RadioEditStep({
   fields,
   draft,
@@ -383,7 +373,6 @@ function RadioEditStep({
   );
 }
 
-/** The confirmation step: mesh-isolation warning, a current→new diff, Apply. */
 function RadioConfirmStep({
   rows,
   saving,
@@ -453,7 +442,6 @@ function RadioConfirmStep({
   );
 }
 
-/** A labeled `<select>` bound to a numeric value, styled to match the theme. */
 function Select({
   label,
   value,

@@ -161,11 +161,8 @@ export const PAGE_FUSE_OPTIONS: IFuseOptions<PageRecord> = {
   minMatchCharLength: 1,
 };
 
-/**
- * Splits a message into its searchable body and sender. Received channel
- * messages are firmware-formatted as `<sender>: <body>`; own and direct
- * messages carry only the body, with the sender taken from `senderName`.
- */
+// Received channel messages are firmware-formatted as `<sender>: <body>`; own
+// and direct messages carry only the body, with the sender from `senderName`.
 function bodyAndSender(
   msg: Message,
   kind: ActiveConvo['kind'],

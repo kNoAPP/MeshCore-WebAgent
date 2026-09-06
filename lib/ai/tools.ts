@@ -282,12 +282,9 @@ function reqNumber(args: Record<string, unknown>, key: string): number {
   return n;
 }
 
-/**
- * Like {@link reqString}, but rejects a message body over {@link MAX_MSG_BYTES}
- * UTF-8 bytes instead of letting the frame builder silently truncate it. The
- * error is surfaced back to the model as a tool result so it can shorten and
- * resend rather than transmitting a clipped fragment.
- */
+// Rejects an over-long body instead of letting the frame builder silently
+// truncate it — the error goes back to the model as a tool result so it can
+// shorten and resend rather than transmitting a clipped fragment.
 function reqMsgText(args: Record<string, unknown>, key: string): string {
   const text = reqString(args, key);
   const bytes = utf8ByteLength(text);
@@ -356,26 +353,17 @@ export function describeAction(
   }
 }
 
-/**
- * Read-tool results are appended to the conversation and re-sent on every
- * subsequent turn, so bloated reads compound across the agentic loop. These
- * caps bound worst-case token growth while staying behavior-preserving for
- * typical small meshes (which fall under every cap).
- */
+// Read-tool results are appended to the conversation and re-sent on every
+// subsequent turn, so bloated reads compound across the agentic loop. These
+// caps bound worst-case token growth; typical small meshes fall under them.
 const READ_MESSAGES_DEFAULT = 10;
 const READ_MESSAGES_CAP = 50;
-/** Max rows a single read_contacts / read_adverts call returns. */
 const READ_TABLE_CAP = 300;
 
-/**
- * Caps a read result to {@link max} rows for the agentic loop's token budget.
- * Under the cap it returns the bare array unchanged. When the source overflows,
- * it wraps the kept rows with a `truncated` marker and the real `total`, so the
- * model knows its view is partial (and can narrow its query) rather than
- * silently reasoning over a cut list. Callers must pass {@link rows} already
- * ordered by relevance so the kept slice is the useful one, not an arbitrary
- * insertion-order prefix.
- */
+// An overflowing result is wrapped with a `truncated` marker and the real
+// `total`, so the model knows its view is partial rather than silently
+// reasoning over a cut list. Callers must pass `rows` already ordered by
+// relevance, so the kept slice is the useful one.
 function capRows<T>(
   rows: T[],
   max: number,

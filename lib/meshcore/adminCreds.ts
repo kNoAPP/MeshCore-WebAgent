@@ -19,12 +19,10 @@ export interface RememberedCred {
   password: string;
 }
 
-/** The per-repeater secret name, namespaced by the repeater's pubkey prefix. */
 function credName(prefix: string): string {
   return `repeater-cred:${prefix}`;
 }
 
-/** Narrows an untrusted parsed record to a {@link RememberedCred}. */
 function isRememberedCred(value: unknown): value is RememberedCred {
   if (typeof value !== 'object' || value === null) return false;
   const rec = value as Record<string, unknown>;

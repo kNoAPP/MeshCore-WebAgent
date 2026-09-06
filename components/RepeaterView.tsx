@@ -42,21 +42,16 @@ const NeighborsMap = dynamic(
   { ssr: false },
 );
 
-/** Coarse Li-ion voltage → charge mapping, clamped to 0–100%. */
 const BATT_MIN_MV = 3300;
 const BATT_MAX_MV = 4200;
 
-/**
- * Estimates a rough battery charge percentage from a Li-ion cell voltage. The
- * curve is deliberately crude — a linear map between {@link BATT_MIN_MV} (0%)
- * and {@link BATT_MAX_MV} (100%) — so treat the result as approximate.
- */
+// A deliberately crude linear map between BATT_MIN_MV (0%) and BATT_MAX_MV
+// (100%) — the result is only approximate.
 function approxBatteryPercent(milliVolts: number): number {
   const pct = ((milliVolts - BATT_MIN_MV) / (BATT_MAX_MV - BATT_MIN_MV)) * 100;
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
-/** All admin tabs; the visible subset is gated per session. */
 type RepeaterTab = 'status' | 'config' | 'neighbors' | 'console';
 
 /**
@@ -247,7 +242,6 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   );
 }
 
-/** The access-level badge shown in the header once authenticated. */
 function AccessChip({ access }: { access: RepeaterAccess }) {
   const { t } = useTranslation();
   return (
@@ -265,7 +259,6 @@ function AccessChip({ access }: { access: RepeaterAccess }) {
   );
 }
 
-/** The admin tab strip. Data-driven off the caller's visible-tab list. */
 function TabBar({
   tabs,
   active,
@@ -300,13 +293,8 @@ function TabBar({
   );
 }
 
-/**
- * The login form: a password field, an Admin/Guest access choice, a "remember"
- * toggle (default off), and a submit that dispatches the login. While
- * `pending`, the form is disabled and the button shows a progress label. The
- * password is never auto-filled; it stays in local state and is persisted
- * (encrypted, per-radio) only when the user opts in via the remember toggle.
- */
+// The password is never auto-filled: it stays in local state and is persisted
+// (encrypted, per-radio) only when the user opts in via the remember toggle.
 function LoginGate({
   pending,
   onSubmit,
@@ -434,12 +422,6 @@ function LoginGate({
   );
 }
 
-/**
- * The Status tab: grouped cards of the repeater's live status with a Refresh
- * button. Fetches once on mount (first entry) and again on demand; the fetched
- * status is read from the store. Cards reuse the shared {@link StatCard} and
- * its shimmer skeleton while a fetch is in flight, matching the Stats page.
- */
 function StatusDashboard({
   status,
   onRefresh,
@@ -613,27 +595,12 @@ function StatusDashboard({
   );
 }
 
-/**
- * In-flight `neighbors` reads, keyed by repeater prefix and tracked at module
- * scope (not per-tab). Storing the promise — rather than a plain flag — lets a
- * remount (tab switch) *join* the outstanding read instead of starting a
- * duplicate or briefly showing a false empty: every mount awaits the same
- * promise and reflects its settlement (data via the store, or an error). The
- * entry is removed when the read settles. The promise resolves the raw reply
- * text so each joiner can apply it; it rejects on transport failure.
- */
+// Held at module scope, not per-tab, so a remount (tab switch) joins the
+// outstanding read instead of starting a duplicate or briefly showing a false
+// empty. Storing the promise — rather than a flag — lets every mount await the
+// same reply text. The entry is removed once the read settles.
 const neighborsRequests = new Map<string, Promise<string>>();
 
-/**
- * The Neighbors tab: a spatial view of the repeater's up-to-8 most recently
- * heard nodes, read via the `neighbors` CLI command and parsed by
- * {@link parseNeighborsReply}. Each neighbor that resolves to a located contact
- * or advert is plotted on {@link NeighborsMap} with an SNR-labeled link from
- * the repeater; a Refresh control on the map re-reads the list. When nothing
- * can be mapped (the repeater or its neighbors lack a location, or none were
- * heard), a placeholder explains why. Fetches once on entry and again on
- * demand.
- */
 function NeighborsTab({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
   const { repeaterCliRequest } = useMeshCore();
@@ -755,15 +722,8 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   );
 }
 
-/**
- * The Console tab: a raw CLI transcript bound to the per-repeater
- * `adminSessions[prefix].cli` log, with a text input that sends arbitrary
- * commands via `repeaterCli`. Outgoing lines (the `own` flag) render distinctly
- * from the node's replies, which arrive unordered but append chronologically.
- * Clear empties the transcript (bounded by the store). Admin-only: current
- * repeater/room firmware answers remote `CLI_DATA` only for an admin client, so
- * the tab is gated to admins (see the tab list) — a guest would get no reply.
- */
+// Admin-only: current repeater/room firmware answers remote `CLI_DATA` only
+// for an admin client, so a guest would get no reply.
 function ConsoleTab({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
   const { repeaterCli } = useMeshCore();

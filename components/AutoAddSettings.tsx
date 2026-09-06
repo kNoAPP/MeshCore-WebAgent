@@ -24,12 +24,6 @@ export function AutoAddSettings() {
   return <AutoAddSettingsPanel />;
 }
 
-/**
- * The auto-add settings form. Edits a local draft seeded from the store on
- * mount (so it reflects the latest radio-hydrated values), then writes it to
- * the radio (and the encrypted per-radio preferences blob via the store) with
- * `applyAutoAddConfig` on Save.
- */
 function AutoAddSettingsPanel() {
   const { t } = useTranslation();
   const { setAutoAddOpen, autoAddConfig } = useMeshStore();
@@ -140,7 +134,6 @@ function AutoAddSettingsPanel() {
   );
 }
 
-/** A labeled radio option with a hint line, styled to match the theme. */
 function Radio({
   label,
   hint,
@@ -171,7 +164,6 @@ function Radio({
   );
 }
 
-/** A labeled checkbox bound to a boolean. */
 function Check({
   label,
   checked,

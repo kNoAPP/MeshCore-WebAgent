@@ -18,7 +18,7 @@ import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 import type { SupportedLocale } from '@/lib/i18n/config';
 import { DEFAULT_THEME } from '@/lib/theme/config';
 
-/** Whether an event target is a text field, so "/" shouldn't hijack it. */
+// "/" must not hijack a text field.
 function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   if (!el) return false;
@@ -199,27 +199,15 @@ export function Header() {
   );
 }
 
-/**
- * Shows the count of automation actions awaiting approval and, on click, opens
- * a popup listing every staged proposal for Approve/Deny — the same inbox
- * rendered in Settings → Automation, surfaced from anywhere. Rendered only
- * while at least one proposal is pending.
- *
- * The popup's open state lives in {@link ProposalsInbox}, which is mounted only
- * while the queue is non-empty. Draining the queue unmounts it, discarding that
- * state, so a newly arriving proposal always starts closed — opening requires
- * an explicit click and never happens automatically.
- */
+// The popup's open state lives in ProposalsInbox, which is mounted only while
+// the queue is non-empty. Draining the queue unmounts it and discards that
+// state, so a newly arriving proposal always starts closed.
 function ProposalsButton() {
   const count = useMeshStore((s) => s.stagedActions.length);
   if (count === 0) return null;
   return <ProposalsInbox count={count} />;
 }
 
-/**
- * The proposals button plus its click-opened popup; see
- * {@link ProposalsButton}.
- */
 function ProposalsInbox({ count }: { count: number }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -246,13 +234,6 @@ function ProposalsInbox({ count }: { count: number }) {
   );
 }
 
-/**
- * Always-visible automation kill switch, shown only while automation is armed.
- * One click halts everything immediately: it aborts any in-flight AI run,
- * disables the master switch, and clears the staged-approval queue (via the
- * store's {@link killSwitch}). Deliberately styled as a danger control so it's
- * impossible to miss.
- */
 function KillSwitchButton() {
   const { t } = useTranslation();
   const enabled = useMeshStore((s) => s.automationEnabled);
@@ -275,13 +256,8 @@ function KillSwitchButton() {
   );
 }
 
-/**
- * The advert icon button beside the device name: opens a small dropdown to
- * advertise this node to the mesh, choosing zero-hop (direct neighbors) or
- * flood (whole mesh). Advertising needs a fully connected link, so the button
- * is disabled while reconnecting — matching the Stats tab — and each action
- * routes through {@link useMeshCore.advertiseSelf}, which toasts the outcome.
- */
+// Advertising needs a fully connected link, so the button is disabled while
+// reconnecting — matching the Stats tab.
 function AdvertMenu() {
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);

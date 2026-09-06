@@ -60,7 +60,6 @@ export function MapLegend({ children }: { children?: ReactNode }) {
   );
 }
 
-/** Caret that flips to indicate the legend's expanded/collapsed state. */
 function Chevron({ open }: { open: boolean }) {
   return (
     <svg

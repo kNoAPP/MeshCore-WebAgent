@@ -286,13 +286,6 @@ function ManagePanelView() {
   );
 }
 
-/**
- * The contact "Share" sub-page shown in place of the detail view (its title and
- * back button live in the surrounding {@link ModalShell}). Offers three ways to
- * hand off the contact: a scannable QR of its public key, the public key text
- * with a copy button, and a zero-hop advert that asks the radio to re-broadcast
- * the contact's advert to direct neighbors.
- */
 function ContactShare({
   contact,
   onShareAdvert,
@@ -323,11 +316,6 @@ function ContactShare({
   );
 }
 
-/**
- * Read-only property rows for a channel: name, index, derived type
- * (Public/Hashtag/Private), channel hash, message count, and a reveal/copy of
- * the secret key.
- */
 function ChannelDetails({ channel }: { channel: Channel }) {
   const { t } = useTranslation();
   const msgHistory = useMeshStore((s) => s.msgHistory);
@@ -427,10 +415,6 @@ function ChannelDetails({ channel }: { channel: Channel }) {
   );
 }
 
-/**
- * Inline confirmation row (message + Cancel/Remove) shown in place of the
- * action buttons.
- */
 function ConfirmRow({
   message,
   onCancel,
@@ -462,19 +446,12 @@ function ConfirmRow({
   );
 }
 
-/** Verbose route description for the contact detail row. */
 function routeLabel(t: TFunction, contact: Contact): string {
   if (contact.outPathLen === NO_PATH) return t('route.noRouteFloods');
   if (contact.outPathLen === 0) return t('route.directHops');
   return t('route.hops', { count: contact.outPathLen });
 }
 
-/**
- * A label/value row in the detail panel.
- *
- * @param mono - render the value in monospace (for keys/hashes).
- * @param copy - if set, shows a {@link CopyButton} that copies this string.
- */
 function DetailRow({
   label,
   value,

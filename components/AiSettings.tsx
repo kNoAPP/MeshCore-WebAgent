@@ -17,10 +17,8 @@ import {
   type ProviderId,
 } from '@/lib/ai/provider';
 
-/** Max tokens for the manual test completion — a trivial round-trip. */
 const TEST_MAX_TOKENS = 256;
 
-/** Localized copy for each {@link LLMErrorKind} the test call can surface. */
 const ERROR_KEY = {
   auth: 'settings.ai.error.auth',
   rateLimit: 'settings.ai.error.rateLimit',
@@ -204,11 +202,6 @@ export function AiSettingsBody() {
   );
 }
 
-/**
- * A minimal test-call panel: streams a trivial prompt to the selected provider
- * and shows the response or a friendly, localized error, confirming the key and
- * connectivity without wiring any autonomous behavior.
- */
 function AiTestChat({
   providerId,
   model,

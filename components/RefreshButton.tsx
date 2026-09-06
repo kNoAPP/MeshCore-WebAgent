@@ -5,7 +5,6 @@
 
 import { useTranslation } from 'react-i18next';
 
-/** Circular-arrows refresh glyph; spins via `animate-spin` while busy. */
 function RefreshIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -26,7 +25,6 @@ function RefreshIcon({ className }: { className?: string }) {
   );
 }
 
-/** Download (arrow-into-tray) glyph, shown before a section's first load. */
 function DownloadIcon() {
   return (
     <svg

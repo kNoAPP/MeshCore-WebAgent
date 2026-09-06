@@ -32,7 +32,6 @@ import type {
   RuleTrigger,
 } from '@/types/automation';
 
-/** Trigger kinds offered in the rule editor, in menu order. */
 const TRIGGER_KINDS: RuleTrigger['on'][] = [
   'message',
   'advert',
@@ -41,11 +40,8 @@ const TRIGGER_KINDS: RuleTrigger['on'][] = [
   'schedule',
 ];
 
-/**
- * Node-type checkboxes offered when the trigger is `advert`, each mapping a
- * localized label to the `advType` value(s) it matches. "Chat" covers both the
- * companion type and the "none" default (advType 0/1); the rest are one-to-one.
- */
+// "Chat" covers both the companion type and the "none" default (advType 0/1);
+// the rest are one-to-one.
 const ADV_TYPE_FILTERS: {
   key: 'chat' | 'repeater' | 'room' | 'sensor';
   types: number[];
@@ -155,7 +151,6 @@ export function AutomationSettingsBody() {
   );
 }
 
-/** The pending-approval inbox: each staged action awaits Approve or Deny. */
 function ApprovalInbox() {
   const { t } = useTranslation();
   const staged = useMeshStore((s) => s.stagedActions);
@@ -236,7 +231,6 @@ export function ApprovalInboxList() {
   );
 }
 
-/** The saved rules, each with an enable toggle and a delete control. */
 function RuleList({
   rules,
   onEdit,
@@ -322,13 +316,10 @@ function RuleList({
 const selectClass =
   'min-w-0 rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent)';
 
-/**
- * The turn slider's far-right stop, one past the finite max. Selecting it saves
- * the {@link UNLIMITED_TURNS} sentinel so the engine runs without a turn cap.
- */
+// One past the finite max; selecting this stop saves the UNLIMITED_TURNS
+// sentinel so the engine runs without a turn cap.
 const TURNS_UNLIMITED_POS = MAX_MAX_TURNS + 1;
 
-/** Clamps an integer to a range, else the fallback. */
 function clampInt(
   value: number,
   fallback: number,
@@ -340,7 +331,6 @@ function clampInt(
   return Math.min(hi, Math.max(lo, n));
 }
 
-/** Reverses a saved rule into the editor's field values (null → defaults). */
 function deriveFields(editing: AutomationRule | null) {
   const fixedArgs: Record<string, unknown> =
     editing?.action.kind === 'fixed' ? editing.action.args : {};
@@ -395,11 +385,8 @@ function deriveFields(editing: AutomationRule | null) {
   };
 }
 
-/**
- * The rule form. Adds a new rule, or — when `editing` is supplied — loads that
- * rule's values and saves changes back to it (preserving its enabled state).
- * The parent remounts this via a `key` so switching rules re-initializes it.
- */
+// The parent remounts this via a `key`, so switching rules re-initializes the
+// fields from `editing`.
 function RuleEditor({
   editing,
   onDone,
@@ -1111,7 +1098,6 @@ function RuleEditor({
   );
 }
 
-/** The append-only audit log of AI decisions (newest first). */
 function AuditLogView() {
   const { t } = useTranslation();
   const log = useMeshStore((s) => s.auditLog);

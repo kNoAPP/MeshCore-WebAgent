@@ -20,10 +20,7 @@ interface TransportSupport {
 
 // Snapshot must be cached — useSyncExternalStore compares by reference
 let transportSupport: TransportSupport | null = null;
-/**
- * Feature-detects USB/BLE support, memoized so the snapshot stays
- * reference-stable.
- */
+// Memoized so the snapshot stays reference-stable.
 function getTransportSupport(): TransportSupport {
   transportSupport ??= {
     usb: 'serial' in navigator,
@@ -190,10 +187,6 @@ export function ConnectPanel() {
   );
 }
 
-/**
- * Attribution, license, and contribution links pinned to the bottom-right of
- * the connect screen.
- */
 function ConnectFooter() {
   const { t } = useTranslation();
   return (

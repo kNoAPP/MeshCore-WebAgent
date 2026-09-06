@@ -24,17 +24,9 @@ import {
 } from '@/lib/meshcore/constants';
 import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
 
-/**
- * How the contact is provided: `discover` lists heard over-the-air adverts to
- * add directly; `paste` parses a `meshcore://contact/add` link into the fields
- * for review; `manual` takes a name, public key, and type directly.
- */
 type Mode = 'discover' | 'paste' | 'manual';
 
-/**
- * Cap on discovered rows rendered at once. The advert cache can hold hundreds
- * of nodes; the search bar narrows the rest.
- */
+// The advert cache can hold hundreds of nodes; the search bar narrows the rest.
 const DISCOVER_RENDER_CAP = 200;
 
 const MODES = [
@@ -59,7 +51,6 @@ const MODES = [
   hintKey: string;
 }[];
 
-/** Selectable advert types, paired with their icon and i18n label key. */
 const TYPE_OPTIONS = [
   1,
   ADV_TYPE_REPEATER,

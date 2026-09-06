@@ -31,28 +31,18 @@ import {
   MAX_MSG_BYTES,
 } from '@/lib/meshcore/constants';
 
-/** Max at-mention autocomplete suggestions shown at once. */
 const MAX_SUGGESTIONS = 5;
 
-/**
- * How close (in pixels) to the bottom of the message list the user must be for
- * an incoming message to auto-scroll into view. Beyond this, they're treated as
- * reading history and their scroll position is preserved.
- */
+// Within this distance of the bottom, an incoming message auto-scrolls into
+// view; past it the user is reading history, so their position is preserved.
 const NEAR_BOTTOM_PX = 120;
 
-/** Whether the scroll container is within `NEAR_BOTTOM_PX` of its bottom. */
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
 }
 
-/**
- * Extracts the in-progress at-mention fragment at the cursor for autocomplete.
- *
- * @returns the text after the nearest at-sign, or null if the cursor isn't in a
- * mention (whitespace follows it, or it's already a completed bracketed
- * mention).
- */
+// Null when the cursor isn't in a mention: whitespace follows the at-sign, or
+// the mention is already bracketed and complete.
 function getMentionQuery(value: string, cursor: number): string | null {
   const before = value.slice(0, cursor);
   const atIdx = before.lastIndexOf('@');
@@ -63,11 +53,7 @@ function getMentionQuery(value: string, cursor: number): string | null {
   return fragment;
 }
 
-/**
- * Splits a channel message — whose text the firmware formats as
- * `<sender>: <body>` — into its sender label and body. The sender is null when
- * no prefix is present.
- */
+// The firmware formats a channel message's text as `<sender>: <body>`.
 function splitChannelMessage(text: string): {
   sender: string | null;
   body: string;

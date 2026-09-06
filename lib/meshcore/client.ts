@@ -333,13 +333,10 @@ export class MeshCoreClient {
     this.pollTimer = setInterval(() => this.pollMessages(), 5000);
   }
 
-  /**
-   * Runs one initial-sync step then verifies the link survived it, so a
-   * mid-sync drop aborts {@link init} instead of letting a best-effort step
-   * finish partial — any step routed through here is close-safe by default.
-   * With `bestEffort`, the step's own error (a slow or unsupported radio) is
-   * swallowed; a transport close always aborts.
-   */
+  // Verifies the link survived the step, so a mid-sync drop aborts `init`
+  // instead of letting a best-effort step finish partial — any step routed
+  // through here is close-safe by default. With `bestEffort`, the step's own
+  // error (a slow or unsupported radio) is swallowed; a close always aborts.
   private async syncStep(
     step: () => Promise<unknown>,
     bestEffort = false,
@@ -1371,7 +1368,6 @@ export class MeshCoreClient {
     );
   }
 
-  /** Clears the poll and contact-resync timers. */
   private stopTimers(): void {
     if (this.pollTimer) {
       clearInterval(this.pollTimer);

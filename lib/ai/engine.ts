@@ -79,7 +79,6 @@ const MAX_GATED_ACTIONS_PER_RUN = 25;
 // queue, so they are unaffected.
 const MAX_PENDING_PROMPTS = 8;
 
-/** Clamps an optional user-supplied integer to a range, else the fallback. */
 function clampInt(
   value: number | undefined,
   fallback: number,
@@ -107,11 +106,8 @@ export const AIRTIME_REFILL_MS = 15_000;
  */
 export const MAX_COOLDOWN_SEC = 300;
 
-/**
- * A leaky token bucket bounding transmit airtime. Bursts up to {@link capacity}
- * then throttles to one token per {@link refillMs}. Purely time-based — no
- * timers to leak.
- */
+// Leaky bucket bounding transmit airtime: bursts up to `capacity`, then one
+// token per `refillMs`. Purely time-based — no timers to leak.
 class TokenBucket {
   private tokens: number;
   private last: number;
@@ -158,7 +154,6 @@ function audit(entry: Omit<AuditEntry, 'id' | 'at'>): void {
   });
 }
 
-/** A short label for the triggering event, for the audit log. */
 function eventLabel(event: MeshEvent): string {
   switch (event.type) {
     case 'message': {
@@ -181,7 +176,6 @@ function eventLabel(event: MeshEvent): string {
   }
 }
 
-/** The user-turn content handed to the LLM describing the trigger. */
 function eventPromptContent(event: MeshEvent): string {
   if (event.type === 'message') {
     const who = event.msg.senderName ?? event.msg.pubkeyPrefix ?? 'unknown';
@@ -262,12 +256,8 @@ function conditionMatches(rule: AutomationRule, event: MeshEvent): boolean {
  */
 export type ApprovalOutcome = 'executed' | 'rateLimited' | 'failed';
 
-/**
- * The singleton automation engine. Holds the latest {@link ActionContext} (from
- * `useAutomation`), the transmit airtime limiter, and the serial prompt queue.
- * A single instance survives re-renders; the hook only feeds it events and
- * updates its context.
- */
+// A single instance survives re-renders; `useAutomation` only feeds it events
+// and updates its context.
 class AutomationEngine {
   private ctx: ActionContext | null = null;
   private readonly bucket = new TokenBucket(AIRTIME_BURST, AIRTIME_REFILL_MS);
@@ -547,11 +537,8 @@ class AutomationEngine {
     });
   }
 
-  /**
-   * Runs a read tool for the agentic loop, auditing it and returning its result
-   * as a JSON string to feed back to the model (or an error string on failure,
-   * so the model can recover rather than the loop crashing).
-   */
+  // A failure comes back as an error string rather than throwing, so the model
+  // can recover instead of the loop crashing.
   private async runReadForResult(
     rule: AutomationRule,
     event: MeshEvent,
@@ -584,13 +571,9 @@ class AutomationEngine {
     }
   }
 
-  /**
-   * Runs one transmit/write tool from the agentic loop under the rule's
-   * autonomy and returns a JSON status the model reads to decide its next step.
-   * In `approve` mode the action is staged for human sign-off (reported as
-   * `staged_for_approval`); in `auto` mode it runs immediately, with transmits
-   * subject to the airtime limiter. Every path is audited.
-   */
+  // In `approve` mode the action is staged for human sign-off (reported back as
+  // `staged_for_approval`); in `auto` mode it runs immediately, with transmits
+  // subject to the airtime limiter. Every path is audited.
   private async runGatedForResult(
     rule: AutomationRule,
     event: MeshEvent,
@@ -661,13 +644,8 @@ class AutomationEngine {
     }
   }
 
-  /**
-   * Applies a rule's fixed-action tool call: enforces the allowlist, routes
-   * reads straight through, and gates transmit/write calls by the airtime
-   * limiter and the rule's autonomy (auto executes; approve stages for human
-   * sign-off). Every path is audited. The LLM path does not go through here —
-   * it uses the tool loop's runReadForResult / runGatedForResult.
-   */
+  // The fixed-action path only. The LLM path does not come through here — it
+  // uses the tool loop's runReadForResult / runGatedForResult.
   private dispatchTool(
     rule: AutomationRule,
     event: MeshEvent,
@@ -735,7 +713,6 @@ class AutomationEngine {
     void this.execute(rule, event, name, args, 'auto');
   }
 
-  /** Runs a tool through the action surface and records the result. */
   private async execute(
     rule: AutomationRule,
     event: MeshEvent,

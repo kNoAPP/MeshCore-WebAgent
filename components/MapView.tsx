@@ -18,10 +18,6 @@ import {
 import { BaseLeafletMap } from './BaseLeafletMap';
 import { MapLegend } from './MapLegend';
 
-/**
- * A draggable pin used only in location-pick mode: a filled accent circle with
- * a white ring, distinct from the category node markers.
- */
 function pickIcon(): L.DivIcon {
   const size = MAP_MARKER_SIZE_PX;
   return L.divIcon({
@@ -32,12 +28,6 @@ function pickIcon(): L.DivIcon {
   });
 }
 
-/**
- * Picks the starting viewport: the persisted center/zoom if the user has panned
- * before; otherwise a close-in view on this node, or — when this node reports
- * no fix — bounds framing every located contact/advert, falling back to the
- * whole world when none have a location.
- */
 function initialView(
   prefs: MapPrefs | null,
   self: MapNode | null,
@@ -69,11 +59,6 @@ export function MapView() {
   return <MapPage self={self} nodes={nodes} />;
 }
 
-/**
- * The Map page: composes {@link BaseLeafletMap} with the page-specific
- * concerns — viewport persistence, the favorites-only filter, the marker cap,
- * location-pick mode, and the legend. This node's marker shows when located.
- */
 function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   const { t } = useTranslation();
   const mapPicking = useMeshStore((s) => s.mapPicking);

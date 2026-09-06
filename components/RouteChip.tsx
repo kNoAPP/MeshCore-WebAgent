@@ -12,7 +12,6 @@ import { NO_PATH } from '@/lib/meshcore/constants';
 import { toHex } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
 
-/** Short route label for the chip: `Flood`, `Direct`, or `N hops`. */
 function routeLabel(t: TFunction, contact: Contact): string {
   if (contact.outPathLen === NO_PATH) return t('routeChip.flood');
   if (contact.outPathLen === 0) return t('routeChip.direct');

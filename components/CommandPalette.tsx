@@ -20,7 +20,6 @@ import type { CommandKind, CommandResult } from '@/lib/search/commandSearch';
 import { useCommandSearch } from '@/hooks/useCommandSearch';
 import { ModalShell } from './ModalShell';
 
-/** Lucide icon for each result kind. */
 const KIND_ICON: Record<CommandKind, typeof Search> = {
   message: MessageSquare,
   contact: User,
@@ -29,16 +28,12 @@ const KIND_ICON: Record<CommandKind, typeof Search> = {
   page: ArrowRight,
 };
 
-/** id of the results listbox, wired to the combobox input's aria-* attrs. */
 const LISTBOX_ID = 'command-results';
 
-/** Stable id for the option at flat index `i`, for `aria-activedescendant`. */
+// Must be stable across renders for `aria-activedescendant`.
 const optionId = (i: number): string => `command-option-${i}`;
 
-/**
- * Renders `text`, wrapping each Fuse match range in an accent-colored span.
- * Ranges are inclusive `[start, end]` character offsets.
- */
+// Fuse match ranges are inclusive `[start, end]` character offsets.
 function Highlighted({
   text,
   ranges,
@@ -65,7 +60,6 @@ function Highlighted({
   return parts;
 }
 
-/** One selectable row in the results list. */
 function ResultRow({
   result,
   active,

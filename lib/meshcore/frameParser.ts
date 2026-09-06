@@ -1,10 +1,7 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-/**
- * Invoked with each fully-assembled inbound frame payload (delimiter and length
- * stripped).
- */
+// The payload arrives with its delimiter and length stripped.
 type FrameCallback = (frame: Uint8Array) => void;
 type State = 'idle' | 'lenLow' | 'lenHigh' | 'data';
 
