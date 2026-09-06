@@ -853,6 +853,7 @@
     "wifiError": "Erreur WiFi : {{error}}",
     "disconnected": "Déconnecté",
     "contactNotFound": "Contact introuvable",
+    "channelNotFound": "Le canal n'est plus sur la radio",
     "repeaterCantMessage": "Impossible d'envoyer des messages aux répéteurs",
     "sendFailed": "Échec de l'envoi : {{error}}",
     "routeReset": "Route réinitialisée — le prochain message fera un flood",

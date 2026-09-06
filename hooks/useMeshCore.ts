@@ -1025,7 +1025,15 @@ export function useMeshCore() {
       updateMessage(convo.id, msgId, { status: 'sending', attempt });
       try {
         if (convo.kind === 'channel') {
-          await client.sendChannelMessage(Number(convo.rawId), text);
+          const idx = Number(convo.rawId);
+          // The slot may have been removed since this conversation was opened
+          // (history keeps it reachable), and its secret is now zeroed.
+          if (!client.channels[idx]) {
+            updateMessage(convo.id, msgId, { status: 'failed' });
+            showToast(i18n.t('toast.channelNotFound'), 'error');
+            return;
+          }
+          await client.sendChannelMessage(idx, text);
           updateMessage(convo.id, msgId, { status: 'sent' });
           openEchoWindow(convo.id, msgId);
           return;

@@ -853,6 +853,7 @@
     "wifiError": "WiFi error: {{error}}",
     "disconnected": "Disconnected",
     "contactNotFound": "Contact not found",
+    "channelNotFound": "Channel no longer on the radio",
     "repeaterCantMessage": "Repeaters can't be messaged",
     "sendFailed": "Send failed: {{error}}",
     "routeReset": "Route reset — next message will flood",

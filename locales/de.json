@@ -853,6 +853,7 @@
     "wifiError": "WiFi-Fehler: {{error}}",
     "disconnected": "Getrennt",
     "contactNotFound": "Kontakt nicht gefunden",
+    "channelNotFound": "Kanal nicht mehr auf dem Funkgerät",
     "repeaterCantMessage": "Repeatern können keine Nachrichten gesendet werden",
     "sendFailed": "Senden fehlgeschlagen: {{error}}",
     "routeReset": "Route zurückgesetzt — die nächste Nachricht wird gefloodet",
