@@ -18,39 +18,30 @@ import {
 // export; AGENTS.md also forbids `node:` imports). See docs/design/
 // ai-automation.md §1 and https://docs.claude.com/en/api/messages.
 
-/**
- * The ONLY origin this provider ever contacts. There is deliberately no
- * configurable base URL in v1 — a configurable endpoint is exactly how a proxy
- * would sneak in and defeat the browser → provider-only guarantee.
- */
+// The ONLY origin this provider ever contacts. There is deliberately no
+// configurable base URL — that is exactly how a proxy would sneak in and defeat
+// the browser → provider-only guarantee.
 const ANTHROPIC_ORIGIN = 'https://api.anthropic.com';
 
-/** Wire version pinned per the Messages API contract. */
 const ANTHROPIC_VERSION = '2023-06-01';
 
-/** Ceiling on how long a single 429 back-off may pause a manual test call. */
 const RETRY_AFTER_CAP_MS = 15_000;
 
-/**
- * Consecutive 401/403 responses. On the second, the in-memory (and any
- * persisted) key is dropped so a known-bad key can't keep re-sending — the
- * anti-spam rule from the design's error handling. Reset on any non-auth
- * outcome.
- */
+// On the second consecutive 401/403 the in-memory (and any persisted) key is
+// dropped, so a known-bad key can't keep re-sending. Reset on any non-auth
+// outcome.
 let consecutiveAuthFailures = 0;
 
-/** Curated Anthropic model aliases; first is the default. */
+// First entry is the default.
 const MODELS: readonly LLMModel[] = [
   { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
   { id: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
 ];
 
-/**
- * Builds the Messages API request URL and enforces the no-proxy guarantee: the
- * result must start with the hardcoded official origin. A mismatch (a tampered
- * constant, say) throws rather than silently leaking the key to another host.
- */
+// Enforces the no-proxy guarantee: the URL must start with the hardcoded
+// official origin, and a mismatch (a tampered constant, say) throws rather than
+// silently leaking the key to another host.
 function messagesUrl(): string {
   const url = `${ANTHROPIC_ORIGIN}/v1/messages`;
   if (!url.startsWith(`${ANTHROPIC_ORIGIN}/`)) {
@@ -59,17 +50,13 @@ function messagesUrl(): string {
   return url;
 }
 
-/**
- * An ephemeral cache breakpoint. Anthropic caches the request prefix up to and
- * including a marked position for a 5-minute TTL, so identical prefixes on
- * later turns (and later firings) read from cache at the discounted rate. It is
- * a silent no-op when the prefix is under the model minimum (~1k tokens on
- * Sonnet/Opus, ~4k on Haiku): no cache tokens, no error, unchanged response.
- * See https://platform.claude.com/docs/en/build-with-claude/prompt-caching.
- */
+// Anthropic caches the request prefix up to and including a marked position for
+// a 5-minute TTL. It is a silent no-op when the prefix is under the model
+// minimum (~1k tokens on Sonnet/Opus, ~4k on Haiku): no cache tokens, no error,
+// unchanged response.
+// https://platform.claude.com/docs/en/build-with-claude/prompt-caching
 const CACHE_CONTROL = { type: 'ephemeral' } as const;
 
-/** Maps a vendor-neutral message content to the Anthropic content shape. */
 function toAnthropicContent(
   content: string | LLMContentBlock[],
 ): string | unknown[] {
@@ -87,13 +74,10 @@ function toAnthropicContent(
   });
 }
 
-/**
- * Like {@link toAnthropicContent} but forces block form and tags the final
- * content block with a {@link CACHE_CONTROL} breakpoint, so the growing history
- * caches incrementally as the agentic loop appends turns. A `string` content
- * (which maps to a bare string with no place for a marker) becomes a single
- * text block carrying the marker.
- */
+// Forces block form and tags the final block with a cache breakpoint, so the
+// growing history caches incrementally as the agentic loop appends turns. A
+// `string` content has no place for a marker, so it becomes a single text
+// block.
 function toCachedContent(content: string | LLMContentBlock[]): unknown[] {
   const blocks =
     typeof content === 'string'
@@ -105,15 +89,9 @@ function toCachedContent(content: string | LLMContentBlock[]): unknown[] {
   return blocks;
 }
 
-/**
- * Shapes an {@link LLMRequest} into the Anthropic Messages request body,
- * applying ephemeral cache breakpoints across the cached prefix in Anthropic's
- * `tools → system → messages` order: the last tool (caches all tool schemas as
- * one prefix), the system block, and the last message's final block (caches the
- * conversation incrementally). Max 4 breakpoints per request; this uses at most
- * 3. Breakpoints are a no-op below the model minimum, so a short single-turn
- * rule is unaffected.
- */
+// Cache breakpoints go in Anthropic's `tools → system → messages` order: the
+// last tool (caching all tool schemas as one prefix), the system block, and the
+// last message's final block. Max 4 per request; this uses at most 3.
 function requestBody(req: LLMRequest): string {
   const lastMessage = req.messages.length - 1;
   const body: Record<string, unknown> = {
@@ -149,7 +127,6 @@ function requestBody(req: LLMRequest): string {
   return JSON.stringify(body);
 }
 
-/** Maps a non-2xx HTTP status to a typed {@link LLMError}. */
 function errorForStatus(status: number, retryAfter?: number): LLMError {
   if (status === 401 || status === 403) return new LLMError('auth');
   if (status === 429) return new LLMError('rateLimit', retryAfter);
@@ -160,13 +137,11 @@ function errorForStatus(status: number, retryAfter?: number): LLMError {
   return new LLMError('unknown');
 }
 
-/** Parses a `retry-after` header (seconds) into a number, if present. */
 function retryAfterSeconds(res: Response): number | undefined {
   const raw = Number(res.headers.get('retry-after'));
   return Number.isFinite(raw) && raw >= 0 ? raw : undefined;
 }
 
-/** Resolves after `ms`, or rejects early if `signal` aborts during the wait. */
 function delay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     // `onAbort` and `timer` reference each other; both uses live inside
@@ -183,11 +158,9 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-/**
- * Sends the request, honoring a single 429 back-off (capped so a manual test
- * can't hang indefinitely on a large `retry-after`). Drains a retried 429 body
- * so the connection can be reused.
- */
+// The single 429 back-off is capped, so a manual test can't hang indefinitely
+// on a large `retry-after`. A retried 429 body is drained so the connection can
+// be reused.
 async function send(
   apiKey: string,
   body: string,
@@ -217,17 +190,13 @@ async function send(
   }
 }
 
-/** A decoded Server-Sent-Events frame: its `event:` name and `data:` body. */
 interface SseFrame {
   event: string;
   data: string;
 }
 
-/**
- * Parses a `text/event-stream` body into frames. Splits on the blank-line
- * boundary (`\n\n`), tolerating CRLF, and concatenates multi-line `data:`
- * fields per the SSE spec.
- */
+// Splits on the blank-line boundary (`\n\n`), tolerating CRLF, and concatenates
+// multi-line `data:` fields per the SSE spec.
 async function* readSse(
   body: ReadableStream<Uint8Array>,
 ): AsyncIterable<SseFrame> {
@@ -266,7 +235,6 @@ async function* readSse(
   }
 }
 
-/** Maps an in-stream Anthropic `error` event to a typed {@link LLMError}. */
 function streamErrorKind(type: unknown): LLMErrorKind {
   if (type === 'authentication_error' || type === 'permission_error') {
     return 'auth';
@@ -285,17 +253,14 @@ function streamErrorKind(type: unknown): LLMErrorKind {
   return 'unknown';
 }
 
-/** In-flight tool-use block accumulating its streamed JSON-arg fragments. */
 interface ToolAccumulator {
   id: string;
   name: string;
   json: string;
 }
 
-/**
- * Consumes the SSE body, yielding typed events. Never throws: an aborted signal
- * or a broken stream is yielded as a terminal `error` event.
- */
+// Never throws: an aborted signal or a broken stream is yielded as a terminal
+// `error` event.
 async function* readStream(
   body: ReadableStream<Uint8Array>,
   signal: AbortSignal,
@@ -410,11 +375,8 @@ async function* readStream(
   yield { type: 'done', stopReason, usage };
 }
 
-/**
- * Streams a completion from Anthropic. Reads the BYO key from the secret module
- * at call time (the sole egress point for the secret) and yields typed events;
- * per the {@link LLMProvider} contract it never throws mid-stream.
- */
+// Reads the BYO key from the secret module at call time — the sole egress point
+// for the secret. Per the LLMProvider contract it never throws mid-stream.
 async function* stream(
   req: LLMRequest,
   signal: AbortSignal,

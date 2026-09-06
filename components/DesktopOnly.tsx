@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import { Monitor } from 'lucide-react';
 import { Wordmark } from './Wordmark';
 
-/** Where mobile/tablet visitors are sent for the official native app. */
 const MESHCORE_APP_URL = 'https://meshcore.io';
 
 /**

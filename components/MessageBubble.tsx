@@ -27,14 +27,9 @@ interface Props {
   statusActions?: React.ReactNode;
 }
 
-/** Matches http(s) URLs, stopping at whitespace. */
 const URL_SPLIT_REGEX = /(https?:\/\/[^\s]+)/g;
 const URL_TEST_REGEX = /^https?:\/\/[^\s]+$/;
 
-/**
- * Splits a plain text run into nodes, turning http(s) URLs into links that
- * open in a new tab.
- */
 function renderLinks(text: string, keyPrefix: string): React.ReactNode[] {
   const parts = text.split(URL_SPLIT_REGEX);
   return parts.map((part, i) => {
@@ -59,10 +54,6 @@ function renderLinks(text: string, keyPrefix: string): React.ReactNode[] {
   });
 }
 
-/**
- * Splits message text into nodes, styling bracketed name-mention tokens
- * (self/own/other get distinct colors) and turning URLs into new-tab links.
- */
 function renderText(
   text: string,
   deviceName: string,
@@ -91,11 +82,8 @@ function renderText(
   });
 }
 
-/**
- * The delivery-status glyph for an own message (⏳ / ✓ / ✓✓), with tooltip and
- * optional color. Null for incoming messages or the failed state (handled
- * separately).
- */
+// Null for an incoming message, and for the failed state, which is rendered
+// separately.
 function statusTick(
   t: TFunction,
   msg: Message,
@@ -203,12 +191,6 @@ export function MessageBubble({
   );
 }
 
-/**
- * Builds the metadata tokens shown under a bubble (SNR, hop count / heard-by,
- * time). When repeater hashes are known, the relevant token carries them as a
- * hover/focus tooltip: an ordered `→`-joined route for a received message, or
- * a comma-separated set of rebroadcasters for an own message.
- */
 function metaParts(
   t: TFunction,
   msg: Message,
@@ -256,12 +238,8 @@ function metaParts(
   return parts;
 }
 
-/**
- * Wraps a token in an instant hover/focus tooltip when a title is available.
- * The trigger is keyboard-focusable and associated with the tooltip via
- * `aria-describedby` so the path is announced by screen readers and reachable
- * without a mouse.
- */
+// Focusable and linked via `aria-describedby`, so the path is announced by
+// screen readers and reachable without a mouse.
 function PathToken({
   label,
   title,

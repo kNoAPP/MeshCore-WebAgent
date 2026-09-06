@@ -329,14 +329,14 @@ export const ALL_REPEATER_SETTINGS: readonly RepeaterSetting[] = [
   ...REPEATER_GPS_SETTINGS,
 ];
 
-/**
- * A verb the Config tab can invoke on the node. `destructive` gates the action
- * behind an inline confirm.
- */
 /** i18n-safe action ids (copy under `repeaterAdmin.config.actions.<id>`). */
 export type RepeaterActionId =
   'reboot' | 'advert' | 'advertZeroHop' | 'clockSync';
 
+/**
+ * A verb the Config tab can invoke on the node. `destructive` gates the action
+ * behind an inline confirm.
+ */
 export interface RepeaterAction {
   /** i18n-safe id; label/confirm copy live under `config.actions.<id>`. */
   id: RepeaterActionId;
@@ -404,22 +404,16 @@ export function isErrorReply(
   return false;
 }
 
-/**
- * Strips the firmware's `"> "` CLI prompt prefix (and surrounding whitespace)
- * that leads every reply, so the value beneath can be parsed. Idempotent and
- * safe on replies that lack the marker.
- */
+// The firmware leads every reply with a `"> "` prompt. Idempotent and safe on
+// replies that lack the marker.
 function stripPrompt(reply: string): string {
   return reply.trim().replace(/^>+\s*/, '');
 }
 
-/**
- * Strips the CLI prompt from a reply while preserving the value's own
- * surrounding whitespace. Firmware permits spaces in node names, so a full trim
- * (as {@link stripPrompt} does) would silently rename a node whose name has
- * leading or trailing spaces. Removes only a single leading prompt (`>` plus
- * one optional separator space) and any trailing line terminators.
- */
+// Firmware permits spaces in node names, so a full trim (as `stripPrompt` does)
+// would silently rename a node whose name has leading or trailing spaces. Only
+// a single leading prompt (`>` plus one optional separator space) and any
+// trailing line terminators are removed.
 function stripPromptPreservingValue(reply: string): string {
   return reply.replace(/^\s*>+ ?/, '').replace(/[\r\n]+$/, '');
 }
@@ -427,7 +421,6 @@ function stripPromptPreservingValue(reply: string): string {
 const ON_TOKENS = new Set(['on', '1', 'true', 'enabled', 'yes']);
 const OFF_TOKENS = new Set(['off', '0', 'false', 'disabled', 'no']);
 
-/** Matches a leading signed decimal, tolerating trailing units/whitespace. */
 const NUMBER_RE = /-?\d+(?:\.\d+)?/;
 
 /**

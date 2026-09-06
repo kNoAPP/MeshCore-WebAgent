@@ -10,11 +10,8 @@ import { useSyncExternalStore } from 'react';
 // a session, so detect once and reuse.
 let isDesktop: boolean | null = null;
 
-/**
- * Classifies the current client as a desktop/laptop (vs. phone or tablet).
- * Combines user-agent matching with pointer/touch capability so it catches
- * iPadOS Safari (which reports a desktop user-agent but exposes multi-touch).
- */
+// Pointer/touch capability is checked alongside the user-agent to catch iPadOS
+// Safari, which reports a desktop user-agent but exposes multi-touch.
 function detectIsDesktop(): boolean {
   const ua = navigator.userAgent;
 

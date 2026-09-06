@@ -339,7 +339,6 @@ export function formatLatLon(
   return `${microToDeg(latMicro).toFixed(4)}, ${microToDeg(lonMicro).toFixed(4)}`;
 }
 
-/** Earth's mean radius in kilometers, used by {@link haversineKm}. */
 const EARTH_RADIUS_KM = 6371;
 
 const toRad = (deg: number): number => (deg * Math.PI) / 180;

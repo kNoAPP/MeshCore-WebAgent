@@ -21,12 +21,8 @@ import {
   PUBLIC_CHANNEL_SECRET,
 } from '@/lib/meshcore/constants';
 
-/**
- * How the channel secret is obtained: `joinPublic` uses MeshCore's well-known
- * Public key, `create` generates a random one, `joinPrivate` takes a hex
- * secret, `joinHashtag` derives it from a public name, `joinLink` parses a
- * `meshcore://channel/add` link into the `joinPrivate` fields for review.
- */
+// `joinHashtag` derives the secret from a public name; `joinLink` parses a
+// `meshcore://channel/add` link into the `joinPrivate` fields for review.
 type Mode =
   'joinPublic' | 'create' | 'joinPrivate' | 'joinHashtag' | 'joinLink';
 

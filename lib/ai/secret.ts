@@ -13,7 +13,6 @@ import { useMeshStore } from '@/store/meshStore';
 // The masked lifecycle status is mirrored into the store for reactive UI; the
 // value itself never is.
 
-/** The stable secret name the LLM API key is stored under, per radio. */
 const API_KEY_NAME = 'llm-api-key';
 
 let apiKey: string | null = null;

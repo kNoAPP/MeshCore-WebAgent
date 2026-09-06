@@ -13,12 +13,8 @@ import { saveAutomationRules } from '@/lib/storage';
 import type { ActionContext } from '@/lib/ai/tools';
 import i18n from '@/lib/i18n';
 
-/**
- * Upper bound on how many missed wall-clock minutes the schedule ticker replays
- * after a throttled or suspended timer jumps forward. Caps a catch-up burst so
- * a long sleep can't fire a backlog of scheduled rules; staler minutes are
- * dropped, consistent with the live-only execution model.
- */
+// Missed minutes replayed after a throttled timer jumps forward; a longer sleep
+// drops the staler ones rather than firing a backlog.
 const MAX_SCHEDULE_CATCHUP = 5;
 
 /**

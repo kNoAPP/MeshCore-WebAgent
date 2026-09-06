@@ -160,16 +160,9 @@ async function idbDelete(store: string, key: string): Promise<void> {
   });
 }
 
-/**
- * Encrypts `value` (already-serialized plaintext) with AES-256-GCM under a
- * fresh random IV and writes it to `store` at `key`. The single
- * encrypt-and-write path behind every `save*` helper. Best-effort — any failure
- * (e.g. IndexedDB unavailable) is swallowed.
- *
- * @param cryptoKey - the key from {@link deriveStorageKey} for this radio.
- * @returns true if the record was written, false if the write failed (so
- * callers that surface persistence state don't report a false success).
- */
+// The single encrypt-and-write path behind every `save*` helper. Best-effort:
+// any failure (e.g. IndexedDB unavailable) is swallowed and reported as `false`
+// so callers that surface persistence state don't report a success.
 async function putEncrypted(
   store: string,
   key: string,
@@ -191,15 +184,10 @@ async function putEncrypted(
   }
 }
 
-/**
- * Reads and decrypts the record at `store`/`key`, returning the plaintext
- * string. The single read-and-decrypt path behind every `load*` helper.
- *
- * @param cryptoKey - the key from {@link deriveStorageKey} for this radio.
- * @returns the decoded plaintext, or null if nothing is stored or decryption
- * fails (wrong key / different radio / corrupt record) — a different radio is
- * indistinguishable from an absent record, which is the intended property.
- */
+// The single read-and-decrypt path behind every `load*` helper. Null covers
+// both nothing stored and a failed decryption (wrong key / different radio /
+// corrupt record) — a different radio is indistinguishable from an absent
+// record, which is the intended property.
 async function getDecrypted(
   store: string,
   key: string,

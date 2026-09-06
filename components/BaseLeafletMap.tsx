@@ -18,12 +18,8 @@ import {
   type StartView,
 } from '@/lib/map/config';
 
-/**
- * The single-world extent, in decimal degrees. Longitude spans the full globe;
- * latitude is clamped to the Web Mercator limit (±85.05113°) so the bounds line
- * up exactly with the tile grid's top and bottom edges — no blank strip at the
- * poles.
- */
+// Latitude is clamped to the Web Mercator limit (±85.05113°), so the bounds
+// line up with the tile grid's top and bottom edges — no blank strip.
 const WORLD_BOUNDS: L.LatLngBoundsExpression = [
   [-85.05112878, -180],
   [85.05112878, 180],

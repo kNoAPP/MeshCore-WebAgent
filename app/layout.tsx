@@ -14,12 +14,10 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
 };
 
-/**
- * Sets `data-theme` on <html> before first paint to avoid a flash of the wrong
- * theme. Mirrors `resolveInitialTheme`: persisted choice → OS preference →
- * dark. Inlined (not a module) so it runs synchronously ahead of hydration;
- * the static export has no server to resolve the theme on.
- */
+// Sets `data-theme` on <html> before first paint to avoid a flash of the wrong
+// theme. Mirrors `resolveInitialTheme`. Inlined (not a module) so it runs
+// synchronously ahead of hydration; the static export has no server to resolve
+// the theme on.
 const themeInitScript = `
 (function () {
   var t;

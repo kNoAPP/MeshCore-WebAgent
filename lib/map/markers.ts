@@ -56,11 +56,8 @@ export function markerStyle(advType: number): MarkerStyle {
   return MARKER_STYLES[contactCategory(advType)];
 }
 
-/**
- * The SVG child element(s) for a shape, drawn inside a `0 0 24 24` viewBox and
- * centered on (12, 12). Shared by the Leaflet marker string and the React
- * legend swatch so the two never drift.
- */
+// Drawn inside a `0 0 24 24` viewBox, centered on (12, 12). Shared by the
+// Leaflet marker string and the React legend swatch so the two never drift.
 function shapeInner(shape: MapShape): string {
   switch (shape) {
     case 'circle':

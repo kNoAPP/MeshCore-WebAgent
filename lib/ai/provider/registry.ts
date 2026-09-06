@@ -8,7 +8,6 @@ import type { LLMProvider, ProviderId } from './types';
 // plus its implementation module — no consumer changes — which is the whole
 // point of the {@link LLMProvider} boundary.
 
-/** Every shipped provider, keyed by its stable {@link ProviderId}. */
 const PROVIDERS: Record<ProviderId, LLMProvider> = {
   anthropic: anthropicProvider,
 };

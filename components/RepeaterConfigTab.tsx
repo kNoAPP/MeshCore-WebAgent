@@ -39,36 +39,26 @@ import { RadioSettingsModal } from './RadioSettings';
 import { SaveStatusChip, type SaveStatus } from './SaveStatus';
 import type { Contact, RadioParams } from '@/types/meshcore';
 
-/** The map of settings ids to their current on-device / draft values. */
 type ValueMap = Record<string, string>;
 
-/** Stable empty values map, so an uncached repeater doesn't churn renders. */
+// Stable reference, so an uncached repeater doesn't churn renders.
 const EMPTY_VALUES: ValueMap = {};
 
-/** Shared className for a config row: label left, content right, hairline. */
 const ROW_CLASS =
   'flex items-center justify-between gap-3 border-b border-(--border) py-1.5 text-xs last:border-0';
 
-/**
- * The result of one commit round-trip: either the node's authoritative value
- * (which may be rounded or clamped from what was sent), or its error reply.
- */
+// The node's value is authoritative: it may come back rounded or clamped from
+// what was sent.
 type CommitOutcome =
   { kind: 'ok'; value: string } | { kind: 'rejected'; reply: string };
 
-/**
- * How many times a prefill re-requests fields that didn't answer. CLI replies
- * are frequently dropped over the mesh, so a couple of retry passes markedly
- * improve how many fields fill in without a manual refresh. A pass in which
- * nothing at all answered ends the read early — see {@link RepeaterConfigTab}.
- */
+// CLI replies are frequently dropped over the mesh, so a couple of retry passes
+// markedly improve how many fields fill in without a manual refresh. A pass in
+// which nothing answered ends the read early.
 const READ_PASSES = 3;
 
-/**
- * The radio-related fields, shown together in their own card (like the Settings
- * page's Radio section) rather than inside the Identity group they're cataloged
- * in. Loaded and edited as a unit via {@link RadioSection}.
- */
+// Shown together in their own card, like the Settings page's Radio section,
+// rather than inside the Identity group they're cataloged in.
 const RADIO_FIELDS: readonly RepeaterSetting[] = ALL_REPEATER_SETTINGS.filter(
   (s) => s.id === 'radio' || s.id === 'tx',
 );
@@ -786,7 +776,6 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
   );
 }
 
-/** Props shared by every {@link SettingRow}. */
 interface RowProps {
   setting: RepeaterSetting;
   value: string;
@@ -800,11 +789,8 @@ interface RowProps {
   nameBytes: number;
 }
 
-/**
- * One setting as a compact label→control row. Toggles/selects auto-commit on
- * change; typed fields commit on blur/Enter (an invalid edit reverts). A slider
- * drives number fields; the load state is rendered by {@link FieldSlot}.
- */
+// Toggles and selects auto-commit on change; typed fields commit on blur or
+// Enter, and an invalid edit reverts.
 function SettingRow({
   setting,
   value,
@@ -885,15 +871,10 @@ function SettingRow({
   );
 }
 
-/** Placeholder for a field whose value hasn't been loaded yet. */
 function UnloadedValue() {
   return <span className='text-(--text2)'>—</span>;
 }
 
-/**
- * Renders a row's right-hand content by load state: a "reading" caption while
- * fetching, a placeholder until the value first loads, else its control(s).
- */
 function FieldSlot({
   loading,
   loaded,
@@ -915,7 +896,6 @@ function FieldSlot({
   return <>{children}</>;
 }
 
-/** A small "requires reboot" badge shown beside affected fields. */
 function RebootPill() {
   const { t } = useTranslation();
   return (
@@ -925,7 +905,6 @@ function RebootPill() {
   );
 }
 
-/** A bordered input group: a control plus an optional in-field unit suffix. */
 function Field({
   width,
   invalid,
@@ -955,7 +934,6 @@ function Field({
   );
 }
 
-/** A modern on/off switch bound to a toggle setting's wire tokens. */
 function SwitchControl({
   setting,
   value,
@@ -988,7 +966,6 @@ function SwitchControl({
   );
 }
 
-/** A right-sized numeric input with an in-field unit suffix. */
 function NumberField({
   setting,
   value,
@@ -1039,11 +1016,8 @@ function NumberField({
   );
 }
 
-/**
- * A numeric slider with a live value readout and unit. Dragging updates the
- * draft; the change commits on release (pointer up / key up), so a drag doesn't
- * fire a `set` on every tick.
- */
+// The change commits on release (pointer up / key up), so a drag doesn't fire a
+// `set` on every tick.
 function SliderField({
   setting,
   value,
@@ -1085,7 +1059,6 @@ function SliderField({
   );
 }
 
-/** A content-sized dropdown over a select setting's fixed options. */
 function SelectField({
   setting,
   value,
@@ -1119,7 +1092,6 @@ function SelectField({
   );
 }
 
-/** A name input with a live UTF-8 byte counter shown as an in-field suffix. */
 function TextField({
   value,
   maxBytes,
@@ -1165,20 +1137,14 @@ function TextField({
   );
 }
 
-/** The advertised-location policies offered on a GPS-capable node. */
 const LOCATION_POLICIES = [
   { value: 'none', labelKey: 'repeaterAdmin.config.options.gpsAdvert.none' },
   { value: 'prefs', labelKey: 'repeaterAdmin.config.options.gpsAdvert.prefs' },
   { value: 'share', labelKey: 'repeaterAdmin.config.options.gpsAdvert.share' },
 ] as const;
 
-/**
- * The advertised-location picker for a GPS-capable node, mirroring the
- * companion radio's Settings card. Off advertises no location; Fixed advertises
- * the stored lat/lon; GPS advertises the module's live fix (and disables the
- * manual coordinate editor). All three of the firmware's `gps advert` policies
- * are distinct, so a node set to Off isn't shown as Fixed.
- */
+// All three of the firmware's `gps advert` policies are distinct, so a node set
+// to Off must not be shown as Fixed. GPS also disables the manual editor.
 function LocationSourceRow({
   policy,
   status,
@@ -1233,7 +1199,6 @@ function LocationSourceRow({
   );
 }
 
-/** Latitude and longitude paired on one compact row under "Location". */
 function LocationRow({
   latProps,
   lonProps,
@@ -1276,11 +1241,7 @@ function LocationRow({
   );
 }
 
-/**
- * Combines two fields' save states into one: any in-flight write wins, then any
- * error, then a saved tick, else idle. Lets the paired lat/lon row show a
- * single status dot.
- */
+// Lets the paired lat/lon row show a single status dot.
 function combineStatus(a?: SaveStatus, b?: SaveStatus): SaveStatus | undefined {
   if (a === 'saving' || b === 'saving') return 'saving';
   if (a === 'error' || b === 'error') return 'error';
@@ -1288,7 +1249,6 @@ function combineStatus(a?: SaveStatus, b?: SaveStatus): SaveStatus | undefined {
   return undefined;
 }
 
-/** One coordinate input (lat or lon) with its own caption. */
 function CoordField({
   setting,
   value,
@@ -1322,19 +1282,8 @@ function CoordField({
   );
 }
 
-/**
- * The LoRa parameters and TX power as their own card, mirroring the Settings
- * page's Radio section: a read-only breakdown of frequency, bandwidth,
- * spreading factor, coding rate, and TX power, with a Refresh to load them and
- * an Edit that opens the shared {@link RadioSettingsModal}. Reuses {@link Card}
- * and {@link RefreshButton}; Edit is disabled until both values load, since the
- * editor needs them to seed its draft.
- *
- * @param busy - a read of either field is in flight: spins Refresh and shows
- *   the rows as "reading".
- * @param loaded - either field has a value, so Refresh drops its download
- *   glyph.
- */
+// Edit is disabled until both values load, since the editor needs them to seed
+// its draft.
 function RadioSection({
   radioValue,
   txValue,
@@ -1411,7 +1360,6 @@ function RadioSection({
   );
 }
 
-/** A read-only label/value row, matching the editable rows' hairline style. */
 function ValueRow({
   label,
   value,
@@ -1431,7 +1379,6 @@ function ValueRow({
   );
 }
 
-/** The action verbs, with Reboot gated behind an inline confirm. */
 function ActionsSection({
   onRun,
 }: {
@@ -1491,13 +1438,10 @@ function ActionsSection({
   );
 }
 
-/**
- * Select-option wire value to its localized-label key. An
- * `as const satisfies Record<(typeof OPTIONS)[number], string>` map per
- * setting: the keys resolve to a checked literal union (never a bare template
- * literal, per the localization rule) and the map must stay exhaustive over
- * each setting's options, so adding an option without a label fails the build.
- */
+// One `as const satisfies Record<(typeof OPTIONS)[number], string>` map per
+// setting: the keys resolve to a checked literal union (never a bare template
+// literal, per the localization rule) and the map must stay exhaustive, so
+// adding an option without a label fails the build.
 const OPTION_LABEL_KEYS = {
   loopDetect: {
     off: 'repeaterAdmin.config.options.loopDetect.off',
@@ -1521,17 +1465,10 @@ const OPTION_LABEL_KEYS = {
   pathHashMode: Record<(typeof PATH_HASH_MODE_OPTIONS)[number], string>;
 };
 
-/**
- * Resolves a select option to its localized label.
- *
- * @remarks
- * The label key comes from {@link OPTION_LABEL_KEYS} (a checked literal union),
- * but `t()` is called through a string-typed alias: i18next's typed `t()`
- * exceeds TypeScript's instantiation depth for these deeply-nested keys once
- * the catalog is this large — even a single concrete literal trips it — so the
- * alias only sidesteps that depth limit at the call site, while the keys
- * themselves stay validated and exhaustive in the map above.
- */
+// The key comes from OPTION_LABEL_KEYS (a checked literal union), but `t()` is
+// called through a string-typed alias: i18next's typed `t()` exceeds
+// TypeScript's instantiation depth for these deeply-nested keys once the
+// catalog is this large — even a single concrete literal trips it.
 function optionLabel(
   t: ReturnType<typeof useTranslation>['t'],
   id: SelectSetting['id'],

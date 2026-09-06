@@ -7,7 +7,7 @@
 // Evaluated against the local wall clock once per minute by the scheduler in
 // `useAutomation` — this parses and matches expressions, it does not keep time.
 
-/** The five cron fields, with the inclusive value range each accepts. */
+// The five cron fields, in order, with the inclusive range each accepts.
 const FIELDS: { min: number; max: number }[] = [
   { min: 0, max: 59 }, // minute
   { min: 0, max: 23 }, // hour
@@ -16,14 +16,9 @@ const FIELDS: { min: number; max: number }[] = [
   { min: 0, max: 6 }, // day of week (0 = Sunday)
 ];
 
-/**
- * Parses one cron field into the set of integers it matches, or returns `null`
- * if the field is malformed. `*` yields every value in `[min, max]`; commas
- * join sub-expressions; `a-b` is an inclusive range; a trailing `/n` steps
- * through the base range, where the base is `[min, max]` for `*`, the given
- * range for `a-b`, and `[k, max]` for a bare number `k` (matching crontab
- * semantics, so `5/10` means 5, 15, 25, …). Any extra `-` or `/` is rejected.
- */
+// A trailing `/n` steps through the base range, where the base is `[min, max]`
+// for `*`, the given range for `a-b`, and `[k, max]` for a bare number `k` —
+// crontab semantics, so `5/10` means 5, 15, 25, …
 function parseField(
   field: string,
   min: number,
@@ -72,12 +67,9 @@ function parseField(
   return values;
 }
 
-/**
- * Parses the day-of-week field, accepting `7` as an alias for `0` (Sunday).
- * The field is parsed against `[0, 7]` so `7` is legal wherever a number may
- * appear — as a bare value, a range bound (e.g. `6-7`), or a step base — then
- * any resulting `7` is folded into `0`, matching crontab semantics.
- */
+// Parsed against `[0, 7]` so `7` is legal wherever a number may appear — bare
+// value, range bound, or step base — then folded into `0` (Sunday), matching
+// crontab semantics.
 function parseDowField(field: string): Set<number> | null {
   const values = parseField(field, 0, 7);
   if (!values) return null;
@@ -85,7 +77,6 @@ function parseDowField(field: string): Set<number> | null {
   return values;
 }
 
-/** Splits into whitespace-separated fields, or `null` unless there are five. */
 function splitFields(expr: string): string[] | null {
   const fields = expr.trim().split(/\s+/);
   return fields.length === 5 ? fields : null;

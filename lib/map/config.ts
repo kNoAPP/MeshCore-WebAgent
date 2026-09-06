@@ -72,7 +72,6 @@ export const DEFAULT_MAP_PREFS: MapPrefs = {
   zoom: 2,
 };
 
-/** Returns `value` when it is a finite number, otherwise `fallback`. */
 function finiteOr(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }

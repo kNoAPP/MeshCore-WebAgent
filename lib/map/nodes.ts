@@ -38,23 +38,17 @@ export interface MapEdge {
   label?: string;
 }
 
-/** Decimal-degree coordinates of a node with a fix, or `null` if unset. */
 type DegCoords = { lat: number; lon: number } | null;
 
-/**
- * Normalizes a {@link Contact}/{@link Advert} micro-degree fix to degrees.
- * The firmware writes `0` for an unset coordinate, so a zero (or missing) lat
- * **or** lon — including `(0, 0)` "Null Island" — counts as no location.
- */
+// The firmware writes `0` for an unset coordinate, so a zero (or missing) lat
+// or lon — including `(0, 0)` "Null Island" — counts as no location.
 function contactCoords(latMicro?: number, lonMicro?: number): DegCoords {
   if (!latMicro || !lonMicro) return null;
   return { lat: microToDeg(latMicro), lon: microToDeg(lonMicro) };
 }
 
-/**
- * Reads a {@link SelfInfo} fix, which the firmware already reports in degrees —
- * so, unlike contacts, it must **not** be divided by 1e6 again. `0` is unset.
- */
+// The firmware reports a `SelfInfo` fix in degrees already — unlike contacts,
+// it must not be divided by 1e6 again. `0` is unset.
 function selfCoords(latDeg?: number, lonDeg?: number): DegCoords {
   if (!latDeg || !lonDeg) return null;
   return { lat: latDeg, lon: lonDeg };
@@ -152,13 +146,9 @@ export function repeaterAnchorNode(contact: Contact): MapNode | null {
   };
 }
 
-/**
- * Whether a neighbor's `neighbors`-reply prefix identifies a stored node. The
- * neighbor prefix (8 hex, 4 bytes) is shorter than a stored contact/advert
- * prefix (12 hex), so a match is a stored key that begins with it; the reverse
- * (`prefix.startsWith(keyPrefix)`) is kept so an unusually short stored prefix
- * still resolves. Comparison is case-insensitive.
- */
+// A neighbor prefix (8 hex, 4 bytes) is shorter than a stored contact/advert
+// prefix (12 hex), so a match is a stored key that begins with it; the reverse
+// is kept so an unusually short stored prefix still resolves.
 function neighborPrefixMatches(
   prefix: string,
   pubkey: string,

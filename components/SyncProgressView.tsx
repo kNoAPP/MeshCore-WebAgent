@@ -23,9 +23,6 @@ const SYNC_STAGE_KEY = {
   messages: 'sync.messages',
 } as const satisfies Record<SyncProgress['stage'], string>;
 
-/**
- * Builds the parenthetical detail after a sync stage label (e.g. ` (3 of 8)`).
- */
 function syncDetail(
   t: TFunction,
   { stage, current, total }: SyncProgress,

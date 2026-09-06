@@ -38,13 +38,8 @@ import {
 import { useClickOutside } from '@/hooks/useClickOutside';
 import type { Contact, Message } from '@/types/meshcore';
 
-/**
- * Minimum height (px) either sidebar section can be collapsed to via the
- * divider.
- */
 const MIN_SECTION_PX = 40;
 
-/** i18n label key for each filter value. */
 const FILTER_LABEL_KEYS = {
   all: 'sidebar.filterAll',
   favorites: 'sidebar.filterFavorites',
@@ -54,18 +49,14 @@ const FILTER_LABEL_KEYS = {
   sensors: 'sidebar.filterSensors',
 } as const satisfies Record<ContactFilter, string>;
 
-/** i18n label key for each order value. */
 const SORT_LABEL_KEYS = {
   az: 'sidebar.orderAz',
   heard: 'sidebar.orderHeard',
   latest: 'sidebar.orderLatest',
 } as const satisfies Record<ContactSort, string>;
 
-/**
- * Filter/order options paired with their i18n label key. Order and membership
- * come from {@link CONTACT_FILTERS}/{@link CONTACT_SORTS} (also the persistence
- * allowlist), so the menu can't drift from the stored values.
- */
+// Order and membership come from CONTACT_FILTERS/CONTACT_SORTS (also the
+// persistence allowlist), so the menu can't drift from the stored values.
 const FILTER_OPTIONS = CONTACT_FILTERS.map((value) => ({
   value,
   labelKey: FILTER_LABEL_KEYS[value],
@@ -75,7 +66,6 @@ const SORT_OPTIONS = CONTACT_SORTS.map((value) => ({
   labelKey: SORT_LABEL_KEYS[value],
 }));
 
-/** Category-narrowing filters, mapped to the contact category they admit. */
 const FILTER_CATEGORIES: Partial<Record<ContactFilter, ContactCategory>> = {
   users: 'user',
   repeaters: 'repeater',
@@ -83,19 +73,14 @@ const FILTER_CATEGORIES: Partial<Record<ContactFilter, ContactCategory>> = {
   sensors: 'sensor',
 };
 
-/** Whether a contact belongs in the given filter subset. */
 function matchesFilter(c: Contact, filter: ContactFilter): boolean {
   if (filter === 'all') return true;
   if (filter === 'favorites') return (c.flags & FAVORITE_FLAG) !== 0;
   return contactCategory(c.advType) === FILTER_CATEGORIES[filter];
 }
 
-/**
- * Timestamp (Unix secs) of the most recent message in a contact's
- * conversation, or 0 if there are none. Scans all messages rather than trusting
- * append order, since a delayed or retransmitted message can arrive (and be
- * appended) after one with a newer timestamp.
- */
+// Scans all messages rather than trusting append order, since a delayed or
+// retransmitted message can arrive after one with a newer timestamp.
 function lastMessageTime(
   msgHistory: Record<string, Message[]>,
   prefix: string,
@@ -109,10 +94,9 @@ function lastMessageTime(
   return latest;
 }
 
-/** Shared empty timestamp map for orders that don't need per-contact times. */
+// Shared, so orders that don't need per-contact times keep a stable reference.
 const EMPTY_LATEST_TIMES: ReadonlyMap<string, number> = new Map();
 
-/** Compares two contacts by the selected order (newest/most-recent first). */
 function compareBySort(
   a: Contact,
   b: Contact,
@@ -421,10 +405,6 @@ export function Sidebar() {
   );
 }
 
-/**
- * Funnel glyph for the contacts filter button, sized to sit alongside the
- * sibling emoji affordances and inheriting the current text color.
- */
 function FunnelIcon() {
   return (
     <svg
@@ -442,14 +422,6 @@ function FunnelIcon() {
   );
 }
 
-/**
- * Filter-and-order popover for the contacts list. Lets the user narrow the
- * list to a contact category and choose the sort order. State lives in the
- * parent {@link Sidebar}; this component only renders the trigger and menu.
- *
- * @param onFilterChange - selects which contact subset is shown.
- * @param onSortChange - selects the contact ordering.
- */
 function ContactsFilterMenu({
   filter,
   sort,
@@ -529,7 +501,6 @@ function ContactsFilterMenu({
   );
 }
 
-/** A labeled sliding toggle switch row inside the contacts filter menu. */
 function MenuToggle({
   label,
   checked,
@@ -561,7 +532,6 @@ function MenuToggle({
   );
 }
 
-/** Section label inside the contacts filter menu. */
 function MenuHeading({ label }: { label: string }) {
   return (
     <div className='px-3 py-1 text-[10px] font-semibold tracking-widest text-(--text2) uppercase'>
@@ -570,10 +540,6 @@ function MenuHeading({ label }: { label: string }) {
   );
 }
 
-/**
- * One selectable option inside the contacts filter menu. The selected row is
- * accented and marked with a check.
- */
 function MenuRow({
   label,
   selected,
@@ -597,15 +563,7 @@ function MenuRow({
   );
 }
 
-/**
- * One channel/contact row: icon, label, unread badge, and a hover-revealed
- * manage (`⋯`) button. Disabled rows (e.g. repeaters) aren't clickable to open.
- *
- * @param innerRef - attached to the row root, so the parent can scroll the
- * active row into view.
- * @param onManage - opens the manage panel for this item.
- * @param onClick - opens this conversation.
- */
+// Disabled rows (e.g. repeaters) aren't clickable to open.
 function SidebarItem({
   icon,
   label,

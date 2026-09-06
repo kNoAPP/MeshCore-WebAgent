@@ -232,13 +232,6 @@ export function SettingsPage() {
   );
 }
 
-/**
- * The "Share my node" modal: presents this node as a scannable contact QR, the
- * public key with a copy button, and a zero-hop advert action. Renders the
- * shared {@link ShareCard}, so it's identical to {@link ManagePanel}'s contact
- * share screen. The advert button advertises this node to direct neighbors —
- * the self-equivalent of re-broadcasting a contact's advert.
- */
 function ShareNodeModal({
   selfInfo,
   onClose,
@@ -276,15 +269,8 @@ function ShareNodeModal({
   );
 }
 
-/**
- * The Identity section's node-name row: an always-editable inline text input
- * with a live UTF-8 byte counter and a save-status chip, mirroring the repeater
- * name field. A valid, changed name commits on blur/Enter via {@link
- * useMeshCore.setNodeName} (the store — and so the header and this row — update
- * through `onSelfInfo` on success); an invalid edit (empty or over {@link
- * MAX_ADVERT_NAME_BYTES}) reverts to the last known name on blur. Editing is
- * gated to a fully connected link, matching every other radio write.
- */
+// The store — and so the header and this row — updates through `onSelfInfo` on
+// success; an invalid edit reverts to the last known name on blur.
 function NodeNameRow() {
   const { t } = useTranslation();
   const selfInfo = useMeshStore((s) => s.selfInfo);
@@ -370,41 +356,19 @@ function NodeNameRow() {
   );
 }
 
-/**
- * The location sources offered in the Location section. `Fixed` advertises the
- * coordinate entered below (the radio's GPS module off); `GPS` enables the
- * radio's GPS module so its adverts carry the live fix (only meaningful on
- * GPS-capable hardware). The source is stored on the radio as its `gps` custom
- * var — the same field the official app's Position Settings → GPS Mode uses —
- * so it round-trips independently of whether location is currently advertised.
- */
+// The source is stored on the radio as its `gps` custom var — the same field
+// the official app's Position Settings → GPS Mode uses — so it round-trips
+// independently of whether location is currently advertised.
 const LOCATION_SOURCES = [
   { useGps: false, label: 'settings.locationSourceFixed' },
   { useGps: true, label: 'settings.locationSourceGps' },
 ] as const;
 
-/**
- * The Location section, built from two independent controls:
- *
- * - **Include location in adverts** toggles the advert location policy between
- *   `NONE` (off) and a location-bearing policy. Maps to the official app's
- *   "Share position in advert".
- * - **Location source** picks `Fixed` (the coordinate typed/picked below, GPS
- *   module off) or `GPS` (the radio's own GPS module, whose live fix is then
- *   advertised) — the GPS option is offered only on GPS-capable hardware,
- *   probed from `CUSTOM_VARS`. This is the radio's `gps` custom var, the same
- *   field the official app's Position Settings → GPS Mode reads and writes, so
- *   the choice persists on the radio (and round-trips with the official app)
- *   regardless of the advertise toggle.
- *
- * The fixed coordinate is stored via `SET_ADVERT_LATLON` independently of the
- * source, so it can be set without being advertised, and the lat/lon editor is
- * enabled only under the Fixed source. Values are decimal degrees; {@link
- * SelfInfo} already reports them in degrees (unlike contacts), so they seed the
- * inputs as-is and `0`/unset shows blank. The editor stays populated after a
- * failed write, and consumes a coordinate handed back by the map picker via the
- * store's one-shot `pendingLocation`. Gated to a fully connected link.
- */
+// Two independent controls: the advert location policy (`NONE` vs. a
+// location-bearing policy) and the radio's `gps` custom var (Fixed vs. the GPS
+// module). The fixed coordinate is stored via `SET_ADVERT_LATLON` independently
+// of both, so it can be set without being advertised. Values are decimal
+// degrees — `SelfInfo` already reports them in degrees, unlike contacts.
 function LocationCard() {
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);
@@ -667,15 +631,9 @@ function LocationCard() {
   );
 }
 
-/**
- * The Device actions section: reboots the radio behind an inline confirmation.
- * Rebooting is destructive to the live link — the radio restarts and the
- * transport drops — so it's deliberately red-styled and a two-step action.
- * After {@link useMeshCore.rebootDevice} sends the command the link drops and
- * the hook's auto-reconnect loop recovers the session, so there's nothing to do
- * here but toast and let the reconnecting overlay take over. Gated to a fully
- * connected link, matching every other radio write.
- */
+// Rebooting drops the live link, and the hook's auto-reconnect loop recovers
+// the session, so there's nothing to do here but toast and let the reconnecting
+// overlay take over.
 function RebootCard() {
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);
@@ -736,13 +694,6 @@ function RebootCard() {
   );
 }
 
-/**
- * The Display section: client-side presentation preferences. Offers the UI
- * language (mirrors the connect-screen header selector, persisted in
- * `localStorage`), the measurement system (metric/imperial) used for
- * displayed distances, and whether public keys are shown full-length (both
- * persisted per-radio in the encrypted preferences blob).
- */
 function DisplayCard() {
   const { t } = useTranslation();
   const locale = useMeshStore((s) => s.locale);
@@ -821,10 +772,8 @@ function DisplayCard() {
   );
 }
 
-/**
- * The shared {@link SharedCard}, keyed by settings section rather than a raw
- * element id, so the command palette can scroll to and flash a card.
- */
+// Keyed by settings section rather than a raw element id, so the command
+// palette can scroll to and flash a card.
 function Card({
   section,
   ...rest
@@ -837,12 +786,6 @@ function Card({
   );
 }
 
-/**
- * A label/value row inside a {@link Card}.
- *
- * @param mono - render the value in monospace (for the public key).
- * @param copy - if set, shows a {@link CopyButton} that copies this string.
- */
 function Row({
   label,
   value,

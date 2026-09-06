@@ -49,17 +49,12 @@ import { normalizeMapPrefs, type MapPrefs } from '@/lib/map/config';
 import { DEFAULT_AI_PREF, normalizeAiPref, type AiPref } from '@/lib/ai/pref';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
 
-/** Cap on the in-memory automation audit log, newest kept. */
 const AUDIT_LOG_LIMIT = 200;
 
-/** Cap on a per-repeater CLI transcript, oldest lines dropped past it. */
 const CLI_LOG_LIMIT = 200;
 
-/**
- * Monotonic source of {@link AdminSession.token} values. Each newly created
- * session gets a fresh token so a queued CLI command can tell whether the
- * session it was enqueued under is still the current one.
- */
+// Fresh token per session, so a queued CLI command can tell whether the session
+// it was enqueued under is still the current one.
 let adminSessionSeq = 0;
 const nextAdminSessionToken = (): number => ++adminSessionSeq;
 
@@ -73,11 +68,6 @@ const DEFAULT_AUTOADD_CONFIG: AutoAddConfig = {
   maxHops: MAX_HOPS_NO_LIMIT,
 };
 
-/**
- * Normalizes an arbitrary (persisted or corrupt) value into an
- * {@link AutoAddConfig}, shallow-merging over the defaults so a missing or
- * stale field falls back rather than reaching the UI as `undefined`.
- */
 function normalizeAutoAddConfig(raw: unknown): AutoAddConfig {
   if (typeof raw === 'object' && raw !== null) {
     return { ...DEFAULT_AUTOADD_CONFIG, ...(raw as Partial<AutoAddConfig>) };
@@ -143,11 +133,8 @@ const DEFAULT_CONTACT_VIEW: ContactView = {
   pinFavorites: true,
 };
 
-/**
- * Normalizes an arbitrary (persisted or corrupt) value into a valid
- * {@link ContactView}, dropping unrecognized filter/sort values back to their
- * defaults so they can't reach the sidebar's exhaustive switches.
- */
+// A persisted filter/sort value must never reach the sidebar's exhaustive
+// switches unrecognized.
 function normalizeContactView(raw: unknown): ContactView {
   const parsed = {
     ...DEFAULT_CONTACT_VIEW,

@@ -18,7 +18,6 @@
  */
 const NEIGHBOR_PREFIX_HEX_LEN = 8;
 
-/** Matches a well-formed neighbor prefix: exactly the firmware's hex length. */
 const NEIGHBOR_PREFIX_RE = new RegExp(
   `^[0-9a-fA-F]{${NEIGHBOR_PREFIX_HEX_LEN}}$`,
 );

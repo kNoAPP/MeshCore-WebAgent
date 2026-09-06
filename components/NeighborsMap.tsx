@@ -19,13 +19,8 @@ import type { Advert, Contact } from '@/types/meshcore';
 import { BaseLeafletMap } from './BaseLeafletMap';
 import { MapLegend } from './MapLegend';
 
-/**
- * Builds the located node/edge set for the Neighbors map: the administered
- * repeater as the anchor, each locatable neighbor as a node, and a labeled
- * SNR link from the anchor to each. Neighbors that resolve to the same stored
- * node (or the anchor itself) are drawn once. Coordinates come from the shared
- * `lib/map/nodes` resolvers; SNR labels are localized here.
- */
+// A neighbor resolving to the same stored node (or to the anchor itself) is
+// drawn once.
 function buildNeighborMap(
   contact: Contact,
   neighbors: Neighbor[],
