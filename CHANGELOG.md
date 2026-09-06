@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.22.1](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.22.0...v1.22.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **channels:** identify public channel by secret and allow removal ([#210](https://github.com/kNoAPP/MeshCore-WebAgent/issues/210)) ([3117645](https://github.com/kNoAPP/MeshCore-WebAgent/commit/311764519f7b3029b2642173878550a36bf87834))
+
 ## [1.22.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.21.0...v1.22.0) (2026-08-09)
 
 
