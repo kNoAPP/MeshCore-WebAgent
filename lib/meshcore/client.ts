@@ -727,13 +727,9 @@ export class MeshCoreClient {
   }
 
   private async syncChannels(): Promise<void> {
-    for (let i = 0; i < MAX_CHANNEL_SLOTS; i++) {
-      this.reportSync(
-        'channels',
-        45 + (30 * i) / MAX_CHANNEL_SLOTS,
-        i + 1,
-        MAX_CHANNEL_SLOTS,
-      );
+    const slots = this.deviceInfo?.maxChannels || MAX_CHANNEL_SLOTS;
+    for (let i = 0; i < slots; i++) {
+      this.reportSync('channels', 45 + (30 * i) / slots, i + 1, slots);
       try {
         await this.cmd(buildGetChannelInfo(i), [RESP.CHANNEL_INFO], 2000);
       } catch {}
@@ -968,7 +964,7 @@ export class MeshCoreClient {
   /**
    * Writes a channel slot (create, join, or restore).
    *
-   * @param idx - channel slot index, 0 to the radio's channel count.
+   * @param idx - channel slot index, 0 to the radio's channel count minus 1.
    * @param secret - 16-byte channel secret.
    */
   async setChannel(

@@ -246,9 +246,9 @@ export const PUBLIC_CHANNEL_SECRET = new Uint8Array([
 export const PUBLIC_CHANNEL_NAME = 'Public';
 
 /**
- * Number of channel slots the app syncs and can allocate. The radio reports its
- * own limit in `DEVICE_INFO` (`maxChannels`), which is board dependent; this is
- * the common 8-slot build.
+ * Channel slot count to assume when the radio does not report its own in
+ * `DEVICE_INFO` (`maxChannels` is `0` on firmware that predates the field).
+ * The real limit is board dependent; 8 is the common build.
  */
 export const MAX_CHANNEL_SLOTS = 8;
 

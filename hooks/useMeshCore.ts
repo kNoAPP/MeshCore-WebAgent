@@ -601,6 +601,7 @@ export function useMeshCore() {
     appendCliLine,
     setAdminLogin,
     setRepeaterStatus,
+    setActiveConvo,
     showToast,
   } = useMeshStore();
 
@@ -1604,7 +1605,8 @@ export function useMeshCore() {
         return;
       }
       let idx = -1;
-      for (let i = 0; i < MAX_CHANNEL_SLOTS; i++) {
+      const slots = client.deviceInfo?.maxChannels || MAX_CHANNEL_SLOTS;
+      for (let i = 0; i < slots; i++) {
         if (!client.channels[i]) {
           idx = i;
           break;
@@ -1633,6 +1635,12 @@ export function useMeshCore() {
       if (!canTransmit(client)) return;
       try {
         await client.removeChannel(idx);
+        // The slot can be reallocated to an unrelated channel, so leaving it
+        // open would let the user transmit on the cleared secret.
+        const { activeConvo } = useMeshStore.getState();
+        if (activeConvo?.kind === 'channel' && activeConvo.rawId === idx) {
+          setActiveConvo(null);
+        }
         showToast(i18n.t('toast.channelRemoved'));
       } catch (err) {
         showToast(
@@ -1643,7 +1651,7 @@ export function useMeshCore() {
         );
       }
     },
-    [client, showToast],
+    [client, setActiveConvo, showToast],
   );
 
   /**
