@@ -226,6 +226,11 @@ export class MeshCoreClient {
   deviceInfo: DeviceInfo | null = null;
 
   private handlers: PendingCmd[] = [];
+  // Slots whose SET_CHANNEL clear has been sent but not yet acked. The mirror
+  // entry stays put so allocation keeps reserving the slot, but sends must
+  // already treat it as gone — cmd() serializes, so anything issued now lands
+  // after the clear.
+  private pendingRemovals = new Set<number>();
   // Login and status replies arrive as unsolicited pushes long after the SENT
   // receipt, so they can't ride the `handlers` queue. Each is matched back to
   // its request by the target's 6-byte pubkey prefix (hex).
@@ -981,26 +986,28 @@ export class MeshCoreClient {
    * Removes a channel slot by clearing its name and secret. Every slot is
    * removable — including the one holding the Public channel, which the radio
    * treats like any other channel and which can be restored later.
-   *
-   * @remarks Drops the slot from the mirror before the write and restores it if
-   * the radio rejects it, so a send issued during the round trip can't pass a
-   * `channels[idx]` check and then land after the slot is cleared.
    */
   async removeChannel(idx: number): Promise<void> {
-    const prev = this.channels[idx];
-    delete this.channels[idx];
-    this.callbacks.onChannelsUpdated?.(this.channels);
+    this.pendingRemovals.add(idx);
     try {
       await this.cmd(
         buildSetChannel(idx, '', new Uint8Array(16)),
         [RESP.OK],
         5000,
       );
-    } catch (err) {
-      if (prev) this.channels[idx] = prev;
+      delete this.channels[idx];
       this.callbacks.onChannelsUpdated?.(this.channels);
-      throw err;
+    } finally {
+      this.pendingRemovals.delete(idx);
     }
+  }
+
+  /**
+   * Whether a slot's removal is in flight — its mirror entry still exists but
+   * the radio is about to clear it, so nothing may be transmitted on it.
+   */
+  isRemovingChannel(idx: number): boolean {
+    return this.pendingRemovals.has(idx);
   }
 
   /**
