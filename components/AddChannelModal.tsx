@@ -14,17 +14,28 @@ import {
   deriveHashtagSecret,
   toHex,
   parseChannelUri,
+  isPublicChannelSecret,
 } from '@/lib/utils';
+import {
+  PUBLIC_CHANNEL_NAME,
+  PUBLIC_CHANNEL_SECRET,
+} from '@/lib/meshcore/constants';
 
 /**
- * How the channel secret is obtained: `create` generates a random one,
- * `joinPrivate` takes a hex secret, `joinHashtag` derives it from a public
- * name, `joinLink` parses a `meshcore://channel/add` link into the
- * `joinPrivate` fields for review.
+ * How the channel secret is obtained: `joinPublic` uses MeshCore's well-known
+ * Public key, `create` generates a random one, `joinPrivate` takes a hex
+ * secret, `joinHashtag` derives it from a public name, `joinLink` parses a
+ * `meshcore://channel/add` link into the `joinPrivate` fields for review.
  */
-type Mode = 'create' | 'joinPrivate' | 'joinHashtag' | 'joinLink';
+type Mode =
+  'joinPublic' | 'create' | 'joinPrivate' | 'joinHashtag' | 'joinLink';
 
 const MODES = [
+  {
+    id: 'joinPublic',
+    labelKey: 'addChannel.mode.joinPublicLabel',
+    hintKey: 'addChannel.mode.joinPublicHint',
+  },
   {
     id: 'create',
     labelKey: 'addChannel.mode.createLabel',
@@ -52,15 +63,16 @@ const MODES = [
 }[];
 
 /**
- * Modal for adding a channel in one of four {@link Mode}s (create private, join
- * private by hex secret, join a public hashtag, or paste a
- * `meshcore://channel/add` link to review before joining). Validates input,
- * then calls the `addChannel` action. Mounted only while {@link useMeshStore}
- * `addChannelOpen` is set.
+ * Modal for adding a channel in one of five {@link Mode}s (restore the Public
+ * channel, create private, join private by hex secret, join a public hashtag,
+ * or paste a `meshcore://channel/add` link to review before joining). The
+ * Public mode is offered only while that channel is missing from the radio.
+ * Validates input, then calls the `addChannel` action. Mounted only while
+ * {@link useMeshStore} `addChannelOpen` is set.
  */
 export function AddChannelModal() {
   const { t } = useTranslation();
-  const { addChannelOpen, setAddChannelOpen } = useMeshStore();
+  const { addChannelOpen, setAddChannelOpen, channels } = useMeshStore();
   const { addChannel } = useMeshCore();
   const [mode, setMode] = useState<Mode>('create');
   const [name, setName] = useState('');
@@ -96,6 +108,11 @@ export function AddChannelModal() {
 
   const submit = async () => {
     setError('');
+    if (mode === 'joinPublic') {
+      addChannel(PUBLIC_CHANNEL_NAME, new Uint8Array(PUBLIC_CHANNEL_SECRET));
+      close();
+      return;
+    }
     if (mode === 'joinHashtag') {
       if (!/^[a-z0-9-]+$/.test(hashtag)) {
         setError(t('addChannel.error.hashtagChars'));
@@ -125,18 +142,23 @@ export function AddChannelModal() {
   };
 
   const hint = t(MODES.find((m) => m.id === mode)!.hintKey);
+  const modes = Object.values(channels).some((ch) =>
+    isPublicChannelSecret(ch.secret),
+  )
+    ? MODES.filter((m) => m.id !== 'joinPublic')
+    : MODES;
 
   return (
     <ModalShell
       title={t('addChannel.title')}
       onClose={close}
-      widthClass='w-112'
+      widthClass='w-128'
     >
       <div
         className='mb-3 flex gap-1 rounded-md p-1'
         style={{ background: 'var(--bg)' }}
       >
-        {MODES.map((m) => (
+        {modes.map((m) => (
           <button
             key={m.id}
             onClick={() => {
@@ -178,7 +200,7 @@ export function AddChannelModal() {
               />
             </div>
           </label>
-        ) : mode === 'joinLink' ? null : (
+        ) : mode === 'joinLink' || mode === 'joinPublic' ? null : (
           <label className='block'>
             <span className='mb-1 block text-xs text-(--text2)'>
               {t('addChannel.name')}
@@ -260,7 +282,9 @@ export function AddChannelModal() {
             ? t('addChannel.create')
             : mode === 'joinLink'
               ? t('addChannel.review')
-              : t('addChannel.join')}
+              : mode === 'joinPublic'
+                ? t('addChannel.restore')
+                : t('addChannel.join')}
         </button>
       </div>
     </ModalShell>

@@ -41,6 +41,7 @@ import {
   FAVORITE_FLAG,
   ERR_CODE,
   ADVERT_LOC_POLICY,
+  MAX_CHANNEL_SLOTS,
   MAX_MSG_BYTES,
 } from '@/lib/meshcore/constants';
 import { splitPathHashes } from '@/lib/meshcore/parsers';
@@ -600,6 +601,7 @@ export function useMeshCore() {
     appendCliLine,
     setAdminLogin,
     setRepeaterStatus,
+    setActiveConvo,
     showToast,
   } = useMeshStore();
 
@@ -1023,7 +1025,15 @@ export function useMeshCore() {
       updateMessage(convo.id, msgId, { status: 'sending', attempt });
       try {
         if (convo.kind === 'channel') {
-          await client.sendChannelMessage(Number(convo.rawId), text);
+          const idx = Number(convo.rawId);
+          // The slot may have been removed since this conversation was opened
+          // (history keeps it reachable), and its secret is now zeroed.
+          if (!client.channels[idx] || client.isRemovingChannel(idx)) {
+            updateMessage(convo.id, msgId, { status: 'failed' });
+            showToast(i18n.t('toast.channelNotFound'), 'error');
+            return;
+          }
+          await client.sendChannelMessage(idx, text);
           updateMessage(convo.id, msgId, { status: 'sent' });
           openEchoWindow(convo.id, msgId);
           return;
@@ -1582,10 +1592,12 @@ export function useMeshCore() {
   );
 
   /**
-   * Joins or creates a channel, placing it in the lowest free slot (1–7).
+   * Joins, creates, or restores a channel, placing it in the lowest free slot.
+   * Slot 0 is included — it is only free once the Public channel the firmware
+   * ships there has been removed.
    *
    * @remarks No-ops with a toast if the secret already matches a joined
-   * channel, or if all private slots are full.
+   * channel, or if all slots are full.
    */
   const addChannel = useCallback(
     async (name: string, secret: Uint8Array) => {
@@ -1600,9 +1612,9 @@ export function useMeshCore() {
         );
         return;
       }
-      // Indices 1-7 are private channels; pick the lowest free slot
       let idx = -1;
-      for (let i = 1; i <= 7; i++) {
+      const slots = client.deviceInfo?.maxChannels || MAX_CHANNEL_SLOTS;
+      for (let i = 0; i < slots; i++) {
         if (!client.channels[i]) {
           idx = i;
           break;
@@ -1625,12 +1637,18 @@ export function useMeshCore() {
     [client, showToast],
   );
 
-  /** Removes a channel slot (rejected by the client for the Public channel). */
+  /** Removes a channel slot; the Public channel is removable like any other. */
   const removeChannel = useCallback(
     async (idx: number) => {
       if (!canTransmit(client)) return;
       try {
         await client.removeChannel(idx);
+        // The slot can be reallocated to an unrelated channel, so leaving it
+        // open would let the user transmit on the cleared secret.
+        const { activeConvo } = useMeshStore.getState();
+        if (activeConvo?.kind === 'channel' && activeConvo.rawId === idx) {
+          setActiveConvo(null);
+        }
         showToast(i18n.t('toast.channelRemoved'));
       } catch (err) {
         showToast(
@@ -1641,7 +1659,7 @@ export function useMeshCore() {
         );
       }
     },
-    [client, showToast],
+    [client, setActiveConvo, showToast],
   );
 
   /**

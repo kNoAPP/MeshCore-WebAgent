@@ -27,6 +27,7 @@ import {
   AUTOADD,
   MANUAL_ADD_OFF,
   MANUAL_ADD_ON,
+  MAX_CHANNEL_SLOTS,
   TXT_TYPE,
 } from './constants';
 import {
@@ -225,6 +226,11 @@ export class MeshCoreClient {
   deviceInfo: DeviceInfo | null = null;
 
   private handlers: PendingCmd[] = [];
+  // Slots whose SET_CHANNEL clear has been sent but not yet acked. The mirror
+  // entry stays put so allocation keeps reserving the slot, but sends must
+  // already treat it as gone — cmd() serializes, so anything issued now lands
+  // after the clear.
+  private pendingRemovals = new Set<number>();
   // Login and status replies arrive as unsolicited pushes long after the SENT
   // receipt, so they can't ride the `handlers` queue. Each is matched back to
   // its request by the target's 6-byte pubkey prefix (hex).
@@ -616,8 +622,15 @@ export class MeshCoreClient {
     }
     if (type === RESP.CHANNEL_INFO) {
       const ch = parseChannelInfo(d);
-      if (ch?.name) {
-        this.channels[ch.idx] = ch;
+      if (ch) {
+        // A free slot answers with an empty name and a zeroed secret (that's
+        // also how a channel is removed), so drop it from the mirror instead of
+        // listing a channel the radio doesn't have.
+        if (ch.name || ch.secret?.some((b) => b !== 0)) {
+          this.channels[ch.idx] = ch;
+        } else {
+          delete this.channels[ch.idx];
+        }
         this.callbacks.onChannelsUpdated?.(this.channels);
       }
     }
@@ -719,13 +732,13 @@ export class MeshCoreClient {
   }
 
   private async syncChannels(): Promise<void> {
-    for (let i = 0; i <= 7; i++) {
-      this.reportSync('channels', 45 + (30 * i) / 8, i + 1, 8);
+    const slots = this.deviceInfo?.maxChannels || MAX_CHANNEL_SLOTS;
+    for (let i = 0; i < slots; i++) {
+      this.reportSync('channels', 45 + (30 * i) / slots, i + 1, slots);
       try {
         await this.cmd(buildGetChannelInfo(i), [RESP.CHANNEL_INFO], 2000);
       } catch {}
     }
-    if (!this.channels[0]) this.channels[0] = { idx: 0, name: 'Public' };
     this.callbacks.onChannelsUpdated?.(this.channels);
   }
 
@@ -954,9 +967,9 @@ export class MeshCoreClient {
   }
 
   /**
-   * Writes a channel slot (create or join).
+   * Writes a channel slot (create, join, or restore).
    *
-   * @param idx - channel slot 0–7.
+   * @param idx - channel slot index, 0 to the radio's channel count minus 1.
    * @param secret - 16-byte channel secret.
    */
   async setChannel(
@@ -970,19 +983,36 @@ export class MeshCoreClient {
   }
 
   /**
-   * Removes a channel slot by clearing its name and secret.
+   * Removes a channel slot by clearing its name and secret. Every slot is
+   * removable — including the one holding the Public channel, which the radio
+   * treats like any other channel and which can be restored later.
    *
-   * @throws if `idx` is 0 — the Public channel is reserved and not removable.
+   * @remarks Coalesces with a removal already in flight for the same slot, so
+   * the pending flag can't be cleared by the first call while a second clear is
+   * still queued.
    */
   async removeChannel(idx: number): Promise<void> {
-    if (idx === 0) throw new Error('The Public channel cannot be removed');
-    await this.cmd(
-      buildSetChannel(idx, '', new Uint8Array(16)),
-      [RESP.OK],
-      5000,
-    );
-    delete this.channels[idx];
-    this.callbacks.onChannelsUpdated?.(this.channels);
+    if (this.pendingRemovals.has(idx)) return;
+    this.pendingRemovals.add(idx);
+    try {
+      await this.cmd(
+        buildSetChannel(idx, '', new Uint8Array(16)),
+        [RESP.OK],
+        5000,
+      );
+      delete this.channels[idx];
+      this.callbacks.onChannelsUpdated?.(this.channels);
+    } finally {
+      this.pendingRemovals.delete(idx);
+    }
+  }
+
+  /**
+   * Whether a slot's removal is in flight — its mirror entry still exists but
+   * the radio is about to clear it, so nothing may be transmitted on it.
+   */
+  isRemovingChannel(idx: number): boolean {
+    return this.pendingRemovals.has(idx);
   }
 
   /**

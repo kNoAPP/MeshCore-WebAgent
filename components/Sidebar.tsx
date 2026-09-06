@@ -24,7 +24,12 @@ import {
   type ContactFilter,
   type ContactSort,
 } from '@/store/meshStore';
-import { ADV_ICON, contactCategory, type ContactCategory } from '@/lib/utils';
+import {
+  ADV_ICON,
+  contactCategory,
+  isPublicChannelSecret,
+  type ContactCategory,
+} from '@/lib/utils';
 import {
   ADV_TYPE_REPEATER,
   ADV_TYPE_ROOM,
@@ -300,7 +305,7 @@ export function Sidebar() {
                 <SidebarItem
                   key={id}
                   innerRef={active ? activeItemRef : undefined}
-                  icon={ch.idx === 0 ? '📢' : '🔒'}
+                  icon={isPublicChannelSecret(ch.secret) ? '📢' : '🔒'}
                   label={ch.name || t('common.channelName', { index: ch.idx })}
                   active={active}
                   unread={unread}

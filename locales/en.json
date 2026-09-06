@@ -448,7 +448,6 @@
   },
   "manage": {
     "removeChannelConfirm": "Remove this channel from the radio?",
-    "publicChannelCantRemove": "The Public channel cannot be removed",
     "removeChannel": "Remove channel",
     "removeContactConfirm": "Remove this contact from the radio?",
     "advertHint": "Discovered from its advert and cached in this browser — it isn't saved on your radio.",
@@ -765,7 +764,10 @@
     "create": "Create",
     "join": "Join",
     "review": "Review",
+    "restore": "Restore",
     "mode": {
+      "joinPublicLabel": "Public",
+      "joinPublicHint": "Restores MeshCore's default Public channel using its well-known key. It's an ordinary channel — remove it and add it back whenever you like.",
       "createLabel": "Create Private",
       "createHint": "Generates a random secret key. Share it so others can join.",
       "joinPrivateLabel": "Join Private",
@@ -851,6 +853,7 @@
     "wifiError": "WiFi error: {{error}}",
     "disconnected": "Disconnected",
     "contactNotFound": "Contact not found",
+    "channelNotFound": "Channel no longer on the radio",
     "repeaterCantMessage": "Repeaters can't be messaged",
     "sendFailed": "Send failed: {{error}}",
     "routeReset": "Route reset — next message will flood",

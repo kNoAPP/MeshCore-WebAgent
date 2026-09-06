@@ -57,7 +57,10 @@ export interface AutoAddConfig {
   maxHops: number; // 0-63 display hops, or MAX_HOPS_NO_LIMIT
 }
 
-/** A channel slot. Index 0 is the reserved Public channel. */
+/**
+ * A channel slot. Slots are interchangeable — the Public channel is the one
+ * whose `secret` is `PUBLIC_CHANNEL_SECRET`, not whichever sits in slot 0.
+ */
 export interface Channel {
   idx: number;
   name: string;
