@@ -986,8 +986,13 @@ export class MeshCoreClient {
    * Removes a channel slot by clearing its name and secret. Every slot is
    * removable — including the one holding the Public channel, which the radio
    * treats like any other channel and which can be restored later.
+   *
+   * @remarks Coalesces with a removal already in flight for the same slot, so
+   * the pending flag can't be cleared by the first call while a second clear is
+   * still queued.
    */
   async removeChannel(idx: number): Promise<void> {
+    if (this.pendingRemovals.has(idx)) return;
     this.pendingRemovals.add(idx);
     try {
       await this.cmd(
