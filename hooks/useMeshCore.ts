@@ -5,7 +5,7 @@
 
 import { useCallback } from 'react';
 import { MeshCoreClient } from '@/lib/meshcore/client';
-import { MeshConnectError } from '@/lib/meshcore/errors';
+import { MeshConnectError, PickerDismissedError } from '@/lib/meshcore/errors';
 import {
   createUSBTransport,
   createBLETransport,
@@ -16,6 +16,7 @@ import {
   channelConvoId,
   directConvoId,
   selectPreferences,
+  type ConnectErrorCode,
 } from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
 import {
@@ -276,17 +277,18 @@ function flushPreferences(client: MeshCoreClient | null): void {
   }
 }
 
-// Maps a connect/sync failure to a localized toast message: typed errors carry
-// a code that resolves to a specific string; anything else falls back to a
-// generic localized message so a raw English error never reaches the user.
-function connectErrorMessage(err: unknown): string {
+// Maps a connect/sync failure to a stable code the connect screen resolves to
+// localized copy: typed errors carry a code that maps to a specific message;
+// anything else falls back to a generic failure code so a raw error never
+// reaches the user.
+function connectErrorCode(err: unknown): ConnectErrorCode {
   if (err instanceof MeshConnectError) {
     switch (err.code) {
       case 'radioNoResponse':
-        return i18n.t('toast.radioNoResponse');
+        return 'radioNoResponse';
     }
   }
-  return i18n.t('toast.connectionFailed');
+  return 'connectionFailed';
 }
 
 function clearPendingAcks(): void {
@@ -603,6 +605,7 @@ export function useMeshCore() {
     setRepeaterStatus,
     setActiveConvo,
     showToast,
+    setConnectError,
   } = useMeshStore();
 
   // Installs the client callbacks that funnel radio events into the store and
@@ -929,7 +932,7 @@ export function useMeshCore() {
         // half-built session so the created client/transport can't leak while
         // the UI returns to the connect screen.
         teardownSession();
-        showToast(connectErrorMessage(err), 'error');
+        setConnectError(connectErrorCode(err));
         return false;
       }
     },
@@ -940,6 +943,7 @@ export function useMeshCore() {
       setBattery,
       setSyncProgress,
       showToast,
+      setConnectError,
       wireClient,
       restoreHistory,
       restoreAdvertCache,
@@ -951,47 +955,43 @@ export function useMeshCore() {
 
   /** Prompts for a USB serial port and connects. */
   const connectUSB = useCallback(async () => {
+    setConnectError(null);
     try {
       const transport = await createUSBTransport();
       setReconnectSource(transport);
       await connect(transport);
     } catch (err) {
-      showToast(
-        i18n.t('toast.usbError', { error: (err as Error).message }),
-        'error',
-      );
+      if (err instanceof PickerDismissedError) return;
+      setConnectError(connectErrorCode(err));
     }
-  }, [connect, showToast]);
+  }, [connect, setConnectError]);
 
   /** Prompts for a BLE companion and connects. */
   const connectBLE = useCallback(async () => {
+    setConnectError(null);
     try {
       const transport = await createBLETransport();
       setReconnectSource(transport);
       await connect(transport);
     } catch (err) {
-      showToast(
-        i18n.t('toast.bleError', { error: (err as Error).message }),
-        'error',
-      );
+      if (err instanceof PickerDismissedError) return;
+      setConnectError(connectErrorCode(err));
     }
-  }, [connect, showToast]);
+  }, [connect, setConnectError]);
 
   /** Connects to a radio's WiFi WebSocket bridge at `url`. */
   const connectWiFi = useCallback(
     async (url: string) => {
+      setConnectError(null);
       try {
         const transport = await createWiFiTransport(url);
         setReconnectSource(transport);
         await connect(transport);
       } catch (err) {
-        showToast(
-          i18n.t('toast.wifiError', { error: (err as Error).message }),
-          'error',
-        );
+        setConnectError(connectErrorCode(err));
       }
     },
-    [connect, showToast],
+    [connect, setConnectError],
   );
 
   /**
