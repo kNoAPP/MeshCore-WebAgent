@@ -528,7 +528,7 @@ export function ChatArea() {
                     e.preventDefault();
                     insertMention(name);
                   }}
-                  className='w-full px-3 py-2 text-left text-sm text-(--text) hover:bg-(--surface) hover:text-(--accent)'
+                  className='focus-inset w-full px-3 py-2 text-left text-sm text-(--text) hover:bg-(--surface) hover:text-(--accent)'
                 >
                   @{name}
                 </button>
