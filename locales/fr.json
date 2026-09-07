@@ -444,6 +444,8 @@
     "repeaterCantMessage": "Impossible d'envoyer des messages aux répéteurs",
     "placeholder": "Tape un message… (Entrée pour envoyer, Maj+Entrée pour un saut de ligne)",
     "overByteLimit": "Le message est trop long — raccourcis-le pour l'envoyer",
+    "send": "Envoyer le message",
+    "mentions": "Suggestions de mention",
     "newMessages": "Nouveaux messages"
   },
   "manage": {

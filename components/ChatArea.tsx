@@ -41,17 +41,22 @@ function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
 }
 
-// Null when the cursor isn't in a mention: whitespace follows the at-sign, or
-// the mention is already bracketed and complete.
+// Null when the cursor isn't in a mention: whitespace follows the at-sign, the
+// mention is already bracketed and complete, or the `@` is mid-word (an email
+// local part like `bob@…` must not open the mention popover).
 function getMentionQuery(value: string, cursor: number): string | null {
   const before = value.slice(0, cursor);
   const atIdx = before.lastIndexOf('@');
   if (atIdx === -1) return null;
+  if (atIdx > 0 && /\S/.test(before[atIdx - 1])) return null;
   const fragment = before.slice(atIdx + 1);
   if (/\s/.test(fragment)) return null;
   if (fragment.startsWith('[') && fragment.includes(']')) return null;
   return fragment;
 }
+
+const MENTION_LISTBOX_ID = 'mention-suggestions';
+const mentionOptionId = (index: number) => `mention-option-${index}`;
 
 // The firmware formats a channel message's text as `<sender>: <body>`.
 function splitChannelMessage(text: string): {
@@ -82,6 +87,7 @@ export function ChatArea() {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
   const [showNewIndicator, setShowNewIndicator] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -164,6 +170,11 @@ export function ChatArea() {
           )
           .slice(0, MAX_SUGGESTIONS)
       : [];
+
+  // Clamp so a shrunk suggestion list can't strand the highlight past the end.
+  const activeMentionIndex = suggestions.length
+    ? Math.min(mentionIndex, suggestions.length - 1)
+    : 0;
 
   // Jump to the latest message instantly when switching conversations, but
   // animate smoothly when a new message arrives in the conversation already
@@ -248,6 +259,7 @@ export function ChatArea() {
     const cursor = e.target.selectionStart ?? val.length;
     setText(val);
     setMentionQuery(getMentionQuery(val, cursor));
+    setMentionIndex(0);
   };
 
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -304,20 +316,39 @@ export function ChatArea() {
     setText('');
     setSending(false);
     setMentionQuery(null);
+    // Clearing the text disables the send button, which would blur it; return
+    // focus to the composer so the next message can be typed straight away.
+    textareaRef.current?.focus();
   }, [text, sending, activeConvo, overLimit, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Tab' && suggestions.length > 0) {
-      e.preventDefault();
-      insertMention(suggestions[0]);
-      return;
+    // While the suggestion popover is open, arrows move the highlight and
+    // Enter/Tab accept it; otherwise Enter sends.
+    if (suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex((activeMentionIndex + 1) % suggestions.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex(
+          (activeMentionIndex - 1 + suggestions.length) % suggestions.length,
+        );
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(suggestions[activeMentionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMentionQuery(null);
+        return;
+      }
     }
-    if (e.key === 'Escape' && mentionQuery !== null) {
-      e.preventDefault();
-      setMentionQuery(null);
-      return;
-    }
-    if (e.key === 'Enter' && !e.shiftKey && mentionQuery === null) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -517,23 +548,37 @@ export function ChatArea() {
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
           {suggestions.length > 0 && (
-            <div
-              className='absolute bottom-full left-4 right-4 mb-1 overflow-hidden rounded-[10px] border border-(--border) shadow-lg'
+            <ul
+              id={MENTION_LISTBOX_ID}
+              role='listbox'
+              aria-label={t('chat.mentions')}
+              className='absolute right-4 bottom-full left-4 mb-1 overflow-hidden rounded-[10px] border border-(--border) shadow-lg'
               style={{ background: 'var(--surface2)' }}
             >
-              {suggestions.map((name) => (
-                <button
-                  key={name}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    insertMention(name);
-                  }}
-                  className='w-full px-3 py-2 text-left text-sm text-(--text) hover:bg-(--surface) hover:text-(--accent)'
-                >
-                  @{name}
-                </button>
+              {suggestions.map((name, i) => (
+                <li key={name} role='presentation'>
+                  <button
+                    type='button'
+                    id={mentionOptionId(i)}
+                    role='option'
+                    aria-selected={i === activeMentionIndex}
+                    tabIndex={-1}
+                    // preventDefault keeps focus in the textarea so the blur
+                    // doesn't close the popover before the click lands.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => insertMention(name)}
+                    onMouseMove={() => setMentionIndex(i)}
+                    className={`block w-full px-3 py-2 text-left text-sm text-(--text) hover:text-(--accent) ${
+                      i === activeMentionIndex
+                        ? 'bg-(--surface) text-(--accent)'
+                        : ''
+                    }`}
+                  >
+                    @{name}
+                  </button>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
           <div className='flex items-end gap-2 px-4 py-3'>
             <textarea
@@ -547,6 +592,16 @@ export function ChatArea() {
               }
               rows={1}
               placeholder={t('chat.placeholder')}
+              aria-label={t('chat.placeholder')}
+              aria-autocomplete='list'
+              aria-controls={
+                suggestions.length > 0 ? MENTION_LISTBOX_ID : undefined
+              }
+              aria-activedescendant={
+                suggestions.length > 0
+                  ? mentionOptionId(activeMentionIndex)
+                  : undefined
+              }
               className='flex-1 resize-none overflow-y-hidden rounded-[10px] border border-(--border) bg-(--surface2) px-3 py-2
               text-sm text-(--text) outline-none
               placeholder:text-(--text2) focus:border-(--accent)'
@@ -565,8 +620,10 @@ export function ChatArea() {
               {byteCount}/{MAX_MSG_BYTES}
             </span>
             <button
+              type='button'
               onClick={handleSend}
               disabled={!text.trim() || sending || overLimit}
+              aria-label={t('chat.send')}
               className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent)
               text-base text-white transition-opacity
               hover:opacity-85 disabled:opacity-40'

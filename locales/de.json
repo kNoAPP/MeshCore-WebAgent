@@ -444,6 +444,8 @@
     "repeaterCantMessage": "Repeatern können keine Nachrichten gesendet werden",
     "placeholder": "Nachricht eingeben… (Enter zum Senden, Umschalt+Enter für neue Zeile)",
     "overByteLimit": "Nachricht ist zu lang — zum Senden kürzen",
+    "send": "Nachricht senden",
+    "mentions": "Erwähnungsvorschläge",
     "newMessages": "Neue Nachrichten"
   },
   "manage": {

@@ -444,6 +444,8 @@
     "repeaterCantMessage": "Repeaters can't be messaged",
     "placeholder": "Type a message… (Enter to send, Shift+Enter for newline)",
     "overByteLimit": "Message is too long — shorten it to send",
+    "send": "Send message",
+    "mentions": "Mention suggestions",
     "newMessages": "New messages"
   },
   "manage": {
