@@ -263,6 +263,9 @@ export function ChatArea() {
   };
 
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Escape dismissed the popover in keydown; don't recompute the same query
+    // from the unchanged text here, which would immediately reopen it.
+    if (e.key === 'Escape') return;
     const el = e.currentTarget;
     setMentionQuery(
       getMentionQuery(el.value, el.selectionStart ?? el.value.length),
