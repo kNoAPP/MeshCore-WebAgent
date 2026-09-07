@@ -165,7 +165,7 @@ export function MessageBubble({
         >
           {renderText(text, deviceName, msg.own ?? false)}
         </div>
-        <span className='opacity-0 transition-opacity group-hover/msg:opacity-100'>
+        <span className='opacity-0 transition-opacity group-hover/msg:opacity-100 group-focus-within/msg:opacity-100'>
           <CopyButton value={text} />
         </span>
       </div>

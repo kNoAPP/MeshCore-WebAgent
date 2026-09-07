@@ -615,7 +615,7 @@ function SidebarItem({
         onClick={onManage}
         title={t('sidebar.manage')}
         aria-label={t('sidebar.manage')}
-        className='shrink-0 text-(--text2) opacity-0 transition-opacity group-hover:opacity-100 hover:text-(--text)'
+        className='shrink-0 text-(--text2) opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:text-(--text)'
       >
         ⋯
       </button>

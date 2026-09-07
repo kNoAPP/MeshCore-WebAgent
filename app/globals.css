@@ -17,6 +17,26 @@ label[for] {
   cursor: pointer;
 }
 
+/*
+ * Global keyboard focus indicator. `:where()` keeps specificity at 0 and the
+ * rule is kept outside any layer so it reliably wins over Tailwind's layered
+ * `outline-none` utilities, giving every interactive control a visible 2px ring
+ * on keyboard focus (WCAG 2.4.7 / 2.4.11) while leaving mouse focus untouched.
+ */
+:where(
+  button,
+  a,
+  [role='button'],
+  [role='switch'],
+  input,
+  select,
+  textarea,
+  [tabindex]
+):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 @layer components {
   .input-field {
     width: 100%;
@@ -26,7 +46,6 @@ label[for] {
     padding: 9px 12px;
     border-radius: 7px;
     font-size: 13px;
-    outline: none;
     transition: border-color 0.15s;
 
     &:focus {

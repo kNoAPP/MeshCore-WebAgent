@@ -179,10 +179,7 @@ export function AddChannelModal() {
             <span className='mb-1 block text-xs text-(--text2)'>
               {t('addChannel.name')}
             </span>
-            <div
-              className='flex items-center rounded-md border'
-              style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
-            >
+            <div className='flex items-center rounded-md border border-(--border) bg-(--bg) focus-within:border-(--accent)'>
               <span className='pl-3 text-sm text-(--text2)'>#</span>
               <input
                 value={hashtag}
