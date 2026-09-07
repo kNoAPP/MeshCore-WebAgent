@@ -289,6 +289,16 @@ function connectErrorMessage(err: unknown): string {
   return i18n.t('toast.connectionFailed');
 }
 
+// True when a connect error is the user dismissing the browser's device/port
+// chooser — a deliberate action, not a failure. Web Serial and Web Bluetooth
+// both surface a cancelled chooser as a DOMException.
+function isUserCancelledPicker(err: unknown): boolean {
+  return (
+    err instanceof DOMException &&
+    (err.name === 'NotFoundError' || err.name === 'AbortError')
+  );
+}
+
 function clearPendingAcks(): void {
   for (const p of pendingAcks.values()) clearTimeout(p.timer);
   pendingAcks.clear();
@@ -603,6 +613,7 @@ export function useMeshCore() {
     setRepeaterStatus,
     setActiveConvo,
     showToast,
+    setConnectError,
   } = useMeshStore();
 
   // Installs the client callbacks that funnel radio events into the store and
@@ -929,7 +940,7 @@ export function useMeshCore() {
         // half-built session so the created client/transport can't leak while
         // the UI returns to the connect screen.
         teardownSession();
-        showToast(connectErrorMessage(err), 'error');
+        setConnectError(connectErrorMessage(err));
         return false;
       }
     },
@@ -940,6 +951,7 @@ export function useMeshCore() {
       setBattery,
       setSyncProgress,
       showToast,
+      setConnectError,
       wireClient,
       restoreHistory,
       restoreAdvertCache,
@@ -951,47 +963,44 @@ export function useMeshCore() {
 
   /** Prompts for a USB serial port and connects. */
   const connectUSB = useCallback(async () => {
+    setConnectError(null);
     try {
       const transport = await createUSBTransport();
       setReconnectSource(transport);
       await connect(transport);
     } catch (err) {
-      showToast(
-        i18n.t('toast.usbError', { error: (err as Error).message }),
-        'error',
-      );
+      if (isUserCancelledPicker(err)) return;
+      setConnectError(connectErrorMessage(err));
     }
-  }, [connect, showToast]);
+  }, [connect, setConnectError]);
 
   /** Prompts for a BLE companion and connects. */
   const connectBLE = useCallback(async () => {
+    setConnectError(null);
     try {
       const transport = await createBLETransport();
       setReconnectSource(transport);
       await connect(transport);
     } catch (err) {
-      showToast(
-        i18n.t('toast.bleError', { error: (err as Error).message }),
-        'error',
-      );
+      if (isUserCancelledPicker(err)) return;
+      setConnectError(connectErrorMessage(err));
     }
-  }, [connect, showToast]);
+  }, [connect, setConnectError]);
 
   /** Connects to a radio's WiFi WebSocket bridge at `url`. */
   const connectWiFi = useCallback(
     async (url: string) => {
+      setConnectError(null);
       try {
         const transport = await createWiFiTransport(url);
         setReconnectSource(transport);
         await connect(transport);
       } catch (err) {
-        showToast(
-          i18n.t('toast.wifiError', { error: (err as Error).message }),
-          'error',
-        );
+        if (isUserCancelledPicker(err)) return;
+        setConnectError(connectErrorMessage(err));
       }
     },
-    [connect, showToast],
+    [connect, setConnectError],
   );
 
   /**

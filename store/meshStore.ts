@@ -312,6 +312,12 @@ interface MeshState {
   /** Persisted viewport, or `null` until the user first pans/zooms the map. */
   mapPrefs: MapPrefs | null;
   toast: Toast | null;
+  /**
+   * Localized reason the last connection attempt failed, shown inline on the
+   * connect screen; `null` when there is no error to show. User-cancelled
+   * device pickers never set this.
+   */
+  connectError: string | null;
   view: AppView;
   /**
    * True while the map is in location-pick mode (opened from the Location card
@@ -417,6 +423,8 @@ interface MeshActions {
   restoreHistory: (persisted: Record<string, Message[]>) => void;
   showToast: (text: string, variant?: Toast['variant']) => void;
   dismissToast: () => void;
+  /** Sets (or clears, with `null`) the inline connect-screen error message. */
+  setConnectError: (message: string | null) => void;
   setView: (view: AppView) => void;
   /** Opens the map to pick a location, returning to `returnTo` on confirm. */
   startLocationPick: (returnTo?: AppView) => void;
@@ -503,6 +511,7 @@ const initialState: MeshState = {
   aiPref: DEFAULT_AI_PREF,
   mapPrefs: null,
   toast: null,
+  connectError: null,
   view: 'chat',
   mapPicking: false,
   pendingLocation: null,
@@ -700,12 +709,15 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   showToast: (text, variant = '') => {
     const id = ++toastSeq;
     set({ toast: { text, variant, id } });
+    // Errors persist until dismissed; transient variants auto-clear.
+    if (variant === 'error') return;
     setTimeout(() => {
       if (get().toast?.id === id) set({ toast: null });
     }, 3000);
   },
 
   dismissToast: () => set({ toast: null }),
+  setConnectError: (message) => set({ connectError: message }),
   // Any manual tab switch also aborts an in-progress location pick.
   setView: (view) => set({ view, mapPicking: false, settingsSection: null }),
   startLocationPick: (returnTo = 'settings') =>
