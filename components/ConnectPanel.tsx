@@ -109,7 +109,8 @@ export function ConnectPanel() {
               <button
                 key={tb}
                 onClick={() => changeTab(tb)}
-                className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[13px] font-medium transition-all
+                disabled={busy}
+                className={`flex flex-1 items-center justify-center gap-1.5 py-2 text-[13px] font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50
                 ${i > 0 ? 'border-l' : ''}
                 ${tab === tb ? 'bg-(--accent) text-white' : 'text-(--text2) hover:text-(--text)'}`}
                 style={i > 0 ? { borderColor: 'var(--border)' } : {}}

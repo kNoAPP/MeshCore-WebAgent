@@ -5,7 +5,7 @@
 
 import { useCallback } from 'react';
 import { MeshCoreClient } from '@/lib/meshcore/client';
-import { MeshConnectError } from '@/lib/meshcore/errors';
+import { MeshConnectError, PickerDismissedError } from '@/lib/meshcore/errors';
 import {
   createUSBTransport,
   createBLETransport,
@@ -287,16 +287,6 @@ function connectErrorMessage(err: unknown): string {
     }
   }
   return i18n.t('toast.connectionFailed');
-}
-
-// True when a connect error is the user dismissing the browser's device/port
-// chooser — a deliberate action, not a failure. Web Serial and Web Bluetooth
-// both surface a cancelled chooser as a DOMException.
-function isUserCancelledPicker(err: unknown): boolean {
-  return (
-    err instanceof DOMException &&
-    (err.name === 'NotFoundError' || err.name === 'AbortError')
-  );
 }
 
 function clearPendingAcks(): void {
@@ -969,7 +959,7 @@ export function useMeshCore() {
       setReconnectSource(transport);
       await connect(transport);
     } catch (err) {
-      if (isUserCancelledPicker(err)) return;
+      if (err instanceof PickerDismissedError) return;
       setConnectError(connectErrorMessage(err));
     }
   }, [connect, setConnectError]);
@@ -982,7 +972,7 @@ export function useMeshCore() {
       setReconnectSource(transport);
       await connect(transport);
     } catch (err) {
-      if (isUserCancelledPicker(err)) return;
+      if (err instanceof PickerDismissedError) return;
       setConnectError(connectErrorMessage(err));
     }
   }, [connect, setConnectError]);
@@ -996,7 +986,6 @@ export function useMeshCore() {
         setReconnectSource(transport);
         await connect(transport);
       } catch (err) {
-        if (isUserCancelledPicker(err)) return;
         setConnectError(connectErrorMessage(err));
       }
     },

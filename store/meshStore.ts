@@ -709,7 +709,6 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   showToast: (text, variant = '') => {
     const id = ++toastSeq;
     set({ toast: { text, variant, id } });
-    // Errors persist until dismissed; transient variants auto-clear.
     if (variant === 'error') return;
     setTimeout(() => {
       if (get().toast?.id === id) set({ toast: null });
