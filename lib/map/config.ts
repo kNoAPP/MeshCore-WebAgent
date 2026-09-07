@@ -4,10 +4,17 @@
 import type { Theme } from '@/lib/theme/config';
 
 /**
+ * Public CARTO basemap key, required on every raster tile request. This is a
+ * domain-scoped, client-side key (it ships in the bundle by design, like a Maps
+ * JS key) — it grants tile access only and is not a secret.
+ */
+const CARTO_KEY = 'cb1_2zjs_1_d225a9fcb1726184a3787e95';
+
+/**
  * Raster tile templates for the online basemap, keyed by app theme so the map
  * matches light/dark. CARTO's Positron (`light_all`) and Dark Matter
  * (`dark_all`) basemaps are used: they are web-app friendly (unlike OSM's
- * donation tiles) and only require attribution.
+ * donation tiles) and only require attribution plus {@link CARTO_KEY}.
  *
  * @remarks Provider choice is a maintainer decision (see issue #68). The URL is
  * intentionally a single configurable constant so it can be swapped without
@@ -17,8 +24,8 @@ import type { Theme } from '@/lib/theme/config';
  * Leaflet integration examples.
  */
 export const TILE_URLS: Record<Theme, string> = {
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  dark: `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
+  light: `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
 };
 
 /** Attribution shown on the online basemap, required by the tile provider. */
