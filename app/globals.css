@@ -18,10 +18,13 @@ label[for] {
 }
 
 /*
- * Global keyboard focus indicator. `:where()` keeps specificity at 0 and the
- * rule is kept outside any layer so it reliably wins over Tailwind's layered
- * `outline-none` utilities, giving every interactive control a visible 2px ring
- * on keyboard focus (WCAG 2.4.7 / 2.4.11) while leaving mouse focus untouched.
+ * Global focus indicator. Wrapping the element list in `:where()` keeps the
+ * selector at the specificity of the `:focus-visible` pseudo-class alone, so a
+ * component can override it without a specificity fight, and keeping the rule
+ * outside any layer lets it win over Tailwind's layered `outline-none`
+ * utilities. `:focus-visible` is browser-selected — keyboard focus always, and
+ * pointer focus only where the browser deems an indicator useful (e.g. text
+ * fields) — giving a visible 2px ring for WCAG 2.4.7 / 2.4.11.
  */
 :where(
   button,
@@ -35,6 +38,27 @@ label[for] {
 ):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/*
+ * A control flush inside an `overflow-hidden` group (segmented tabs, the legend
+ * toggle) would have the outset ring above clipped away. Inset the ring so it
+ * renders inside the clipped bounds, and use `currentColor` so it stays visible
+ * on any control background, including a selected accent tab.
+ */
+.focus-inset:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+/*
+ * Grouped inputs live inside an `overflow-hidden` wrapper, so the child input's
+ * outset ring is clipped. Ring the wrapper instead on focus-within — its own
+ * outline is not clipped by its own overflow.
+ */
+.field-group:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 @layer components {

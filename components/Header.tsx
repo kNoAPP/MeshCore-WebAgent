@@ -122,7 +122,7 @@ export function Header() {
               onClick={() => setView(v)}
               disabled={reconnecting}
               aria-current={view === v ? 'page' : undefined}
-              className={`px-2.5 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`focus-inset px-2.5 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 view === v
                   ? 'bg-(--accent) text-white'
                   : 'text-(--text2) hover:text-(--accent)'

@@ -324,7 +324,7 @@ function NodeNameRow() {
       <span className='shrink-0 text-(--text2)'>{t('settings.nodeName')}</span>
       <div className='flex shrink-0 items-center gap-2'>
         <div
-          className={`flex w-52 items-center overflow-hidden rounded-md border bg-(--surface) focus-within:border-(--accent) ${
+          className={`field-group flex w-52 items-center overflow-hidden rounded-md border bg-(--surface) focus-within:border-(--accent) ${
             !valid && draft.trim() !== ''
               ? 'border-(--red)'
               : 'border-(--border-control)'
