@@ -612,8 +612,8 @@ export function ChatArea() {
               placeholder:text-(--text2) focus:border-(--accent)'
               style={{ maxHeight: 120 }}
             />
-            {/* A live status stands in for the combobox `aria-expanded` a native
-                textarea can't carry, announcing when suggestions appear. */}
+            {/* A native textarea can't carry aria-expanded, so this live
+                status announces the popover instead. */}
             <span className='sr-only' role='status'>
               {suggestions.length > 0
                 ? t('chat.mentionCount', { count: suggestions.length })
