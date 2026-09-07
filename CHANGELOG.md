@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.22.2](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.22.1...v1.22.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* **map:** add CARTO api key to basemap tile urls ([#215](https://github.com/kNoAPP/MeshCore-WebAgent/issues/215)) ([fbb1839](https://github.com/kNoAPP/MeshCore-WebAgent/commit/fbb18398bf2ec1cdfd24570a3486e95e47e3174a))
+
 ## [1.22.1](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.22.0...v1.22.1) (2026-09-06)
 
 
