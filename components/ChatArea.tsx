@@ -310,15 +310,17 @@ export function ChatArea() {
   const overLimit = byteCount > MAX_MSG_BYTES;
 
   const handleSend = useCallback(async () => {
-    if (!text.trim() || sending || !activeConvo || overLimit) return;
+    const body = text;
+    if (!body.trim() || sending || !activeConvo || overLimit) return;
     setSending(true);
-    await sendMessage(text, activeConvo);
+    // Clear and refocus optimistically, before the radio I/O: the bubble's own
+    // status tracks in-flight state, so the composer is free for the next
+    // message immediately, and a slow send never strands focus on <body>.
     setText('');
-    setSending(false);
     setMentionQuery(null);
-    // Clearing the text disables the send button, which would blur it; return
-    // focus to the composer so the next message can be typed straight away.
     textareaRef.current?.focus();
+    await sendMessage(body, activeConvo);
+    setSending(false);
   }, [text, sending, activeConvo, overLimit, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -337,7 +339,7 @@ export function ChatArea() {
         );
         return;
       }
-      if (e.key === 'Enter' || e.key === 'Tab') {
+      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
         e.preventDefault();
         insertMention(suggestions[activeMentionIndex]);
         return;
@@ -593,10 +595,12 @@ export function ChatArea() {
               rows={1}
               placeholder={t('chat.placeholder')}
               aria-label={t('chat.placeholder')}
+              role='combobox'
               aria-autocomplete='list'
               aria-controls={
                 suggestions.length > 0 ? MENTION_LISTBOX_ID : undefined
               }
+              aria-expanded={suggestions.length > 0}
               aria-activedescendant={
                 suggestions.length > 0
                   ? mentionOptionId(activeMentionIndex)
