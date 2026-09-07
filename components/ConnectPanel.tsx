@@ -51,9 +51,17 @@ export function ConnectPanel() {
   const status = useMeshStore((s) => s.status);
   const syncProgress = useMeshStore((s) => s.syncProgress);
   const deviceName = useMeshStore((s) => s.deviceName);
+  const connectError = useMeshStore((s) => s.connectError);
+  const setConnectError = useMeshStore((s) => s.setConnectError);
 
   const usbSupported = support?.usb ?? true;
   const bleSupported = support?.ble ?? true;
+
+  // Switching transports clears a stale error from the previous attempt.
+  const changeTab = (tb: Tab) => {
+    setConnectError(null);
+    setTab(tb);
+  };
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -100,8 +108,9 @@ export function ConnectPanel() {
             return (
               <button
                 key={tb}
-                onClick={() => setTab(tb)}
-                className={`focus-inset flex flex-1 items-center justify-center gap-1.5 py-2 text-[13px] font-medium transition-all
+                onClick={() => changeTab(tb)}
+                disabled={busy}
+                className={`focus-inset flex flex-1 items-center justify-center gap-1.5 py-2 text-[13px] font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50
                 ${i > 0 ? 'border-l' : ''}
                 ${tab === tb ? 'bg-(--accent) text-white' : 'text-(--text2) hover:text-(--text)'}`}
                 style={i > 0 ? { borderColor: 'var(--border)' } : {}}
@@ -116,6 +125,12 @@ export function ConnectPanel() {
             );
           })}
         </div>
+
+        {connectError && (
+          <div className='mb-5' role='alert'>
+            <WarningBox>{t(`toast.${connectError}`)}</WarningBox>
+          </div>
+        )}
 
         {/* USB */}
         {tab === 'usb' && (

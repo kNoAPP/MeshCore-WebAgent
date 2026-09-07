@@ -444,6 +444,10 @@
     "repeaterCantMessage": "Impossible d'envoyer des messages aux répéteurs",
     "placeholder": "Tape un message… (Entrée pour envoyer, Maj+Entrée pour un saut de ligne)",
     "overByteLimit": "Le message est trop long — raccourcis-le pour l'envoyer",
+    "send": "Envoyer le message",
+    "mentions": "Suggestions de mention",
+    "mentionCount_one": "{{count}} suggestion de mention",
+    "mentionCount_other": "{{count}} suggestions de mention",
     "newMessages": "Nouveaux messages"
   },
   "manage": {
@@ -848,9 +852,7 @@
     "connectionLost": "Connexion perdue — reconnexion…",
     "reconnected": "Reconnecté à {{device}}",
     "reconnectFailed": "Impossible de se reconnecter à {{device}}",
-    "usbError": "Erreur USB : {{error}}",
-    "bleError": "Erreur BLE : {{error}}",
-    "wifiError": "Erreur WiFi : {{error}}",
+    "dismiss": "Fermer",
     "disconnected": "Déconnecté",
     "contactNotFound": "Contact introuvable",
     "channelNotFound": "Le canal n'est plus sur la radio",

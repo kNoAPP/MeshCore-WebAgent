@@ -444,6 +444,10 @@
     "repeaterCantMessage": "Repeatern können keine Nachrichten gesendet werden",
     "placeholder": "Nachricht eingeben… (Enter zum Senden, Umschalt+Enter für neue Zeile)",
     "overByteLimit": "Nachricht ist zu lang — zum Senden kürzen",
+    "send": "Nachricht senden",
+    "mentions": "Erwähnungsvorschläge",
+    "mentionCount_one": "{{count}} Erwähnungsvorschlag",
+    "mentionCount_other": "{{count}} Erwähnungsvorschläge",
     "newMessages": "Neue Nachrichten"
   },
   "manage": {
@@ -848,9 +852,7 @@
     "connectionLost": "Verbindung verloren — verbinde neu…",
     "reconnected": "Wieder verbunden mit {{device}}",
     "reconnectFailed": "Verbindung zu {{device}} konnte nicht wiederhergestellt werden",
-    "usbError": "USB-Fehler: {{error}}",
-    "bleError": "BLE-Fehler: {{error}}",
-    "wifiError": "WiFi-Fehler: {{error}}",
+    "dismiss": "Schließen",
     "disconnected": "Getrennt",
     "contactNotFound": "Kontakt nicht gefunden",
     "channelNotFound": "Kanal nicht mehr auf dem Funkgerät",

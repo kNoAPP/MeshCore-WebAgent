@@ -4,6 +4,7 @@
 import type { ITransport } from '@/types/meshcore';
 import { USBFrameParser } from './frameParser';
 import { encodeUSBFrame } from './frames';
+import { PickerDismissedError, isPickerDismissal } from './errors';
 import {
   BLE_SERVICE_UUID,
   BLE_RX_CHAR_UUID,
@@ -452,7 +453,13 @@ export class WiFiTransport extends BaseTransport implements ITransport {
  * requirement). Opens at {@link USB_BAUD_RATE} — native USB ignores the rate.
  */
 export async function createUSBTransport(): Promise<USBTransport> {
-  const port = await navigator.serial.requestPort();
+  let port: SerialPort;
+  try {
+    port = await navigator.serial.requestPort();
+  } catch (err) {
+    if (isPickerDismissal(err)) throw new PickerDismissedError();
+    throw err;
+  }
   const t = new USBTransport(port);
   await t.open();
   return t;
@@ -466,10 +473,16 @@ export async function createUSBTransport(): Promise<USBTransport> {
  * requirement).
  */
 export async function createBLETransport(): Promise<BLETransport> {
-  const device = await navigator.bluetooth.requestDevice({
-    filters: [{ services: [BLE_SERVICE_UUID] }],
-    optionalServices: [BLE_SERVICE_UUID],
-  });
+  let device: BluetoothDevice;
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [BLE_SERVICE_UUID] }],
+      optionalServices: [BLE_SERVICE_UUID],
+    });
+  } catch (err) {
+    if (isPickerDismissal(err)) throw new PickerDismissedError();
+    throw err;
+  }
   const t = new BLETransport(device);
   // open() can throw (GATT connect failure); detach the constructor's
   // gattserverdisconnected listener via close() so the abandoned transport
