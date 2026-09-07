@@ -3,7 +3,13 @@
 
 'use client';
 
-import { useSyncExternalStore, useState, useRef, useEffect } from 'react';
+import {
+  useSyncExternalStore,
+  useState,
+  useRef,
+  useEffect,
+  useId,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Moon, Sun, Radio, Search, ShieldAlert, Inbox } from 'lucide-react';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
@@ -156,12 +162,7 @@ export function Header() {
 
       {active && (
         <>
-          <span
-            className='ml-auto min-w-0 max-w-[16ch] truncate text-sm font-semibold text-(--accent)'
-            title={deviceTitle}
-          >
-            {deviceName}
-          </span>
+          <DeviceName name={deviceName} detail={deviceTitle} />
           <AdvertMenu />
           <ProposalsButton />
           <KillSwitchButton />
@@ -206,6 +207,31 @@ export function Header() {
         {displayTheme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
       </button>
     </header>
+  );
+}
+
+// The truncated device name doubles as the keyboard- and touch-reachable
+// disclosure for its full text plus the battery/storage detail, which the
+// inline readout drops on a narrow header. Mirrors MessageBubble's PathToken.
+function DeviceName({ name, detail }: { name: string; detail: string }) {
+  const tooltipId = useId();
+  return (
+    <span
+      tabIndex={0}
+      aria-describedby={tooltipId}
+      className='group/dev relative ml-auto min-w-0 max-w-[16ch] cursor-help'
+    >
+      <span className='block truncate text-sm font-semibold text-(--accent)'>
+        {name}
+      </span>
+      <span
+        id={tooltipId}
+        role='tooltip'
+        className='pointer-events-none absolute top-full right-0 z-20 mt-1 hidden w-max max-w-xs rounded-md border border-(--border) bg-(--surface2) px-2 py-1 text-xs font-normal text-(--text) shadow-lg group-hover/dev:block group-focus/dev:block'
+      >
+        {detail}
+      </span>
+    </span>
   );
 }
 
