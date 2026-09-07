@@ -446,6 +446,8 @@
     "overByteLimit": "Le message est trop long — raccourcis-le pour l'envoyer",
     "send": "Envoyer le message",
     "mentions": "Suggestions de mention",
+    "mentionCount_one": "{{count}} suggestion de mention",
+    "mentionCount_other": "{{count}} suggestions de mention",
     "newMessages": "Nouveaux messages"
   },
   "manage": {

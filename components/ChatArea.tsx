@@ -598,12 +598,10 @@ export function ChatArea() {
               rows={1}
               placeholder={t('chat.placeholder')}
               aria-label={t('chat.placeholder')}
-              role='combobox'
               aria-autocomplete='list'
               aria-controls={
                 suggestions.length > 0 ? MENTION_LISTBOX_ID : undefined
               }
-              aria-expanded={suggestions.length > 0}
               aria-activedescendant={
                 suggestions.length > 0
                   ? mentionOptionId(activeMentionIndex)
@@ -614,6 +612,13 @@ export function ChatArea() {
               placeholder:text-(--text2) focus:border-(--accent)'
               style={{ maxHeight: 120 }}
             />
+            {/* A live status stands in for the combobox `aria-expanded` a native
+                textarea can't carry, announcing when suggestions appear. */}
+            <span className='sr-only' role='status'>
+              {suggestions.length > 0
+                ? t('chat.mentionCount', { count: suggestions.length })
+                : ''}
+            </span>
             <span
               title={overLimit ? t('chat.overByteLimit') : undefined}
               className={`self-center text-[11px] ${
