@@ -342,7 +342,7 @@ export function ChatArea() {
         );
         return;
       }
-      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+      if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey) {
         e.preventDefault();
         insertMention(suggestions[activeMentionIndex]);
         return;
