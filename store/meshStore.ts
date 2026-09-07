@@ -184,6 +184,12 @@ export interface Toast {
 }
 
 /**
+ * Stable code for the connect-screen error, resolved to localized copy at
+ * render time so the message follows a language change made while disconnected.
+ */
+export type ConnectErrorCode = 'connectionFailed' | 'radioNoResponse';
+
+/**
  * Login state of a remote-admin session with a repeater or room server.
  * `pending` covers the in-flight login handshake; the {@link RepeaterAccess}
  * levels (`admin`/`guest`) are the accepted, server-granted states; `loggedOut`
@@ -313,11 +319,11 @@ interface MeshState {
   mapPrefs: MapPrefs | null;
   toast: Toast | null;
   /**
-   * Localized reason the last connection attempt failed, shown inline on the
-   * connect screen; `null` when there is no error to show. User-cancelled
-   * device pickers never set this.
+   * Code for the reason the last connection attempt failed, resolved to
+   * localized copy on the connect screen; `null` when there is no error to
+   * show. User-cancelled device pickers never set this.
    */
-  connectError: string | null;
+  connectError: ConnectErrorCode | null;
   view: AppView;
   /**
    * True while the map is in location-pick mode (opened from the Location card
@@ -423,8 +429,8 @@ interface MeshActions {
   restoreHistory: (persisted: Record<string, Message[]>) => void;
   showToast: (text: string, variant?: Toast['variant']) => void;
   dismissToast: () => void;
-  /** Sets (or clears, with `null`) the inline connect-screen error message. */
-  setConnectError: (message: string | null) => void;
+  /** Sets (or clears, with `null`) the inline connect-screen error code. */
+  setConnectError: (code: ConnectErrorCode | null) => void;
   setView: (view: AppView) => void;
   /** Opens the map to pick a location, returning to `returnTo` on confirm. */
   startLocationPick: (returnTo?: AppView) => void;
@@ -716,7 +722,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   },
 
   dismissToast: () => set({ toast: null }),
-  setConnectError: (message) => set({ connectError: message }),
+  setConnectError: (code) => set({ connectError: code }),
   // Any manual tab switch also aborts an in-progress location pick.
   setView: (view) => set({ view, mapPicking: false, settingsSection: null }),
   startLocationPick: (returnTo = 'settings') =>

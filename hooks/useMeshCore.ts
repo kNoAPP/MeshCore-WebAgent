@@ -16,6 +16,7 @@ import {
   channelConvoId,
   directConvoId,
   selectPreferences,
+  type ConnectErrorCode,
 } from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
 import {
@@ -276,17 +277,18 @@ function flushPreferences(client: MeshCoreClient | null): void {
   }
 }
 
-// Maps a connect/sync failure to a localized toast message: typed errors carry
-// a code that resolves to a specific string; anything else falls back to a
-// generic localized message so a raw English error never reaches the user.
-function connectErrorMessage(err: unknown): string {
+// Maps a connect/sync failure to a stable code the connect screen resolves to
+// localized copy: typed errors carry a code that maps to a specific message;
+// anything else falls back to a generic failure code so a raw error never
+// reaches the user.
+function connectErrorCode(err: unknown): ConnectErrorCode {
   if (err instanceof MeshConnectError) {
     switch (err.code) {
       case 'radioNoResponse':
-        return i18n.t('toast.radioNoResponse');
+        return 'radioNoResponse';
     }
   }
-  return i18n.t('toast.connectionFailed');
+  return 'connectionFailed';
 }
 
 function clearPendingAcks(): void {
@@ -930,7 +932,7 @@ export function useMeshCore() {
         // half-built session so the created client/transport can't leak while
         // the UI returns to the connect screen.
         teardownSession();
-        setConnectError(connectErrorMessage(err));
+        setConnectError(connectErrorCode(err));
         return false;
       }
     },
@@ -960,7 +962,7 @@ export function useMeshCore() {
       await connect(transport);
     } catch (err) {
       if (err instanceof PickerDismissedError) return;
-      setConnectError(connectErrorMessage(err));
+      setConnectError(connectErrorCode(err));
     }
   }, [connect, setConnectError]);
 
@@ -973,7 +975,7 @@ export function useMeshCore() {
       await connect(transport);
     } catch (err) {
       if (err instanceof PickerDismissedError) return;
-      setConnectError(connectErrorMessage(err));
+      setConnectError(connectErrorCode(err));
     }
   }, [connect, setConnectError]);
 
@@ -986,7 +988,7 @@ export function useMeshCore() {
         setReconnectSource(transport);
         await connect(transport);
       } catch (err) {
-        setConnectError(connectErrorMessage(err));
+        setConnectError(connectErrorCode(err));
       }
     },
     [connect, setConnectError],
