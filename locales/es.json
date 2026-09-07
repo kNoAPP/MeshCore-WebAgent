@@ -444,6 +444,10 @@
     "repeaterCantMessage": "No se puede enviar mensajes a los repetidores",
     "placeholder": "Escribe un mensaje… (Enter para enviar, Mayús+Enter para salto de línea)",
     "overByteLimit": "El mensaje es demasiado largo — acórtalo para enviarlo",
+    "send": "Enviar mensaje",
+    "mentions": "Sugerencias de mención",
+    "mentionCount_one": "{{count}} sugerencia de mención",
+    "mentionCount_other": "{{count}} sugerencias de mención",
     "newMessages": "Mensajes nuevos"
   },
   "manage": {
