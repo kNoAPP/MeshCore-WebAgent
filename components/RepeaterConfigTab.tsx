@@ -920,7 +920,7 @@ function Field({
 }) {
   return (
     <div
-      className={`flex items-center overflow-hidden rounded-md border ${width} bg-(--surface) focus-within:border-(--accent) ${
+      className={`field-group flex items-center overflow-hidden rounded-md border ${width} bg-(--surface) focus-within:border-(--accent) ${
         invalid ? 'border-(--red)' : 'border-(--border-control)'
       } ${disabled ? 'opacity-60' : ''}`}
     >

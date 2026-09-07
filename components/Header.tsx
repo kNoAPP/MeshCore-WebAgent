@@ -135,7 +135,7 @@ export function Header() {
               onClick={() => setView(v)}
               disabled={reconnecting}
               aria-current={view === v ? 'page' : undefined}
-              className={`px-2.5 py-1 text-xs whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`focus-inset px-2.5 py-1 text-xs whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 view === v
                   ? 'bg-(--accent) text-white'
                   : 'text-(--text2) hover:text-(--accent)'
@@ -319,7 +319,7 @@ function AdvertMenu() {
   };
 
   const itemClass =
-    'block w-full px-3 py-2 text-left text-xs text-(--text) hover:bg-(--surface) hover:text-(--accent)';
+    'focus-inset block w-full px-3 py-2 text-left text-xs text-(--text) hover:bg-(--surface) hover:text-(--accent)';
 
   return (
     <div className='relative shrink-0' ref={ref}>

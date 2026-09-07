@@ -42,10 +42,13 @@ export function CopyButton({
         <Copy size={14} />
       </button>
       <span
-        className='pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100'
+        className='pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
         style={{ background: 'var(--surface2)', color: 'var(--text)' }}
       >
         {copied ? t('common.copied') : tooltip}
+      </span>
+      <span className='sr-only' role='status'>
+        {copied ? t('common.copied') : ''}
       </span>
     </span>
   );

@@ -26,7 +26,7 @@ export function MapLegend({ children }: { children?: ReactNode }) {
         type='button'
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className='flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-xs font-semibold tracking-wide text-(--text2) uppercase hover:text-(--accent)'
+        className='focus-inset flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-xs font-semibold tracking-wide text-(--text2) uppercase hover:text-(--accent)'
       >
         {t('map.legend.title')}
         <Chevron open={open} />
