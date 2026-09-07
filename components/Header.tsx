@@ -3,7 +3,13 @@
 
 'use client';
 
-import { useSyncExternalStore, useState, useRef, useEffect } from 'react';
+import {
+  useSyncExternalStore,
+  useState,
+  useRef,
+  useEffect,
+  useId,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Moon, Sun, Radio, Search, ShieldAlert, Inbox } from 'lucide-react';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
@@ -86,9 +92,16 @@ export function Header() {
   );
   const displayTheme = hydrated ? theme : DEFAULT_THEME;
 
+  // Full name plus the battery/storage readout so the detail survives when the
+  // inline readout collapses on a narrow header and the name truncates.
+  const deviceTitle =
+    connected && battery
+      ? `${deviceName} · ${fmtVoltage(battery.voltage)} · ${battery.usedKB}/${battery.totalKB} KB`
+      : deviceName;
+
   return (
     <header
-      className='flex shrink-0 items-center gap-3 border-b px-4 py-2.5'
+      className='@container flex shrink-0 items-center gap-3 border-b px-4 py-2.5'
       style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
     >
       {/* Status dot */}
@@ -102,11 +115,11 @@ export function Header() {
         }`}
       />
 
-      <h1 className='text-base font-bold tracking-tight'>
+      <h1 className='shrink-0 text-base font-bold tracking-tight'>
         <Wordmark />
       </h1>
 
-      <span className='text-xs text-(--text2)'>
+      <span className='shrink-0 text-xs whitespace-nowrap text-(--text2)'>
         {/* Each ConnectionStatus maps 1:1 to a header.* key. */}
         {t(`header.${status}`)}
       </span>
@@ -115,14 +128,14 @@ export function Header() {
         /* Chat/Stats/Settings page switch. All tabs are disabled while
            reconnecting — the link is down, so switching views would only show
            stale or half-synced state behind the reconnecting overlay. */
-        <nav className='flex overflow-hidden rounded-md border border-(--border-control)'>
+        <nav className='flex shrink-0 overflow-hidden rounded-md border border-(--border-control)'>
           {(['chat', 'map', 'stats', 'settings'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
               disabled={reconnecting}
               aria-current={view === v ? 'page' : undefined}
-              className={`px-2.5 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`px-2.5 py-1 text-xs whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 view === v
                   ? 'bg-(--accent) text-white'
                   : 'text-(--text2) hover:text-(--accent)'
@@ -140,7 +153,7 @@ export function Header() {
           disabled={reconnecting}
           aria-label={t('command.open')}
           title={t('command.openHint')}
-          className='flex items-center gap-1.5 rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-(--border-control) disabled:hover:text-(--text2)'
+          className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-(--border-control) disabled:hover:text-(--text2)'
         >
           <Search size={13} />
           <span className='font-medium'>{t('command.search')}</span>
@@ -149,21 +162,19 @@ export function Header() {
 
       {active && (
         <>
-          <span className='ml-auto text-sm font-semibold text-(--accent)'>
-            {deviceName}
-          </span>
+          <DeviceName name={deviceName} detail={deviceTitle} />
           <AdvertMenu />
           <ProposalsButton />
           <KillSwitchButton />
           {connected && battery && (
-            <span className='text-xs text-(--text2)'>
+            <span className='hidden shrink-0 whitespace-nowrap text-xs text-(--text2) @6xl:inline'>
               {fmtVoltage(battery.voltage)} 💾 {battery.usedKB}/
               {battery.totalKB}KB
             </span>
           )}
           <button
             onClick={disconnect}
-            className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--red) hover:text-(--red)'
+            className='shrink-0 rounded-md border border-(--border-control) px-2.5 py-1 text-xs whitespace-nowrap text-(--text2) transition-colors hover:border-(--red) hover:text-(--red)'
           >
             {t('header.disconnect')}
           </button>
@@ -189,13 +200,38 @@ export function Header() {
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         aria-label={t('theme.toggle')}
         title={t('theme.toggle')}
-        className={`flex items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) ${
+        className={`flex shrink-0 items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) ${
           active ? '' : 'ml-2'
         }`}
       >
         {displayTheme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
       </button>
     </header>
+  );
+}
+
+// The truncated device name doubles as the keyboard- and touch-reachable
+// disclosure for its full text plus the battery/storage detail, which the
+// inline readout drops on a narrow header. Mirrors MessageBubble's PathToken.
+function DeviceName({ name, detail }: { name: string; detail: string }) {
+  const tooltipId = useId();
+  return (
+    <span
+      tabIndex={0}
+      aria-describedby={tooltipId}
+      className='group/dev relative ml-auto min-w-0 max-w-[16ch] cursor-help'
+    >
+      <span className='block truncate text-sm font-semibold text-(--accent)'>
+        {name}
+      </span>
+      <span
+        id={tooltipId}
+        role='tooltip'
+        className='pointer-events-none absolute top-full right-0 z-20 mt-1 hidden w-max max-w-xs rounded-md border border-(--border) bg-(--surface2) px-2 py-1 text-xs font-normal text-(--text) shadow-lg group-hover/dev:block group-focus/dev:block'
+      >
+        {detail}
+      </span>
+    </span>
   );
 }
 
@@ -217,7 +253,7 @@ function ProposalsInbox({ count }: { count: number }) {
         onClick={() => setOpen(true)}
         aria-label={t('automation.inbox.title', { count })}
         title={t('automation.inbox.title', { count })}
-        className='flex items-center gap-1.5 rounded-md border border-(--accent) px-2.5 py-1 text-xs font-semibold text-(--accent) transition-colors hover:bg-(--accent) hover:text-white'
+        className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--accent) px-2.5 py-1 text-xs font-semibold text-(--accent) transition-colors hover:bg-(--accent) hover:text-white'
       >
         <Inbox size={13} />
         {count}
@@ -248,7 +284,7 @@ function KillSwitchButton() {
       }}
       aria-label={t('automation.kill')}
       title={t('automation.killHint')}
-      className='flex items-center gap-1.5 rounded-md border border-(--red) px-2.5 py-1 text-xs font-semibold text-(--red) transition-colors hover:bg-(--red) hover:text-white'
+      className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--red) px-2.5 py-1 text-xs font-semibold text-(--red) transition-colors hover:bg-(--red) hover:text-white'
     >
       <ShieldAlert size={13} />
       {t('automation.kill')}
@@ -286,7 +322,7 @@ function AdvertMenu() {
     'block w-full px-3 py-2 text-left text-xs text-(--text) hover:bg-(--surface) hover:text-(--accent)';
 
   return (
-    <div className='relative' ref={ref}>
+    <div className='relative shrink-0' ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={status !== 'connected' || sending}
