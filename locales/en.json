@@ -18,7 +18,8 @@
     "delete": "Delete",
     "channelName": "Channel {{index}}",
     "unknown": "Unknown",
-    "device": "MeshCore Device"
+    "device": "MeshCore Device",
+    "skipToContent": "Skip to main content"
   },
   "header": {
     "connecting": "Connecting…",

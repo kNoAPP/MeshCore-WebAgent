@@ -6,6 +6,7 @@ import { I18nProvider } from '@/components/I18nProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { VersionCheck } from '@/components/VersionCheck';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
+import { SkipLink } from '@/components/SkipLink';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -62,6 +63,7 @@ export default function RootLayout({
       <body className='flex h-full flex-col overflow-hidden'>
         <ThemeProvider>
           <I18nProvider>
+            <SkipLink />
             <VersionCheck />
             <ServiceWorkerRegister />
             {children}
