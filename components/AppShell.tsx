@@ -49,10 +49,18 @@ export function AppShell() {
   const active = isActiveStatus(status);
 
   // `null` until device detection runs on the client (the static export has no
-  // navigator). Render a bare background so neither the app nor the
+  // navigator). Render a bare main background so neither the app nor the
   // desktop-only gate flashes before the device class is known.
-  if (isDesktop === null) return <div className='h-full' />;
-  if (!isDesktop) return <DesktopOnly />;
+  if (isDesktop === null) {
+    return <main id='main' className='h-full' tabIndex={-1} />;
+  }
+  if (!isDesktop) {
+    return (
+      <main id='main' className='h-full' tabIndex={-1}>
+        <DesktopOnly />
+      </main>
+    );
+  }
 
   return (
     <div className='flex h-full flex-col'>
@@ -63,7 +71,12 @@ export function AppShell() {
         {/* `inert` makes the reconnect overlay truly modal: it not only captures
             clicks but also blocks the keyboard focus/typing that would
             otherwise reach the still-mounted composer underneath it. */}
-        <div className='flex flex-1 overflow-hidden' inert={reconnecting}>
+        <main
+          id='main'
+          className='flex flex-1 overflow-hidden'
+          inert={reconnecting}
+          tabIndex={-1}
+        >
           {active ? (
             view === 'stats' ? (
               <StatsPage />
@@ -84,7 +97,7 @@ export function AppShell() {
           ) : (
             <ConnectPanel />
           )}
-        </div>{' '}
+        </main>{' '}
         {reconnecting && <ReconnectingOverlay />}
       </div>{' '}
       {connected && (
