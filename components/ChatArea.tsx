@@ -84,9 +84,34 @@ export function ChatArea() {
   );
   const { sendMessage, retryMessage } = useMeshCore();
   const { t } = useTranslation();
-  const [text, setText] = useState('');
+  const convoId = activeConvo?.id ?? null;
+  // The composer is backed by the store rather than local state: ChatArea is
+  // never remounted on a conversation switch, so a local draft would stay in
+  // the box and re-target itself at whatever conversation is now open.
+  const text = useMeshStore((s) => (convoId ? (s.drafts[convoId] ?? '') : ''));
+  const setDraft = useMeshStore((s) => s.setDraft);
+  const setText = useCallback(
+    (value: string) => {
+      if (convoId) setDraft(convoId, value);
+    },
+    [convoId, setDraft],
+  );
   const [sending, setSending] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  // Tagged with the conversation it was typed in: the composer swaps to the new
+  // conversation's draft on a switch, so an untagged query would leave the
+  // popover open over text that is no longer in the box.
+  const [mention, setMention] = useState<{
+    convoId: string;
+    query: string;
+  } | null>(null);
+  const mentionQuery =
+    mention && mention.convoId === convoId ? mention.query : null;
+  const setMentionQuery = useCallback(
+    (query: string | null) => {
+      setMention(query !== null && convoId ? { convoId, query } : null);
+    },
+    [convoId],
+  );
   const [mentionIndex, setMentionIndex] = useState(0);
   const [showNewIndicator, setShowNewIndicator] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -319,12 +344,22 @@ export function ChatArea() {
     // Clear and refocus optimistically, before the radio I/O: the bubble's own
     // status tracks in-flight state, so the composer is free for the next
     // message immediately, and a slow send never strands focus on <body>.
-    setText('');
+    // Clear by the id captured here, so a conversation switch mid-send can't
+    // wipe the newly-opened conversation's draft instead.
+    setDraft(activeConvo.id, '');
     setMentionQuery(null);
     textareaRef.current?.focus();
     await sendMessage(body, activeConvo);
     setSending(false);
-  }, [text, sending, activeConvo, overLimit, sendMessage]);
+  }, [
+    text,
+    sending,
+    activeConvo,
+    overLimit,
+    sendMessage,
+    setDraft,
+    setMentionQuery,
+  ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // While the suggestion popover is open, arrows move the highlight and
