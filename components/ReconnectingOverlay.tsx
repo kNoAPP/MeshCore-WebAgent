@@ -85,13 +85,14 @@ export function ReconnectingOverlay() {
                 attempt: progress.attempt,
                 total: progress.total,
               })}
-            </p>
-          )}
-          {progress?.waiting && resumeAt !== null && (
-            // Ticks once a second; announcing it would talk over the
-            // attempt counter, so the status stays with that line.
-            <p className='mt-1 text-xs text-(--text2)' aria-hidden='true'>
-              {t('connect.reconnecting.nextAttempt', { seconds })}
+              {progress.waiting && resumeAt !== null && (
+                // Hidden from assistive tech: it reticks every second, and
+                // the attempt count beside it already carries the status.
+                <span aria-hidden='true'>
+                  {' · '}
+                  {t('connect.reconnecting.nextAttempt', { seconds })}
+                </span>
+              )}
             </p>
           )}
           {/* One action cluster: the pair sits closer to each other than to
