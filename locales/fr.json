@@ -567,7 +567,8 @@
       "inputLabel": "Commande",
       "placeholder": "Saisir une commande (ex. ver, get radio)",
       "send": "Envoyer",
-      "clear": "Effacer"
+      "clear": "Effacer",
+      "waiting": "En attente d’une réponse…"
     },
     "config": {
       "readingField": "Lecture…",
@@ -900,6 +901,7 @@
     "repeaterLoginFailed": "Échec de la connexion : {{error}}",
     "repeaterStatusFailed": "Échec de la récupération du statut : {{error}}",
     "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}",
+    "repeaterCliNoReply": "Commande envoyée, mais le nœud n’a pas répondu à temps.",
     "repeaterConfigError": "Le nœud a rejeté la modification : {{error}}",
     "repeaterNameTooLongForLocation": "Raccourcissez le nom du nœud à 24 octets ou moins avant de définir une position.",
     "repeaterLoadBeforeLocationEdit": "Chargez le nom et la position du nœud avant de modifier l’un ou l’autre.",

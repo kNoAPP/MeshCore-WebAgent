@@ -204,6 +204,12 @@ export interface CliLine {
   text: string;
   /** `Date.now()` when the line was appended. */
   ts: number;
+  /**
+   * `true` for a client-side note about the exchange (e.g. "no reply from the
+   * node") rather than traffic with the repeater. Rendered muted and without a
+   * prompt marker.
+   */
+  note?: boolean;
 }
 
 /**
@@ -226,6 +232,13 @@ export interface AdminSession {
   token: number;
   status?: RepeaterStatus;
   cli: CliLine[];
+  /**
+   * How many CLI commands are outstanding for this repeater — queued or
+   * awaiting a reply. Session state rather than console-component state, so
+   * the pending indicator survives navigating away from the transcript and
+   * back while a slow round trip is still in flight.
+   */
+  cliPending?: number;
   /**
    * Cache of the repeater's loaded/confirmed Config-tab values, keyed by
    * setting id. Ephemeral (part of the session), so the Config fields stay
@@ -501,6 +514,18 @@ interface MeshActions {
   mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
   appendCliLine: (prefix: string, line: CliLine) => void;
+  /**
+   * Adjusts a repeater's outstanding CLI command count by {@link delta} (`1`
+   * when one is enqueued, `-1` when it settles). Applied only while the
+   * session the command was issued under is still current, so a request that
+   * settles after a logout can't zero a replacement session's count. Clamped
+   * at zero.
+   */
+  addCliPending: (
+    prefix: string,
+    delta: number,
+    token: number | undefined,
+  ) => void;
   /** Clears a repeater's CLI transcript, leaving the session intact. */
   clearCliLog: (prefix: string) => void;
   /** Drops a repeater's admin session entirely (e.g. on log out). */
@@ -885,6 +910,20 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
             ...session,
             cli: [...session.cli, line].slice(-CLI_LOG_LIMIT),
           },
+        },
+      };
+    }),
+  addCliPending: (prefix, delta, token) =>
+    set((state) => {
+      const session = state.adminSessions[prefix];
+      // A session that was logged out or replaced took its count with it, so a
+      // command issued under it has nothing left to adjust.
+      if (!session || session.token !== token) return {};
+      const cliPending = Math.max(0, (session.cliPending ?? 0) + delta);
+      return {
+        adminSessions: {
+          ...state.adminSessions,
+          [prefix]: { ...session, cliPending },
         },
       };
     }),

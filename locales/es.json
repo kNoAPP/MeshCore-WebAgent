@@ -567,7 +567,8 @@
       "inputLabel": "Comando",
       "placeholder": "Escribe un comando (p. ej. ver, get radio)",
       "send": "Enviar",
-      "clear": "Limpiar"
+      "clear": "Limpiar",
+      "waiting": "Esperando respuesta…"
     },
     "config": {
       "readingField": "Leyendo…",
@@ -900,6 +901,7 @@
     "repeaterLoginFailed": "Error al iniciar sesión: {{error}}",
     "repeaterStatusFailed": "Error al obtener el estado: {{error}}",
     "repeaterCliFailed": "Error al enviar el comando: {{error}}",
+    "repeaterCliNoReply": "Comando enviado, pero el nodo no respondió a tiempo.",
     "repeaterConfigError": "El nodo rechazó el cambio: {{error}}",
     "repeaterNameTooLongForLocation": "Acorta el nombre del nodo a 24 bytes o menos antes de establecer una ubicación.",
     "repeaterLoadBeforeLocationEdit": "Carga el nombre y la ubicación del nodo antes de cambiar cualquiera de los dos.",

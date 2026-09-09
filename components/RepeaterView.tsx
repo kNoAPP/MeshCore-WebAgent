@@ -722,6 +722,11 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   );
 }
 
+// The console's "still waiting" glyph, shared by the in-line and standalone
+// placements.
+const PENDING_DOT_CLASS =
+  'ml-2 inline-block h-2.5 w-2.5 animate-spin rounded-full border border-(--text2) border-t-transparent align-middle';
+
 // Admin-only: current repeater/room firmware answers remote `CLI_DATA` only
 // for an admin client, so a guest would get no reply.
 function ConsoleTab({ contact }: { contact: Contact }) {
@@ -730,6 +735,11 @@ function ConsoleTab({ contact }: { contact: Contact }) {
   const prefix = contact.pubkeyPrefix;
   const log = useMeshStore((s) => s.adminSessions[prefix]?.cli);
   const clearCliLog = useMeshStore((s) => s.clearCliLog);
+  // Outstanding round trips are tracked in the session, not here, so switching
+  // tabs and back while a slow command is in flight keeps the indicator.
+  const cliPending = useMeshStore(
+    (s) => s.adminSessions[prefix]?.cliPending ?? 0,
+  );
   const [input, setInput] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -742,10 +752,15 @@ function ConsoleTab({ contact }: { contact: Contact }) {
     const cmd = input.trim();
     if (cmd === '') return;
     setInput('');
+    // Every outcome lands in the transcript — the reply, or a muted note when
+    // the node stays silent — so there is nothing to report here.
     void repeaterCli(contact, cmd);
   };
 
   const lines = log ?? [];
+  // The indicator belongs on the newest command, which is not always the newest
+  // line: a reply or timeout note for an earlier command can land after it.
+  const lastOwn = lines.findLastIndex((l) => l.own);
 
   return (
     <div className='flex h-full w-full flex-col gap-3'>
@@ -766,25 +781,42 @@ function ConsoleTab({ contact }: { contact: Contact }) {
           aria-label={t('repeaterAdmin.console.transcriptLabel')}
           className='h-full overflow-y-auto p-3 font-mono text-xs'
         >
-          {lines.length === 0 ? (
+          {lines.length === 0 && cliPending === 0 ? (
             <p className='text-(--text2)'>{t('repeaterAdmin.console.empty')}</p>
           ) : (
             lines.map((line, i) => (
               <div
                 key={i}
                 className={
-                  line.own
-                    ? 'wrap-break-word whitespace-pre-wrap text-(--accent)'
-                    : 'wrap-break-word whitespace-pre-wrap text-(--text)'
+                  line.note
+                    ? 'wrap-break-word whitespace-pre-wrap text-(--text2) italic'
+                    : line.own
+                      ? 'wrap-break-word whitespace-pre-wrap text-(--accent)'
+                      : 'wrap-break-word whitespace-pre-wrap text-(--text)'
                 }
               >
                 {line.own ? `> ${line.text}` : line.text}
+                {cliPending > 0 && i === lastOwn && (
+                  <span aria-hidden className={PENDING_DOT_CLASS} />
+                )}
               </div>
             ))
+          )}
+          {/* Clearing the transcript mid-round-trip leaves no own line to hang
+              the indicator on, so it falls back to a standalone row. Hidden
+              from assistive tech, which gets the live-region status below. */}
+          {cliPending > 0 && lastOwn === -1 && (
+            <div aria-hidden className='text-(--text2) italic'>
+              {t('repeaterAdmin.console.waiting')}
+              <span className={PENDING_DOT_CLASS} />
+            </div>
           )}
           <div ref={endRef} />
         </div>
       </div>
+      <span role='status' aria-live='polite' className='sr-only'>
+        {cliPending > 0 ? t('repeaterAdmin.console.waiting') : ''}
+      </span>
 
       <form
         className='flex gap-2'

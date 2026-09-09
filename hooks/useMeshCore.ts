@@ -102,6 +102,18 @@ class CliTimeoutError extends Error {
   }
 }
 
+/**
+ * How a fire-and-forget repeater CLI send ended.
+ *
+ * - `'ok'` — the node replied, and the reply was not an error.
+ * - `'timeout'` — the send was accepted but no reply arrived in time. Success
+ *   only for the verbs that never reply by design (`reboot`, `poweroff`); the
+ *   caller owns that judgement, since it alone knows which verb it sent.
+ * - `'error'` — the send failed, the session was gone, or the node rejected
+ *   the command. Already surfaced as a toast.
+ */
+export type RepeaterCliOutcome = 'ok' | 'timeout' | 'error';
+
 // LoRa round trips are spiky — give the radio's suggested timeout some slack
 const ACK_TIMEOUT_GRACE = 1.5;
 const MIN_ACK_TIMEOUT_MS = 5000;
@@ -601,6 +613,7 @@ export function useMeshCore() {
     restoreAutomationRules,
     restorePreferences,
     appendCliLine,
+    addCliPending,
     setAdminLogin,
     setRepeaterStatus,
     setActiveConvo,
@@ -1289,7 +1302,9 @@ export function useMeshCore() {
    * request while it is the sole one outstanding. Callers may therefore fire
    * requests freely without serializing, but they complete one round trip at a
    * time. Every CLI send goes through here, including fire-and-forget ones, so
-   * that nothing else can consume a pending request's reply.
+   * that nothing else can consume a pending request's reply. A round trip that
+   * goes unanswered leaves a muted note in the transcript, so a non-answer
+   * never reads as a reply still in flight.
    * @throws if the send fails, the session drops, or no reply arrives in time.
    */
   const repeaterCliRequest = useCallback(
@@ -1302,6 +1317,11 @@ export function useMeshCore() {
       // queued under the old session is rejected rather than transmitted.
       const enqueuedToken =
         useMeshStore.getState().adminSessions[prefix]?.token;
+      // Counted from enqueue, not from the send, so a command still waiting
+      // behind an earlier round trip also reads as pending. Tagged with the
+      // issuing session so a logout mid-flight can't leave the next session
+      // holding this command's count.
+      addCliPending(prefix, 1, enqueuedToken);
       return enqueueCli(prefix, () => {
         // Re-checked inside the queue: the link can drop while queued behind an
         // earlier command's full round trip.
@@ -1359,6 +1379,23 @@ export function useMeshCore() {
               waiter.timer = setTimeout(() => {
                 if (cliWaiters.get(prefix) !== waiter) return;
                 takeCliWaiter(prefix);
+                // Record the non-answer in the transcript here rather than in
+                // the caller: rejecting releases the queue, so a caller's
+                // continuation would land after the next command's echo and
+                // pin "no reply" on the wrong line. Guarded by the issuing
+                // session's token for the same reason as onCliReply — a logout
+                // in the meantime must not carry the note into the next login.
+                if (
+                  useMeshStore.getState().adminSessions[prefix]?.token ===
+                  enqueuedToken
+                ) {
+                  appendCliLine(prefix, {
+                    own: false,
+                    note: true,
+                    text: i18n.t('repeaterAdmin.cli.timedOut'),
+                    ts: Date.now(),
+                  });
+                }
                 reject(new CliTimeoutError());
               }, timeoutMs);
             },
@@ -1368,9 +1405,9 @@ export function useMeshCore() {
             },
           );
         });
-      });
+      }).finally(() => addCliPending(prefix, -1, enqueuedToken));
     },
-    [client, appendCliLine],
+    [client, appendCliLine, addCliPending],
   );
 
   /**
@@ -1381,12 +1418,14 @@ export function useMeshCore() {
    * @remarks
    * Still waits for the reply (via {@link repeaterCliRequest}) rather than
    * returning at the send ack, so the reply is consumed by this request instead
-   * of being mistaken for the answer to whatever is sent next. A silent node is
-   * not an error here: `reboot` and `poweroff` never reply at all.
+   * of being mistaken for the answer to whatever is sent next.
+   * @returns the {@link RepeaterCliOutcome}. A silent node is reported as
+   *   `'timeout'`, never folded into success — only the caller knows whether
+   *   the verb it sent answers at all.
    */
   const repeaterCli = useCallback(
-    async (contact: Contact, cmd: string): Promise<boolean> => {
-      if (!canTransmit(client)) return false;
+    async (contact: Contact, cmd: string): Promise<RepeaterCliOutcome> => {
+      if (!canTransmit(client)) return 'error';
       try {
         const reply = await repeaterCliRequest(contact, cmd);
         // A received reply can still be a rejection (e.g. `ERR: clock cannot go
@@ -1396,21 +1435,21 @@ export function useMeshCore() {
             i18n.t('toast.repeaterCliFailed', { error: reply.trim() }),
             'error',
           );
-          return false;
+          return 'error';
         }
-        return true;
+        return 'ok';
       } catch (err) {
-        // A silent node isn't a failure: reboot/poweroff never reply, so a
-        // timeout still means the command was sent and accepted.
-        if (err instanceof CliTimeoutError) return true;
+        // No toast: whether silence is a failure depends on the verb, so the
+        // caller reports it (transcript line, toast, or nothing at all).
+        if (err instanceof CliTimeoutError) return 'timeout';
         // A disconnect rejects the pending send; its teardown owns the toast,
         // so only surface failures from a still-live session.
-        if (!canTransmit(client)) return false;
+        if (!canTransmit(client)) return 'error';
         showToast(
           i18n.t('toast.repeaterCliFailed', { error: (err as Error).message }),
           'error',
         );
-        return false;
+        return 'error';
       }
     },
     [client, repeaterCliRequest, showToast],
