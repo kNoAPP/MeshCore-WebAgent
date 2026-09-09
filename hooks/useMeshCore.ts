@@ -613,6 +613,7 @@ export function useMeshCore() {
     restoreAutomationRules,
     restorePreferences,
     appendCliLine,
+    addCliPending,
     setAdminLogin,
     setRepeaterStatus,
     setActiveConvo,
@@ -1301,7 +1302,9 @@ export function useMeshCore() {
    * request while it is the sole one outstanding. Callers may therefore fire
    * requests freely without serializing, but they complete one round trip at a
    * time. Every CLI send goes through here, including fire-and-forget ones, so
-   * that nothing else can consume a pending request's reply.
+   * that nothing else can consume a pending request's reply. A round trip that
+   * goes unanswered leaves a muted note in the transcript, so a non-answer
+   * never reads as a reply still in flight.
    * @throws if the send fails, the session drops, or no reply arrives in time.
    */
   const repeaterCliRequest = useCallback(
@@ -1314,6 +1317,9 @@ export function useMeshCore() {
       // queued under the old session is rejected rather than transmitted.
       const enqueuedToken =
         useMeshStore.getState().adminSessions[prefix]?.token;
+      // Counted from enqueue, not from the send, so a command still waiting
+      // behind an earlier round trip also reads as pending.
+      addCliPending(prefix, 1);
       return enqueueCli(prefix, () => {
         // Re-checked inside the queue: the link can drop while queued behind an
         // earlier command's full round trip.
@@ -1371,6 +1377,23 @@ export function useMeshCore() {
               waiter.timer = setTimeout(() => {
                 if (cliWaiters.get(prefix) !== waiter) return;
                 takeCliWaiter(prefix);
+                // Record the non-answer in the transcript here rather than in
+                // the caller: rejecting releases the queue, so a caller's
+                // continuation would land after the next command's echo and
+                // pin "no reply" on the wrong line. Guarded by the issuing
+                // session's token for the same reason as onCliReply — a logout
+                // in the meantime must not carry the note into the next login.
+                if (
+                  useMeshStore.getState().adminSessions[prefix]?.token ===
+                  enqueuedToken
+                ) {
+                  appendCliLine(prefix, {
+                    own: false,
+                    note: true,
+                    text: i18n.t('repeaterAdmin.cli.timedOut'),
+                    ts: Date.now(),
+                  });
+                }
                 reject(new CliTimeoutError());
               }, timeoutMs);
             },
@@ -1380,9 +1403,9 @@ export function useMeshCore() {
             },
           );
         });
-      });
+      }).finally(() => addCliPending(prefix, -1));
     },
-    [client, appendCliLine],
+    [client, appendCliLine, addCliPending],
   );
 
   /**

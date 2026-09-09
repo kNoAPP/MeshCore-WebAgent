@@ -344,9 +344,10 @@ export interface RepeaterAction {
   cmd: string;
   destructive?: boolean;
   /**
-   * The node never answers this verb, so a reply timeout still means it was
-   * delivered. Without it, silence must be reported as a non-answer rather
-   * than as success.
+   * The node never answers this verb, so a reply timeout still counts as sent
+   * (the radio accepted the transmission) rather than as a lost command.
+   * Without it, silence must be reported as a non-answer rather than as
+   * success.
    */
   silent?: boolean;
 }

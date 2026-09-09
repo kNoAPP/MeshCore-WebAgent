@@ -730,11 +730,12 @@ function ConsoleTab({ contact }: { contact: Contact }) {
   const prefix = contact.pubkeyPrefix;
   const log = useMeshStore((s) => s.adminSessions[prefix]?.cli);
   const clearCliLog = useMeshStore((s) => s.clearCliLog);
-  const appendCliLine = useMeshStore((s) => s.appendCliLine);
+  // Outstanding round trips are tracked in the session, not here, so switching
+  // tabs and back while a slow command is in flight keeps the indicator.
+  const cliPending = useMeshStore(
+    (s) => s.adminSessions[prefix]?.cliPending ?? 0,
+  );
   const [input, setInput] = useState('');
-  // Commands still awaiting a reply. Counted, not a flag, because the user can
-  // type ahead while an earlier command is queued behind its round trip.
-  const [inFlight, setInFlight] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
 
   // Keep the newest line in view as the transcript grows.
@@ -746,23 +747,15 @@ function ConsoleTab({ contact }: { contact: Contact }) {
     const cmd = input.trim();
     if (cmd === '') return;
     setInput('');
-    setInFlight((n) => n + 1);
-    void repeaterCli(contact, cmd)
-      .then((outcome) => {
-        // Silence is an outcome the user has to see: without this line the
-        // transcript is indistinguishable from a reply still in flight.
-        if (outcome !== 'timeout') return;
-        appendCliLine(prefix, {
-          own: false,
-          note: true,
-          text: t('repeaterAdmin.cli.timedOut'),
-          ts: Date.now(),
-        });
-      })
-      .finally(() => setInFlight((n) => n - 1));
+    // Every outcome lands in the transcript — the reply, or a muted note when
+    // the node stays silent — so there is nothing to report here.
+    void repeaterCli(contact, cmd);
   };
 
   const lines = log ?? [];
+  // The indicator belongs on the newest command, which is not always the newest
+  // line: a reply or timeout note for an earlier command can land after it.
+  const lastOwn = lines.findLastIndex((l) => l.own);
 
   return (
     <div className='flex h-full w-full flex-col gap-3'>
@@ -798,7 +791,7 @@ function ConsoleTab({ contact }: { contact: Contact }) {
                 }
               >
                 {line.own ? `> ${line.text}` : line.text}
-                {inFlight > 0 && line.own && i === lines.length - 1 && (
+                {cliPending > 0 && i === lastOwn && (
                   <span
                     aria-hidden
                     className='ml-2 inline-block h-2.5 w-2.5 animate-spin rounded-full border border-(--text2) border-t-transparent align-middle'
@@ -811,7 +804,7 @@ function ConsoleTab({ contact }: { contact: Contact }) {
         </div>
       </div>
       <span role='status' aria-live='polite' className='sr-only'>
-        {inFlight > 0 ? t('repeaterAdmin.console.waiting') : ''}
+        {cliPending > 0 ? t('repeaterAdmin.console.waiting') : ''}
       </span>
 
       <form

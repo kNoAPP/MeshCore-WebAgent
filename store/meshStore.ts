@@ -233,6 +233,13 @@ export interface AdminSession {
   status?: RepeaterStatus;
   cli: CliLine[];
   /**
+   * How many CLI commands are outstanding for this repeater — queued or
+   * awaiting a reply. Session state rather than console-component state, so
+   * the pending indicator survives navigating away from the transcript and
+   * back while a slow round trip is still in flight.
+   */
+  cliPending?: number;
+  /**
    * Cache of the repeater's loaded/confirmed Config-tab values, keyed by
    * setting id. Ephemeral (part of the session), so the Config fields stay
    * populated when the user navigates away and back without re-reading, and
@@ -500,6 +507,12 @@ interface MeshActions {
   mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
   appendCliLine: (prefix: string, line: CliLine) => void;
+  /**
+   * Adjusts a repeater's outstanding CLI command count by {@link delta} (`1`
+   * when one is enqueued, `-1` when it settles). A no-op without a session,
+   * and clamped at zero.
+   */
+  addCliPending: (prefix: string, delta: number) => void;
   /** Clears a repeater's CLI transcript, leaving the session intact. */
   clearCliLog: (prefix: string) => void;
   /** Drops a repeater's admin session entirely (e.g. on log out). */
@@ -882,6 +895,20 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
             ...session,
             cli: [...session.cli, line].slice(-CLI_LOG_LIMIT),
           },
+        },
+      };
+    }),
+  addCliPending: (prefix, delta) =>
+    set((state) => {
+      const session = state.adminSessions[prefix];
+      // No session means the user logged out mid-flight; the count went with
+      // it, so there is nothing left to adjust.
+      if (!session) return {};
+      const cliPending = Math.max(0, (session.cliPending ?? 0) + delta);
+      return {
+        adminSessions: {
+          ...state.adminSessions,
+          [prefix]: { ...session, cliPending },
         },
       };
     }),
