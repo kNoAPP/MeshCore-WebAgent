@@ -486,7 +486,7 @@ interface MeshActions {
   setAddContactOpen: (open: boolean) => void;
   /** Registers a mounted dialog, making the page behind it inert. */
   pushModal: () => void;
-  /** Unregisters a dialog as it unmounts. */
+  /** Drops a dialog's registration as it unmounts. */
   popModal: () => void;
   setAdvertising: (advertising: boolean) => void;
   openCommandPalette: () => void;
