@@ -1318,8 +1318,10 @@ export function useMeshCore() {
       const enqueuedToken =
         useMeshStore.getState().adminSessions[prefix]?.token;
       // Counted from enqueue, not from the send, so a command still waiting
-      // behind an earlier round trip also reads as pending.
-      addCliPending(prefix, 1);
+      // behind an earlier round trip also reads as pending. Tagged with the
+      // issuing session so a logout mid-flight can't leave the next session
+      // holding this command's count.
+      addCliPending(prefix, 1, enqueuedToken);
       return enqueueCli(prefix, () => {
         // Re-checked inside the queue: the link can drop while queued behind an
         // earlier command's full round trip.
@@ -1403,7 +1405,7 @@ export function useMeshCore() {
             },
           );
         });
-      }).finally(() => addCliPending(prefix, -1));
+      }).finally(() => addCliPending(prefix, -1, enqueuedToken));
     },
     [client, appendCliLine, addCliPending],
   );

@@ -509,10 +509,16 @@ interface MeshActions {
   appendCliLine: (prefix: string, line: CliLine) => void;
   /**
    * Adjusts a repeater's outstanding CLI command count by {@link delta} (`1`
-   * when one is enqueued, `-1` when it settles). A no-op without a session,
-   * and clamped at zero.
+   * when one is enqueued, `-1` when it settles). Applied only while the
+   * session the command was issued under is still current, so a request that
+   * settles after a logout can't zero a replacement session's count. Clamped
+   * at zero.
    */
-  addCliPending: (prefix: string, delta: number) => void;
+  addCliPending: (
+    prefix: string,
+    delta: number,
+    token: number | undefined,
+  ) => void;
   /** Clears a repeater's CLI transcript, leaving the session intact. */
   clearCliLog: (prefix: string) => void;
   /** Drops a repeater's admin session entirely (e.g. on log out). */
@@ -898,12 +904,12 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         },
       };
     }),
-  addCliPending: (prefix, delta) =>
+  addCliPending: (prefix, delta, token) =>
     set((state) => {
       const session = state.adminSessions[prefix];
-      // No session means the user logged out mid-flight; the count went with
-      // it, so there is nothing left to adjust.
-      if (!session) return {};
+      // A session that was logged out or replaced took its count with it, so a
+      // command issued under it has nothing left to adjust.
+      if (!session || session.token !== token) return {};
       const cliPending = Math.max(0, (session.cliPending ?? 0) + delta);
       return {
         adminSessions: {
