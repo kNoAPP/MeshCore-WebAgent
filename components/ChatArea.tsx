@@ -96,7 +96,6 @@ export function ChatArea() {
     },
     [convoId, setDraft],
   );
-  const [sending, setSending] = useState(false);
   // Tagged with the conversation it was typed in: the composer swaps to the new
   // conversation's draft on a switch, so an untagged query would leave the
   // popover open over text that is no longer in the box.
@@ -342,27 +341,18 @@ export function ChatArea() {
 
   const handleSend = useCallback(async () => {
     const body = text;
-    if (!body.trim() || sending || !activeConvo || overLimit) return;
-    setSending(true);
-    // Clear and refocus optimistically, before the radio I/O: the bubble's own
-    // status tracks in-flight state, so the composer is free for the next
-    // message immediately, and a slow send never strands focus on <body>.
+    if (!body.trim() || !activeConvo || overLimit) return;
+    // Clear and refocus optimistically, before the radio I/O, and with no
+    // in-flight lockout: a send can sit behind the radio's command queue for
+    // ten seconds, the bubble's own status already tracks it, and the client
+    // serializes frames, so the composer stays free for the next message.
     // Clear by the id captured here, so a conversation switch mid-send can't
     // wipe the newly-opened conversation's draft instead.
     setDraft(activeConvo.id, '');
     setMentionQuery(null);
     textareaRef.current?.focus();
     await sendMessage(body, activeConvo);
-    setSending(false);
-  }, [
-    text,
-    sending,
-    activeConvo,
-    overLimit,
-    sendMessage,
-    setDraft,
-    setMentionQuery,
-  ]);
+  }, [text, activeConvo, overLimit, sendMessage, setDraft, setMentionQuery]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // While the suggestion popover is open, arrows move the highlight and
@@ -682,7 +672,7 @@ export function ChatArea() {
             <button
               type='button'
               onClick={handleSend}
-              disabled={!text.trim() || sending || overLimit}
+              disabled={!text.trim() || overLimit}
               aria-label={t('chat.send')}
               className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent)
               text-base text-white transition-opacity
