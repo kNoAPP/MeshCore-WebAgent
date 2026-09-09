@@ -86,6 +86,10 @@ label[for] {
  */
 :root,
 :root[data-theme='dark'] {
+  /* Tells the UA to draw its own chrome — select popups, checkbox and range
+     controls, spin buttons, autofill, scrollbars, focus rings — in this
+     theme's tone, which no `--token` can reach. */
+  color-scheme: dark;
   --bg: #0f1117;
   --surface: #1a1d27;
   --surface2: #252836;
@@ -116,6 +120,7 @@ label[for] {
 }
 
 :root[data-theme='light'] {
+  color-scheme: light;
   --bg: #ffffff;
   --surface: #f4f6f9;
   --surface2: #e7ebf1;
