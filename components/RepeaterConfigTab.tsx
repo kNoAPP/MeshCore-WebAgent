@@ -456,11 +456,16 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
 
   const runAction = useCallback(
     async (action: RepeaterAction) => {
-      // Confirm success only after the send is accepted (or the node stays
-      // silent by design, e.g. reboot); a failed/disconnected send is surfaced
-      // by repeaterCli itself, so don't show a premature "sent" toast.
-      const ok = await repeaterCli(contact, action.cmd);
-      if (ok) showToast(t('toast.repeaterActionSent'), 'success');
+      // Confirm success only on a real reply — or on silence from a verb that
+      // never answers (`reboot`). Any other non-answer is reported as such
+      // rather than as a green "sent"; a failed/disconnected send already
+      // toasts from repeaterCli itself.
+      const outcome = await repeaterCli(contact, action.cmd);
+      if (outcome === 'ok' || (outcome === 'timeout' && action.silent)) {
+        showToast(t('toast.repeaterActionSent'), 'success');
+      } else if (outcome === 'timeout') {
+        showToast(t('toast.repeaterCliNoReply'), 'error');
+      }
     },
     [contact, repeaterCli, showToast, t],
   );

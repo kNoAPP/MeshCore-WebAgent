@@ -102,6 +102,18 @@ class CliTimeoutError extends Error {
   }
 }
 
+/**
+ * How a fire-and-forget repeater CLI send ended.
+ *
+ * - `'ok'` — the node replied, and the reply was not an error.
+ * - `'timeout'` — the send was accepted but no reply arrived in time. Success
+ *   only for the verbs that never reply by design (`reboot`, `poweroff`); the
+ *   caller owns that judgement, since it alone knows which verb it sent.
+ * - `'error'` — the send failed, the session was gone, or the node rejected
+ *   the command. Already surfaced as a toast.
+ */
+export type RepeaterCliOutcome = 'ok' | 'timeout' | 'error';
+
 // LoRa round trips are spiky — give the radio's suggested timeout some slack
 const ACK_TIMEOUT_GRACE = 1.5;
 const MIN_ACK_TIMEOUT_MS = 5000;
@@ -1381,12 +1393,14 @@ export function useMeshCore() {
    * @remarks
    * Still waits for the reply (via {@link repeaterCliRequest}) rather than
    * returning at the send ack, so the reply is consumed by this request instead
-   * of being mistaken for the answer to whatever is sent next. A silent node is
-   * not an error here: `reboot` and `poweroff` never reply at all.
+   * of being mistaken for the answer to whatever is sent next.
+   * @returns the {@link RepeaterCliOutcome}. A silent node is reported as
+   *   `'timeout'`, never folded into success — only the caller knows whether
+   *   the verb it sent answers at all.
    */
   const repeaterCli = useCallback(
-    async (contact: Contact, cmd: string): Promise<boolean> => {
-      if (!canTransmit(client)) return false;
+    async (contact: Contact, cmd: string): Promise<RepeaterCliOutcome> => {
+      if (!canTransmit(client)) return 'error';
       try {
         const reply = await repeaterCliRequest(contact, cmd);
         // A received reply can still be a rejection (e.g. `ERR: clock cannot go
@@ -1396,21 +1410,21 @@ export function useMeshCore() {
             i18n.t('toast.repeaterCliFailed', { error: reply.trim() }),
             'error',
           );
-          return false;
+          return 'error';
         }
-        return true;
+        return 'ok';
       } catch (err) {
-        // A silent node isn't a failure: reboot/poweroff never reply, so a
-        // timeout still means the command was sent and accepted.
-        if (err instanceof CliTimeoutError) return true;
+        // No toast: whether silence is a failure depends on the verb, so the
+        // caller reports it (transcript line, toast, or nothing at all).
+        if (err instanceof CliTimeoutError) return 'timeout';
         // A disconnect rejects the pending send; its teardown owns the toast,
         // so only surface failures from a still-live session.
-        if (!canTransmit(client)) return false;
+        if (!canTransmit(client)) return 'error';
         showToast(
           i18n.t('toast.repeaterCliFailed', { error: (err as Error).message }),
           'error',
         );
-        return false;
+        return 'error';
       }
     },
     [client, repeaterCliRequest, showToast],

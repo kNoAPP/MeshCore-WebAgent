@@ -730,7 +730,11 @@ function ConsoleTab({ contact }: { contact: Contact }) {
   const prefix = contact.pubkeyPrefix;
   const log = useMeshStore((s) => s.adminSessions[prefix]?.cli);
   const clearCliLog = useMeshStore((s) => s.clearCliLog);
+  const appendCliLine = useMeshStore((s) => s.appendCliLine);
   const [input, setInput] = useState('');
+  // Commands still awaiting a reply. Counted, not a flag, because the user can
+  // type ahead while an earlier command is queued behind its round trip.
+  const [inFlight, setInFlight] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
 
   // Keep the newest line in view as the transcript grows.
@@ -742,7 +746,20 @@ function ConsoleTab({ contact }: { contact: Contact }) {
     const cmd = input.trim();
     if (cmd === '') return;
     setInput('');
-    void repeaterCli(contact, cmd);
+    setInFlight((n) => n + 1);
+    void repeaterCli(contact, cmd)
+      .then((outcome) => {
+        // Silence is an outcome the user has to see: without this line the
+        // transcript is indistinguishable from a reply still in flight.
+        if (outcome !== 'timeout') return;
+        appendCliLine(prefix, {
+          own: false,
+          note: true,
+          text: t('repeaterAdmin.cli.timedOut'),
+          ts: Date.now(),
+        });
+      })
+      .finally(() => setInFlight((n) => n - 1));
   };
 
   const lines = log ?? [];
@@ -773,18 +790,29 @@ function ConsoleTab({ contact }: { contact: Contact }) {
               <div
                 key={i}
                 className={
-                  line.own
-                    ? 'wrap-break-word whitespace-pre-wrap text-(--accent)'
-                    : 'wrap-break-word whitespace-pre-wrap text-(--text)'
+                  line.note
+                    ? 'wrap-break-word whitespace-pre-wrap text-(--text2) italic'
+                    : line.own
+                      ? 'wrap-break-word whitespace-pre-wrap text-(--accent)'
+                      : 'wrap-break-word whitespace-pre-wrap text-(--text)'
                 }
               >
                 {line.own ? `> ${line.text}` : line.text}
+                {inFlight > 0 && line.own && i === lines.length - 1 && (
+                  <span
+                    aria-hidden
+                    className='ml-2 inline-block h-2.5 w-2.5 animate-spin rounded-full border border-(--text2) border-t-transparent align-middle'
+                  />
+                )}
               </div>
             ))
           )}
           <div ref={endRef} />
         </div>
       </div>
+      <span role='status' aria-live='polite' className='sr-only'>
+        {inFlight > 0 ? t('repeaterAdmin.console.waiting') : ''}
+      </span>
 
       <form
         className='flex gap-2'

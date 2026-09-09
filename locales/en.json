@@ -567,7 +567,8 @@
       "inputLabel": "Command",
       "placeholder": "Type a command (e.g. ver, get radio)",
       "send": "Send",
-      "clear": "Clear"
+      "clear": "Clear",
+      "waiting": "Waiting for a reply…"
     },
     "config": {
       "readingField": "Reading…",
@@ -900,6 +901,7 @@
     "repeaterLoginFailed": "Login failed: {{error}}",
     "repeaterStatusFailed": "Failed to fetch status: {{error}}",
     "repeaterCliFailed": "Failed to send command: {{error}}",
+    "repeaterCliNoReply": "Command sent, but the node never replied.",
     "repeaterConfigError": "Node rejected the change: {{error}}",
     "repeaterNameTooLongForLocation": "Shorten the node name to 24 bytes or fewer before setting a location.",
     "repeaterLoadBeforeLocationEdit": "Load the node name and location before changing either.",

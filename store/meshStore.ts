@@ -204,6 +204,12 @@ export interface CliLine {
   text: string;
   /** `Date.now()` when the line was appended. */
   ts: number;
+  /**
+   * `true` for a client-side note about the exchange (e.g. "no reply from the
+   * node") rather than traffic with the repeater. Rendered muted and without a
+   * prompt marker.
+   */
+  note?: boolean;
 }
 
 /**
