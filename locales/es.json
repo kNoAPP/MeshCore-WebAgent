@@ -904,5 +904,11 @@
     "repeaterNameTooLongForLocation": "Acorta el nombre del nodo a 24 bytes o menos antes de establecer una ubicación.",
     "repeaterLoadBeforeLocationEdit": "Carga el nombre y la ubicación del nodo antes de cambiar cualquiera de los dos.",
     "repeaterActionSent": "Comando enviado."
+  },
+  "update": {
+    "available": "Hay una nueva versión disponible",
+    "hint": "Al recargar se desconectará tu radio.",
+    "reload": "Recargar",
+    "dismiss": "Descartar"
   }
 }

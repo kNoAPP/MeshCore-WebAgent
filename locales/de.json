@@ -904,5 +904,11 @@
     "repeaterNameTooLongForLocation": "Kürzen Sie den Knotennamen auf höchstens 24 Bytes, bevor Sie einen Standort festlegen.",
     "repeaterLoadBeforeLocationEdit": "Laden Sie Name und Standort des Knotens, bevor Sie eines von beiden ändern.",
     "repeaterActionSent": "Befehl gesendet."
+  },
+  "update": {
+    "available": "Eine neue Version ist verfügbar",
+    "hint": "Beim Neuladen wird Ihr Funkgerät getrennt.",
+    "reload": "Neu laden",
+    "dismiss": "Ausblenden"
   }
 }
