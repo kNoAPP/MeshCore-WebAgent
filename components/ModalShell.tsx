@@ -44,7 +44,6 @@ export function ModalShell({
 }) {
   const { t } = useTranslation();
   const titleId = useId();
-  const confirmId = useId();
   const cardRef = useRef<HTMLDivElement>(null);
   const [confirming, setConfirming] = useState(false);
   const pushModal = useMeshStore((s) => s.pushModal);
@@ -88,7 +87,7 @@ export function ModalShell({
         className={`relative flex max-h-full ${widthClass} max-w-full flex-col overflow-hidden rounded-[10px] border outline-none`}
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
-        <div className='min-h-0 overflow-y-auto p-7'>
+        <div className='min-h-0 overflow-y-auto p-7' inert={confirming}>
           <div className='mb-5 flex items-center justify-between gap-2'>
             <div className='flex min-w-0 items-center gap-2'>
               {onBack && (
@@ -115,42 +114,68 @@ export function ModalShell({
           {children}
         </div>
         {confirming && (
-          <div
-            className='absolute inset-0 flex items-center justify-center p-6'
-            style={{ background: 'rgba(0,0,0,0.6)' }}
-          >
-            <div
-              role='alertdialog'
-              aria-labelledby={confirmId}
-              className='w-full max-w-80 rounded-[10px] border p-5'
-              style={{
-                background: 'var(--surface)',
-                borderColor: 'var(--border)',
-              }}
-            >
-              <p id={confirmId} className='text-sm text-(--text2)'>
-                {t('common.discardChanges')}
-              </p>
-              <div className='mt-4 flex justify-end gap-2'>
-                <button
-                  autoFocus
-                  onClick={() => setConfirming(false)}
-                  className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
-                >
-                  {t('common.keepEditing')}
-                </button>
-                <button
-                  onClick={onClose}
-                  className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--red-hover)'
-                >
-                  {t('common.discard')}
-                </button>
-              </div>
-            </div>
-          </div>
+          <DiscardConfirm
+            onKeep={() => setConfirming(false)}
+            onDiscard={onClose}
+          />
         )}
       </div>
     </div>,
     document.body,
+  );
+}
+
+// Its own dialog rather than inline content: the card body behind it is inert
+// while it is up, so it needs its own focus boundary and its own restore back
+// into the form the user was editing.
+function DiscardConfirm({
+  onKeep,
+  onDiscard,
+}: {
+  onKeep: () => void;
+  onDiscard: () => void;
+}) {
+  const { t } = useTranslation();
+  const messageId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(panelRef);
+
+  return (
+    <div
+      className='absolute inset-0 flex items-center justify-center p-6'
+      style={{ background: 'rgba(0,0,0,0.6)' }}
+    >
+      <div
+        ref={panelRef}
+        role='alertdialog'
+        aria-modal='true'
+        aria-labelledby={messageId}
+        tabIndex={-1}
+        className='w-full max-w-80 rounded-[10px] border p-5 outline-none'
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <p id={messageId} className='text-sm text-(--text2)'>
+          {t('common.discardChanges')}
+        </p>
+        <div className='mt-4 flex justify-end gap-2'>
+          <button
+            onClick={onKeep}
+            className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+          >
+            {t('common.keepEditing')}
+          </button>
+          <button
+            onClick={onDiscard}
+            className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--red-hover)'
+          >
+            {t('common.discard')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

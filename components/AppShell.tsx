@@ -66,42 +66,45 @@ export function AppShell() {
   return (
     <div className='flex h-full flex-col'>
       {' '}
-      <Header />
-      <div className='relative flex flex-1 overflow-hidden'>
-        {' '}
-        {/* `inert` makes the reconnect overlay and every `ModalShell` truly
-            modal: it not only captures clicks but also blocks the keyboard
-            focus/typing that would otherwise reach the still-mounted composer
-            underneath. Dialogs portal onto `document.body`, so marking `main`
-            inert never reaches the dialog that opened from inside it. */}
-        <main
-          id='main'
-          className='flex flex-1 overflow-hidden'
-          inert={reconnecting || modalOpen}
-          tabIndex={-1}
-        >
-          {active ? (
-            view === 'stats' ? (
-              <StatsPage />
-            ) : view === 'settings' ? (
-              <SettingsPage />
-            ) : view === 'map' ? (
-              <MapView />
+      {/* Everything a dialog covers. `ModalShell` portals onto `document.body`,
+          so the open dialog itself is outside this subtree and stays live while
+          the header and the page behind it go `inert` — which blocks the
+          keyboard focus, not just the clicks the backdrop already swallows. */}
+      <div className='flex min-h-0 flex-1 flex-col' inert={modalOpen}>
+        <Header />
+        <div className='relative flex flex-1 overflow-hidden'>
+          {' '}
+          {/* The reconnect overlay is modal the same way, but it renders inside
+              this subtree, so only `main` beneath it goes inert. */}
+          <main
+            id='main'
+            className='flex flex-1 overflow-hidden'
+            inert={reconnecting}
+            tabIndex={-1}
+          >
+            {active ? (
+              view === 'stats' ? (
+                <StatsPage />
+              ) : view === 'settings' ? (
+                <SettingsPage />
+              ) : view === 'map' ? (
+                <MapView />
+              ) : (
+                <>
+                  <Sidebar />
+                  {activeConvo?.kind === 'repeater' ? (
+                    <RepeaterView />
+                  ) : (
+                    <ChatArea />
+                  )}
+                </>
+              )
             ) : (
-              <>
-                <Sidebar />
-                {activeConvo?.kind === 'repeater' ? (
-                  <RepeaterView />
-                ) : (
-                  <ChatArea />
-                )}
-              </>
-            )
-          ) : (
-            <ConnectPanel />
-          )}
-        </main>{' '}
-        {reconnecting && <ReconnectingOverlay />}
+              <ConnectPanel />
+            )}
+          </main>{' '}
+          {reconnecting && <ReconnectingOverlay />}
+        </div>{' '}
       </div>{' '}
       {connected && (
         <>
