@@ -3,6 +3,7 @@
 
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LoaderCircle } from 'lucide-react';
 import { useMeshCore } from '@/hooks/useMeshCore';
@@ -26,6 +27,19 @@ export function ReconnectingOverlay() {
   const syncProgress = useMeshStore((s) => s.syncProgress);
   const progress = useMeshStore((s) => s.reconnectProgress);
   const { retryReconnectNow } = useMeshCore();
+
+  const resumeAt = progress?.waiting ? progress.resumeAt : null;
+  // Display-only clock for the backoff countdown, so the wait the Retry now
+  // button skips is visible rather than implied.
+  const [remainingMs, setRemainingMs] = useState(0);
+  useEffect(() => {
+    if (resumeAt === null) return;
+    const tick = () => setRemainingMs(Math.max(0, resumeAt - Date.now()));
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [resumeAt]);
+  const seconds = Math.ceil(remainingMs / 1000);
 
   return (
     <div
@@ -74,12 +88,23 @@ export function ReconnectingOverlay() {
             </p>
           )}
           {progress?.waiting && (
-            <button
-              onClick={retryReconnectNow}
-              className='mt-4 rounded-lg border border-(--accent) px-4 py-2 text-sm font-medium text-(--accent) transition-opacity hover:opacity-80'
-            >
-              {t('connect.reconnecting.retryNow')}
-            </button>
+            <>
+              {resumeAt !== null && (
+                // Ticks once a second; announcing it would talk over the
+                // attempt counter, so the status stays with that line.
+                <p className='mt-1 text-xs text-(--text2)' aria-hidden='true'>
+                  {t('connect.reconnecting.nextAttempt', { seconds })}
+                </p>
+              )}
+              <button
+                onClick={retryReconnectNow}
+                title={t('connect.reconnecting.retryNowHint')}
+                aria-label={t('connect.reconnecting.retryNowHint')}
+                className='mt-4 rounded-lg border border-(--accent) px-4 py-2 text-sm font-medium text-(--accent) transition-opacity hover:opacity-80'
+              >
+                {t('connect.reconnecting.retryNow')}
+              </button>
+            </>
           )}
           <DisconnectButton />
         </SyncCard>

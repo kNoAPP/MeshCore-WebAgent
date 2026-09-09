@@ -126,7 +126,9 @@
       "bodyGeneric": "Se perdió la conexión con tu radio companion. Intentando restaurarla automáticamente — tus chats reaparecerán en cuanto vuelva.",
       "hint": "Una radio que se está reiniciando puede tardar un momento en volver.",
       "attempt": "Intento {{attempt}} de {{total}}",
+      "nextAttempt": "Siguiente intento en {{seconds}} s",
       "retryNow": "Reintentar ahora",
+      "retryNowHint": "Omitir la espera e intentar reconectar ahora",
       "resyncFrom": "Reconectado a {{device}} — restaurando tus contactos y mensajes.",
       "resyncGeneric": "Reconectado — restaurando tus contactos y mensajes."
     },

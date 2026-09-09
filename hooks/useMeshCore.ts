@@ -534,6 +534,7 @@ async function runReconnectAttempt(
     attempt: reconnectAttempt,
     total: MAX_RECONNECT_ATTEMPTS,
     waiting: false,
+    resumeAt: null,
   });
   let ok = false;
   try {
@@ -591,6 +592,7 @@ function scheduleReconnect(
     attempt: reconnectAttempt + 1,
     total: MAX_RECONNECT_ATTEMPTS,
     waiting: true,
+    resumeAt: Date.now() + delay,
   });
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;

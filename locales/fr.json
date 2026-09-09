@@ -126,7 +126,9 @@
       "bodyGeneric": "Connexion à ta radio companion perdue. Tentative de rétablissement automatique — tes discussions réapparaîtront dès qu'elle sera rétablie.",
       "hint": "Une radio qui redémarre peut prendre un moment pour revenir.",
       "attempt": "Tentative {{attempt}} sur {{total}}",
+      "nextAttempt": "Prochaine tentative dans {{seconds}} s",
       "retryNow": "Réessayer maintenant",
+      "retryNowHint": "Ignorer l’attente et tenter la reconnexion maintenant",
       "resyncFrom": "Reconnecté à {{device}} — restauration de tes contacts et messages.",
       "resyncGeneric": "Reconnecté — restauration de tes contacts et messages."
     },

@@ -212,6 +212,8 @@ export interface ReconnectProgress {
   total: number;
   /** True while waiting out the backoff delay that precedes `attempt`. */
   waiting: boolean;
+  /** `Date.now()` the pending attempt starts at, for the countdown. */
+  resumeAt: number | null;
 }
 
 /**
