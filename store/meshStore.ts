@@ -376,9 +376,10 @@ interface MeshState {
   connectError: ConnectErrorCode | null;
   /**
    * The radio whose auto-reconnect ran out of attempts, surfaced on the connect
-   * screen; `null` when the last session ended any other way. Survives the
-   * session reset that follows the give-up, and is cleared once a radio
-   * connects again (a dismissed picker or a failed retry keeps it).
+   * screen; `null` when the last session ended any other way. Outlives the
+   * session reset that follows the give-up and the one a failed retry runs
+   * through, and is cleared once a radio connects again or the user
+   * disconnects deliberately.
    */
   lastConnectFailure: ConnectFailure | null;
   /**
@@ -1023,6 +1024,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       // Theme is a global (pre-connect) preference kept in localStorage, not
       // per-radio session state.
       theme: get().theme,
+      // The connect screen's give-up notice describes a session that is
+      // already gone, so it has to outlive this reset — including the one a
+      // failed retry runs through. Cleared on a successful connect, and
+      // explicitly by a deliberate Disconnect.
+      lastConnectFailure: get().lastConnectFailure,
       // Every other preference is per-radio (encrypted in IndexedDB) and
       // reloaded on the next connect, so it resets to defaults here.
     }),

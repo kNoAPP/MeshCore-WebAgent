@@ -1074,8 +1074,11 @@ export function useMeshCore() {
     // session back up; also cancels a drop's GATT/close event from looping.
     userInitiatedDisconnect = true;
     teardownSession(true);
+    // reset() deliberately carries the give-up notice through a teardown; the
+    // user leaving on purpose is the one case that retires it.
+    setLastConnectFailure(null);
     showToast(i18n.t('toast.disconnected'));
-  }, [showToast]);
+  }, [showToast, setLastConnectFailure]);
 
   // Core send routine for an existing message bubble: transmits to a channel or
   // contact, then tracks delivery — opens a repeater-echo window for channels,
