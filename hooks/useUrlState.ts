@@ -176,6 +176,15 @@ export function useUrlState(): void {
     // updates it causes aren't echoed straight back into the URL.
     let applying = false;
 
+    const currentHash = (): string => {
+      const state = useMeshStore.getState();
+      return formatHash({
+        view: state.view,
+        section,
+        convo: state.activeConvo?.id ?? null,
+      });
+    };
+
     const writeHash = (hash: string): void => {
       if (hash === window.location.hash) return;
       // Replace rather than push when the current hash isn't a route of ours
@@ -209,21 +218,21 @@ export function useUrlState(): void {
       // The applied state may differ from what was asked for (an unknown
       // contact, or a node that opens the admin view instead of a chat), so
       // normalize the entry we are already on rather than adding another.
-      const state = useMeshStore.getState();
-      const hash = formatHash({
-        view: state.view,
-        section,
-        convo: state.activeConvo?.id ?? null,
-      });
+      const hash = currentHash();
       if (hash !== window.location.hash) {
         window.history.replaceState(null, '', hash);
       }
     };
 
     const onPopState = (): void => {
-      const route = parseHash(window.location.hash);
-      if (!route) return;
       if (!isActiveStatus(useMeshStore.getState().status)) return;
+      const route = parseHash(window.location.hash);
+      // A hash that names no page of ours would otherwise sit in the address
+      // bar describing something the app isn't showing.
+      if (!route) {
+        window.history.replaceState(null, '', currentHash());
+        return;
+      }
       apply(route);
     };
 
@@ -257,13 +266,7 @@ export function useUrlState(): void {
       }
       if (state.settingsSection) section = state.settingsSection;
       else if (state.view !== prev.view) section = null;
-      writeHash(
-        formatHash({
-          view: state.view,
-          section,
-          convo: state.activeConvo?.id ?? null,
-        }),
-      );
+      writeHash(currentHash());
     });
 
     updateTitle();
