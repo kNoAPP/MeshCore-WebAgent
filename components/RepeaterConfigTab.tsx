@@ -1189,7 +1189,7 @@ function LocationSourceRow({
                 onClick={() => onSelect(value)}
                 className={`rounded px-3 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   active
-                    ? 'bg-(--accent-solid) font-semibold text-white'
+                    ? 'bg-(--accent-solid) font-semibold text-white inset-ring-1 inset-ring-(--accent)'
                     : 'text-(--text2) hover:text-(--text)'
                 }`}
               >

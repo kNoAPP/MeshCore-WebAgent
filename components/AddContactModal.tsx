@@ -161,7 +161,7 @@ export function AddContactModal() {
             }}
             className={`flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors ${
               mode === m.id
-                ? 'bg-(--accent-solid) text-white'
+                ? 'bg-(--accent-solid) text-white inset-ring-1 inset-ring-(--accent)'
                 : 'text-(--text2) hover:bg-(--surface2)'
             }`}
           >
