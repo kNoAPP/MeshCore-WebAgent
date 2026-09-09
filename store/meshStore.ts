@@ -411,6 +411,12 @@ interface MeshState {
   autoAddOpen: boolean;
   addChannelOpen: boolean;
   addContactOpen: boolean;
+  /**
+   * How many `ModalShell` dialogs are currently mounted. A count rather than a
+   * flag because dialogs stack: the page behind them only becomes interactive
+   * again once the last one closes.
+   */
+  openModals: number;
   advertising: boolean;
   /** Whether the global "Find Anything" command palette is open. */
   commandPaletteOpen: boolean;
@@ -522,6 +528,10 @@ interface MeshActions {
   setAutoAddOpen: (open: boolean) => void;
   setAddChannelOpen: (open: boolean) => void;
   setAddContactOpen: (open: boolean) => void;
+  /** Registers a mounted dialog, making the page behind it inert. */
+  pushModal: () => void;
+  /** Drops a dialog's registration as it unmounts. */
+  popModal: () => void;
   setAdvertising: (advertising: boolean) => void;
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
@@ -618,6 +628,7 @@ const initialState: MeshState = {
   autoAddOpen: false,
   addChannelOpen: false,
   addContactOpen: false,
+  openModals: 0,
   advertising: false,
   commandPaletteOpen: false,
   settingsSection: null,
@@ -845,6 +856,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setAutoAddOpen: (autoAddOpen) => set({ autoAddOpen }),
   setAddChannelOpen: (addChannelOpen) => set({ addChannelOpen }),
   setAddContactOpen: (addContactOpen) => set({ addContactOpen }),
+  pushModal: () => set((s) => ({ openModals: s.openModals + 1 })),
+  // Clamped at zero: a disconnect resets the count while dialogs are still
+  // mounted, and their unmount then pops a counter that is already back to 0.
+  popModal: () => set((s) => ({ openModals: Math.max(0, s.openModals - 1) })),
   setAdvertising: (advertising) => set({ advertising }),
   openCommandPalette: () => set({ commandPaletteOpen: true }),
   closeCommandPalette: () => set({ commandPaletteOpen: false }),

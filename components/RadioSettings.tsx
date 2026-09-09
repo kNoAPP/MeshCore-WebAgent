@@ -207,6 +207,7 @@ export function RadioSettingsModal({
       }
       onClose={onClose}
       onBack={confirming ? () => setConfirming(false) : undefined}
+      confirmClose={dirty}
     >
       {confirming ? (
         <RadioConfirmStep
