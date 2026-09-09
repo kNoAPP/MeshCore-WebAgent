@@ -162,8 +162,11 @@ function DiscardConfirm({
           {t('common.discardChanges')}
         </p>
         <div className='mt-4 flex justify-end gap-2'>
+          {/* Focused on open so the default answer is the safe one; it lands
+              before the trap's effect, which then leaves it alone. */}
           <button
             onClick={onKeep}
+            autoFocus
             className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
           >
             {t('common.keepEditing')}
