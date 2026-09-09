@@ -137,7 +137,7 @@ export function Header() {
               aria-current={view === v ? 'page' : undefined}
               className={`focus-inset px-2.5 py-1 text-xs whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 view === v
-                  ? 'bg-(--accent-solid) text-white'
+                  ? 'bg-(--accent-solid) text-white inset-ring-1 inset-ring-(--accent)'
                   : 'text-(--text2) hover:text-(--accent)'
               }`}
             >

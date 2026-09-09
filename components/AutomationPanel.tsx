@@ -664,7 +664,7 @@ function RuleEditor({
                     onClick={() => toggleChannel(ch.idx)}
                     className={`rounded-md border px-2 py-1 text-[11px] ${
                       on
-                        ? 'border-(--accent-solid) bg-(--accent-solid) text-white'
+                        ? 'border-(--accent) bg-(--accent-solid) text-white'
                         : 'border-(--border-control) text-(--text2) hover:text-(--text)'
                     }`}
                   >
@@ -694,7 +694,7 @@ function RuleEditor({
                     key={prefix}
                     type='button'
                     onClick={() => toggleContact(prefix)}
-                    className='flex items-center gap-1 rounded-md border border-(--accent-solid) bg-(--accent-solid) px-2 py-1 text-[11px] text-white'
+                    className='flex items-center gap-1 rounded-md border border-(--accent) bg-(--accent-solid) px-2 py-1 text-[11px] text-white'
                   >
                     <span>{c?.name || prefix}</span>
                     <X size={11} />
@@ -797,7 +797,7 @@ function RuleEditor({
                   onClick={() => toggleAdvType(types)}
                   className={`rounded-md border px-2 py-1 text-[11px] ${
                     on
-                      ? 'border-(--accent-solid) bg-(--accent-solid) text-white'
+                      ? 'border-(--accent) bg-(--accent-solid) text-white'
                       : 'border-(--border-control) text-(--text2) hover:text-(--text)'
                   }`}
                 >
@@ -978,7 +978,7 @@ function RuleEditor({
                     onClick={() => toggleTool(tool)}
                     className={`rounded-md border px-2 py-1 text-[11px] ${
                       on
-                        ? 'border-(--accent-solid) bg-(--accent-solid) text-white'
+                        ? 'border-(--accent) bg-(--accent-solid) text-white'
                         : 'border-(--border-control) text-(--text2) hover:text-(--text)'
                     }`}
                     title={toolClass(tool)}

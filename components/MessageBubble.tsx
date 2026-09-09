@@ -70,7 +70,11 @@ function renderText(
         key={i}
         className={
           isSelf
-            ? 'mention-self font-semibold text-yellow-300'
+            ? // Own bubbles are already a deep accent fill, so the pale-tint
+              // `.mention-self` override would bury the name there.
+              own
+              ? 'font-semibold text-yellow-300'
+              : 'mention-self font-semibold text-yellow-300'
             : own
               ? 'font-semibold text-lime-300'
               : 'font-semibold text-(--accent)'

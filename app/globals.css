@@ -121,7 +121,8 @@ label[for] {
 /*
  * Light mode's pale yellow self-mention tint leaves `text-yellow-300` unreadable,
  * so darken just the text (not the bubble) to the readable `--yellow` token here.
- * Dark mode keeps `text-yellow-300`.
+ * Own bubbles opt out (they carry the deep `--accent-solid` fill), and dark mode
+ * keeps `text-yellow-300` throughout.
  */
 :root[data-theme='light'] .mention-self {
   color: var(--yellow);
@@ -143,9 +144,10 @@ label[for] {
   --accent-hover: #1e40af;
   --text: #1a1d27;
   --text2: #5a6478;
-  /* `--green`, `--yellow` and `--amber` only ever color text or icons in light
-     mode, so they are darkened until they clear 4.5:1 on `--surface2`, the
-     darkest surface any of them lands on. */
+  /* In light mode `--green`, `--yellow` and `--amber` only ever paint small
+     marks on a pale surface — status text, icons, and the header status dot —
+     so they are darkened until they clear 4.5:1 on `--surface2`, the darkest
+     surface any of them lands on, which also covers the dot's 3:1 floor. */
   --green: #0f7038;
   --red: #c81e1e;
   --red-solid: #c81e1e;
