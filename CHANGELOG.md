@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.23.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.22.2...v1.23.0) (2026-09-09)
+
+
+### Features
+
+* **ui:** reflect app state in the URL and the document title ([#263](https://github.com/kNoAPP/MeshCore-WebAgent/issues/263)) ([aa451cb](https://github.com/kNoAPP/MeshCore-WebAgent/commit/aa451cb0ee8ac05c7446f367a235d46e5cda889c))
+
+
+### Bug Fixes
+
+* **a11y:** add a visible keyboard focus indicator app-wide ([#247](https://github.com/kNoAPP/MeshCore-WebAgent/issues/247)) ([22f6eee](https://github.com/kNoAPP/MeshCore-WebAgent/commit/22f6eeed5898efcc4de57bc490b93292293a198b))
+* **a11y:** add main landmark and skip link ([#254](https://github.com/kNoAPP/MeshCore-WebAgent/issues/254)) ([9ef5dcc](https://github.com/kNoAPP/MeshCore-WebAgent/commit/9ef5dcc5961259471bf3fea3dcfba9f51fda50c5))
+* **a11y:** declare color-scheme and set html lang pre-paint ([#259](https://github.com/kNoAPP/MeshCore-WebAgent/issues/259)) ([0dc9c70](https://github.com/kNoAPP/MeshCore-WebAgent/commit/0dc9c7005608d6e4eaaab0a61d2af09f775e6ba5))
+* **a11y:** give modals dialog semantics, escape, and focus management ([#262](https://github.com/kNoAPP/MeshCore-WebAgent/issues/262)) ([b960ba5](https://github.com/kNoAPP/MeshCore-WebAgent/commit/b960ba5dc0c9f08562730b258697594d86d55202))
+* **chat:** free the composer as soon as a message is queued ([#260](https://github.com/kNoAPP/MeshCore-WebAgent/issues/260)) ([9a08dbb](https://github.com/kNoAPP/MeshCore-WebAgent/commit/9a08dbbdfcf7c42676c8af77cf3197028363a1bf))
+* **chat:** make the composer and mention list accessible ([#248](https://github.com/kNoAPP/MeshCore-WebAgent/issues/248)) ([9d212f6](https://github.com/kNoAPP/MeshCore-WebAgent/commit/9d212f61a810782ca703b5c63b050082aef42b1a))
+* **chat:** reserve the channel sender prefix in the byte budget ([#257](https://github.com/kNoAPP/MeshCore-WebAgent/issues/257)) ([2968bd3](https://github.com/kNoAPP/MeshCore-WebAgent/commit/2968bd3bbe2fa2164d379e263ae005cd0b56d2d5))
+* **chat:** scope the composer draft to its conversation ([#255](https://github.com/kNoAPP/MeshCore-WebAgent/issues/255)) ([c37a366](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c37a36630b06143be110d84ab5eb89dff77d83e0))
+* **connect:** keep the lost radio on the connect screen after give-up ([#261](https://github.com/kNoAPP/MeshCore-WebAgent/issues/261)) ([009d81f](https://github.com/kNoAPP/MeshCore-WebAgent/commit/009d81fe08c32333306d9faa8f8eb9ed13e0ab63))
+* **connect:** stop reporting a cancelled device picker as an error ([#245](https://github.com/kNoAPP/MeshCore-WebAgent/issues/245)) ([7bea98b](https://github.com/kNoAPP/MeshCore-WebAgent/commit/7bea98babcbd79bb719bf0c6d91bd9d6be78a9c2))
+* **header:** degrade the header instead of wrapping at 1280 and 1366 ([#246](https://github.com/kNoAPP/MeshCore-WebAgent/issues/246)) ([6cd0293](https://github.com/kNoAPP/MeshCore-WebAgent/commit/6cd02934be2e245fb67a9be112f0812892b275cc))
+* **repeater:** surface repeater CLI timeouts instead of faking success ([#258](https://github.com/kNoAPP/MeshCore-WebAgent/issues/258)) ([a3bb9cb](https://github.com/kNoAPP/MeshCore-WebAgent/commit/a3bb9cb3e3fdbb23ecaf1427ef9b101aafb6bb70))
+* **theme:** meet WCAG AA contrast in both themes ([#264](https://github.com/kNoAPP/MeshCore-WebAgent/issues/264)) ([7823982](https://github.com/kNoAPP/MeshCore-WebAgent/commit/78239826bd1582697d1f116191d2aec4a5410393))
+* **ui:** prompt before reloading a live session on a new deploy ([#256](https://github.com/kNoAPP/MeshCore-WebAgent/issues/256)) ([23ccd8b](https://github.com/kNoAPP/MeshCore-WebAgent/commit/23ccd8bc42f04a2ca554398a1b8647fb2a9c6d30))
+
 ## [1.22.2](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.22.1...v1.22.2) (2026-09-07)
 
 
