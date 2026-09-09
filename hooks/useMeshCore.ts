@@ -832,11 +832,6 @@ export function useMeshCore() {
         setSyncProgress(null);
         setStatus('connected');
         clearReconnect();
-        // The radio is back, so the connect screen's give-up card has served
-        // its purpose. Cleared only here, not when an attempt starts, so a
-        // dismissed picker or a failed retry leaves the card (and the tab it
-        // pre-selects) intact.
-        setLastConnectFailure(null);
         const deviceName =
           c.selfInfo?.name ?? c.deviceInfo?.model ?? i18n.t('common.device');
         setDeviceName(deviceName);
@@ -973,6 +968,11 @@ export function useMeshCore() {
             'success',
           );
         }
+        // The radio is back, so the connect screen's give-up card has served
+        // its purpose. Cleared only once the whole session is built: an await
+        // above that rejects tears the session down as a failed connect, and
+        // the card (and the tab it pre-selects) has to survive that.
+        setLastConnectFailure(null);
         return true;
       } catch (err) {
         setSyncProgress(null);

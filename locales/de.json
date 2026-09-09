@@ -134,7 +134,7 @@
     },
     "failed": {
       "title": "Verbindungsversuche gestoppt",
-      "body": "Verbindung zu {{device}} verloren und konnte nicht automatisch wiederhergestellt werden. Schalte das Funkgerät wieder ein und versuche es erneut.",
+      "body": "Die Verbindung zu {{device}} ging verloren und konnte nicht automatisch wiederhergestellt werden. Schalte das Funkgerät wieder ein und versuche es erneut.",
       "reconnect": "Erneut mit {{device}} verbinden"
     },
     "footer": {
