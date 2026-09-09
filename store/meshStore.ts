@@ -319,6 +319,11 @@ interface MeshState {
   mapPrefs: MapPrefs | null;
   toast: Toast | null;
   /**
+   * True once a newer build has been deployed while a session was live, so the
+   * update banner offers a reload instead of taking one unasked.
+   */
+  updateAvailable: boolean;
+  /**
    * Code for the reason the last connection attempt failed, resolved to
    * localized copy on the connect screen; `null` when there is no error to
    * show. User-cancelled device pickers never set this.
@@ -429,6 +434,8 @@ interface MeshActions {
   restoreHistory: (persisted: Record<string, Message[]>) => void;
   showToast: (text: string, variant?: Toast['variant']) => void;
   dismissToast: () => void;
+  /** Raises (or dismisses) the "new version deployed" update banner. */
+  setUpdateAvailable: (available: boolean) => void;
   /** Sets (or clears, with `null`) the inline connect-screen error code. */
   setConnectError: (code: ConnectErrorCode | null) => void;
   setView: (view: AppView) => void;
@@ -517,6 +524,7 @@ const initialState: MeshState = {
   aiPref: DEFAULT_AI_PREF,
   mapPrefs: null,
   toast: null,
+  updateAvailable: false,
   connectError: null,
   view: 'chat',
   mapPicking: false,
@@ -722,6 +730,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   },
 
   dismissToast: () => set({ toast: null }),
+  setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
   setConnectError: (code) => set({ connectError: code }),
   // Any manual tab switch also aborts an in-progress location pick.
   setView: (view) => set({ view, mapPicking: false, settingsSection: null }),
@@ -897,6 +906,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({
       ...initialState,
       toast: get().toast,
+      // The deployed build doesn't change with the radio, so a pending update
+      // outlives the session it was noticed in.
+      updateAvailable: get().updateAvailable,
       // Locale is a global (pre-connect) preference kept in localStorage, not
       // per-radio session state.
       locale: get().locale,
