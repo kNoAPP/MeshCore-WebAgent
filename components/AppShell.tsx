@@ -6,6 +6,7 @@
 import dynamic from 'next/dynamic';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
+import { useUrlState } from '@/hooks/useUrlState';
 import { DesktopOnly } from './DesktopOnly';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
@@ -37,6 +38,7 @@ const MapView = dynamic(
  * once connected, and mounts the management modals only while connected.
  */
 export function AppShell() {
+  useUrlState();
   const isDesktop = useIsDesktop();
   const status = useMeshStore((s) => s.status);
   const view = useMeshStore((s) => s.view);

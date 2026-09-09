@@ -37,6 +37,11 @@
   "theme": {
     "toggle": "Toggle light/dark theme"
   },
+  "title": {
+    "app": "MeshCore Companion",
+    "device": "{{device}} · MeshCore Companion",
+    "deviceUnread": "({{unread}}) {{device}} · MeshCore Companion"
+  },
   "command": {
     "title": "Find anything",
     "search": "Search",
