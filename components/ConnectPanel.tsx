@@ -4,14 +4,16 @@
 'use client';
 
 import { useState, useSyncExternalStore } from 'react';
-import { Bluetooth, Usb, Wifi } from 'lucide-react';
+import { Bluetooth, PlugZap, Usb, Wifi } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { useMeshStore } from '@/store/meshStore';
+import { useMeshStore, type ConnectFailure } from '@/store/meshStore';
 import { version } from '@/package.json';
 import { SyncDialog } from './SyncDialog';
 
 type Tab = 'usb' | 'ble' | 'wifi';
+
+const DEFAULT_WIFI_URL = 'ws://192.168.1.100:5000';
 
 interface TransportSupport {
   usb: boolean;
@@ -38,8 +40,10 @@ const getServerSupport = () => null;
  */
 export function ConnectPanel() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('usb');
-  const [wifiUrl, setWifiUrl] = useState('ws://192.168.1.100:5000');
+  // Null until the user picks a tab or edits the URL, so both can fall back to
+  // the session auto-reconnect gave up on without an effect to sync them.
+  const [pickedTab, setPickedTab] = useState<Tab | null>(null);
+  const [editedUrl, setEditedUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // null during the prerender — the static export has no `navigator`
   const support = useSyncExternalStore(
@@ -53,14 +57,17 @@ export function ConnectPanel() {
   const deviceName = useMeshStore((s) => s.deviceName);
   const connectError = useMeshStore((s) => s.connectError);
   const setConnectError = useMeshStore((s) => s.setConnectError);
+  const lastFailure = useMeshStore((s) => s.lastConnectFailure);
 
+  const tab = pickedTab ?? lastFailure?.transport ?? 'usb';
+  const wifiUrl = editedUrl ?? lastFailure?.url ?? DEFAULT_WIFI_URL;
   const usbSupported = support?.usb ?? true;
   const bleSupported = support?.ble ?? true;
 
   // Switching transports clears a stale error from the previous attempt.
   const changeTab = (tb: Tab) => {
     setConnectError(null);
-    setTab(tb);
+    setPickedTab(tb);
   };
 
   const run = async (fn: () => Promise<void>) => {
@@ -70,6 +77,22 @@ export function ConnectPanel() {
     } finally {
       setBusy(false);
     }
+  };
+
+  // Reopens the radio the reconnect loop gave up on. USB and BLE go back
+  // through the browser picker, since the granted handle died with the session.
+  const reconnectLast = (failure: ConnectFailure) => {
+    // Pin the transport and URL locally first: a retry that fails tears the
+    // session down again, and the panel must still show what was being tried.
+    setPickedTab(failure.transport);
+    if (failure.url) setEditedUrl(failure.url);
+    return run(() =>
+      failure.transport === 'usb'
+        ? connectUSB()
+        : failure.transport === 'ble'
+          ? connectBLE()
+          : connectWiFi(failure.url ?? wifiUrl),
+    );
   };
 
   if (status === 'connecting' && syncProgress) {
@@ -97,6 +120,14 @@ export function ConnectPanel() {
       >
         <h2 className='mb-1 text-xl font-bold'>{t('connect.title')}</h2>
         <p className='mb-5 text-sm text-(--text2)'> {t('connect.subtitle')} </p>
+
+        {lastFailure && (
+          <ReconnectFailedCard
+            device={lastFailure.device}
+            busy={busy}
+            onReconnect={() => reconnectLast(lastFailure)}
+          />
+        )}
 
         {/* Tabs */}
         <div
@@ -183,8 +214,8 @@ export function ConnectPanel() {
               <input
                 type='text'
                 value={wifiUrl}
-                onChange={(e) => setWifiUrl(e.target.value)}
-                placeholder='ws://192.168.1.100:5000'
+                onChange={(e) => setEditedUrl(e.target.value)}
+                placeholder={DEFAULT_WIFI_URL}
                 className='input-field'
               />
             </label>
@@ -198,6 +229,45 @@ export function ConnectPanel() {
         )}
       </div>
       <ConnectFooter />
+    </div>
+  );
+}
+
+/**
+ * Persistent notice that auto-reconnect ran out of attempts, naming the radio
+ * that was lost and offering a one-click retry on the same transport.
+ */
+function ReconnectFailedCard({
+  device,
+  busy,
+  onReconnect,
+}: {
+  device: string;
+  busy: boolean;
+  onReconnect: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      role='status'
+      className='mb-5 rounded-lg border p-3.5'
+      style={{
+        background: 'color-mix(in srgb, var(--red) 8%, transparent)',
+        borderColor: 'color-mix(in srgb, var(--red) 30%, transparent)',
+      }}
+    >
+      <div className='mb-1.5 flex items-center gap-1.5 text-sm font-semibold'>
+        <PlugZap size={16} aria-hidden='true' className='text-(--red)' />
+        {t('connect.failed.title')}
+      </div>
+      <p className='mb-3 text-xs text-(--text2)'>
+        {t('connect.failed.body', { device })}
+      </p>
+      <PrimaryButton disabled={busy} onClick={onReconnect}>
+        {busy
+          ? t('connect.connecting')
+          : t('connect.failed.reconnect', { device })}
+      </PrimaryButton>
     </div>
   );
 }

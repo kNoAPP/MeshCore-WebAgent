@@ -125,8 +125,17 @@
       "bodyFrom": "Verbindung zu {{device}} verloren. Versuche automatisch, sie wiederherzustellen — deine Chats erscheinen wieder, sobald sie zurück ist.",
       "bodyGeneric": "Verbindung zu deinem Companion-Funkgerät verloren. Versuche automatisch, sie wiederherzustellen — deine Chats erscheinen wieder, sobald sie zurück ist.",
       "hint": "Ein neu startendes Funkgerät kann einen Moment brauchen, um zurückzukommen.",
+      "attempt": "Versuch {{attempt}} von {{total}}",
+      "nextAttempt": "Nächster Versuch in {{seconds}} s",
+      "retryNow": "Jetzt erneut versuchen",
+      "retryNowHint": "Wartezeit überspringen und jetzt neu verbinden",
       "resyncFrom": "Wieder verbunden mit {{device}} — stelle deine Kontakte und Nachrichten wieder her.",
       "resyncGeneric": "Wieder verbunden — stelle deine Kontakte und Nachrichten wieder her."
+    },
+    "failed": {
+      "title": "Verbindungsversuche gestoppt",
+      "body": "Die Verbindung zu {{device}} ging verloren und konnte nicht automatisch wiederhergestellt werden. Schalte das Funkgerät wieder ein und versuche es erneut.",
+      "reconnect": "Erneut mit {{device}} verbinden"
     },
     "footer": {
       "createdBy": "Erstellt von Alden Bansemer / Knoban LLC",

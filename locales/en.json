@@ -125,8 +125,17 @@
       "bodyFrom": "Lost the connection to {{device}}. Trying to restore it automatically — your chats will reappear as soon as it's back.",
       "bodyGeneric": "Lost the connection to your companion radio. Trying to restore it automatically — your chats will reappear as soon as it's back.",
       "hint": "A rebooting radio can take a moment to come back.",
+      "attempt": "Attempt {{attempt}} of {{total}}",
+      "nextAttempt": "Next attempt in {{seconds}}s",
+      "retryNow": "Retry now",
+      "retryNowHint": "Skip the wait and try reconnecting now",
       "resyncFrom": "Reconnected to {{device}} — restoring your contacts and messages.",
       "resyncGeneric": "Reconnected — restoring your contacts and messages."
+    },
+    "failed": {
+      "title": "Reconnect attempts stopped",
+      "body": "Lost the connection to {{device}} and could not restore it automatically. Turn the radio back on, then try again.",
+      "reconnect": "Reconnect to {{device}}"
     },
     "footer": {
       "createdBy": "Created by Alden Bansemer / Knoban LLC",

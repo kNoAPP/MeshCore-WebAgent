@@ -19,6 +19,7 @@ import type {
   RepeaterStatus,
   RepeaterAccess,
   StatsResult,
+  TransportKind,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import type {
@@ -190,6 +191,32 @@ export interface Toast {
 export type ConnectErrorCode = 'connectionFailed' | 'radioNoResponse';
 
 /**
+ * The radio auto-reconnect gave up on, kept past the session teardown so the
+ * connect screen can say what was lost and offer a one-click retry.
+ */
+export interface ConnectFailure {
+  /** Display name of the radio at the time the link dropped. */
+  device: string;
+  transport: TransportKind;
+  /** WebSocket URL of a `wifi` session, so the retry reuses it. */
+  url?: string;
+}
+
+/**
+ * How far the auto-reconnect loop has got, for the overlay's counter.
+ */
+export interface ReconnectProgress {
+  /** 1-based index of the attempt about to run, or already running. */
+  attempt: number;
+  /** Attempts the loop makes before giving up. */
+  total: number;
+  /** True while waiting out the backoff delay that precedes `attempt`. */
+  waiting: boolean;
+  /** `Date.now()` the pending attempt starts at, for the countdown. */
+  resumeAt: number | null;
+}
+
+/**
  * Login state of a remote-admin session with a repeater or room server.
  * `pending` covers the in-flight login handshake; the {@link RepeaterAccess}
  * levels (`admin`/`guest`) are the accepted, server-granted states; `loggedOut`
@@ -349,6 +376,19 @@ interface MeshState {
    * show. User-cancelled device pickers never set this.
    */
   connectError: ConnectErrorCode | null;
+  /**
+   * The radio whose auto-reconnect ran out of attempts, surfaced on the connect
+   * screen; `null` when the last session ended any other way. Outlives the
+   * session reset that follows the give-up and the one a failed retry runs
+   * through, and is cleared once a radio connects again or the user
+   * disconnects deliberately.
+   */
+  lastConnectFailure: ConnectFailure | null;
+  /**
+   * Where the auto-reconnect loop is: the attempt it is waiting to start or
+   * already running. `null` when no loop is in flight.
+   */
+  reconnectProgress: ReconnectProgress | null;
   view: AppView;
   /**
    * True while the map is in location-pick mode (opened from the Location card
@@ -463,6 +503,10 @@ interface MeshActions {
   setUpdateAvailable: (available: boolean) => void;
   /** Sets (or clears, with `null`) the inline connect-screen error code. */
   setConnectError: (code: ConnectErrorCode | null) => void;
+  /** Records (or clears, with `null`) the radio auto-reconnect gave up on. */
+  setLastConnectFailure: (failure: ConnectFailure | null) => void;
+  /** Reports (or clears, with `null`) the current reconnect-loop position. */
+  setReconnectProgress: (progress: ReconnectProgress | null) => void;
   setView: (view: AppView) => void;
   /** Opens the map to pick a location, returning to `returnTo` on confirm. */
   startLocationPick: (returnTo?: AppView) => void;
@@ -564,6 +608,8 @@ const initialState: MeshState = {
   toast: null,
   updateAvailable: false,
   connectError: null,
+  lastConnectFailure: null,
+  reconnectProgress: null,
   view: 'chat',
   mapPicking: false,
   pendingLocation: null,
@@ -779,6 +825,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   dismissToast: () => set({ toast: null }),
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
   setConnectError: (code) => set({ connectError: code }),
+
+  setLastConnectFailure: (lastConnectFailure) => set({ lastConnectFailure }),
+
+  setReconnectProgress: (reconnectProgress) => set({ reconnectProgress }),
   // Any manual tab switch also aborts an in-progress location pick.
   setView: (view) => set({ view, mapPicking: false, settingsSection: null }),
   startLocationPick: (returnTo = 'settings') =>
@@ -976,6 +1026,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       // Theme is a global (pre-connect) preference kept in localStorage, not
       // per-radio session state.
       theme: get().theme,
+      // The connect screen's give-up notice describes a session that is
+      // already gone, so it has to outlive this reset — including the one a
+      // failed retry runs through. Cleared on a successful connect, and
+      // explicitly by a deliberate Disconnect.
+      lastConnectFailure: get().lastConnectFailure,
       // Every other preference is per-radio (encrypted in IndexedDB) and
       // reloaded on the next connect, so it resets to defaults here.
     }),
