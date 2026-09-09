@@ -42,6 +42,7 @@ export function AppShell() {
   const view = useMeshStore((s) => s.view);
   const activeConvo = useMeshStore((s) => s.activeConvo);
   const commandPaletteOpen = useMeshStore((s) => s.commandPaletteOpen);
+  const modalOpen = useMeshStore((s) => s.openModals > 0);
   const connected = status === 'connected';
   const reconnecting = status === 'reconnecting';
   // A dropped link keeps the app mounted (chats stay visible) under a blocking
@@ -68,13 +69,15 @@ export function AppShell() {
       <Header />
       <div className='relative flex flex-1 overflow-hidden'>
         {' '}
-        {/* `inert` makes the reconnect overlay truly modal: it not only captures
-            clicks but also blocks the keyboard focus/typing that would
-            otherwise reach the still-mounted composer underneath it. */}
+        {/* `inert` makes the reconnect overlay and every `ModalShell` truly
+            modal: it not only captures clicks but also blocks the keyboard
+            focus/typing that would otherwise reach the still-mounted composer
+            underneath. Dialogs portal onto `document.body`, so marking `main`
+            inert never reaches the dialog that opened from inside it. */}
         <main
           id='main'
           className='flex flex-1 overflow-hidden'
-          inert={reconnecting}
+          inert={reconnecting || modalOpen}
           tabIndex={-1}
         >
           {active ? (

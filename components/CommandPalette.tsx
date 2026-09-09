@@ -178,9 +178,6 @@ export function CommandPalette(): React.ReactElement {
       e.preventDefault();
       const result = flat[activeIndex];
       if (result) activate(result);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      closeCommandPalette();
     }
   };
 

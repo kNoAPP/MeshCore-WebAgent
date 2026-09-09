@@ -136,6 +136,10 @@ export function AutomationSettingsBody() {
         <ModalShell
           title={editing ? t('automation.editRule') : t('automation.newRule')}
           onClose={closeEditor}
+          // The form's ~20 fields live inside `RuleEditor`, so the draft's
+          // dirtiness isn't visible here; every accidental dismissal is
+          // confirmed rather than silently discarding the whole rule.
+          confirmClose
         >
           {/* Remount on the edited rule so the form re-initializes from it. */}
           <RuleEditor
