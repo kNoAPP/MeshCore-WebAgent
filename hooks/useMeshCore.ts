@@ -830,6 +830,11 @@ export function useMeshCore() {
         setSyncProgress(null);
         setStatus('connected');
         clearReconnect();
+        // The radio is back, so the connect screen's give-up card has served
+        // its purpose. Cleared only here, not when an attempt starts, so a
+        // dismissed picker or a failed retry leaves the card (and the tab it
+        // pre-selects) intact.
+        setLastConnectFailure(null);
         const deviceName =
           c.selfInfo?.name ?? c.deviceInfo?.model ?? i18n.t('common.device');
         setDeviceName(deviceName);
@@ -998,6 +1003,7 @@ export function useMeshCore() {
       setSyncProgress,
       showToast,
       setConnectError,
+      setLastConnectFailure,
       wireClient,
       restoreHistory,
       restoreAdvertCache,
@@ -1010,7 +1016,6 @@ export function useMeshCore() {
   /** Prompts for a USB serial port and connects. */
   const connectUSB = useCallback(async () => {
     setConnectError(null);
-    setLastConnectFailure(null);
     try {
       const transport = await createUSBTransport();
       setReconnectSource(transport, 'usb');
@@ -1019,12 +1024,11 @@ export function useMeshCore() {
       if (err instanceof PickerDismissedError) return;
       setConnectError(connectErrorCode(err));
     }
-  }, [connect, setConnectError, setLastConnectFailure]);
+  }, [connect, setConnectError]);
 
   /** Prompts for a BLE companion and connects. */
   const connectBLE = useCallback(async () => {
     setConnectError(null);
-    setLastConnectFailure(null);
     try {
       const transport = await createBLETransport();
       setReconnectSource(transport, 'ble');
@@ -1033,13 +1037,12 @@ export function useMeshCore() {
       if (err instanceof PickerDismissedError) return;
       setConnectError(connectErrorCode(err));
     }
-  }, [connect, setConnectError, setLastConnectFailure]);
+  }, [connect, setConnectError]);
 
   /** Connects to a radio's WiFi WebSocket bridge at `url`. */
   const connectWiFi = useCallback(
     async (url: string) => {
       setConnectError(null);
-      setLastConnectFailure(null);
       try {
         const transport = await createWiFiTransport(url);
         setReconnectSource(transport, 'wifi', url);
@@ -1048,7 +1051,7 @@ export function useMeshCore() {
         setConnectError(connectErrorCode(err));
       }
     },
-    [connect, setConnectError, setLastConnectFailure],
+    [connect, setConnectError],
   );
 
   /**

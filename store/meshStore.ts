@@ -203,7 +203,7 @@ export interface ConnectFailure {
 }
 
 /**
- * How far the auto-reconnect backoff loop has got, for the overlay's counter.
+ * How far the auto-reconnect loop has got, for the overlay's counter.
  */
 export interface ReconnectProgress {
   /** 1-based index of the attempt about to run, or already running. */
@@ -377,13 +377,13 @@ interface MeshState {
   /**
    * The radio whose auto-reconnect ran out of attempts, surfaced on the connect
    * screen; `null` when the last session ended any other way. Survives the
-   * session reset that follows the give-up, and is cleared by the next connect
-   * attempt.
+   * session reset that follows the give-up, and is cleared once a radio
+   * connects again (a dismissed picker or a failed retry keeps it).
    */
   lastConnectFailure: ConnectFailure | null;
   /**
-   * Position in the auto-reconnect backoff loop while waiting out a delay;
-   * `null` outside that wait.
+   * Where the auto-reconnect loop is: the attempt it is waiting to start or
+   * already running. `null` when no loop is in flight.
    */
   reconnectProgress: ReconnectProgress | null;
   view: AppView;
@@ -502,7 +502,7 @@ interface MeshActions {
   setConnectError: (code: ConnectErrorCode | null) => void;
   /** Records (or clears, with `null`) the radio auto-reconnect gave up on. */
   setLastConnectFailure: (failure: ConnectFailure | null) => void;
-  /** Reports (or clears, with `null`) the current backoff-loop position. */
+  /** Reports (or clears, with `null`) the current reconnect-loop position. */
   setReconnectProgress: (progress: ReconnectProgress | null) => void;
   setView: (view: AppView) => void;
   /** Opens the map to pick a location, returning to `returnTo` on confirm. */

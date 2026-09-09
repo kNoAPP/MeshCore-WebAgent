@@ -81,14 +81,19 @@ export function ConnectPanel() {
 
   // Reopens the radio the reconnect loop gave up on. USB and BLE go back
   // through the browser picker, since the granted handle died with the session.
-  const reconnectLast = (failure: ConnectFailure) =>
-    run(() =>
+  const reconnectLast = (failure: ConnectFailure) => {
+    // Pin the transport and URL locally first: a retry that fails tears the
+    // session down again, and the panel must still show what was being tried.
+    setPickedTab(failure.transport);
+    if (failure.url) setEditedUrl(failure.url);
+    return run(() =>
       failure.transport === 'usb'
         ? connectUSB()
         : failure.transport === 'ble'
           ? connectBLE()
           : connectWiFi(failure.url ?? wifiUrl),
     );
+  };
 
   if (status === 'connecting' && syncProgress) {
     return (
