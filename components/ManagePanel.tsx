@@ -162,7 +162,7 @@ function ManagePanelView() {
               void addDiscoveredContact(advert);
               close();
             }}
-            className='shrink-0 rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
+            className='shrink-0 rounded-md bg-(--accent-solid) px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
           >
             {t('manage.addContact')}
           </button>
@@ -437,7 +437,7 @@ function ConfirmRow({
         </button>
         <button
           onClick={onConfirm}
-          className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--red-hover)'
+          className='rounded-md bg-(--red-solid) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--red-hover)'
         >
           {t('common.remove')}
         </button>

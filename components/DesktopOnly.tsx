@@ -52,7 +52,7 @@ export function DesktopOnly() {
             target='_blank'
             rel='noreferrer noopener'
             className='inline-flex w-full items-center justify-center rounded-lg
-              bg-(--accent) py-2.5 text-sm font-semibold text-white
+              bg-(--accent-solid) py-2.5 text-sm font-semibold text-white
               transition-opacity hover:opacity-90'
           >
             {t('desktopOnly.appButton')}

@@ -98,14 +98,22 @@ label[for] {
      dim `--border` leaves nearly invisible against `--surface` in dark mode. */
   --border-control: #424a63;
   --accent: #4f8ef7;
-  --accent-hover: #6ba0f9;
+  /* `--accent` is the brand tone for text, borders and focus rings, where it
+     needs to stay bright enough to read against the dark surfaces. A filled
+     control carries white text, which that same bright tone only reaches
+     3.2:1 against, so filled accent surfaces use this darker pair instead. */
+  --accent-solid: #2a5cc4;
+  --accent-hover: #3567d6;
   --text: #e2e8f0;
   --text2: #8892a4;
   --green: #4ade80;
   --red: #f87171;
-  --red-hover: #fa8d8d;
+  /* Same split as the accent: `--red` reads as text on a dark surface, and
+     `--red-solid` is dark enough to carry a white label. */
+  --red-solid: #b83b3b;
+  --red-hover: #c94747;
   --red-dim: #9e5050;
-  --red-dim-hover: #b86161;
+  --red-dim-hover: #ad5b5b;
   --yellow: #facc15;
   --amber: #f59e0b;
 }
@@ -113,7 +121,8 @@ label[for] {
 /*
  * Light mode's pale yellow self-mention tint leaves `text-yellow-300` unreadable,
  * so darken just the text (not the bubble) to the readable `--yellow` token here.
- * Dark mode keeps `text-yellow-300`.
+ * Own bubbles opt out (they carry the deep `--accent-solid` fill), and dark mode
+ * keeps `text-yellow-300` throughout.
  */
 :root[data-theme='light'] .mention-self {
   color: var(--yellow);
@@ -127,17 +136,26 @@ label[for] {
   --border: #d3d9e2;
   /* Light mode's border already reads fine on controls, so this matches it. */
   --border-control: #d3d9e2;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
+  /* Light mode's surfaces are pale, so the same tone clears 4.5:1 both as text
+     and as a fill under a white label — `--accent` and `--accent-solid`
+     coincide here, unlike in dark mode. */
+  --accent: #1d4ed8;
+  --accent-solid: #1d4ed8;
+  --accent-hover: #1e40af;
   --text: #1a1d27;
   --text2: #5a6478;
-  --green: #15a34a;
-  --red: #dc2626;
+  /* In light mode `--green`, `--yellow` and `--amber` only ever paint small
+     marks on a pale surface — status text, icons, and the header status dot —
+     so they are darkened until they clear 4.5:1 on `--surface2`, the darkest
+     surface any of them lands on, which also covers the dot's 3:1 floor. */
+  --green: #0f7038;
+  --red: #c81e1e;
+  --red-solid: #c81e1e;
   --red-hover: #b91c1c;
-  --red-dim: #c75f5f;
-  --red-dim-hover: #b34a4a;
-  --yellow: #ca8a04;
-  --amber: #d97706;
+  --red-dim: #b34a4a;
+  --red-dim-hover: #9c3d3d;
+  --yellow: #8a5e02;
+  --amber: #9a5203;
 }
 
 html,
@@ -232,7 +250,9 @@ html {
 /*
  * Map view (Leaflet). Leaflet's stylesheet is imported lazily inside MapView's
  * chunk, so it can load after this file; overrides are therefore scoped under
- * `.meshcore-map` to win on specificity regardless of stylesheet order. Colors
+ * `.meshcore-map` to outweigh Leaflet's own single-class rules. Where Leaflet
+ * itself scopes under `.leaflet-container` the specificity ties and its later
+ * sheet would win, so those overrides take the container class too. Colors
  * come from the same theme tokens as the rest of the UI, so the controls follow
  * light/dark.
  */
@@ -265,7 +285,7 @@ html {
   color: var(--text);
   border-color: var(--border);
 }
-.meshcore-map .leaflet-control-attribution {
+.meshcore-map .leaflet-container .leaflet-control-attribution {
   background: var(--surface);
   color: var(--text2);
 }

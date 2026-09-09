@@ -1189,7 +1189,7 @@ function LocationSourceRow({
                 onClick={() => onSelect(value)}
                 className={`rounded px-3 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   active
-                    ? 'bg-(--accent) font-semibold text-white'
+                    ? 'bg-(--accent-solid) font-semibold text-white inset-ring-1 inset-ring-(--accent)'
                     : 'text-(--text2) hover:text-(--text)'
                 }`}
               >
@@ -1432,7 +1432,7 @@ function ActionsSection({
                 onRun(reboot);
                 setConfirming(false);
               }}
-              className='rounded-md bg-(--red) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--red-hover)'
+              className='rounded-md bg-(--red-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--red-hover)'
             >
               {t('repeaterAdmin.config.actions.reboot.label')}
             </button>

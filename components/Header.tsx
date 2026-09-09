@@ -137,7 +137,7 @@ export function Header() {
               aria-current={view === v ? 'page' : undefined}
               className={`focus-inset px-2.5 py-1 text-xs whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 view === v
-                  ? 'bg-(--accent) text-white'
+                  ? 'bg-(--accent-solid) text-white inset-ring-1 inset-ring-(--accent)'
                   : 'text-(--text2) hover:text-(--accent)'
               }`}
             >
@@ -253,7 +253,7 @@ function ProposalsInbox({ count }: { count: number }) {
         onClick={() => setOpen(true)}
         aria-label={t('automation.inbox.title', { count })}
         title={t('automation.inbox.title', { count })}
-        className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--accent) px-2.5 py-1 text-xs font-semibold text-(--accent) transition-colors hover:bg-(--accent) hover:text-white'
+        className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--accent) px-2.5 py-1 text-xs font-semibold text-(--accent) transition-colors hover:bg-(--accent-solid) hover:text-white'
       >
         <Inbox size={13} />
         {count}
@@ -284,7 +284,7 @@ function KillSwitchButton() {
       }}
       aria-label={t('automation.kill')}
       title={t('automation.killHint')}
-      className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--red) px-2.5 py-1 text-xs font-semibold text-(--red) transition-colors hover:bg-(--red) hover:text-white'
+      className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--red) px-2.5 py-1 text-xs font-semibold text-(--red) transition-colors hover:bg-(--red-solid) hover:text-white'
     >
       <ShieldAlert size={13} />
       {t('automation.kill')}

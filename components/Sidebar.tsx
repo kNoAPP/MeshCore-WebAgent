@@ -593,7 +593,7 @@ function SidebarItem({
         disabled
           ? 'text-(--text2)'
           : active
-            ? 'bg-[rgba(79,142,247,0.15)] text-(--accent)'
+            ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-(--accent)'
             : 'text-(--text) hover:bg-(--surface2)'
       }`}
     >
@@ -607,7 +607,7 @@ function SidebarItem({
         <span className='flex-1 truncate'>{label}</span>
       </button>
       {unread > 0 && (
-        <span className='min-w-4.5 rounded-full bg-(--accent) px-1.5 py-0.5 text-center text-[10px] font-bold text-white'>
+        <span className='min-w-4.5 rounded-full bg-(--accent-solid) px-1.5 py-0.5 text-center text-[10px] font-bold text-white'>
           {unread}
         </span>
       )}

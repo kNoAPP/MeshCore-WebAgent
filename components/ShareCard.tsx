@@ -83,7 +83,7 @@ export function ShareCard({
           <button
             onClick={onAdvert}
             disabled={advertDisabled}
-            className='flex flex-1 items-center justify-center gap-2 rounded-md bg-(--accent) px-3 py-2 text-sm font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
+            className='flex flex-1 items-center justify-center gap-2 rounded-md bg-(--accent-solid) px-3 py-2 text-sm font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent-solid)'
           >
             <Radio size={16} />
             {advertLabel}

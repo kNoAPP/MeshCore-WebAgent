@@ -186,7 +186,7 @@ export function AiSettingsBody() {
           <button
             onClick={() => void save()}
             disabled={keyInput.trim() === '' || saving}
-            className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
+            className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent-solid)'
           >
             {t('settings.ai.save')}
           </button>
@@ -285,7 +285,7 @@ function AiTestChat({
           <button
             onClick={() => void send()}
             disabled={!hasKey || prompt.trim() === ''}
-            className='shrink-0 rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
+            className='shrink-0 rounded-md bg-(--accent-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent-solid)'
           >
             {t('settings.ai.send')}
           </button>

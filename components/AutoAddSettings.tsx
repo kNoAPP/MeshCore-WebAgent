@@ -125,7 +125,7 @@ function AutoAddSettingsPanel() {
             setAutoAddOpen(false);
           }}
           className='rounded-md px-3 py-1.5 text-sm font-semibold text-white'
-          style={{ background: 'var(--accent)' }}
+          style={{ background: 'var(--accent-solid)' }}
         >
           {t('common.save')}
         </button>
