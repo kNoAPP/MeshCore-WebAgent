@@ -331,11 +331,14 @@ export function ChatArea() {
 
   // The radio caps text by UTF-8 byte length, not character count, so measure
   // the same way it does — against the trimmed value, since that's what gets
-  // transmitted. Channel sends also carry a "<sender>: " prefix that counts
-  // toward the firmware limit; the cap here ignores it, so a channel message
-  // right at the limit can still be trimmed by the radio.
+  // transmitted. The firmware prepends "<sender>: " to a channel send and
+  // counts it against the same limit, so the composer's budget has to reserve
+  // it or the radio silently truncates the tail.
+  const maxBytes =
+    MAX_MSG_BYTES -
+    (activeConvo?.kind === 'channel' ? utf8ByteLength(`${deviceName}: `) : 0);
   const byteCount = utf8ByteLength(text.trim());
-  const overLimit = byteCount > MAX_MSG_BYTES;
+  const overLimit = byteCount > maxBytes;
 
   const handleSend = useCallback(async () => {
     const body = text;
@@ -620,6 +623,17 @@ export function ChatArea() {
               ))}
             </ul>
           )}
+          {/* The live region stays mounted and in the accessibility tree — a
+              region revealed in the same tick as its text may not announce.
+              When empty it collapses to zero height, so only the inner row
+              paints. */}
+          <div role='status'>
+            {overLimit && (
+              <div className='px-4 pt-2 text-[11px] text-(--red)'>
+                {t('chat.overByteLimit')}
+              </div>
+            )}
+          </div>
           <div className='flex items-end gap-2 px-4 py-3'>
             <textarea
               ref={textareaRef}
@@ -655,16 +669,15 @@ export function ChatArea() {
                 : ''}
             </span>
             <span
-              title={overLimit ? t('chat.overByteLimit') : undefined}
               className={`self-center text-[11px] ${
                 overLimit
                   ? 'text-(--red)'
-                  : byteCount > MAX_MSG_BYTES - 20
+                  : byteCount > maxBytes - 20
                     ? 'text-(--yellow)'
                     : 'text-(--text2)'
               }`}
             >
-              {byteCount}/{MAX_MSG_BYTES}
+              {byteCount}/{maxBytes}
             </span>
             <button
               type='button'
