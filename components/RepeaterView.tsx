@@ -722,6 +722,11 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   );
 }
 
+// The console's "still waiting" glyph, shared by the in-line and standalone
+// placements.
+const PENDING_DOT_CLASS =
+  'ml-2 inline-block h-2.5 w-2.5 animate-spin rounded-full border border-(--text2) border-t-transparent align-middle';
+
 // Admin-only: current repeater/room firmware answers remote `CLI_DATA` only
 // for an admin client, so a guest would get no reply.
 function ConsoleTab({ contact }: { contact: Contact }) {
@@ -776,7 +781,7 @@ function ConsoleTab({ contact }: { contact: Contact }) {
           aria-label={t('repeaterAdmin.console.transcriptLabel')}
           className='h-full overflow-y-auto p-3 font-mono text-xs'
         >
-          {lines.length === 0 ? (
+          {lines.length === 0 && cliPending === 0 ? (
             <p className='text-(--text2)'>{t('repeaterAdmin.console.empty')}</p>
           ) : (
             lines.map((line, i) => (
@@ -792,13 +797,19 @@ function ConsoleTab({ contact }: { contact: Contact }) {
               >
                 {line.own ? `> ${line.text}` : line.text}
                 {cliPending > 0 && i === lastOwn && (
-                  <span
-                    aria-hidden
-                    className='ml-2 inline-block h-2.5 w-2.5 animate-spin rounded-full border border-(--text2) border-t-transparent align-middle'
-                  />
+                  <span aria-hidden className={PENDING_DOT_CLASS} />
                 )}
               </div>
             ))
+          )}
+          {/* Clearing the transcript mid-round-trip leaves no own line to hang
+              the indicator on, so it falls back to a standalone row. Hidden
+              from assistive tech, which gets the live-region status below. */}
+          {cliPending > 0 && lastOwn === -1 && (
+            <div aria-hidden className='text-(--text2) italic'>
+              {t('repeaterAdmin.console.waiting')}
+              <span className={PENDING_DOT_CLASS} />
+            </div>
           )}
           <div ref={endRef} />
         </div>
