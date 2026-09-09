@@ -86,7 +86,7 @@ export function ReconnectingOverlay() {
                 total: progress.total,
               })}
               {progress.waiting && resumeAt !== null && (
-                // Hidden from assistive tech: it reticks every second, and
+                // Hidden from assistive tech: it changes every second, and
                 // the attempt count beside it already carries the status.
                 <span aria-hidden='true'>
                   {' · '}
