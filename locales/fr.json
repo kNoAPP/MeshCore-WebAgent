@@ -125,8 +125,15 @@
       "bodyFrom": "Connexion à {{device}} perdue. Tentative de rétablissement automatique — tes discussions réapparaîtront dès qu'elle sera rétablie.",
       "bodyGeneric": "Connexion à ta radio companion perdue. Tentative de rétablissement automatique — tes discussions réapparaîtront dès qu'elle sera rétablie.",
       "hint": "Une radio qui redémarre peut prendre un moment pour revenir.",
+      "attempt": "Tentative {{attempt}} sur {{total}}",
+      "retryNow": "Réessayer maintenant",
       "resyncFrom": "Reconnecté à {{device}} — restauration de tes contacts et messages.",
       "resyncGeneric": "Reconnecté — restauration de tes contacts et messages."
+    },
+    "failed": {
+      "title": "Tentatives de reconnexion arrêtées",
+      "body": "Connexion à {{device}} perdue et impossible à rétablir automatiquement. Rallume la radio, puis réessaie.",
+      "reconnect": "Se reconnecter à {{device}}"
     },
     "footer": {
       "createdBy": "Créé par Alden Bansemer / Knoban LLC",

@@ -5,6 +5,7 @@
 
 import { useTranslation } from 'react-i18next';
 import { LoaderCircle } from 'lucide-react';
+import { useMeshCore } from '@/hooks/useMeshCore';
 import { useMeshStore } from '@/store/meshStore';
 import { SyncDialog, SyncCard, DisconnectButton } from './SyncDialog';
 
@@ -23,6 +24,8 @@ export function ReconnectingOverlay() {
   // Present once an attempt reopens the link and starts re-syncing; null while
   // waiting out the backoff between attempts.
   const syncProgress = useMeshStore((s) => s.syncProgress);
+  const progress = useMeshStore((s) => s.reconnectProgress);
+  const { retryReconnectNow } = useMeshCore();
 
   return (
     <div
@@ -62,6 +65,22 @@ export function ReconnectingOverlay() {
           <p className='text-xs text-(--text2)'>
             {t('connect.reconnecting.hint')}
           </p>
+          {progress && (
+            <p className='mt-2 text-xs text-(--text2)'>
+              {t('connect.reconnecting.attempt', {
+                attempt: progress.attempt,
+                total: progress.total,
+              })}
+            </p>
+          )}
+          {progress?.waiting && (
+            <button
+              onClick={retryReconnectNow}
+              className='mt-4 rounded-lg border border-(--accent) px-4 py-2 text-sm font-medium text-(--accent) transition-opacity hover:opacity-80'
+            >
+              {t('connect.reconnecting.retryNow')}
+            </button>
+          )}
           <DisconnectButton />
         </SyncCard>
       )}

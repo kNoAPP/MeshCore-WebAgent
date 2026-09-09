@@ -60,6 +60,7 @@ import type {
   RawRxPacket,
   RepeaterAccess,
   ITransport,
+  TransportKind,
 } from '@/types/meshcore';
 import type { AutomationRule } from '@/types/automation';
 
@@ -182,6 +183,9 @@ let syntheticAckSeq = 0;
 // userInitiatedDisconnect distinguishes a deliberate Disconnect from a dropped
 // link so only the latter triggers the loop.
 let lastTransportFactory: (() => Promise<ITransport>) | null = null;
+// How the current session was opened, so the connect screen can name the radio
+// and re-run the matching connect after the loop gives up.
+let lastConnectSource: { kind: TransportKind; url?: string } | null = null;
 let userInitiatedDisconnect = false;
 let reconnectAttempt = 0;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -190,6 +194,7 @@ function clearReconnect(): void {
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectTimer = null;
   reconnectAttempt = 0;
+  useMeshStore.getState().setReconnectProgress(null);
 }
 
 // Rejects if `p` doesn't settle within `ms`. The underlying promise is left to
@@ -213,8 +218,13 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 // Records the active transport as the source the reconnect loop reopens after a
 // drop. The granted port/device/URL stays valid for the page session, so no new
-// user gesture is needed.
-function setReconnectSource(transport: ITransport): void {
+// user gesture is needed. `url` is the WebSocket address of a WiFi session.
+function setReconnectSource(
+  transport: ITransport,
+  kind: TransportKind,
+  url?: string,
+): void {
+  lastConnectSource = { kind, url };
   lastTransportFactory = async () => {
     await transport.reopen();
     return transport;
@@ -234,6 +244,7 @@ function teardownSession(flush = false): void {
   }
   clearReconnect();
   lastTransportFactory = null;
+  lastConnectSource = null;
   const store = useMeshStore.getState();
   store.client?.destroy();
   clearSessionState();
@@ -509,53 +520,81 @@ function handleAck(ackCode: number, roundTripMs: number): void {
   });
 }
 
+// One reconnect attempt: reopen the same device and rebuild the client through
+// the normal connect path (so sync/hydration/persistence wiring is identical to
+// a first connect), rescheduling the loop if it fails.
+async function runReconnectAttempt(
+  connect: (transport: ITransport, isReconnect: boolean) => Promise<boolean>,
+): Promise<void> {
+  const factory = lastTransportFactory;
+  if (!factory) return;
+  reconnectAttempt++;
+  if (userInitiatedDisconnect) return;
+  useMeshStore.getState().setReconnectProgress({
+    attempt: reconnectAttempt,
+    total: MAX_RECONNECT_ATTEMPTS,
+    waiting: false,
+  });
+  let ok = false;
+  try {
+    // Bound the reopen so a hung transport (a read loop that never unwinds)
+    // can't freeze the loop here forever — on timeout we fall through to a
+    // reschedule like any other failed attempt.
+    const transport = await withTimeout(
+      factory(),
+      RECONNECT_ATTEMPT_TIMEOUT_MS,
+    );
+    // Reopening can take seconds (GATT/serial); re-check intent in case the
+    // user hit Disconnect while we were awaiting it.
+    if (userInitiatedDisconnect) return;
+    ok = await connect(transport, true);
+  } catch {
+    ok = false;
+  }
+  if (!ok && !userInitiatedDisconnect) scheduleReconnect(connect);
+}
+
 // Drives the reconnect loop after an unexpected drop: waits out the backoff,
-// reopens the same device, and rebuilds the client through the normal connect
-// path (so sync/hydration/persistence wiring is identical to a first connect).
-// Recurses on failure until MAX_RECONNECT_ATTEMPTS, then gives up cleanly.
+// then runs an attempt. Recurses on failure until MAX_RECONNECT_ATTEMPTS, then
+// gives up — tearing the session down but remembering which radio was lost, so
+// the connect screen can explain it and offer a retry.
 function scheduleReconnect(
   connect: (transport: ITransport, isReconnect: boolean) => Promise<boolean>,
 ): void {
   if (!lastTransportFactory) return;
   if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
-    // Capture the name before teardownSession()'s reset() clears it. The drop
-    // already flushed history (via onDisconnect) and the link's been down
+    // Capture the name and source before teardownSession() clears them. The
+    // drop already flushed history (via onDisconnect) and the link's been down
     // since, so there's nothing new to persist here.
     // deviceName defaults to '' (empty until SELF_INFO), so fall back on any
     // falsy value, not just null/undefined.
     const device =
       useMeshStore.getState().deviceName || i18n.t('common.device');
+    const source = lastConnectSource;
     teardownSession();
-    useMeshStore
-      .getState()
-      .showToast(i18n.t('toast.reconnectFailed', { device }), 'error');
+    const store = useMeshStore.getState();
+    store.showToast(i18n.t('toast.reconnectFailed', { device }), 'error');
+    if (source) {
+      store.setLastConnectFailure({
+        device,
+        transport: source.kind,
+        url: source.url,
+      });
+    }
     return;
   }
   const delay =
     RECONNECT_BACKOFF_MS[
       Math.min(reconnectAttempt, RECONNECT_BACKOFF_MS.length - 1)
     ];
-  reconnectTimer = setTimeout(async () => {
+  useMeshStore.getState().setReconnectProgress({
+    attempt: reconnectAttempt + 1,
+    total: MAX_RECONNECT_ATTEMPTS,
+    waiting: true,
+  });
+  reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    reconnectAttempt++;
-    if (userInitiatedDisconnect) return;
-    let ok = false;
-    try {
-      // Bound the reopen so a hung transport (a read loop that never unwinds)
-      // can't freeze the loop here forever — on timeout we fall through to a
-      // reschedule like any other failed attempt.
-      const transport = await withTimeout(
-        lastTransportFactory!(),
-        RECONNECT_ATTEMPT_TIMEOUT_MS,
-      );
-      // Reopening can take seconds (GATT/serial); re-check intent in case the
-      // user hit Disconnect while we were awaiting it.
-      if (userInitiatedDisconnect) return;
-      ok = await connect(transport, true);
-    } catch {
-      ok = false;
-    }
-    if (!ok && !userInitiatedDisconnect) scheduleReconnect(connect);
+    void runReconnectAttempt(connect);
   }, delay);
 }
 
@@ -620,6 +659,7 @@ export function useMeshCore() {
     setDraft,
     showToast,
     setConnectError,
+    setLastConnectFailure,
   } = useMeshStore();
 
   // Installs the client callbacks that funnel radio events into the store and
@@ -970,43 +1010,57 @@ export function useMeshCore() {
   /** Prompts for a USB serial port and connects. */
   const connectUSB = useCallback(async () => {
     setConnectError(null);
+    setLastConnectFailure(null);
     try {
       const transport = await createUSBTransport();
-      setReconnectSource(transport);
+      setReconnectSource(transport, 'usb');
       await connect(transport);
     } catch (err) {
       if (err instanceof PickerDismissedError) return;
       setConnectError(connectErrorCode(err));
     }
-  }, [connect, setConnectError]);
+  }, [connect, setConnectError, setLastConnectFailure]);
 
   /** Prompts for a BLE companion and connects. */
   const connectBLE = useCallback(async () => {
     setConnectError(null);
+    setLastConnectFailure(null);
     try {
       const transport = await createBLETransport();
-      setReconnectSource(transport);
+      setReconnectSource(transport, 'ble');
       await connect(transport);
     } catch (err) {
       if (err instanceof PickerDismissedError) return;
       setConnectError(connectErrorCode(err));
     }
-  }, [connect, setConnectError]);
+  }, [connect, setConnectError, setLastConnectFailure]);
 
   /** Connects to a radio's WiFi WebSocket bridge at `url`. */
   const connectWiFi = useCallback(
     async (url: string) => {
       setConnectError(null);
+      setLastConnectFailure(null);
       try {
         const transport = await createWiFiTransport(url);
-        setReconnectSource(transport);
+        setReconnectSource(transport, 'wifi', url);
         await connect(transport);
       } catch (err) {
         setConnectError(connectErrorCode(err));
       }
     },
-    [connect, setConnectError],
+    [connect, setConnectError, setLastConnectFailure],
   );
+
+  /**
+   * Skips the remaining backoff wait and runs the pending reconnect attempt
+   * now. No-op unless the loop is currently waiting out a delay.
+   */
+  const retryReconnectNow = useCallback(() => {
+    if (!reconnectTimer) return;
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+    void runReconnectAttempt(connect);
+  }, [connect]);
 
   /**
    * Persists history, tears down the client and session state, and resets the
@@ -1929,6 +1983,7 @@ export function useMeshCore() {
     connectBLE,
     connectWiFi,
     disconnect,
+    retryReconnectNow,
     sendMessage,
     retryMessage,
     resetContactPath,
