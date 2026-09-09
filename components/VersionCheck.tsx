@@ -87,7 +87,7 @@ export function VersionCheck() {
       <button
         type='button'
         onClick={() => window.location.reload()}
-        className='flex shrink-0 items-center gap-1.5 rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover)'
+        className='flex shrink-0 items-center gap-1.5 rounded-md bg-(--accent-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover)'
       >
         <RotateCw size={14} aria-hidden='true' />
         {t('update.reload')}

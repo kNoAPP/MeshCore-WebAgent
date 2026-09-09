@@ -364,7 +364,7 @@ function RadioEditStep({
         <button
           onClick={onReview}
           disabled={!canReview}
-          className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
+          className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
         >
           {t('settings.radioEdit.review')}
         </button>
@@ -433,7 +433,7 @@ function RadioConfirmStep({
         <button
           onClick={onApply}
           disabled={saving}
-          className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
+          className='rounded-md bg-(--red-solid) px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
         >
           {t('settings.radioEdit.apply')}
         </button>

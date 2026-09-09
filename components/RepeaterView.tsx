@@ -248,7 +248,7 @@ function AccessChip({ access }: { access: RepeaterAccess }) {
     <span
       className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
         access === 'admin'
-          ? 'bg-(--accent) text-white'
+          ? 'bg-(--accent-solid) text-white'
           : 'bg-(--surface2) text-(--text2)'
       }`}
     >
@@ -411,7 +411,7 @@ function LoginGate({
         <button
           type='submit'
           disabled={pending || (kind === 'admin' && password === '')}
-          className='rounded-md bg-(--accent) px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
+          className='rounded-md bg-(--accent-solid) px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
         >
           {pending
             ? t('repeaterAdmin.login.loggingIn')
@@ -837,7 +837,7 @@ function ConsoleTab({ contact }: { contact: Contact }) {
         <button
           type='submit'
           disabled={input.trim() === ''}
-          className='rounded-md bg-(--accent) px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
+          className='rounded-md bg-(--accent-solid) px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
         >
           {t('repeaterAdmin.console.send')}
         </button>

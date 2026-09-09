@@ -157,7 +157,7 @@ export function MessageBubble({
         <div
           className={`max-w-[70%] px-3 py-2 text-sm leading-snug whitespace-pre-wrap wrap-break-word ${
             msg.own
-              ? 'rounded-[14px_4px_14px_14px] bg-(--accent) text-white'
+              ? 'rounded-[14px_4px_14px_14px] bg-(--accent-solid) text-white'
               : mentioned
                 ? 'rounded-[4px_14px_14px_14px] border border-yellow-400/60 bg-yellow-400/10 text-(--text)'
                 : 'rounded-[4px_14px_14px_14px] bg-(--surface2) text-(--text)'

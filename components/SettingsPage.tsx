@@ -175,7 +175,7 @@ export function SettingsPage() {
               <button
                 onClick={() => setShareOpen(true)}
                 disabled={!selfInfo?.pubkey}
-                className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
+                className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent-solid)'
               >
                 {t('settings.shareNode')}
               </button>
@@ -561,7 +561,7 @@ function LocationCard() {
                       onClick={() => void selectSource(useGps)}
                       className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                         active
-                          ? 'bg-(--accent) font-semibold text-white'
+                          ? 'bg-(--accent-solid) font-semibold text-white'
                           : 'text-(--text2) hover:text-(--text)'
                       }`}
                     >
@@ -675,7 +675,7 @@ function RebootCard() {
             <button
               onClick={() => void reboot()}
               disabled={!connected || rebooting}
-              className='rounded-md bg-(--red) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--red-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--red)'
+              className='rounded-md bg-(--red-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--red-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--red-solid)'
             >
               {t('settings.rebootConfirmAction')}
             </button>

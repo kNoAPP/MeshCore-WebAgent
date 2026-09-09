@@ -161,7 +161,7 @@ export function AddContactModal() {
             }}
             className={`flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors ${
               mode === m.id
-                ? 'bg-(--accent) text-white'
+                ? 'bg-(--accent-solid) text-white'
                 : 'text-(--text2) hover:bg-(--surface2)'
             }`}
           >
@@ -247,7 +247,7 @@ export function AddContactModal() {
                             disabled={!connected}
                             onClick={() => addDiscoveredContact(a)}
                             className='rounded-md px-3 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
-                            style={{ background: 'var(--accent)' }}
+                            style={{ background: 'var(--accent-solid)' }}
                           >
                             {t('discover.add')}
                           </button>
@@ -354,7 +354,7 @@ export function AddContactModal() {
         {mode !== 'discover' && (
           <button
             onClick={mode === 'paste' ? useLink : submit}
-            className='rounded-md bg-(--accent) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--accent-hover)'
+            className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--accent-hover)'
           >
             {mode === 'paste' ? t('addContact.review') : t('addContact.add')}
           </button>

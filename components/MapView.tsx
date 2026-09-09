@@ -196,7 +196,7 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
                       .confirmLocationPick(pickedPoint.lat, pickedPoint.lon);
                   }
                 }}
-                className='rounded-md bg-(--accent) px-3 py-1 text-xs font-medium text-white disabled:opacity-50'
+                className='rounded-md bg-(--accent-solid) px-3 py-1 text-xs font-medium text-white disabled:opacity-50'
               >
                 {t('map.pick.confirm')}
               </button>

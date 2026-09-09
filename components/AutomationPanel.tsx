@@ -121,7 +121,7 @@ export function AutomationSettingsBody() {
         <button
           onClick={() => killSwitch()}
           disabled={!enabled && staged.length === 0}
-          className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--red) px-3 py-1.5 text-xs font-semibold text-(--red) hover:bg-(--red) hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-(--red)'
+          className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--red) px-3 py-1.5 text-xs font-semibold text-(--red) hover:bg-(--red-solid) hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-(--red)'
         >
           <ShieldAlert size={14} />
           {t('automation.kill')}
@@ -206,7 +206,7 @@ export function ApprovalInboxList() {
                 }
                 resolve(a.id);
               }}
-              className='rounded-md bg-(--accent) px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-(--accent-hover)'
+              className='rounded-md bg-(--accent-solid) px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-(--accent-hover)'
             >
               {t('automation.inbox.approve')}
             </button>
@@ -252,7 +252,7 @@ function RuleList({
         </span>
         <button
           onClick={onNew}
-          className='flex items-center gap-1 rounded-md bg-(--accent) px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-(--accent-hover)'
+          className='flex items-center gap-1 rounded-md bg-(--accent-solid) px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-(--accent-hover)'
         >
           <Plus size={12} />
           {t('automation.newRule')}
@@ -664,7 +664,7 @@ function RuleEditor({
                     onClick={() => toggleChannel(ch.idx)}
                     className={`rounded-md border px-2 py-1 text-[11px] ${
                       on
-                        ? 'border-(--accent) bg-(--accent) text-white'
+                        ? 'border-(--accent-solid) bg-(--accent-solid) text-white'
                         : 'border-(--border-control) text-(--text2) hover:text-(--text)'
                     }`}
                   >
@@ -694,7 +694,7 @@ function RuleEditor({
                     key={prefix}
                     type='button'
                     onClick={() => toggleContact(prefix)}
-                    className='flex items-center gap-1 rounded-md border border-(--accent) bg-(--accent) px-2 py-1 text-[11px] text-white'
+                    className='flex items-center gap-1 rounded-md border border-(--accent-solid) bg-(--accent-solid) px-2 py-1 text-[11px] text-white'
                   >
                     <span>{c?.name || prefix}</span>
                     <X size={11} />
@@ -740,7 +740,7 @@ function RuleEditor({
                         onClick={() => toggleContact(c.pubkeyPrefix)}
                         className={`flex items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-[11px] ${
                           on
-                            ? 'bg-(--accent) text-white'
+                            ? 'bg-(--accent-solid) text-white'
                             : 'text-(--text) hover:bg-(--surface)'
                         }`}
                       >
@@ -797,7 +797,7 @@ function RuleEditor({
                   onClick={() => toggleAdvType(types)}
                   className={`rounded-md border px-2 py-1 text-[11px] ${
                     on
-                      ? 'border-(--accent) bg-(--accent) text-white'
+                      ? 'border-(--accent-solid) bg-(--accent-solid) text-white'
                       : 'border-(--border-control) text-(--text2) hover:text-(--text)'
                   }`}
                 >
@@ -978,7 +978,7 @@ function RuleEditor({
                     onClick={() => toggleTool(tool)}
                     className={`rounded-md border px-2 py-1 text-[11px] ${
                       on
-                        ? 'border-(--accent) bg-(--accent) text-white'
+                        ? 'border-(--accent-solid) bg-(--accent-solid) text-white'
                         : 'border-(--border-control) text-(--text2) hover:text-(--text)'
                     }`}
                     title={toolClass(tool)}
@@ -1089,7 +1089,7 @@ function RuleEditor({
         <button
           onClick={save}
           disabled={!canSave}
-          className='rounded-md bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent)'
+          className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent-solid)'
         >
           {editing ? t('automation.saveRule') : t('automation.addRule')}
         </button>

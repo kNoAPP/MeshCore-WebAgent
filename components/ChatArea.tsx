@@ -569,7 +569,7 @@ export function ChatArea() {
             type='button'
             onClick={jumpToBottom}
             className='absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-md transition hover:opacity-90'
-            style={{ background: 'var(--accent)' }}
+            style={{ background: 'var(--accent-solid)' }}
           >
             {t('chat.newMessages')}
             <span aria-hidden>↓</span>
@@ -684,7 +684,7 @@ export function ChatArea() {
               onClick={handleSend}
               disabled={!text.trim() || sending || overLimit}
               aria-label={t('chat.send')}
-              className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent)
+              className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent-solid)
               text-base text-white transition-opacity
               hover:opacity-85 disabled:opacity-40'
             >
