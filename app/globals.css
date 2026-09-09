@@ -250,7 +250,9 @@ html {
 /*
  * Map view (Leaflet). Leaflet's stylesheet is imported lazily inside MapView's
  * chunk, so it can load after this file; overrides are therefore scoped under
- * `.meshcore-map` to win on specificity regardless of stylesheet order. Colors
+ * `.meshcore-map` to outweigh Leaflet's own single-class rules. Where Leaflet
+ * itself scopes under `.leaflet-container` the specificity ties and its later
+ * sheet would win, so those overrides take the container class too. Colors
  * come from the same theme tokens as the rest of the UI, so the controls follow
  * light/dark.
  */
@@ -283,7 +285,7 @@ html {
   color: var(--text);
   border-color: var(--border);
 }
-.meshcore-map .leaflet-control-attribution {
+.meshcore-map .leaflet-container .leaflet-control-attribution {
   background: var(--surface);
   color: var(--text2);
 }
