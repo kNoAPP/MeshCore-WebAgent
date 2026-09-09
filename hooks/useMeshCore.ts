@@ -604,6 +604,7 @@ export function useMeshCore() {
     setAdminLogin,
     setRepeaterStatus,
     setActiveConvo,
+    setDraft,
     showToast,
     setConnectError,
   } = useMeshStore();
@@ -1644,11 +1645,14 @@ export function useMeshCore() {
       try {
         await client.removeChannel(idx);
         // The slot can be reallocated to an unrelated channel, so leaving it
-        // open would let the user transmit on the cleared secret.
+        // open would let the user transmit on the cleared secret. For the same
+        // reason the slot's unsent draft goes with it — conversation ids are
+        // slot-based, so a replacement channel would otherwise inherit it.
         const { activeConvo } = useMeshStore.getState();
         if (activeConvo?.kind === 'channel' && activeConvo.rawId === idx) {
           setActiveConvo(null);
         }
+        setDraft(channelConvoId(idx), '');
         showToast(i18n.t('toast.channelRemoved'));
       } catch (err) {
         showToast(
@@ -1659,7 +1663,7 @@ export function useMeshCore() {
         );
       }
     },
-    [client, setActiveConvo, showToast],
+    [client, setActiveConvo, setDraft, showToast],
   );
 
   /**

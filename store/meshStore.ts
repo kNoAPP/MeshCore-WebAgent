@@ -301,6 +301,13 @@ interface MeshState {
    * live messages arrive. Absent when the conversation had no unread messages.
    */
   unreadMarkers: Record<string, string>;
+  /**
+   * Unsent composer text per conversation id, so a draft typed in one
+   * conversation can't be re-targeted at another by switching away from it.
+   * Session state only: never persisted, and dropped on disconnect. A
+   * conversation with no draft has no entry.
+   */
+  drafts: Record<string, string>;
 
   // UI
   contactView: ContactView;
@@ -425,6 +432,11 @@ interface MeshActions {
    * conversation.
    */
   setUnreadMarker: (id: string, msgId: string | null) => void;
+  /**
+   * Stores a conversation's unsent composer text, dropping the entry when the
+   * draft is empty.
+   */
+  setDraft: (id: string, text: string) => void;
   markRead: (id: string) => void;
   restoreHistory: (persisted: Record<string, Message[]>) => void;
   showToast: (text: string, variant?: Toast['variant']) => void;
@@ -509,6 +521,7 @@ const initialState: MeshState = {
   activeConvo: null,
   scrollToMsgId: null,
   unreadMarkers: {},
+  drafts: {},
   contactView: DEFAULT_CONTACT_VIEW,
   locale: resolveInitialLocale(),
   theme: resolveInitialTheme(),
@@ -654,6 +667,15 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       if (msgId) next[id] = msgId;
       else delete next[id];
       return { unreadMarkers: next };
+    }),
+
+  setDraft: (id, text) =>
+    set((state) => {
+      if ((state.drafts[id] ?? '') === text) return {};
+      const drafts = { ...state.drafts };
+      if (text) drafts[id] = text;
+      else delete drafts[id];
+      return { drafts };
     }),
 
   restoreHistory: (persisted) =>
