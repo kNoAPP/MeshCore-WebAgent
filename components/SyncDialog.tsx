@@ -34,12 +34,19 @@ export function SyncCard({
 /**
  * The Disconnect escape shared by the sync dialogs (and their waiting states),
  * so the initial-connect and reconnect screens offer an identical way out.
+ *
+ * @param className - Wrapper classes. Override when the caller groups this
+ * with another action and owns the spacing itself.
  */
-export function DisconnectButton() {
+export function DisconnectButton({
+  className = 'mt-6 text-center',
+}: {
+  className?: string;
+}) {
   const { t } = useTranslation();
   const { disconnect } = useMeshCore();
   return (
-    <div className='mt-6 text-center'>
+    <div className={className}>
       <button
         onClick={disconnect}
         className='rounded-lg border border-(--border) px-4 py-2 text-sm font-medium text-(--text2) transition-colors hover:border-(--red) hover:text-(--red)'

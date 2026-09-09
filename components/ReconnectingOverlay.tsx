@@ -87,26 +87,28 @@ export function ReconnectingOverlay() {
               })}
             </p>
           )}
-          {progress?.waiting && (
-            <>
-              {resumeAt !== null && (
-                // Ticks once a second; announcing it would talk over the
-                // attempt counter, so the status stays with that line.
-                <p className='mt-1 text-xs text-(--text2)' aria-hidden='true'>
-                  {t('connect.reconnecting.nextAttempt', { seconds })}
-                </p>
-              )}
+          {progress?.waiting && resumeAt !== null && (
+            // Ticks once a second; announcing it would talk over the
+            // attempt counter, so the status stays with that line.
+            <p className='mt-1 text-xs text-(--text2)' aria-hidden='true'>
+              {t('connect.reconnecting.nextAttempt', { seconds })}
+            </p>
+          )}
+          {/* One action cluster: the pair sits closer to each other than to
+              the status text above them. */}
+          <div className='mt-6 flex flex-col items-center gap-3'>
+            {progress?.waiting && (
               <button
                 onClick={retryReconnectNow}
                 title={t('connect.reconnecting.retryNowHint')}
                 aria-label={t('connect.reconnecting.retryNowHint')}
-                className='mt-4 rounded-lg border border-(--accent) px-4 py-2 text-sm font-medium text-(--accent) transition-opacity hover:opacity-80'
+                className='rounded-lg border border-(--accent) px-4 py-2 text-sm font-medium text-(--accent) transition-opacity hover:opacity-80'
               >
                 {t('connect.reconnecting.retryNow')}
               </button>
-            </>
-          )}
-          <DisconnectButton />
+            )}
+            <DisconnectButton className='text-center' />
+          </div>
         </SyncCard>
       )}
     </div>
