@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RotateCw, X } from 'lucide-react';
-import { useMeshStore, isActiveStatus } from '@/store/meshStore';
+import { useMeshStore } from '@/store/meshStore';
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -28,8 +28,8 @@ async function fetchVersion(): Promise<string | null> {
  * @remarks Reloading throws away everything the session holds only in memory —
  * the Web Serial / BLE port handle, the AI API key, the composer draft, and any
  * message not yet flushed to IndexedDB. So a new version is only applied
- * automatically while no session is active; with one live it renders a banner
- * and lets the user pick the moment.
+ * automatically while the app is disconnected; once a connection exists it
+ * renders a banner and lets the user pick the moment.
  */
 export function VersionCheck() {
   const { t } = useTranslation();
@@ -51,12 +51,17 @@ export function VersionCheck() {
         return;
       }
       // Read the status at check time rather than subscribing to it, so the
-      // poll isn't torn down and restarted on every connection change.
-      if (isActiveStatus(useMeshStore.getState().status)) {
-        setUpdateAvailable(true);
-      } else {
+      // poll isn't torn down and restarted on every connection change. Only a
+      // fully disconnected app is safe to reload unasked — `connecting`
+      // already holds the granted port handle while the initial sync runs.
+      if (useMeshStore.getState().status === 'disconnected') {
         window.location.reload();
+        return;
       }
+      // Adopt the new version as the baseline so the next poll doesn't raise
+      // the banner again for a deploy the user has already dismissed.
+      initialVersion.current = current;
+      setUpdateAvailable(true);
     }
 
     init();
