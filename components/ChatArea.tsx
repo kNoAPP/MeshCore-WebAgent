@@ -623,14 +623,15 @@ export function ChatArea() {
               ))}
             </ul>
           )}
-          {/* Always mounted so the live region is present before it fills:
-              screen readers skip announcements from a region that appears in
-              the same tick as its text. */}
-          <div
-            role='status'
-            className='px-4 pt-2 text-[11px] text-(--red) empty:hidden'
-          >
-            {overLimit ? t('chat.overByteLimit') : ''}
+          {/* The live region stays mounted and in the accessibility tree — a
+              region revealed in the same tick as its text may not announce.
+              Empty it collapses to zero height, so only the inner row paints. */}
+          <div role='status'>
+            {overLimit && (
+              <div className='px-4 pt-2 text-[11px] text-(--red)'>
+                {t('chat.overByteLimit')}
+              </div>
+            )}
           </div>
           <div className='flex items-end gap-2 px-4 py-3'>
             <textarea
