@@ -901,7 +901,7 @@
     "repeaterLoginFailed": "Error al iniciar sesión: {{error}}",
     "repeaterStatusFailed": "Error al obtener el estado: {{error}}",
     "repeaterCliFailed": "Error al enviar el comando: {{error}}",
-    "repeaterCliNoReply": "Comando enviado, pero el nodo nunca respondió.",
+    "repeaterCliNoReply": "Comando enviado, pero el nodo no respondió a tiempo.",
     "repeaterConfigError": "El nodo rechazó el cambio: {{error}}",
     "repeaterNameTooLongForLocation": "Acorta el nombre del nodo a 24 bytes o menos antes de establecer una ubicación.",
     "repeaterLoadBeforeLocationEdit": "Carga el nombre y la ubicación del nodo antes de cambiar cualquiera de los dos.",
