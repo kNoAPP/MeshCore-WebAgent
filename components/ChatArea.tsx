@@ -625,7 +625,8 @@ export function ChatArea() {
           )}
           {/* The live region stays mounted and in the accessibility tree — a
               region revealed in the same tick as its text may not announce.
-              Empty it collapses to zero height, so only the inner row paints. */}
+              When empty it collapses to zero height, so only the inner row
+              paints. */}
           <div role='status'>
             {overLimit && (
               <div className='px-4 pt-2 text-[11px] text-(--red)'>
