@@ -197,6 +197,26 @@ export function useUrlState(): void {
       }
     };
 
+    // Set while a route write is waiting on the microtask queue. One user
+    // action often touches several store fields in a row — the command palette
+    // calls `setView('chat')` and then `openConvo(...)` — and the subscription
+    // runs once per `set`, so writing straight away would leave an
+    // intermediate entry (the old conversation on the new page) for Back to
+    // land on. Deferring collapses the turn into a single entry; a move made
+    // in a later user event is a separate task and still gets its own.
+    let writeQueued = false;
+
+    const queueWrite = (): void => {
+      if (writeQueued) return;
+      writeQueued = true;
+      queueMicrotask(() => {
+        if (!writeQueued) return;
+        writeQueued = false;
+        if (!isActiveStatus(useMeshStore.getState().status)) return;
+        writeHash(currentHash());
+      });
+    };
+
     const apply = (route: UrlRoute): void => {
       applying = true;
       try {
@@ -226,10 +246,17 @@ export function useUrlState(): void {
 
     const onPopState = (): void => {
       if (!isActiveStatus(useMeshStore.getState().status)) return;
-      const route = parseHash(window.location.hash);
-      // A hash that names no page of ours would otherwise sit in the address
-      // bar describing something the app isn't showing.
+      const hash = window.location.hash;
+      const route = parseHash(hash);
       if (!route) {
+        // A fragment that targets an element rather than a route — the skip
+        // link's `#main` — belongs to the page, not to us. Rewriting it would
+        // replace the entry the browser just pushed with the route already
+        // showing, leaving two identical entries and a Back press that does
+        // nothing. Only a route-shaped hash we failed to parse is normalized,
+        // so it can't sit in the address bar describing something the app
+        // isn't showing.
+        if (hash && !hash.startsWith('#/')) return;
         window.history.replaceState(null, '', currentHash());
         return;
       }
@@ -252,6 +279,7 @@ export function useUrlState(): void {
         // keep pointing at a conversation on a radio that is no longer there.
         if (isActiveStatus(prev.status)) {
           section = null;
+          writeQueued = false;
           window.history.replaceState(null, '', ROOT_HASH);
         }
         return;
@@ -266,7 +294,7 @@ export function useUrlState(): void {
       }
       if (state.settingsSection) section = state.settingsSection;
       else if (state.view !== prev.view) section = null;
-      writeHash(currentHash());
+      queueWrite();
     });
 
     updateTitle();
@@ -274,6 +302,7 @@ export function useUrlState(): void {
     i18n.on('languageChanged', onLanguageChanged);
     return () => {
       unsub();
+      writeQueued = false;
       window.removeEventListener('popstate', onPopState);
       i18n.off('languageChanged', onLanguageChanged);
     };
