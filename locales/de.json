@@ -40,6 +40,11 @@
   "theme": {
     "toggle": "Helles/dunkles Design umschalten"
   },
+  "title": {
+    "app": "MeshCore Companion",
+    "device": "{{device}} · MeshCore Companion",
+    "deviceUnread": "({{unread}}) {{device}} · MeshCore Companion"
+  },
   "command": {
     "title": "Alles finden",
     "search": "Suchen",

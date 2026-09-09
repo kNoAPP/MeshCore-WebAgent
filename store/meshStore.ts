@@ -95,8 +95,11 @@ export const CONTACT_SORTS = ['az', 'heard', 'latest'] as const;
 /** How the visible contacts are ordered. */
 export type ContactSort = (typeof CONTACT_SORTS)[number];
 
+/** Every top-level page; also the allowlist for URL-hash parsing. */
+export const APP_VIEWS = ['chat', 'stats', 'settings', 'map'] as const;
+
 /** Which top-level page the connected app is showing. */
-export type AppView = 'chat' | 'stats' | 'settings' | 'map';
+export type AppView = (typeof APP_VIEWS)[number];
 
 /** The cards on the Settings page, in render order; used for deep-linking. */
 export const SETTINGS_SECTIONS = [

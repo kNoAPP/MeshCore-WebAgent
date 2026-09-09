@@ -40,6 +40,11 @@
   "theme": {
     "toggle": "Basculer le thème clair/sombre"
   },
+  "title": {
+    "app": "MeshCore Companion",
+    "device": "{{device}} · MeshCore Companion",
+    "deviceUnread": "({{unread}}) {{device}} · MeshCore Companion"
+  },
   "command": {
     "title": "Tout trouver",
     "search": "Rechercher",
