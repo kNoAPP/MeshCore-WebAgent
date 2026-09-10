@@ -46,6 +46,13 @@ export function SyncProgressView({ progress }: { progress: SyncProgress }) {
   const stageLabel = `${t(SYNC_STAGE_KEY[stage])}${syncDetail(t, progress)}`;
   return (
     <>
+      {/* `progressbar` is not a live role, so the stage — the part worth
+          hearing — gets its own polite region. The percent and the item
+          counter deliberately stay out of it: they change many times per
+          stage and would flood the queue. */}
+      <span className='sr-only' role='status' aria-live='polite'>
+        {t(SYNC_STAGE_KEY[stage])}
+      </span>
       <div className='mb-1.5 flex items-baseline justify-between gap-3'>
         <span className='text-sm'>{stageLabel}…</span>
         <span className='text-xs text-(--text2)'>{percent}%</span>
