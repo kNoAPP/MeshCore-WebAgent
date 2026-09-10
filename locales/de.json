@@ -497,7 +497,6 @@
     "noMessages": "Noch keine Nachrichten",
     "transcriptLabel": "Gesprächsverlauf",
     "lastUnread": "Zuletzt ungelesen",
-    "you": "Du",
     "noAck": "Keine Bestätigung",
     "noAckTooltip": "Die Nachricht kann trotzdem angekommen sein — die Bestätigung kann auf dem Weg verloren gehen",
     "retry": "Erneut versuchen?",
@@ -894,6 +893,10 @@
   },
   "message": {
     "sending": "Sende…",
+    "sendingLabel": "Wird gesendet",
+    "sentLabel": "Gesendet",
+    "awaitingLabel": "Wartet auf Bestätigung",
+    "deliveredLabel": "Zugestellt",
     "broadcastSent": "Broadcast gesendet — Kanäle haben keine Empfangsbestätigungen",
     "sentAwaiting": "Gesendet — warte auf Zustellbestätigung",
     "sentFloodAwaiting": "Per Flood gesendet — warte auf Zustellbestätigung",

@@ -69,6 +69,11 @@ function getMentionQuery(value: string, cursor: number): string | null {
 const MENTION_LISTBOX_ID = 'mention-suggestions';
 const mentionOptionId = (index: number) => `mention-option-${index}`;
 
+// How far apart two messages from the same sender can be and still read as one
+// turn, in seconds. Beyond it the header repeats, because the reader has lost
+// the thread of who was speaking.
+const GROUP_WINDOW_SEC = 5 * 60;
+
 /**
  * The main conversation pane for the active channel or contact: header with
  * route info, the scrolling message list, and the composer with at-mention
@@ -239,10 +244,43 @@ export function ChatArea() {
     [visibleMessages],
   );
 
-  // Mentionable names span both saved contacts and anyone seen posting in
-  // history, so channel participants who were never added as a contact can
-  // still be mentioned. Contacts come first (most relevant), then history
-  // senders, de-duplicated case-insensitively while keeping first-seen casing.
+  // Resolved sender label per mounted message: the channel prefix, the
+  // contact's name, or null for a system note and for own messages (which are
+  // already marked by their side, color and corner — a "You" header on top of
+  // that is pure repetition).
+  const senderLabels = useMemo(
+    () =>
+      visibleMessages.map((msg) => {
+        if (msg.system || msg.own) return null;
+        if (msg.kind === 'channel') {
+          return splitChannelMessage(msg.text).sender ?? '?';
+        }
+        const contact = msg.pubkeyPrefix
+          ? contacts[msg.pubkeyPrefix]
+          : undefined;
+        return contact?.name ?? msg.pubkeyPrefix?.slice(0, 8) ?? '?';
+      }),
+    [visibleMessages, contacts],
+  );
+
+  // Whether each message needs its own sender header. A burst from one contact
+  // is one conversational turn, so only the first message of a run carries the
+  // name: same sender, same side, no day divider between, and close enough in
+  // time to still be the same turn.
+  const showHeader = useMemo(
+    () =>
+      visibleMessages.map((msg, i) => {
+        if (senderLabels[i] === null) return false;
+        if (i === 0 || dayDividers[i] != null) return true;
+        const prev = visibleMessages[i - 1];
+        if (senderLabels[i - 1] !== senderLabels[i]) return true;
+        if (prev.own !== msg.own) return true;
+        const gap = (msg.timestamp ?? 0) - (prev.timestamp ?? 0);
+        return !msg.timestamp || !prev.timestamp || gap > GROUP_WINDOW_SEC;
+      }),
+    [visibleMessages, senderLabels, dayDividers],
+  );
+
   // Only built while a mention is in progress so the full-history scan stays
   // out of the message-receive hot path.
   const mentionActive = mentionQuery !== null;
@@ -593,7 +631,7 @@ export function ChatArea() {
           role='log'
           aria-live='off'
           aria-label={t('chat.transcriptLabel')}
-          className='flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
+          className='mx-auto flex w-full max-w-4xl flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
           ref={messagesRef}
           onScroll={handleMessagesScroll}
         >
@@ -606,23 +644,10 @@ export function ChatArea() {
               IntersectionObserver root intersection. */}
           <div ref={topSentinelRef} className='h-px shrink-0' />
           {visibleMessages.map((msg, i) => {
-            let senderLabel: string;
-            let bodyText = msg.text;
-
-            if (msg.own) {
-              senderLabel = t('chat.you');
-            } else if (msg.kind === 'channel') {
-              const { sender, body } = splitChannelMessage(msg.text);
-              senderLabel = sender ?? '?';
-              bodyText = body;
-            } else {
-              const contact = msg.pubkeyPrefix
-                ? contacts[msg.pubkeyPrefix]
-                : undefined;
-              senderLabel =
-                contact?.name ?? msg.pubkeyPrefix?.slice(0, 8) ?? '?';
-            }
-
+            const bodyText =
+              !msg.own && msg.kind === 'channel'
+                ? splitChannelMessage(msg.text).body
+                : msg.text;
             const mentioned =
               !msg.own &&
               !msg.system &&
@@ -656,9 +681,9 @@ export function ChatArea() {
                   className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
                   data-msg-id={msg.id}
                 >
-                  {!msg.system && (
+                  {showHeader[i] && (
                     <div className='px-1 text-[11px] text-text2'>
-                      {senderLabel}
+                      {senderLabels[i]}
                     </div>
                   )}
                   <MessageBubble
@@ -763,7 +788,7 @@ export function ChatArea() {
               </div>
             )}
           </div>
-          <div className='flex items-end gap-2 px-4 py-3'>
+          <div className='mx-auto flex w-full max-w-4xl items-end gap-2 px-4 py-3'>
             <textarea
               ref={textareaRef}
               value={text}

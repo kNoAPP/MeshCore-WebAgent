@@ -497,7 +497,6 @@
     "noMessages": "Aucun message pour l'instant",
     "transcriptLabel": "Transcription de la conversation",
     "lastUnread": "Dernier non lu",
-    "you": "Toi",
     "noAck": "Aucun accusé de réception",
     "noAckTooltip": "Le message a pu malgré tout arriver — l'accusé de réception peut se perdre en route",
     "retry": "Réessayer ?",
@@ -894,6 +893,10 @@
   },
   "message": {
     "sending": "Envoi…",
+    "sendingLabel": "Envoi",
+    "sentLabel": "Envoyé",
+    "awaitingLabel": "En attente d'accusé",
+    "deliveredLabel": "Remis",
     "broadcastSent": "Diffusion envoyée — les canaux n'ont pas d'accusés de réception",
     "sentAwaiting": "Envoyé — en attente de confirmation de livraison",
     "sentFloodAwaiting": "Envoyé par flood — en attente de confirmation de livraison",

@@ -497,7 +497,6 @@
     "noMessages": "No messages yet",
     "transcriptLabel": "Conversation transcript",
     "lastUnread": "Last unread",
-    "you": "You",
     "noAck": "No acknowledgment",
     "noAckTooltip": "The message may still have arrived — the acknowledgment can be lost in route",
     "retry": "Retry?",
@@ -894,6 +893,10 @@
   },
   "message": {
     "sending": "Sending…",
+    "sendingLabel": "Sending",
+    "sentLabel": "Sent",
+    "awaitingLabel": "Awaiting receipt",
+    "deliveredLabel": "Delivered",
     "broadcastSent": "Broadcast sent — channels have no delivery receipts",
     "sentAwaiting": "Sent — awaiting delivery confirmation",
     "sentFloodAwaiting": "Sent via flood — awaiting delivery confirmation",

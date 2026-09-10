@@ -497,7 +497,6 @@
     "noMessages": "Aún no hay mensajes",
     "transcriptLabel": "Transcripción de la conversación",
     "lastUnread": "Último no leído",
-    "you": "Tú",
     "noAck": "Sin confirmación",
     "noAckTooltip": "El mensaje aún puede haber llegado: la confirmación puede perderse en la ruta",
     "retry": "¿Reintentar?",
@@ -894,6 +893,10 @@
   },
   "message": {
     "sending": "Enviando…",
+    "sendingLabel": "Enviando",
+    "sentLabel": "Enviado",
+    "awaitingLabel": "Esperando confirmación",
+    "deliveredLabel": "Entregado",
     "broadcastSent": "Difusión enviada — los canales no tienen acuses de recibo",
     "sentAwaiting": "Enviado — esperando confirmación de entrega",
     "sentFloodAwaiting": "Enviado por flood — esperando confirmación de entrega",
