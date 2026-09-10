@@ -394,6 +394,29 @@
     "rules": "Reglas",
     "noRules": "Aún no hay reglas. Crea una con Nueva regla.",
     "enableRule": "Activar regla",
+    "deleteConfirm": "¿Eliminar «{{name}}» de forma permanente?",
+    "promptSummary_one": "Ejecutar una consulta de IA con {{count}} herramienta",
+    "promptSummary_other": "Ejecutar una consulta de IA con {{count}} herramientas",
+    "toolName": {
+      "read_contacts": "Leer contactos",
+      "read_channels": "Leer canales",
+      "read_adverts": "Leer nodos descubiertos",
+      "read_messages": "Leer mensajes",
+      "read_self_info": "Leer la información de este nodo",
+      "read_stats": "Leer estadísticas de radio",
+      "send_direct_message": "Enviar un mensaje directo",
+      "send_channel_message": "Enviar un mensaje de canal",
+      "advertise": "Anunciar este nodo",
+      "add_contact": "Añadir un contacto",
+      "remove_contact": "Eliminar un contacto",
+      "toggle_favorite": "Alternar favorito",
+      "reset_contact_path": "Restablecer la ruta de un contacto"
+    },
+    "toolClass": {
+      "read": "Solo lectura: nunca transmite",
+      "transmit": "Transmite: usa tiempo de aire compartido y está limitado",
+      "write": "Escribe: modifica las tablas de esta radio"
+    },
     "trigger": {
       "message": "Llega un mensaje",
       "advert": "Un nodo se anuncia",
@@ -443,6 +466,7 @@
       "title": "Registro de auditoría",
       "empty": "Aún no hay acciones de IA.",
       "clear": "Borrar",
+      "clearConfirm": "¿Borrar todo el registro?",
       "noKey": "No hay clave de IA cargada",
       "llmError": "Error de IA: {{kind}}",
       "notAllowed": "Herramienta no permitida: {{tool}}",

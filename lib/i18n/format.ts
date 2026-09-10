@@ -20,6 +20,17 @@ export function formatTime(timestamp: number): string {
 }
 
 /**
+ * Formats a Unix epoch-seconds timestamp as a full locale date and time, for a
+ * tooltip that disambiguates a bare wall-clock time.
+ */
+export function formatDateTime(timestamp: number): string {
+  return new Date(timestamp * 1000).toLocaleString(i18n.language, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+/**
  * Formats a Unix epoch-seconds timestamp as a relative age (`just now`,
  * `5m ago`, `2h ago`, `3d ago`).
  */

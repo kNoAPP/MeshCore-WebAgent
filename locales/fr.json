@@ -394,6 +394,29 @@
     "rules": "Règles",
     "noRules": "Aucune règle pour l'instant. Créez-en une avec Nouvelle règle.",
     "enableRule": "Activer la règle",
+    "deleteConfirm": "Supprimer définitivement « {{name}} » ?",
+    "promptSummary_one": "Exécuter une invite IA avec {{count}} outil",
+    "promptSummary_other": "Exécuter une invite IA avec {{count}} outils",
+    "toolName": {
+      "read_contacts": "Lire les contacts",
+      "read_channels": "Lire les canaux",
+      "read_adverts": "Lire les nœuds découverts",
+      "read_messages": "Lire les messages",
+      "read_self_info": "Lire les infos de ce nœud",
+      "read_stats": "Lire les statistiques radio",
+      "send_direct_message": "Envoyer un message direct",
+      "send_channel_message": "Envoyer un message de canal",
+      "advertise": "Annoncer ce nœud",
+      "add_contact": "Ajouter un contact",
+      "remove_contact": "Supprimer un contact",
+      "toggle_favorite": "Basculer un favori",
+      "reset_contact_path": "Réinitialiser la route d'un contact"
+    },
+    "toolClass": {
+      "read": "Lecture seule — n'émet jamais",
+      "transmit": "Émet — utilise le temps d'antenne partagé et est limité",
+      "write": "Écrit — modifie les tables de cette radio"
+    },
     "trigger": {
       "message": "Un message arrive",
       "advert": "Un nœud s'annonce",
@@ -443,6 +466,7 @@
       "title": "Journal d'audit",
       "empty": "Aucune action IA pour l'instant.",
       "clear": "Effacer",
+      "clearConfirm": "Effacer tout le journal ?",
       "noKey": "Aucune clé IA chargée",
       "llmError": "Erreur IA : {{kind}}",
       "notAllowed": "Outil non autorisé : {{tool}}",
