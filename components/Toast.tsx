@@ -8,12 +8,13 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 
 /**
- * Renders the current store toast (top-center), color-coded by variant; nothing
- * when none is set. Error toasts persist until dismissed via their button and
- * wrap; other variants are non-interactive and auto-clear.
+ * Renders the current store toast (top-center), color-coded by variant. Error
+ * toasts persist until dismissed via their button and wrap; other variants are
+ * non-interactive and auto-clear.
  *
- * Both live regions stay mounted whether or not a toast is set — a region
- * inserted together with its text is not announced.
+ * Both live regions stay mounted whether or not a toast is set — the card
+ * moves in and out of them — because a region inserted together with its text
+ * is not announced.
  */
 export function Toast() {
   const { t } = useTranslation();
