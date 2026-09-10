@@ -59,6 +59,11 @@ const ADV_TYPE_FILTERS: {
   { key: 'sensor', types: [ADV_TYPE_SENSOR] },
 ];
 
+// A confirm replaces the button that opened it, so focus has to be handed to
+// the replacement or the keyboard user is dropped back to the document. React's
+// `autoFocus` does not fire for an element mounted after the initial render.
+const focusOnMount = (el: HTMLButtonElement | null) => el?.focus();
+
 /**
  * The Automation settings card body (task 6.4): master switch + kill switch,
  * the approval inbox, the rule list/editor, and the audit log. Rules react to
@@ -290,10 +295,7 @@ function RuleList({
               </span>
               <div className='flex shrink-0 items-center gap-2'>
                 <button
-                  // Delete unmounts the button that was focused, so the confirm
-                  // takes focus on its safe action rather than dropping the
-                  // keyboard user back to the document.
-                  autoFocus
+                  ref={focusOnMount}
                   onClick={() => setConfirmId(null)}
                   className='rounded-md px-2 py-1 text-[11px] text-(--text) hover:bg-(--surface2)'
                 >
@@ -1174,7 +1176,7 @@ function AuditLogView() {
                 {t('automation.audit.clearConfirm')}
               </span>
               <button
-                autoFocus
+                ref={focusOnMount}
                 onClick={() => setConfirming(false)}
                 className='rounded-md px-2 py-1 text-[11px] text-(--text) hover:bg-(--surface2)'
               >
