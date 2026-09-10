@@ -24,6 +24,11 @@
     "device": "MeshCore-Gerät",
     "skipToContent": "Zum Hauptinhalt springen"
   },
+  "units": {
+    "dbm": "{{value}} dBm",
+    "kb": "{{value}} KB",
+    "percent": "{{value}} %"
+  },
   "header": {
     "connecting": "Verbinde…",
     "connected": "Verbunden",
@@ -200,6 +205,8 @@
     "directTx": "Direkt TX",
     "directRx": "Direkt RX",
     "rxErrors": "RX-Fehler",
+    "delta": "+{{value}} seit der letzten Aktualisierung",
+    "perHour": "{{value}}/h",
     "notReported": "Von diesem Gerät nicht gemeldet",
     "allUnavailable": "Diese Firmware stellt keine detaillierten Statistiken bereit."
   },
@@ -260,7 +267,6 @@
     "maxTxPower": "Max. Sendeleistung",
     "mhz": "{{value}} MHz",
     "khz": "{{value}} kHz",
-    "dbm": "{{value}} dBm",
     "units": "Einheiten",
     "units_metric": "Metrisch (km)",
     "units_imperial": "Imperial (mi)",
@@ -597,7 +603,6 @@
     "floodDups": "Flood-Duplikate",
     "directDups": "Direkt-Duplikate",
     "rxErrors": "RX-Fehler",
-    "dbm": "{{value}} dBm",
     "cli": {
       "timedOut": "keine Antwort vom Knoten",
       "disconnected": "nicht verbunden",

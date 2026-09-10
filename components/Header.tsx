@@ -16,7 +16,7 @@ import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
 import { useClickOutside } from '@/hooks/useClickOutside';
-import { fmtVoltage } from '@/lib/utils';
+import { formatStorage, formatVoltage } from '@/lib/i18n/format';
 import { Wordmark } from './Wordmark';
 import { ModalShell } from './ModalShell';
 import { ApprovalInboxList } from './AutomationPanel';
@@ -96,7 +96,10 @@ export function Header() {
   // inline readout collapses on a narrow header and the name truncates.
   const deviceTitle =
     connected && battery
-      ? `${deviceName} · ${fmtVoltage(battery.voltage)} · ${battery.usedKB}/${battery.totalKB} KB`
+      ? `${deviceName} · ${formatVoltage(battery.voltage)} · ${formatStorage(
+          battery.usedKB,
+          battery.totalKB,
+        )}`
       : deviceName;
 
   return (
@@ -168,8 +171,8 @@ export function Header() {
           <KillSwitchButton />
           {connected && battery && (
             <span className='hidden shrink-0 whitespace-nowrap text-xs text-(--text2) @6xl:inline'>
-              {fmtVoltage(battery.voltage)} 💾 {battery.usedKB}/
-              {battery.totalKB}KB
+              {formatVoltage(battery.voltage)} 💾{' '}
+              {formatStorage(battery.usedKB, battery.totalKB)}
             </span>
           )}
           <button

@@ -121,51 +121,12 @@ export function convoId(
 }
 
 /**
- * Formats a duration in seconds as a compact `1d 2h 3m 4s` string (zero units
- * dropped).
- */
-export function fmtUptime(secs: number): string {
-  const d = Math.floor(secs / 86400);
-  const h = Math.floor((secs % 86400) / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  return [d && `${d}d`, h && `${h}h`, m && `${m}m`, `${s}s`]
-    .filter(Boolean)
-    .join(' ');
-}
-
-/**
- * Formats airtime seconds with a unit that scales: `s` under a minute, `m`,
- * then `h`.
- */
-export function fmtAirtime(secs: number): string {
-  if (secs < 60) return `${secs}s`;
-  if (secs < 3600) return `${(secs / 60).toFixed(1)}m`;
-  return `${(secs / 3600).toFixed(2)}h`;
-}
-
-/** Formats millivolts as volts, e.g. `4.16 V`. */
-export function fmtVoltage(mv: number): string {
-  return `${(mv / 1000).toFixed(2)} V`;
-}
-
-/**
  * Formats a number with the active locale's digit grouping (e.g. `1,024`).
  *
  * @param lang - the active `i18n.language` (a BCP-47 tag).
  */
 export function fmtNum(n: number, lang: string): string {
   return n.toLocaleString(lang);
-}
-
-/**
- * Formats a clock skew (device time minus real time, in seconds) as a signed
- * compact duration: `+5s`, `-2h 1m 3s`, or `0s` when in sync. A negative value
- * means the device clock is running behind.
- */
-export function fmtSkew(secs: number): string {
-  if (secs === 0) return '0s';
-  return `${secs > 0 ? '+' : '-'}${fmtUptime(Math.abs(secs))}`;
 }
 
 /**

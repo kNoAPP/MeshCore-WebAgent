@@ -193,8 +193,8 @@ export function RadioSettingsModal({
     },
     {
       label: t('settings.txPower'),
-      cur: t('settings.dbm', { value: num(fields.txPower) }),
-      next: t('settings.dbm', { value: num(draft.txPower) }),
+      cur: t('units.dbm', { value: num(fields.txPower) }),
+      next: t('units.dbm', { value: num(draft.txPower) }),
     },
   ];
 
@@ -339,7 +339,7 @@ function RadioEditStep({
       <label className='block'>
         <span className='mb-1 flex justify-between text-xs text-(--text2)'>
           <span>{t('settings.txPower')}</span>
-          <span>{t('settings.dbm', { value: num(draft.txPower) })}</span>
+          <span>{t('units.dbm', { value: num(draft.txPower) })}</span>
         </span>
         <input
           type='range'

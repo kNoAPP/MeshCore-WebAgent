@@ -8,9 +8,23 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import type { StatsResult, BatteryInfo } from '@/types/meshcore';
 import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
-import { fmtUptime, fmtAirtime, fmtVoltage, fmtSkew } from '@/lib/utils';
+import {
+  formatAirtime,
+  formatDbm,
+  formatKilobytes,
+  formatPercent,
+  formatSkew,
+  formatSnr,
+  formatUptime,
+  formatVoltage,
+} from '@/lib/i18n/format';
 import { StatCard } from './StatCard';
 import { RefreshButton } from './RefreshButton';
+import { fmtNum } from '@/lib/utils';
+
+// Below this much uptime a per-hour rate is extrapolated from too little data
+// to mean anything, so it is left off.
+const MIN_RATE_HOURS = 0.25;
 
 /**
  * Device stats page. Fetches battery + all stats pages when the stats view
@@ -171,6 +185,38 @@ export function StatsPage() {
     }
   }, [client, readClock]);
 
+  // Counters are lifetime totals, which answer none of the questions an
+  // operator actually has. Each packet row is rendered with what it did since
+  // the previous read and its lifetime rate per hour, both derived from data
+  // already on hand — the previous snapshot the store keeps and `uptimeSecs`.
+  const prev = useMeshStore((s) => s.prevDeviceStats)?.packets;
+  const uptimeHours = (stats?.core?.uptimeSecs ?? 0) / 3600;
+  const counter = (
+    value: number,
+    previous: number | null | undefined,
+  ): [string, React.ReactNode?] => {
+    const delta = previous != null ? value - previous : 0;
+    const parts: string[] = [];
+    if (delta > 0) {
+      parts.push(t('stats.delta', { value: fmtNum(delta, i18n.language) }));
+    }
+    if (uptimeHours >= MIN_RATE_HOURS) {
+      parts.push(
+        t('stats.perHour', {
+          value: (value / uptimeHours).toLocaleString(i18n.language, {
+            maximumFractionDigits: 1,
+          }),
+        }),
+      );
+    }
+    return [
+      fmtNum(value, i18n.language),
+      parts.length > 0 ? (
+        <span className='text-(--text2)'>{parts.join(' · ')}</span>
+      ) : undefined,
+    ];
+  };
+
   // One descriptor per card, in display order. `labels` lists every row label
   // and drives both the loading skeleton (one shimmer row per label) and the
   // row order; `rows` is the populated data, or null when the device didn't
@@ -180,6 +226,7 @@ export function StatsPage() {
   const cards: {
     title: string;
     labels: string[];
+    meter?: { label: string; percent: number; text: string };
     rows: [string, string, React.ReactNode?][] | null;
   }[] = [
     {
@@ -191,25 +238,30 @@ export function StatsPage() {
         t('stats.free'),
         t('stats.usage'),
       ],
+      meter:
+        battery && battery.totalKB
+          ? {
+              label: t('stats.usage'),
+              percent: (battery.usedKB / battery.totalKB) * 100,
+              text: formatPercent((battery.usedKB / battery.totalKB) * 100),
+            }
+          : undefined,
       rows: battery
         ? [
-            [t('stats.voltage'), fmtVoltage(battery.voltage)],
-            [
-              t('stats.used'),
-              `${battery.usedKB.toLocaleString(i18n.language)} KB`,
-            ],
-            [
-              t('stats.total'),
-              `${battery.totalKB.toLocaleString(i18n.language)} KB`,
-            ],
+            [t('stats.voltage'), formatVoltage(battery.voltage)],
+            [t('stats.used'), formatKilobytes(battery.usedKB)],
+            [t('stats.total'), formatKilobytes(battery.totalKB)],
             [
               t('stats.free'),
-              `${(battery.totalKB - battery.usedKB).toLocaleString(i18n.language)} KB`,
+              formatKilobytes(battery.totalKB - battery.usedKB),
             ],
-            [
-              t('stats.usage'),
-              `${battery.totalKB ? Math.round((battery.usedKB / battery.totalKB) * 100) : '?'}%`,
-            ],
+            // Usage is the meter above; repeating it as a row says it twice.
+            ...(battery.totalKB
+              ? []
+              : ([[t('stats.usage'), t('common.unknown')]] as [
+                  string,
+                  string,
+                ][])),
           ]
         : null,
     },
@@ -223,8 +275,8 @@ export function StatsPage() {
       ],
       rows: stats?.core
         ? [
-            [t('stats.uptime'), fmtUptime(stats.core.uptimeSecs)],
-            [t('stats.battery'), fmtVoltage(stats.core.battMv)],
+            [t('stats.uptime'), formatUptime(stats.core.uptimeSecs)],
+            [t('stats.battery'), formatVoltage(stats.core.battMv)],
             [t('stats.errors'), String(stats.core.errors)],
             [t('stats.queueLength'), String(stats.core.queueLen)],
           ]
@@ -244,7 +296,7 @@ export function StatsPage() {
                 t('stats.clockSkew'),
                 Math.abs(clock.skew) <= CLOCK_SKEW_THRESHOLD_SECS
                   ? t('stats.clockInSync')
-                  : fmtSkew(clock.skew),
+                  : formatSkew(clock.skew),
                 <button
                   key='resync'
                   onClick={resyncClock}
@@ -270,14 +322,11 @@ export function StatsPage() {
       ],
       rows: stats?.radio
         ? [
-            [t('stats.noiseFloor'), `${stats.radio.noiseFloor} dBm`],
-            [t('stats.lastRssi'), `${stats.radio.lastRssi} dBm`],
-            [
-              t('stats.lastSnr'),
-              `${stats.radio.lastSnr > 0 ? '+' : ''}${stats.radio.lastSnr.toFixed(2)} dB`,
-            ],
-            [t('stats.txAirtime'), fmtAirtime(stats.radio.txAirSecs)],
-            [t('stats.rxAirtime'), fmtAirtime(stats.radio.rxAirSecs)],
+            [t('stats.noiseFloor'), formatDbm(stats.radio.noiseFloor)],
+            [t('stats.lastRssi'), formatDbm(stats.radio.lastRssi)],
+            [t('stats.lastSnr'), formatSnr(stats.radio.lastSnr)],
+            [t('stats.txAirtime'), formatAirtime(stats.radio.txAirSecs)],
+            [t('stats.rxAirtime'), formatAirtime(stats.radio.rxAirSecs)],
           ]
         : null,
     },
@@ -293,34 +342,31 @@ export function StatsPage() {
       ],
       rows: stats?.packets
         ? [
-            [
-              t('stats.received'),
-              stats.packets.recv.toLocaleString(i18n.language),
-            ],
-            [t('stats.sent'), stats.packets.sent.toLocaleString(i18n.language)],
+            [t('stats.received'), ...counter(stats.packets.recv, prev?.recv)],
+            [t('stats.sent'), ...counter(stats.packets.sent, prev?.sent)],
             [
               t('stats.floodTx'),
-              stats.packets.floodTx.toLocaleString(i18n.language),
+              ...counter(stats.packets.floodTx, prev?.floodTx),
             ],
             [
               t('stats.floodRx'),
-              stats.packets.floodRx.toLocaleString(i18n.language),
+              ...counter(stats.packets.floodRx, prev?.floodRx),
             ],
             [
               t('stats.directTx'),
-              stats.packets.directTx.toLocaleString(i18n.language),
+              ...counter(stats.packets.directTx, prev?.directTx),
             ],
             [
               t('stats.directRx'),
-              stats.packets.directRx.toLocaleString(i18n.language),
+              ...counter(stats.packets.directRx, prev?.directRx),
             ],
             ...(stats.packets.recvErrors != null
               ? ([
                   [
                     t('stats.rxErrors'),
-                    stats.packets.recvErrors.toLocaleString(i18n.language),
+                    ...counter(stats.packets.recvErrors, prev?.recvErrors),
                   ],
-                ] as [string, string][])
+                ] as [string, string, React.ReactNode?][])
               : []),
           ]
         : null,
@@ -337,7 +383,7 @@ export function StatsPage() {
         </div>
 
         <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
-          {cards.map(({ title, labels, rows }) =>
+          {cards.map(({ title, labels, rows, meter }) =>
             loading ? (
               <StatCard
                 key={title}
@@ -346,7 +392,7 @@ export function StatsPage() {
                 rows={labels.map((label) => [label, ''])}
               />
             ) : rows ? (
-              <StatCard key={title} title={title} rows={rows} />
+              <StatCard key={title} title={title} rows={rows} meter={meter} />
             ) : (
               // Keep the slot once a fetch has landed (matching the other
               // cards) so the grid doesn't reflow when a section resolves to no
