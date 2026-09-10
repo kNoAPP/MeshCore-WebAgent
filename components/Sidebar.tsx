@@ -384,12 +384,9 @@ export function Sidebar() {
   return (
     <aside
       ref={sidebarRef}
-      className='relative flex shrink-0 flex-col overflow-hidden border-r'
-      style={{
-        width: sidebarWidth,
-        background: 'var(--surface)',
-        borderColor: 'var(--border)',
-      }}
+      className='relative flex shrink-0 flex-col overflow-hidden border-r border-border bg-surface'
+      // Only the dragged width is genuinely dynamic; the colors are utilities.
+      style={{ width: sidebarWidth }}
     >
       {/* Channels */}
       <div
