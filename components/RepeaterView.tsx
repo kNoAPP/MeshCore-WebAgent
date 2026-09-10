@@ -23,6 +23,8 @@ import { ADV_TYPE_REPEATER } from '@/lib/meshcore/constants';
 import { locateNeighborNode } from '@/lib/map/nodes';
 import {
   formatAirtime,
+  formatDbm,
+  formatPercent,
   formatSnr,
   formatUptime,
   formatVoltage,
@@ -460,7 +462,6 @@ function StatusDashboard({
   }, [refresh]);
 
   const num = (n: number) => n.toLocaleString(i18n.language);
-  const dbm = (n: number) => t('repeaterAdmin.dbm', { value: num(n) });
   // Shared responsive layout for the stat cards (loading and loaded).
   const gridClass = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
   const s = status;
@@ -477,6 +478,7 @@ function StatusDashboard({
   const cards: {
     title: string;
     labels: string[];
+    meter?: { label: string; percent: number; text: string };
     rows: [string, string][] | null;
   }[] = [
     {
@@ -487,12 +489,19 @@ function StatusDashboard({
         t('repeaterAdmin.uptime'),
         t('repeaterAdmin.queueLength'),
       ],
+      meter: s
+        ? {
+            label: t('repeaterAdmin.batteryPercent'),
+            percent: approxBatteryPercent(s.battMilliVolts),
+            text: formatPercent(approxBatteryPercent(s.battMilliVolts)),
+          }
+        : undefined,
       rows: s
         ? [
             [t('repeaterAdmin.battery'), formatVoltage(s.battMilliVolts)],
             [
               t('repeaterAdmin.batteryPercent'),
-              `${approxBatteryPercent(s.battMilliVolts)}%`,
+              formatPercent(approxBatteryPercent(s.battMilliVolts)),
             ],
             ...opt(t('repeaterAdmin.uptime'), s.totalUpTimeSecs, formatUptime),
             [t('repeaterAdmin.queueLength'), num(s.currTxQueueLen)],
@@ -508,8 +517,8 @@ function StatusDashboard({
       ],
       rows: s
         ? [
-            ...opt(t('repeaterAdmin.noiseFloor'), s.noiseFloor, dbm),
-            ...opt(t('repeaterAdmin.lastRssi'), s.lastRssi, dbm),
+            ...opt(t('repeaterAdmin.noiseFloor'), s.noiseFloor, formatDbm),
+            ...opt(t('repeaterAdmin.lastRssi'), s.lastRssi, formatDbm),
             ...opt(t('repeaterAdmin.lastSnr'), s.lastSnr, formatSnr),
           ]
         : null,
@@ -582,8 +591,13 @@ function StatusDashboard({
         <div className={gridClass}>
           {cards
             .filter((c) => c.rows && c.rows.length > 0)
-            .map(({ title: cardTitle, rows }) => (
-              <StatCard key={cardTitle} title={cardTitle} rows={rows ?? []} />
+            .map(({ title: cardTitle, rows, meter }) => (
+              <StatCard
+                key={cardTitle}
+                title={cardTitle}
+                rows={rows ?? []}
+                meter={meter}
+              />
             ))}
         </div>
       ) : (

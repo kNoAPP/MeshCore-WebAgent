@@ -24,6 +24,11 @@
     "device": "Dispositivo MeshCore",
     "skipToContent": "Saltar al contenido principal"
   },
+  "units": {
+    "dbm": "{{value}} dBm",
+    "kb": "{{value}} KB",
+    "percent": "{{value}} %"
+  },
   "header": {
     "connecting": "Conectando…",
     "connected": "Conectado",
@@ -197,6 +202,8 @@
     "directTx": "Directo TX",
     "directRx": "Directo RX",
     "rxErrors": "Errores RX",
+    "delta": "+{{value}} desde la última actualización",
+    "perHour": "{{value}}/h",
     "notReported": "No informado por este dispositivo",
     "allUnavailable": "Este firmware no expone estadísticas detalladas."
   },
@@ -255,7 +262,6 @@
     "maxTxPower": "Potencia de TX máxima",
     "mhz": "{{value}} MHz",
     "khz": "{{value}} kHz",
-    "dbm": "{{value}} dBm",
     "units": "Unidades",
     "units_metric": "Métrico (km)",
     "units_imperial": "Imperial (mi)",
@@ -567,7 +573,6 @@
     "floodDups": "Duplicados flood",
     "directDups": "Duplicados directos",
     "rxErrors": "Errores RX",
-    "dbm": "{{value}} dBm",
     "cli": {
       "timedOut": "sin respuesta del nodo",
       "disconnected": "sin conexión",

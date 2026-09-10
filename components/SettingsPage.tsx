@@ -153,7 +153,7 @@ export function SettingsPage() {
               label={t('settings.txPower')}
               value={
                 selfInfo?.txPower != null
-                  ? t('settings.dbm', { value: num(selfInfo.txPower) })
+                  ? t('units.dbm', { value: num(selfInfo.txPower) })
                   : unknown
               }
             />
@@ -161,7 +161,7 @@ export function SettingsPage() {
               label={t('settings.maxTxPower')}
               value={
                 selfInfo?.maxTxPower != null
-                  ? t('settings.dbm', { value: num(selfInfo.maxTxPower) })
+                  ? t('units.dbm', { value: num(selfInfo.maxTxPower) })
                   : unknown
               }
             />

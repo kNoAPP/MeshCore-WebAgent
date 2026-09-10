@@ -155,3 +155,30 @@ export function formatAirtime(secs: number): string {
 export function formatSnr(db: number): string {
   return `${db > 0 ? '+' : ''}${fixed(db, 2)} dB`;
 }
+
+/**
+ * Formats a clock skew (device time minus real time, in seconds) as a signed
+ * compact duration: `+5s`, `-2h 1m 3s`, or `0s` when in sync. A negative value
+ * means the device clock is running behind.
+ */
+export function formatSkew(secs: number): string {
+  if (secs === 0) return '0s';
+  return `${secs > 0 ? '+' : '-'}${formatUptime(Math.abs(secs))}`;
+}
+
+/** Formats a received-power reading in dBm, e.g. `-104 dBm`. */
+export function formatDbm(dbm: number): string {
+  return i18n.t('units.dbm', { value: dbm.toLocaleString(i18n.language) });
+}
+
+/** Formats a kilobyte count with locale digit grouping, e.g. `3,169 KB`. */
+export function formatKilobytes(kb: number): string {
+  return i18n.t('units.kb', { value: kb.toLocaleString(i18n.language) });
+}
+
+/** Formats a whole percentage, e.g. `73%`. */
+export function formatPercent(value: number): string {
+  return i18n.t('units.percent', {
+    value: Math.round(value).toLocaleString(i18n.language),
+  });
+}

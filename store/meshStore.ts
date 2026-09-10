@@ -302,6 +302,11 @@ interface MeshState {
    * device time and its skew from this computer.
    */
   deviceStats: StatsResult | null;
+  /**
+   * The snapshot {@link deviceStats} replaced, so the Stats page can show what
+   * each counter did between the last two reads. Null until a second read.
+   */
+  prevDeviceStats: StatsResult | null;
   deviceClock: { time: number; skew: number } | null;
   /**
    * The Stats page's own battery/storage snapshot (including `null` when the
@@ -599,6 +604,7 @@ const initialState: MeshState = {
   battery: null,
   syncProgress: null,
   deviceStats: null,
+  prevDeviceStats: null,
   deviceClock: null,
   deviceBattery: null,
   contacts: {},
@@ -660,7 +666,12 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
   setBattery: (battery) => set({ battery }),
   setSyncProgress: (syncProgress) => set({ syncProgress }),
-  setDeviceStats: (deviceStats) => set({ deviceStats }),
+  setDeviceStats: (deviceStats) =>
+    set((state) => ({
+      deviceStats,
+      // A null write ends the link session, so there is nothing to compare to.
+      prevDeviceStats: deviceStats ? state.deviceStats : null,
+    })),
   setDeviceClock: (deviceClock) => set({ deviceClock }),
   setDeviceBattery: (deviceBattery) => set({ deviceBattery }),
   setContacts: (contacts) => set({ contacts }),

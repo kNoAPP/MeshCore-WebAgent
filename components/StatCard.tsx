@@ -12,6 +12,10 @@ import type { ReactNode } from 'react';
  * — used to render a section the device didn't report. When `loading` is set,
  * the labels render normally but each value is replaced by a shimmer block.
  *
+ * `meter` renders a labelled bar above the rows for a value that is already a
+ * percentage (battery, storage), where a bar reads at a glance and `"73%"` does
+ * not.
+ *
  * Shared by the device Stats page and the repeater admin status dashboard so
  * both surfaces present identical cards.
  */
@@ -19,11 +23,14 @@ export function StatCard({
   title,
   rows = [],
   note,
+  meter,
   loading = false,
 }: {
   title: string;
   rows?: [string, string, ReactNode?][];
   note?: string;
+  /** A 0–100 percentage plus its label and already-formatted display text. */
+  meter?: { label: string; percent: number; text: string };
   loading?: boolean;
 }) {
   return (
@@ -31,6 +38,28 @@ export function StatCard({
       <div className='mb-2.5 text-[11px] font-bold tracking-widest text-(--accent) uppercase'>
         {title}
       </div>
+      {meter && !loading && (
+        <div className='mb-3'>
+          <div className='mb-1 flex justify-between text-xs'>
+            <span className='text-(--text2)'>{meter.label}</span>
+            <span className='font-semibold'>{meter.text}</span>
+          </div>
+          <div
+            role='meter'
+            aria-label={meter.label}
+            aria-valuenow={Math.round(meter.percent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuetext={meter.text}
+            className='h-1.5 w-full overflow-hidden rounded-full bg-(--border)'
+          >
+            <div
+              className='h-full rounded-full bg-(--accent)'
+              style={{ width: `${Math.min(100, Math.max(0, meter.percent))}%` }}
+            />
+          </div>
+        </div>
+      )}
       {note !== undefined ? (
         <div className='py-1.5 text-xs text-(--text2)'>{note}</div>
       ) : (

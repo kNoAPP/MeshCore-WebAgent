@@ -1330,9 +1330,7 @@ function RadioSection({
     {
       label: t('settings.txPower'),
       value:
-        txValue !== ''
-          ? t('settings.dbm', { value: num(Number(txValue)) })
-          : null,
+        txValue !== '' ? t('units.dbm', { value: num(Number(txValue)) }) : null,
     },
   ];
 
