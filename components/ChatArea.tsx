@@ -140,6 +140,33 @@ export function ChatArea() {
     [activeConvo, msgHistory],
   );
 
+  // Only a message *appended* to the conversation already open is news. The
+  // transcript itself is `aria-live='off'` because a conversation switch swaps
+  // the whole list and paging back prepends old rows — either would flood the
+  // polite queue with messages the user has read. This carries just the
+  // arrival, into a region that was already mounted.
+  const [announcement, setAnnouncement] = useState('');
+  const lastSeenRef = useRef<{ convoId: string | null; lastId?: string }>({
+    convoId: null,
+  });
+
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    const prev = lastSeenRef.current;
+    lastSeenRef.current = { convoId, lastId: last?.id };
+    if (
+      prev.convoId !== convoId ||
+      !last ||
+      last.own ||
+      last.system ||
+      last.id === prev.lastId
+    ) {
+      setAnnouncement('');
+      return;
+    }
+    setAnnouncement(last.text);
+  }, [messages, convoId]);
+
   // The oldest message index the window has been opened back to — by scrolling
   // up, or by a jump — or -1 for just the newest page. An index rather than a
   // tail count because history only ever appends: an index survives an
@@ -563,10 +590,12 @@ export function ChatArea() {
 
       {/* Messages */}
       <div className='relative flex flex-1 flex-col overflow-hidden'>
+        <span className='sr-only' role='status' aria-live='polite'>
+          {announcement}
+        </span>
         <div
           role='log'
-          aria-live='polite'
-          aria-relevant='additions'
+          aria-live='off'
           aria-label={t('chat.transcriptLabel')}
           className='flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
           ref={messagesRef}
