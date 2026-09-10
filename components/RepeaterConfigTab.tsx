@@ -1165,6 +1165,10 @@ function LocationSourceRow({
   onSelect: (policy: (typeof GPS_ADVERT_OPTIONS)[number]) => void;
 }) {
   const { t } = useTranslation();
+  // The policy is empty until the `gpsAdvert` read lands, and a radiogroup with
+  // nothing checked still needs one tab stop, so fall back to the first radio.
+  const activeIdx = LOCATION_POLICIES.findIndex((p) => p.value === policy);
+  const tabStop = activeIdx === -1 ? 0 : activeIdx;
   return (
     <div className={ROW_CLASS}>
       <div className='flex min-w-0 flex-1 items-center gap-1.5'>
@@ -1177,16 +1181,13 @@ function LocationSourceRow({
           role='radiogroup'
           aria-label={t('settings.locationSource')}
           onKeyDown={(e) =>
-            handleRovingKeyDown(
-              e,
-              LOCATION_POLICIES.length,
-              LOCATION_POLICIES.findIndex((p) => p.value === policy),
-              (i) => onSelect(LOCATION_POLICIES[i].value),
+            handleRovingKeyDown(e, LOCATION_POLICIES.length, tabStop, (i) =>
+              onSelect(LOCATION_POLICIES[i].value),
             )
           }
           className='inline-flex rounded-md border border-(--border-control) p-0.5'
         >
-          {LOCATION_POLICIES.map(({ value, labelKey }) => {
+          {LOCATION_POLICIES.map(({ value, labelKey }, i) => {
             const active = policy === value;
             return (
               <button
@@ -1194,7 +1195,7 @@ function LocationSourceRow({
                 type='button'
                 role='radio'
                 aria-checked={active}
-                tabIndex={active ? 0 : -1}
+                tabIndex={i === tabStop ? 0 : -1}
                 disabled={disabled}
                 onClick={() => onSelect(value)}
                 className={`rounded px-3 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
