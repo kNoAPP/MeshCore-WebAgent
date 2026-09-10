@@ -192,8 +192,8 @@ export function Sidebar() {
     return Math.ceil(contentH + headerH + sectionPadding) + 1;
   }, []);
   // The heights the Channels section can take: `fit` is what its content needs
-  // (the drag ceiling), `auto` is where an undragged divider sits. Both are
-  // measured, never persisted.
+  // (the drag ceiling), `auto` is where the divider sits before the user drags
+  // it. Both are measured, never persisted.
   const [sectionBounds, setSectionBounds] = useState({ fit: 160, auto: 160 });
 
   useLayoutEffect(() => {
