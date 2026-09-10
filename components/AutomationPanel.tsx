@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Plus, ShieldAlert, Check, X } from 'lucide-react';
@@ -58,11 +58,6 @@ const ADV_TYPE_FILTERS: {
   { key: 'room', types: [ADV_TYPE_ROOM] },
   { key: 'sensor', types: [ADV_TYPE_SENSOR] },
 ];
-
-// A confirm replaces the button that opened it, so focus has to be handed to
-// the replacement or the keyboard user is dropped back to the document. React's
-// `autoFocus` does not fire for an element mounted after the initial render.
-const focusOnMount = (el: HTMLButtonElement | null) => el?.focus();
 
 /**
  * The Automation settings card body (task 6.4): master switch + kill switch,
@@ -265,6 +260,14 @@ function RuleList({
   const update = useMeshStore((s) => s.updateAutomationRule);
   const remove = useMeshStore((s) => s.removeAutomationRule);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // React reuses the row's action buttons across the swap rather than mounting
+  // new ones, so focus has to be moved explicitly or the keyboard user is left
+  // on the document after the Delete button they activated disappears.
+  useEffect(() => {
+    if (confirmId) cancelRef.current?.focus();
+  }, [confirmId]);
 
   return (
     <div className='flex flex-col gap-2 border-t border-(--border) pt-3'>
@@ -295,7 +298,7 @@ function RuleList({
               </span>
               <div className='flex shrink-0 items-center gap-2'>
                 <button
-                  ref={focusOnMount}
+                  ref={cancelRef}
                   onClick={() => setConfirmId(null)}
                   className='rounded-md px-2 py-1 text-[11px] text-(--text) hover:bg-(--surface2)'
                 >
@@ -1162,6 +1165,11 @@ function AuditLogView() {
   const log = useMeshStore((s) => s.auditLog);
   const clear = useMeshStore((s) => s.clearAuditLog);
   const [confirming, setConfirming] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (confirming) cancelRef.current?.focus();
+  }, [confirming]);
 
   return (
     <div className='flex flex-col gap-2 border-t border-(--border) pt-3'>
@@ -1176,7 +1184,7 @@ function AuditLogView() {
                 {t('automation.audit.clearConfirm')}
               </span>
               <button
-                ref={focusOnMount}
+                ref={cancelRef}
                 onClick={() => setConfirming(false)}
                 className='rounded-md px-2 py-1 text-[11px] text-(--text) hover:bg-(--surface2)'
               >
