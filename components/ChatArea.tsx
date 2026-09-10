@@ -6,6 +6,7 @@
 import {
   useRef,
   useEffect,
+  useLayoutEffect,
   useState,
   useCallback,
   useMemo,
@@ -34,12 +35,16 @@ import {
 const MAX_SUGGESTIONS = 5;
 
 // Messages mounted per page of chat history. The newest page renders on open;
-// "show earlier" adds another.
+// scrolling to the top pages another in.
 const MESSAGE_PAGE = 50;
 
 // Within this distance of the bottom, an incoming message auto-scrolls into
 // view; past it the user is reading history, so their position is preserved.
 const NEAR_BOTTOM_PX = 120;
+
+// Within this distance of the top, the next page of history is mounted, so
+// reading back is continuous rather than a click.
+const NEAR_TOP_PX = 240;
 
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
@@ -129,6 +134,10 @@ export function ChatArea() {
   // inflate a live distance measurement), so a tall incoming message can't be
   // mistaken for the user having scrolled up.
   const atBottomRef = useRef(true);
+  // Distance from the bottom captured just before a page of history is
+  // prepended, so the reading position can be restored after it mounts.
+  const growAnchorRef = useRef<number | null>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
 
   const messages = useMemo(
     () => (activeConvo ? (msgHistory[activeConvo.id] ?? []) : []),
@@ -137,14 +146,14 @@ export function ChatArea() {
 
   // How many of the newest messages are mounted. History is unbounded and a
   // long-lived radio accumulates thousands, so only the tail is rendered and
-  // "show earlier" walks back a page at a time. Tagged with the conversation it
-  // was raised in, so a switch drops back to one page without an effect.
+  // scrolling to the top pages the next chunk in. Tagged with the conversation
+  // it was raised in, so opening another one starts from a single page again.
   const [messageWindow, setMessageWindow] = useState({
     convoId,
     count: MESSAGE_PAGE,
   });
-  const openedCount =
-    messageWindow.convoId === convoId ? messageWindow.count : MESSAGE_PAGE;
+  const sameConvo = messageWindow.convoId === convoId;
+  const openedCount = sameConvo ? messageWindow.count : MESSAGE_PAGE;
   // The oldest message the window has to reach regardless of paging: a
   // command-palette jump target, or the "last unread" divider the open-
   // conversation effect scrolls to. Either can sit arbitrarily far back.
@@ -157,20 +166,21 @@ export function ChatArea() {
     }
     return oldest;
   }, [messages, scrollToMsgId, unreadMarker]);
-  // Widen during render — React's "adjust state when an input changes" pattern
-  // — so the anchor is in the DOM when the scroll effects run and stays mounted
-  // after a one-shot jump request clears.
+  // Reset on a conversation switch and widen for an anchor, both during render
+  // — React's "adjust state when an input changes" pattern — so the anchor is
+  // in the DOM when the scroll effects run and stays mounted after a one-shot
+  // jump request clears.
   const neededCount =
     anchorIdx === -1 ? 0 : messages.length - anchorIdx + MESSAGE_PAGE;
-  if (neededCount > openedCount) {
-    setMessageWindow({ convoId, count: neededCount });
+  if (!sameConvo || neededCount > openedCount) {
+    setMessageWindow({
+      convoId,
+      count: Math.max(MESSAGE_PAGE, neededCount),
+    });
   }
   const visibleCount = Math.max(openedCount, neededCount);
   const firstVisible = Math.max(0, messages.length - visibleCount);
   const visibleMessages = messages.slice(firstVisible);
-  const showEarlier = useCallback(() => {
-    setMessageWindow({ convoId, count: visibleCount + MESSAGE_PAGE });
-  }, [convoId, visibleCount]);
 
   // For each message, the timestamp to render a date divider above it (the
   // first message of each local calendar day), or null. Timestamp-less
@@ -351,6 +361,37 @@ export function ChatArea() {
     if (nearBottom) setShowNewIndicator(false);
   };
 
+  // Page older history in as the top of the list comes into view, so reading
+  // back is continuous. An observer rather than a scroll handler, so a mounted
+  // page shorter than the pane — which never fires a scroll event — still
+  // fills itself.
+  useEffect(() => {
+    const list = messagesRef.current;
+    const sentinel = topSentinelRef.current;
+    if (!list || !sentinel || firstVisible === 0) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || growAnchorRef.current != null) return;
+        // Prepending rows pushes the content down, so anchor on the distance
+        // to the bottom — which the prepend leaves untouched — and restore it
+        // before the browser paints.
+        growAnchorRef.current = list.scrollHeight - list.scrollTop;
+        setMessageWindow({ convoId, count: visibleCount + MESSAGE_PAGE });
+      },
+      { root: list, rootMargin: `${NEAR_TOP_PX}px 0px 0px 0px` },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [convoId, firstVisible, visibleCount]);
+
+  useLayoutEffect(() => {
+    const list = messagesRef.current;
+    const anchor = growAnchorRef.current;
+    if (anchor == null || !list) return;
+    growAnchorRef.current = null;
+    list.scrollTop = list.scrollHeight - anchor;
+  }, [visibleCount]);
+
   const jumpToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'auto' });
     atBottomRef.current = true;
@@ -489,15 +530,7 @@ export function ChatArea() {
               {t('chat.noMessages')}
             </div>
           )}
-          {firstVisible > 0 && (
-            <button
-              type='button'
-              onClick={showEarlier}
-              className='mx-auto rounded-full border border-(--border) px-3 py-1 text-[11px] text-(--text2) hover:text-(--text)'
-            >
-              {t('chat.showEarlier')}
-            </button>
-          )}
+          <div ref={topSentinelRef} />
           {visibleMessages.map((msg, i) => {
             let senderLabel: string;
             let bodyText = msg.text;
@@ -522,7 +555,10 @@ export function ChatArea() {
               deviceName.length > 0 &&
               bodyText.toLowerCase().includes(`@[${deviceName.toLowerCase()}]`);
 
-            const dividerTs = dayDividers[firstVisible + i];
+            // The top of the rendered window always gets its day label, so
+            // paging back never leaves the visible messages undated.
+            const dividerTs =
+              i === 0 ? (msg.timestamp ?? null) : dayDividers[firstVisible + i];
 
             return (
               <Fragment key={msg.id ?? firstVisible + i}>

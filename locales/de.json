@@ -455,7 +455,6 @@
   "chat": {
     "empty": "Wähle einen Kanal oder Kontakt, um zu chatten",
     "noMessages": "Noch keine Nachrichten",
-    "showEarlier": "Ältere Nachrichten anzeigen",
     "lastUnread": "Zuletzt ungelesen",
     "you": "Du",
     "noAck": "Keine Bestätigung",
