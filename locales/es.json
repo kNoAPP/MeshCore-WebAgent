@@ -222,6 +222,7 @@
   },
   "settings": {
     "title": "⚙ Configuración",
+    "sections": "Secciones de configuración",
     "section": {
       "device": "Dispositivo",
       "identity": "Identidad",
@@ -619,6 +620,9 @@
       "requiresReboot": "Requiere reinicio",
       "edit": "Editar",
       "advanced": "Avanzado",
+      "filterLabel": "Filtrar ajustes",
+      "filterPlaceholder": "Filtrar ajustes…",
+      "filterEmpty": "Ningún ajuste coincide con este filtro.",
       "actionsTitle": "Acciones",
       "location": "Ubicación",
       "locationHint": "Coordenadas anunciadas en grados decimales.",

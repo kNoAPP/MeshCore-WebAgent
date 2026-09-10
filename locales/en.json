@@ -222,6 +222,7 @@
   },
   "settings": {
     "title": "⚙ Settings",
+    "sections": "Settings sections",
     "section": {
       "device": "Device",
       "identity": "Identity",
@@ -619,6 +620,9 @@
       "requiresReboot": "Requires reboot",
       "edit": "Edit",
       "advanced": "Advanced",
+      "filterLabel": "Filter settings",
+      "filterPlaceholder": "Filter settings…",
+      "filterEmpty": "No settings match this filter.",
       "actionsTitle": "Actions",
       "location": "Location",
       "locationHint": "Advertised coordinates in decimal degrees.",

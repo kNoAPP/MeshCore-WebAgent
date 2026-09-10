@@ -116,6 +116,9 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
   const [unsupported, setUnsupported] = useState<Set<string>>(() => new Set());
   // Whether the shared radio/TX editor modal is open.
   const [radioEditOpen, setRadioEditOpen] = useState(false);
+  // Transient text filter over the field labels; not a preference, so it stays
+  // local and resets with the tab.
+  const [fieldFilter, setFieldFilter] = useState('');
 
   // The hook callback identity can change (client re-wire), so read it through
   // a ref kept fresh by an effect rather than during render. Same for the
@@ -649,6 +652,29 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
     (s) => s.id === 'gpsAdvert',
   );
 
+  // Matched against the localized field labels, so the user searches for what
+  // they can read ("duty cycle") rather than a setting id. Latitude also stands
+  // in for longitude: the two share one Location row, so hiding either half
+  // would leave the row half-rendered.
+  const query = fieldFilter.trim().toLowerCase();
+  const labelMatches = (id: RepeaterSetting['id']) =>
+    t(`repeaterAdmin.config.fields.${id}.label`).toLowerCase().includes(query);
+  const matches = (setting: RepeaterSetting) =>
+    query === '' ||
+    labelMatches(setting.id) ||
+    (setting.id === 'lat' && labelMatches('lon'));
+  const radioMatches =
+    query === '' || labelMatches('radio') || labelMatches('tx');
+  const advancedShown = advancedSettings.filter(matches);
+  const filtering = query !== '';
+  const noMatches =
+    filtering &&
+    !radioMatches &&
+    advancedShown.length === 0 &&
+    !REPEATER_SETTING_GROUPS.some((g) =>
+      g.settings.some((s) => s.id !== 'radio' && s.id !== 'tx' && matches(s)),
+    );
+
   // Pick the advertised-location policy. `share` (GPS) also turns the module
   // on; `none`/`prefs` turn it off. Each write runs through the same serialized
   // commit path (which no-ops an unchanged field), so a partial failure can be
@@ -661,6 +687,16 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
 
   return (
     <>
+      <div className='mx-auto mb-4 w-full max-w-6xl'>
+        <input
+          type='search'
+          value={fieldFilter}
+          onChange={(e) => setFieldFilter(e.target.value)}
+          placeholder={t('repeaterAdmin.config.filterPlaceholder')}
+          aria-label={t('repeaterAdmin.config.filterLabel')}
+          className='w-full max-w-xs rounded-md border border-(--border-control) bg-(--surface) px-2.5 py-1.5 text-xs text-(--text) outline-none focus:border-(--accent)'
+        />
+      </div>
       <div className='mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 xl:grid-cols-2'>
         {REPEATER_SETTING_GROUPS.map((group) => {
           // Radio + TX power live in their own card (see RadioSection), like
@@ -668,6 +704,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           const fields = group.settings.filter(
             (s) => s.id !== 'radio' && s.id !== 'tx',
           );
+          const shown = fields.filter(matches);
           const isIdentity = group.id === 'identity';
           // The Identity refresh also probes/loads the GPS controls, unless the
           // node has already reported it lacks GPS support (so we stop asking).
@@ -677,68 +714,72 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
               : fields;
           return (
             <Fragment key={group.id}>
-              <Card
-                title={t(`repeaterAdmin.config.groups.${group.id}`)}
-                action={
-                  <RefreshButton
-                    onClick={() => refreshSection(readFields)}
-                    busy={sectionBusy(readFields)}
-                    download={!sectionLoaded(fields)}
-                  />
-                }
-              >
-                {fields.map((setting) => {
-                  // Latitude and longitude share one compact "Location" row,
-                  // preceded by the Fixed/GPS source picker on GPS-capable
-                  // nodes. Under GPS the coordinates are the live fix, so the
-                  // manual lat/lon editor (and Set on map) are disabled; the
-                  // whole trio is also locked until name + both coords load.
-                  if (setting.id === 'lon') return null;
-                  if (setting.id === 'name') {
-                    return (
-                      <SettingRow
-                        key='name'
-                        {...rowProps(setting)}
-                        disabled={!identityLoaded}
-                      />
-                    );
+              {(!filtering || shown.length > 0) && (
+                <Card
+                  title={t(`repeaterAdmin.config.groups.${group.id}`)}
+                  action={
+                    <RefreshButton
+                      onClick={() => refreshSection(readFields)}
+                      busy={sectionBusy(readFields)}
+                      download={!sectionLoaded(fields)}
+                    />
                   }
-                  if (setting.id === 'lat') {
-                    const lon = group.settings.find((s) => s.id === 'lon');
-                    const coordDisabled = usingGps || !identityLoaded;
-                    const sourceStatus = combineStatus(
-                      status.gps,
-                      status.gpsAdvert,
-                    );
-                    return (
-                      <Fragment key='location'>
-                        {gpsSupported === true && (
-                          <LocationSourceRow
-                            policy={advertPolicy}
-                            status={sourceStatus}
-                            errorText={errorMsg.gps ?? errorMsg.gpsAdvert}
-                            disabled={sourceStatus === 'saving'}
-                            onSelect={selectPolicy}
-                          />
-                        )}
-                        <LocationRow
-                          latProps={{
-                            ...rowProps(setting),
-                            disabled: coordDisabled,
-                          }}
-                          lonProps={
-                            lon
-                              ? { ...rowProps(lon), disabled: coordDisabled }
-                              : undefined
-                          }
+                >
+                  {shown.map((setting) => {
+                    // Latitude and longitude share one compact "Location" row,
+                    // preceded by the Fixed/GPS source picker on GPS-capable
+                    // nodes. Under GPS the coordinates are the live fix, so the
+                    // manual lat/lon editor (and Set on map) are disabled; the
+                    // whole trio is also locked until name + both coords load.
+                    if (setting.id === 'lon') return null;
+                    if (setting.id === 'name') {
+                      return (
+                        <SettingRow
+                          key='name'
+                          {...rowProps(setting)}
+                          disabled={!identityLoaded}
                         />
-                      </Fragment>
+                      );
+                    }
+                    if (setting.id === 'lat') {
+                      const lon = group.settings.find((s) => s.id === 'lon');
+                      const coordDisabled = usingGps || !identityLoaded;
+                      const sourceStatus = combineStatus(
+                        status.gps,
+                        status.gpsAdvert,
+                      );
+                      return (
+                        <Fragment key='location'>
+                          {gpsSupported === true && (
+                            <LocationSourceRow
+                              policy={advertPolicy}
+                              status={sourceStatus}
+                              errorText={errorMsg.gps ?? errorMsg.gpsAdvert}
+                              disabled={sourceStatus === 'saving'}
+                              onSelect={selectPolicy}
+                            />
+                          )}
+                          <LocationRow
+                            latProps={{
+                              ...rowProps(setting),
+                              disabled: coordDisabled,
+                            }}
+                            lonProps={
+                              lon
+                                ? { ...rowProps(lon), disabled: coordDisabled }
+                                : undefined
+                            }
+                          />
+                        </Fragment>
+                      );
+                    }
+                    return (
+                      <SettingRow key={setting.id} {...rowProps(setting)} />
                     );
-                  }
-                  return <SettingRow key={setting.id} {...rowProps(setting)} />;
-                })}
-              </Card>
-              {group.id === 'identity' && (
+                  })}
+                </Card>
+              )}
+              {group.id === 'identity' && radioMatches && (
                 <RadioSection
                   radioValue={values.radio ?? ''}
                   txValue={values.tx ?? ''}
@@ -752,23 +793,31 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           );
         })}
 
-        <Card
-          title={t('repeaterAdmin.config.advanced')}
-          action={
-            <RefreshButton
-              onClick={() => refreshSection(advancedSettings)}
-              busy={sectionBusy(advancedSettings)}
-              download={!sectionLoaded(advancedSettings)}
-            />
-          }
-        >
-          {advancedSettings.map((setting) => (
-            <SettingRow key={setting.id} {...rowProps(setting)} />
-          ))}
-        </Card>
+        {(!filtering || advancedShown.length > 0) && (
+          <Card
+            title={t('repeaterAdmin.config.advanced')}
+            action={
+              <RefreshButton
+                onClick={() => refreshSection(advancedSettings)}
+                busy={sectionBusy(advancedSettings)}
+                download={!sectionLoaded(advancedSettings)}
+              />
+            }
+          >
+            {advancedShown.map((setting) => (
+              <SettingRow key={setting.id} {...rowProps(setting)} />
+            ))}
+          </Card>
+        )}
 
-        <ActionsSection onRun={runAction} />
+        {!filtering && <ActionsSection onRun={runAction} />}
       </div>
+
+      {noMatches && (
+        <p className='mx-auto w-full max-w-6xl text-xs text-(--text2)'>
+          {t('repeaterAdmin.config.filterEmpty')}
+        </p>
+      )}
 
       {radioEditOpen && radioModalFields && (
         <RadioSettingsModal
