@@ -33,6 +33,10 @@ import {
 
 const MAX_SUGGESTIONS = 5;
 
+// Messages mounted per page of chat history. The newest page renders on open;
+// "show earlier" adds another.
+const MESSAGE_PAGE = 50;
+
 // Within this distance of the bottom, an incoming message auto-scrolls into
 // view; past it the user is reading history, so their position is preserved.
 const NEAR_BOTTOM_PX = 120;
@@ -74,8 +78,11 @@ function splitChannelMessage(text: string): {
  * autocomplete, retry actions, and a repeater-can't-message guard.
  */
 export function ChatArea() {
-  const { activeConvo, msgHistory, contacts, channels, deviceName } =
-    useMeshStore();
+  const activeConvo = useMeshStore((s) => s.activeConvo);
+  const msgHistory = useMeshStore((s) => s.msgHistory);
+  const contacts = useMeshStore((s) => s.contacts);
+  const channels = useMeshStore((s) => s.channels);
+  const deviceName = useMeshStore((s) => s.deviceName);
   const scrollToMsgId = useMeshStore((s) => s.scrollToMsgId);
   const setScrollToMsgId = useMeshStore((s) => s.setScrollToMsgId);
   const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
@@ -127,6 +134,43 @@ export function ChatArea() {
     () => (activeConvo ? (msgHistory[activeConvo.id] ?? []) : []),
     [activeConvo, msgHistory],
   );
+
+  // How many of the newest messages are mounted. History is unbounded and a
+  // long-lived radio accumulates thousands, so only the tail is rendered and
+  // "show earlier" walks back a page at a time. Tagged with the conversation it
+  // was raised in, so a switch drops back to one page without an effect.
+  const [messageWindow, setMessageWindow] = useState({
+    convoId,
+    count: MESSAGE_PAGE,
+  });
+  const openedCount =
+    messageWindow.convoId === convoId ? messageWindow.count : MESSAGE_PAGE;
+  // The oldest message the window has to reach regardless of paging: a
+  // command-palette jump target, or the "last unread" divider the open-
+  // conversation effect scrolls to. Either can sit arbitrarily far back.
+  const anchorIdx = useMemo(() => {
+    let oldest = -1;
+    for (const id of [scrollToMsgId, unreadMarker]) {
+      if (!id) continue;
+      const idx = messages.findIndex((m) => m.id === id);
+      if (idx !== -1 && (oldest === -1 || idx < oldest)) oldest = idx;
+    }
+    return oldest;
+  }, [messages, scrollToMsgId, unreadMarker]);
+  // Widen during render — React's "adjust state when an input changes" pattern
+  // — so the anchor is in the DOM when the scroll effects run and stays mounted
+  // after a one-shot jump request clears.
+  const neededCount =
+    anchorIdx === -1 ? 0 : messages.length - anchorIdx + MESSAGE_PAGE;
+  if (neededCount > openedCount) {
+    setMessageWindow({ convoId, count: neededCount });
+  }
+  const visibleCount = Math.max(openedCount, neededCount);
+  const firstVisible = Math.max(0, messages.length - visibleCount);
+  const visibleMessages = messages.slice(firstVisible);
+  const showEarlier = useCallback(() => {
+    setMessageWindow({ convoId, count: visibleCount + MESSAGE_PAGE });
+  }, [convoId, visibleCount]);
 
   // For each message, the timestamp to render a date divider above it (the
   // first message of each local calendar day), or null. Timestamp-less
@@ -258,7 +302,8 @@ export function ChatArea() {
   }, [activeConvo?.id, messages.length]);
 
   // Scroll to and briefly flash a message targeted by the command palette, then
-  // clear the one-shot request.
+  // clear the one-shot request. The render pass above has already widened the
+  // window far enough for the target to be mounted.
   useEffect(() => {
     if (!scrollToMsgId) return;
     const el = messagesRef.current?.querySelector<HTMLElement>(
@@ -268,7 +313,7 @@ export function ChatArea() {
     if (!el) return;
     el.scrollIntoView({ behavior: 'auto', block: 'center' });
     flashTarget(el);
-  }, [scrollToMsgId, activeConvo?.id, setScrollToMsgId]);
+  }, [scrollToMsgId, convoId, setScrollToMsgId]);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -444,7 +489,16 @@ export function ChatArea() {
               {t('chat.noMessages')}
             </div>
           )}
-          {messages.map((msg, i) => {
+          {firstVisible > 0 && (
+            <button
+              type='button'
+              onClick={showEarlier}
+              className='mx-auto rounded-full border border-(--border) px-3 py-1 text-[11px] text-(--text2) hover:text-(--text)'
+            >
+              {t('chat.showEarlier')}
+            </button>
+          )}
+          {visibleMessages.map((msg, i) => {
             let senderLabel: string;
             let bodyText = msg.text;
 
@@ -468,10 +522,10 @@ export function ChatArea() {
               deviceName.length > 0 &&
               bodyText.toLowerCase().includes(`@[${deviceName.toLowerCase()}]`);
 
-            const dividerTs = dayDividers[i];
+            const dividerTs = dayDividers[firstVisible + i];
 
             return (
-              <Fragment key={msg.id ?? i}>
+              <Fragment key={msg.id ?? firstVisible + i}>
                 {dividerTs != null && (
                   <div className='my-1 flex justify-center'>
                     <div className='rounded-lg border border-dashed border-(--border) px-3 py-1.5 text-[11px] text-(--text2)'>

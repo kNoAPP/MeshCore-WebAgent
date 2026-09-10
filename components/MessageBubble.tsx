@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { Message } from '@/types/meshcore';
@@ -129,8 +129,13 @@ function statusTick(
  * One chat message: a styled bubble (own / mentioned / plain, or a centered
  * system note) plus a metadata line with delivery status, SNR, hop count, and
  * time.
+ *
+ * @remarks Memoized: a long conversation mounts hundreds of these, and the
+ * props of an already-rendered message never change once it settles, so an
+ * unrelated store write (a heard advert, a battery poll) re-renders none of
+ * them.
  */
-export function MessageBubble({
+export const MessageBubble = memo(function MessageBubble({
   msg,
   text,
   deviceName,
@@ -193,7 +198,7 @@ export function MessageBubble({
       </div>
     </>
   );
-}
+});
 
 function metaParts(
   t: TFunction,
