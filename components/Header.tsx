@@ -58,6 +58,7 @@ export function Header() {
 
   const openCommandPalette = useMeshStore((s) => s.openCommandPalette);
   const closeCommandPalette = useMeshStore((s) => s.closeCommandPalette);
+  const setWindowFocused = useMeshStore((s) => s.setWindowFocused);
 
   // Global shortcut for the command palette: Ctrl/⌘ + K toggles it, and a bare
   // "/" opens it unless the user is typing in a field. Only armed while
@@ -79,6 +80,24 @@ export function Header() {
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [connected, openCommandPalette, closeCommandPalette]);
+
+  // Whether the tab is the one the user is looking at is a browser fact with no
+  // store equivalent, so it needs a window listener — the second and last
+  // legitimate effect here. `visibilitychange` covers a tab switch, focus/blur
+  // covers moving to another window on the same tab.
+  useEffect(() => {
+    const sync = () =>
+      setWindowFocused(!document.hidden && document.hasFocus());
+    sync();
+    window.addEventListener('focus', sync);
+    window.addEventListener('blur', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      window.removeEventListener('focus', sync);
+      window.removeEventListener('blur', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, [setWindowFocused]);
 
   // The real theme resolves from localStorage/OS only in the browser, so the
   // static export is built with DEFAULT_THEME. Render that same default until
