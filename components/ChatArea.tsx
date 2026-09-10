@@ -141,32 +141,27 @@ export function ChatArea() {
     [activeConvo, msgHistory],
   );
 
-  // Only a message *appended* to the conversation already open is news. The
-  // transcript itself is `aria-live='off'` because a conversation switch swaps
-  // the whole list and paging back prepends old rows — either would flood the
-  // polite queue with messages the user has read. This carries just the
-  // arrival, into a region that was already mounted.
-  const [announcement, setAnnouncement] = useState({ id: '', text: '' });
-  const lastSeenRef = useRef<{ convoId: string | null; lastId?: string }>({
-    convoId: null,
-  });
-
-  useEffect(() => {
-    const last = messages[messages.length - 1];
-    const prev = lastSeenRef.current;
-    lastSeenRef.current = { convoId, lastId: last?.id };
+  // Only a message that *just arrived* into a conversation the user is
+  // actually looking at is news. Deriving this from the tail of `msgHistory`
+  // would also fire on `restoreHistory`, which can turn an empty conversation
+  // into a populated one and would then announce week-old history as new; the
+  // store's arrival record is the signal that a message landed. A message that
+  // arrived while the tab was blurred or another view was up is the toast's
+  // job, not this region's — announcing it later would replay it out of
+  // context.
+  const lastArrival = useMeshStore((s) => s.lastArrival);
+  const announcement = useMemo(() => {
     if (
-      prev.convoId !== convoId ||
-      !last ||
-      last.own ||
-      last.system ||
-      last.id === prev.lastId
+      !lastArrival ||
+      !lastArrival.visible ||
+      lastArrival.convoId !== convoId ||
+      lastArrival.own ||
+      lastArrival.system
     ) {
-      setAnnouncement({ id: '', text: '' });
-      return;
+      return { id: '', text: '' };
     }
-    setAnnouncement({ id: last.id ?? '', text: last.text });
-  }, [messages, convoId]);
+    return { id: lastArrival.msgId, text: lastArrival.text };
+  }, [lastArrival, convoId]);
 
   // The oldest message index the window has been opened back to — by scrolling
   // up, or by a jump — or -1 for just the newest page. An index rather than a

@@ -8,13 +8,14 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore, openConvo } from '@/store/meshStore';
 
 /**
- * Renders the current store toast (top-center), color-coded by variant; nothing
- * when none is set. Error toasts persist until dismissed via their button and
- * wrap; a toast carrying a conversation is a button that opens it. Everything
- * else is non-interactive and auto-clears.
+ * Renders the current store toast (top-center), color-coded by variant. Error
+ * toasts persist until dismissed via their button and wrap; a toast carrying a
+ * conversation is a button that opens it and likewise waits to be dismissed.
+ * Everything else is non-interactive and auto-clears.
  *
- * Both live regions stay mounted whether or not a toast is set — a region
- * inserted together with its text is not announced.
+ * Both live regions stay mounted whether or not a toast is set — the card
+ * moves in and out of them — because a region inserted together with its text
+ * is not announced.
  */
 export function Toast() {
   const { t } = useTranslation();
@@ -51,14 +52,23 @@ export function Toast() {
   const card =
     toast &&
     (convo ? (
-      <button
-        key={toast.id}
-        type='button'
-        onClick={openTarget}
-        className={`${shell} hover:border-accent focus-visible:outline-2 focus-visible:outline-accent`}
-      >
-        {toast.text}
-      </button>
+      <div key={toast.id} className={shell}>
+        <button
+          type='button'
+          onClick={openTarget}
+          className='min-w-0 text-left hover:underline focus-visible:outline-2 focus-visible:outline-accent'
+        >
+          {toast.text}
+        </button>
+        <button
+          type='button'
+          onClick={dismissToast}
+          aria-label={t('toast.dismiss')}
+          className='-mr-1 shrink-0 rounded p-0.5 hover:bg-surface focus-visible:outline-2 focus-visible:outline-accent'
+        >
+          <X size={16} aria-hidden='true' />
+        </button>
+      </div>
     ) : (
       <div key={toast.id} className={shell}>
         <span>{toast.text}</span>
