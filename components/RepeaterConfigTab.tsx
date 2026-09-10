@@ -657,10 +657,8 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
   // in for longitude: the two share one Location row, so hiding either half
   // would leave the row half-rendered.
   const query = fieldFilter.trim().toLowerCase();
-  const labelMatches = (id: string) =>
-    t(`repeaterAdmin.config.fields.${id as RepeaterSetting['id']}.label`)
-      .toLowerCase()
-      .includes(query);
+  const labelMatches = (id: RepeaterSetting['id']) =>
+    t(`repeaterAdmin.config.fields.${id}.label`).toLowerCase().includes(query);
   const matches = (setting: RepeaterSetting) =>
     query === '' ||
     labelMatches(setting.id) ||
