@@ -38,6 +38,8 @@ import { Card } from './Card';
 import { RefreshButton } from './RefreshButton';
 import { RadioSettingsModal } from './RadioSettings';
 import { SaveStatusChip, type SaveStatus } from './SaveStatus';
+import { Select } from './Select';
+import { Switch } from './Switch';
 import type { Contact, RadioParams } from '@/types/meshcore';
 
 type ValueMap = Record<string, string>;
@@ -46,7 +48,7 @@ type ValueMap = Record<string, string>;
 const EMPTY_VALUES: ValueMap = {};
 
 const ROW_CLASS =
-  'flex items-center justify-between gap-3 border-b border-(--border) py-1.5 text-xs last:border-0';
+  'flex items-center justify-between gap-3 border-b border-border py-1.5 text-xs last:border-0';
 
 // The node's value is authoritative: it may come back rounded or clamped from
 // what was sent.
@@ -695,7 +697,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           onChange={(e) => setFieldFilter(e.target.value)}
           placeholder={t('repeaterAdmin.config.filterPlaceholder')}
           aria-label={t('repeaterAdmin.config.filterLabel')}
-          className='w-full max-w-xs rounded-md border border-(--border-control) bg-(--surface) px-2.5 py-1.5 text-xs text-(--text) outline-none focus:border-(--accent)'
+          className='w-full max-w-xs rounded-md border border-border-control bg-surface px-2.5 py-1.5 text-xs text-text outline-none focus:border-accent'
         />
       </div>
       <div className='mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 xl:grid-cols-2'>
@@ -815,7 +817,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       </div>
 
       {noMatches && (
-        <p className='mx-auto w-full max-w-6xl text-xs text-(--text2)'>
+        <p className='mx-auto w-full max-w-6xl text-xs text-text2'>
           {t('repeaterAdmin.config.filterEmpty')}
         </p>
       )}
@@ -878,7 +880,7 @@ function SettingRow({
   return (
     <div className={ROW_CLASS}>
       <div className='flex min-w-0 flex-1 items-center gap-1.5'>
-        <span className='truncate text-(--text2)'>{label}</span>
+        <span className='truncate text-text2'>{label}</span>
         {setting.requiresReboot && <RebootPill />}
       </div>
       <div className='flex shrink-0 items-center gap-2'>
@@ -927,7 +929,7 @@ function SettingRow({
 }
 
 function UnloadedValue() {
-  return <span className='text-(--text2)'>—</span>;
+  return <span className='text-text2'>—</span>;
 }
 
 function FieldSlot({
@@ -942,7 +944,7 @@ function FieldSlot({
   const { t } = useTranslation();
   if (loading) {
     return (
-      <span className='text-(--text2)'>
+      <span className='text-text2'>
         {t('repeaterAdmin.config.readingField')}
       </span>
     );
@@ -954,7 +956,7 @@ function FieldSlot({
 function RebootPill() {
   const { t } = useTranslation();
   return (
-    <span className='rounded-full bg-(--surface2) px-1.5 py-0.5 text-[10px] whitespace-nowrap text-(--text2)'>
+    <span className='rounded-full bg-surface2 px-1.5 py-0.5 text-[10px] whitespace-nowrap text-text2'>
       {t('repeaterAdmin.config.requiresReboot')}
     </span>
   );
@@ -975,13 +977,13 @@ function Field({
 }) {
   return (
     <div
-      className={`field-group flex items-center overflow-hidden rounded-md border ${width} bg-(--surface) focus-within:border-(--accent) ${
-        invalid ? 'border-(--red)' : 'border-(--border-control)'
+      className={`field-group flex items-center overflow-hidden rounded-md border ${width} bg-surface focus-within:border-accent ${
+        invalid ? 'border-red' : 'border-border-control'
       } ${disabled ? 'opacity-60' : ''}`}
     >
       {children}
       {suffix != null && (
-        <span className='border-l border-(--border-control) px-1.5 py-1 text-[11px] whitespace-nowrap text-(--text2)'>
+        <span className='border-l border-border-control px-1.5 py-1 text-[11px] whitespace-nowrap text-text2'>
           {suffix}
         </span>
       )}
@@ -1002,22 +1004,11 @@ function SwitchControl({
 }) {
   const on = value === setting.on;
   return (
-    <button
-      type='button'
-      role='switch'
-      aria-checked={on}
-      aria-label={ariaLabel}
-      onClick={() => onSelect(on ? setting.off : setting.on)}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-        on ? 'bg-(--accent)' : 'bg-(--border-control)'
-      }`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-          on ? 'translate-x-4' : 'translate-x-0.5'
-        }`}
-      />
-    </button>
+    <Switch
+      checked={on}
+      ariaLabel={ariaLabel}
+      onChange={() => onSelect(on ? setting.off : setting.on)}
+    />
   );
 }
 
@@ -1065,7 +1056,7 @@ function NumberField({
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
-        className='w-full min-w-0 bg-transparent px-2 py-1 text-right text-xs text-(--text) outline-none'
+        className='w-full min-w-0 bg-transparent px-2 py-1 text-right text-xs text-text outline-none'
       />
     </Field>
   );
@@ -1104,9 +1095,9 @@ function SliderField({
         onChange={(e) => onChange(e.target.value)}
         onPointerUp={onCommitEdit}
         onKeyUp={onCommitEdit}
-        className='w-40 accent-(--accent)'
+        className='w-40 accent-accent'
       />
-      <span className='w-20 shrink-0 text-right text-xs text-(--text) tabular-nums'>
+      <span className='w-20 shrink-0 text-right text-xs text-text tabular-nums'>
         {fmtNum(slider, i18n.language)}
         {unit ? ` ${unit}` : ''}
       </span>
@@ -1127,23 +1118,22 @@ function SelectField({
 }) {
   const { t } = useTranslation();
   return (
-    <select
+    <Select
       value={value}
-      aria-label={ariaLabel}
-      onChange={(e) => onSelect(e.target.value)}
-      className='rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent)'
-    >
-      {!setting.options.includes(value) && (
-        <option value={value} disabled>
-          —
-        </option>
-      )}
-      {setting.options.map((o) => (
-        <option key={o} value={o}>
-          {optionLabel(t, setting.id, o)}
-        </option>
-      ))}
-    </select>
+      ariaLabel={ariaLabel}
+      onChange={onSelect}
+      options={[
+        // The radio reported a value outside the known set: show it so the
+        // field isn't blank, but don't let it be picked again.
+        ...(setting.options.includes(value)
+          ? []
+          : [{ value, label: '\u2014', disabled: true }]),
+        ...setting.options.map((o) => ({
+          value: o,
+          label: optionLabel(t, setting.id, o),
+        })),
+      ]}
+    />
   );
 }
 
@@ -1171,7 +1161,7 @@ function TextField({
       invalid={!valid && value.trim() !== ''}
       disabled={disabled}
       suffix={
-        <span className={bytes > maxBytes ? 'text-(--red)' : undefined}>
+        <span className={bytes > maxBytes ? 'text-red' : undefined}>
           {bytes}/{maxBytes}
         </span>
       }
@@ -1186,7 +1176,7 @@ function TextField({
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
-        className='w-full min-w-0 bg-transparent px-2 py-1 text-xs text-(--text) outline-none'
+        className='w-full min-w-0 bg-transparent px-2 py-1 text-xs text-text outline-none'
       />
     </Field>
   );
@@ -1221,7 +1211,7 @@ function LocationSourceRow({
   return (
     <div className={ROW_CLASS}>
       <div className='flex min-w-0 flex-1 items-center gap-1.5'>
-        <span className='truncate text-(--text2)'>
+        <span className='truncate text-text2'>
           {t('settings.locationSource')}
         </span>
       </div>
@@ -1234,7 +1224,7 @@ function LocationSourceRow({
               onSelect(LOCATION_POLICIES[i].value),
             )
           }
-          className='inline-flex rounded-md border border-(--border-control) p-0.5'
+          className='inline-flex rounded-md border border-border-control p-0.5'
         >
           {LOCATION_POLICIES.map(({ value, labelKey }, i) => {
             const active = policy === value;
@@ -1249,8 +1239,8 @@ function LocationSourceRow({
                 onClick={() => onSelect(value)}
                 className={`rounded px-3 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   active
-                    ? 'bg-(--accent-solid) font-semibold text-white inset-ring-1 inset-ring-(--accent)'
-                    : 'text-(--text2) hover:text-(--text)'
+                    ? 'bg-accent-solid font-semibold text-white inset-ring-1 inset-ring-accent'
+                    : 'text-text2 hover:text-text'
                 }`}
               >
                 {t(labelKey)}
@@ -1282,7 +1272,7 @@ function LocationRow({
   return (
     <div className={ROW_CLASS}>
       <div className='flex min-w-0 flex-1 items-center gap-1.5'>
-        <span className='truncate text-(--text2)'>
+        <span className='truncate text-text2'>
           {t('repeaterAdmin.config.location')}
         </span>
       </div>
@@ -1294,7 +1284,7 @@ function LocationRow({
             <button
               type='button'
               onClick={() => useMeshStore.getState().startLocationPick('chat')}
-              className='shrink-0 rounded-md border border-(--border-control) px-3 py-1 text-xs text-(--text2) hover:text-(--text)'
+              className='shrink-0 rounded-md border border-border-control px-3 py-1 text-xs text-text2 hover:text-text'
             >
               {t('settings.setOnMap')}
             </button>
@@ -1332,7 +1322,7 @@ function CoordField({
   };
   return (
     <div className='flex items-center gap-1.5'>
-      <span className='text-[11px] text-(--text2)'>{label}</span>
+      <span className='text-[11px] text-text2'>{label}</span>
       <NumberField
         setting={setting as NumberSetting}
         value={draft}
@@ -1404,7 +1394,7 @@ function RadioSection({
           <button
             onClick={onEdit}
             disabled={!ready}
-            className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+            className='rounded-md border border-border-control px-2.5 py-1 text-xs text-text2 hover:text-text disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text2'
           >
             {t('repeaterAdmin.config.edit')}
           </button>
@@ -1434,7 +1424,7 @@ function ValueRow({
 }) {
   return (
     <div className={ROW_CLASS}>
-      <span className='shrink-0 text-(--text2)'>{label}</span>
+      <span className='shrink-0 text-text2'>{label}</span>
       <FieldSlot loading={loading} loaded={value != null}>
         <span className='font-semibold'>{value}</span>
       </FieldSlot>
@@ -1458,7 +1448,7 @@ function ActionsSection({
           <button
             key={a.id}
             onClick={() => onRun(a)}
-            className='rounded-md border border-(--border-control) px-3 py-1.5 text-xs text-(--text) hover:bg-(--surface)'
+            className='rounded-md border border-border-control px-3 py-1.5 text-xs text-text hover:bg-surface'
           >
             {t(`repeaterAdmin.config.actions.${a.id}.label`)}
           </button>
@@ -1466,7 +1456,7 @@ function ActionsSection({
         {reboot && !confirming && (
           <button
             onClick={() => setConfirming(true)}
-            className='ml-auto rounded-md border border-(--red) px-3 py-1.5 text-xs text-(--red) hover:bg-(--red-dim) hover:text-white'
+            className='ml-auto rounded-md border border-red px-3 py-1.5 text-xs text-red hover:bg-red-dim hover:text-white'
           >
             {t('repeaterAdmin.config.actions.reboot.label')}
           </button>
@@ -1474,14 +1464,14 @@ function ActionsSection({
       </div>
 
       {reboot && confirming && (
-        <div className='mt-3 flex items-center justify-between gap-3 border-t border-(--border) pt-3'>
-          <span className='text-xs text-(--text2)'>
+        <div className='mt-3 flex items-center justify-between gap-3 border-t border-border pt-3'>
+          <span className='text-xs text-text2'>
             {t('repeaterAdmin.config.actions.reboot.confirm')}
           </span>
           <div className='flex shrink-0 gap-2'>
             <button
               onClick={() => setConfirming(false)}
-              className='rounded-md px-3 py-1.5 text-xs text-(--text) hover:bg-(--surface)'
+              className='rounded-md px-3 py-1.5 text-xs text-text hover:bg-surface'
             >
               {t('common.cancel')}
             </button>
@@ -1490,7 +1480,7 @@ function ActionsSection({
                 onRun(reboot);
                 setConfirming(false);
               }}
-              className='rounded-md bg-(--red-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--red-hover)'
+              className='rounded-md bg-red-solid px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-hover'
             >
               {t('repeaterAdmin.config.actions.reboot.label')}
             </button>

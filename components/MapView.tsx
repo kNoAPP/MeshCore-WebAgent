@@ -17,6 +17,7 @@ import {
 } from '@/lib/map/config';
 import { BaseLeafletMap } from './BaseLeafletMap';
 import { MapLegend } from './MapLegend';
+import { Switch } from './Switch';
 
 function pickIcon(): L.DivIcon {
   const size = MAP_MARKER_SIZE_PX;
@@ -169,20 +170,20 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     >
       <div className='pointer-events-none absolute inset-x-0 top-0 z-1000 flex flex-col items-start gap-2 p-3'>
         {capped && (
-          <span className='pointer-events-auto rounded-md border border-(--border) bg-(--surface)/90 px-2.5 py-1 text-xs text-(--text2) backdrop-blur'>
+          <span className='pointer-events-auto rounded-md border border-border bg-surface/90 px-2.5 py-1 text-xs text-text2 backdrop-blur'>
             {t('map.markerCap', { shown: MAX_MAP_MARKERS, total })}
           </span>
         )}
       </div>
       {mapPicking && (
         <div className='pointer-events-none absolute inset-x-0 bottom-6 z-1000 flex justify-center px-3'>
-          <div className='pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-md border border-(--border) bg-(--surface)/95 px-3 py-2 text-sm text-(--text) backdrop-blur'>
-            <span className='text-(--text2)'>{t('map.pick.hint')}</span>
+          <div className='pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-md border border-border bg-surface/95 px-3 py-2 text-sm text-text backdrop-blur'>
+            <span className='text-text2'>{t('map.pick.hint')}</span>
             <div className='flex items-center gap-2'>
               <button
                 type='button'
                 onClick={() => useMeshStore.getState().cancelLocationPick()}
-                className='rounded-md border border-(--border) px-3 py-1 text-xs font-medium text-(--text2) hover:text-(--text)'
+                className='rounded-md border border-border px-3 py-1 text-xs font-medium text-text2 hover:text-text'
               >
                 {t('map.pick.cancel')}
               </button>
@@ -196,7 +197,7 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
                       .confirmLocationPick(pickedPoint.lat, pickedPoint.lon);
                   }
                 }}
-                className='rounded-md bg-(--accent-solid) px-3 py-1 text-xs font-medium text-white disabled:opacity-50'
+                className='rounded-md bg-accent-solid px-3 py-1 text-xs font-medium text-white disabled:opacity-50'
               >
                 {t('map.pick.confirm')}
               </button>
@@ -205,27 +206,12 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
         </div>
       )}
       <MapLegend>
-        <button
-          type='button'
-          role='switch'
-          aria-checked={favoritesOnly}
-          onClick={() => setFavoritesOnly((v) => !v)}
-          className='flex w-full items-center justify-between gap-3 border-t border-(--border) px-2.5 py-2 text-xs whitespace-nowrap hover:text-(--accent)'
-        >
-          <span>{t('map.legend.favoritesOnly')}</span>
-          <span
-            className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
-            style={{
-              background: favoritesOnly ? 'var(--accent)' : 'var(--border)',
-            }}
-          >
-            <span
-              className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
-                favoritesOnly ? 'left-3.5' : 'left-0.5'
-              }`}
-            />
-          </span>
-        </button>
+        <Switch
+          checked={favoritesOnly}
+          onChange={setFavoritesOnly}
+          label={t('map.legend.favoritesOnly')}
+          className='border-t border-border px-2.5 py-2 whitespace-nowrap hover:text-accent'
+        />
       </MapLegend>
     </BaseLeafletMap>
   );

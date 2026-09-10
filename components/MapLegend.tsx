@@ -5,6 +5,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChevronUp } from 'lucide-react';
 import { LEGEND_CATEGORIES, MARKER_STYLES, shapeSvg } from '@/lib/map/markers';
 
 /**
@@ -21,12 +22,12 @@ export function MapLegend({ children }: { children?: ReactNode }) {
   const [open, setOpen] = useState(true);
 
   return (
-    <div className='pointer-events-auto absolute right-3 bottom-8 z-1000 overflow-hidden rounded-md border border-(--border) bg-(--surface)/90 text-(--text) backdrop-blur'>
+    <div className='pointer-events-auto absolute right-3 bottom-8 z-1000 overflow-hidden rounded-md border border-border bg-surface/90 text-text backdrop-blur'>
       <button
         type='button'
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className='focus-inset flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-xs font-semibold tracking-wide text-(--text2) uppercase hover:text-(--accent)'
+        className='focus-inset flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-xs font-semibold tracking-wide text-text2 uppercase hover:text-accent'
       >
         {t('map.legend.title')}
         <Chevron open={open} />
@@ -62,17 +63,10 @@ export function MapLegend({ children }: { children?: ReactNode }) {
 
 function Chevron({ open }: { open: boolean }) {
   return (
-    <svg
-      viewBox='0 0 16 16'
-      className={`h-3 w-3 transition-transform ${open ? '' : 'rotate-180'}`}
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='1.8'
-      strokeLinecap='round'
-      strokeLinejoin='round'
+    <ChevronUp
+      size={12}
+      className={`transition-transform ${open ? '' : 'rotate-180'}`}
       aria-hidden='true'
-    >
-      <path d='M4 10l4-4 4 4' />
-    </svg>
+    />
   );
 }

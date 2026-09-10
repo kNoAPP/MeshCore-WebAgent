@@ -46,36 +46,27 @@ export function RouteChip({ contact }: { contact: Contact }) {
       <button
         onClick={() => setOpen((o) => !o)}
         title={t('routeChip.tooltip')}
-        className='rounded-full border px-2 py-0.5 text-[11px] text-(--text2) transition-colors hover:text-(--text)'
-        style={{ borderColor: 'var(--border)', background: 'var(--surface2)' }}
+        className='rounded-full border px-2 py-0.5 text-[11px] text-text2 transition-colors hover:text-text border-border bg-surface2'
       >
         {routeLabel(t, contact)}
       </button>
       {open && (
-        <div
-          className='absolute top-full left-0 z-10 mt-1.5 w-64 rounded-[10px] border p-3 text-xs shadow-lg'
-          style={{
-            background: 'var(--surface2)',
-            borderColor: 'var(--border)',
-          }}
-        >
+        <div className='absolute top-full left-0 z-10 mt-1.5 w-64 rounded-card border border-border bg-surface2 p-3 text-xs shadow-pop'>
           <div className='mb-1 font-semibold'>
             {t('routeChip.routeTo', {
               name: contact.name || contact.pubkeyPrefix.slice(0, 8),
             })}
           </div>
-          {!hasRoute && (
-            <p className='text-(--text2)'>{t('routeChip.noRoute')}</p>
-          )}
+          {!hasRoute && <p className='text-text2'>{t('routeChip.noRoute')}</p>}
           {hasRoute && contact.outPathLen === 0 && (
-            <p className='text-(--text2)'>{t('routeChip.directNeighbor')}</p>
+            <p className='text-text2'>{t('routeChip.directNeighbor')}</p>
           )}
           {hasRoute && contact.outPathLen > 0 && (
             <>
-              <p className='text-(--text2)'>
+              <p className='text-text2'>
                 {t('routeChip.viaRepeaters', { count: contact.outPathLen })}
               </p>
-              <div className='my-1.5 font-mono text-(--text)'>{hops}</div>
+              <div className='my-1.5 font-mono text-text'>{hops}</div>
             </>
           )}
           {hasRoute && (
@@ -84,14 +75,11 @@ export function RouteChip({ contact }: { contact: Contact }) {
                 onClick={onReset}
                 disabled={busy}
                 className='mt-2 w-full rounded-lg border px-2 py-1.5 font-semibold transition-colors
-                  hover:bg-(--surface) disabled:cursor-not-allowed disabled:opacity-45'
-                style={{ borderColor: 'var(--red)', color: 'var(--red)' }}
+                  hover:bg-surface disabled:cursor-not-allowed disabled:opacity-45 border-red text-red'
               >
                 {busy ? t('routeChip.resetting') : t('routeChip.resetToFlood')}
               </button>
-              <p className='mt-1.5 text-(--text2)'>
-                {t('routeChip.resetExplain')}
-              </p>
+              <p className='mt-1.5 text-text2'>{t('routeChip.resetExplain')}</p>
             </>
           )}
         </div>

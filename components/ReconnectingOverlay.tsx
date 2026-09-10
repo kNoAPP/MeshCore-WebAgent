@@ -43,8 +43,7 @@ export function ReconnectingOverlay() {
 
   return (
     <div
-      className='absolute inset-0 z-40 flex items-center justify-center p-4 backdrop-blur-sm'
-      style={{ background: 'color-mix(in srgb, var(--bg) 60%, transparent)' }}
+      className='absolute inset-0 z-40 flex items-center justify-center p-4 backdrop-blur-sm bg-[color-mix(in_srgb,var(--bg)_60%,transparent)]'
       role='alertdialog'
       aria-busy='true'
       aria-label={t('connect.reconnecting.title')}
@@ -66,21 +65,19 @@ export function ReconnectingOverlay() {
         <SyncCard className='text-center'>
           <LoaderCircle
             size={36}
-            className='mx-auto mb-4 animate-spin text-(--amber)'
+            className='mx-auto mb-4 animate-spin text-amber'
           />
           <h2 className='mb-1 text-xl font-bold'>
             {t('connect.reconnecting.title')}
           </h2>
-          <p className='mb-2 text-sm text-(--text2)'>
+          <p className='mb-2 text-sm text-text2'>
             {deviceName
               ? t('connect.reconnecting.bodyFrom', { device: deviceName })
               : t('connect.reconnecting.bodyGeneric')}
           </p>
-          <p className='text-xs text-(--text2)'>
-            {t('connect.reconnecting.hint')}
-          </p>
+          <p className='text-xs text-text2'>{t('connect.reconnecting.hint')}</p>
           {progress && (
-            <p className='mt-2 text-xs text-(--text2)'>
+            <p className='mt-2 text-xs text-text2'>
               {t('connect.reconnecting.attempt', {
                 attempt: progress.attempt,
                 total: progress.total,
@@ -103,7 +100,7 @@ export function ReconnectingOverlay() {
                 onClick={retryReconnectNow}
                 title={t('connect.reconnecting.retryNowHint')}
                 aria-label={t('connect.reconnecting.retryNowHint')}
-                className='rounded-lg border border-(--accent) px-4 py-2 text-sm font-medium text-(--accent) transition-opacity hover:opacity-80'
+                className='rounded-lg border border-accent px-4 py-2 text-sm font-medium text-accent transition-opacity hover:opacity-80'
               >
                 {t('connect.reconnecting.retryNow')}
               </button>

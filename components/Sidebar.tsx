@@ -13,7 +13,7 @@ import {
   useMemo,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Settings2, MoreHorizontal } from 'lucide-react';
+import { Plus, Settings2, MoreHorizontal, Filter } from 'lucide-react';
 import {
   useMeshStore,
   openConvo,
@@ -41,6 +41,7 @@ import {
   FAVORITE_FLAG,
 } from '@/lib/meshcore/constants';
 import { useClickOutside } from '@/hooks/useClickOutside';
+import { Switch } from './Switch';
 import type { Contact, Message } from '@/types/meshcore';
 
 const MIN_SECTION_PX = 40;
@@ -192,8 +193,8 @@ export function Sidebar() {
     return Math.ceil(contentH + headerH + sectionPadding) + 1;
   }, []);
   // The heights the Channels section can take: `fit` is what its content needs
-  // (the drag ceiling), `auto` is where an undragged divider sits. Both are
-  // measured, never persisted.
+  // (the drag ceiling), `auto` is where the divider sits before the user drags
+  // it. Both are measured, never persisted.
   const [sectionBounds, setSectionBounds] = useState({ fit: 160, auto: 160 });
 
   useLayoutEffect(() => {
@@ -387,7 +388,7 @@ export function Sidebar() {
         >
           <h2
             id='sidebar-channels'
-            className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'
+            className='text-[11px] font-semibold tracking-widest text-text2 uppercase'
           >
             {t('sidebar.channels')}
           </h2>
@@ -395,7 +396,7 @@ export function Sidebar() {
             onClick={() => setAddChannelOpen(true)}
             title={t('sidebar.addChannel')}
             aria-label={t('sidebar.addChannel')}
-            className='text-(--text2) hover:text-(--accent)'
+            className='text-text2 hover:text-accent'
           >
             <Plus size={16} aria-hidden='true' />
           </button>
@@ -459,15 +460,10 @@ export function Sidebar() {
         tabIndex={0}
         onMouseDown={onDividerMouseDown}
         onKeyDown={onDividerKeyDown}
-        className='group flex h-2 shrink-0 cursor-row-resize items-center justify-center focus-visible:outline-2 focus-visible:outline-(--accent)'
-        style={{
-          borderTop: '1px solid var(--border)',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--surface)',
-        }}
+        className='group flex h-2 shrink-0 cursor-row-resize items-center justify-center border-y border-border bg-surface focus-visible:outline-2 focus-visible:outline-accent'
         title={t('sidebar.dragResize')}
       >
-        <div className='h-0.5 w-8 rounded-full bg-(--border) transition-colors group-hover:bg-(--accent)' />
+        <div className='h-0.5 w-8 rounded-full bg-border transition-colors group-hover:bg-accent' />
       </div>
 
       {/* Contacts */}
@@ -475,7 +471,7 @@ export function Sidebar() {
         <div className='flex shrink-0 items-center justify-between px-3.5 pb-1'>
           <h2
             id='sidebar-contacts'
-            className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'
+            className='text-[11px] font-semibold tracking-widest text-text2 uppercase'
           >
             {t('sidebar.contacts')}
           </h2>
@@ -496,7 +492,7 @@ export function Sidebar() {
               onClick={() => setAutoAddOpen(true)}
               title={t('sidebar.autoAddSettings')}
               aria-label={t('sidebar.autoAddSettings')}
-              className='text-(--text2) hover:text-(--accent)'
+              className='text-text2 hover:text-accent'
             >
               <Settings2 size={15} aria-hidden='true' />
             </button>
@@ -504,7 +500,7 @@ export function Sidebar() {
               onClick={() => setAddContactOpen(true)}
               title={t('sidebar.addContact')}
               aria-label={t('sidebar.addContact')}
-              className='text-(--text2) hover:text-(--accent)'
+              className='text-text2 hover:text-accent'
             >
               <Plus size={16} aria-hidden='true' />
             </button>
@@ -520,7 +516,7 @@ export function Sidebar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('sidebar.searchContacts')}
-            className='w-full rounded-md border border-(--border) bg-(--surface2) px-2 py-1 text-xs text-(--text) outline-none placeholder:text-(--text2) focus:border-(--accent)'
+            className='w-full rounded-md border border-border bg-surface2 px-2 py-1 text-xs text-text outline-none placeholder:text-text2 focus:border-accent'
           />
         </div>
         <div className='flex-1 overflow-y-auto'>
@@ -589,27 +585,14 @@ export function Sidebar() {
         onMouseDown={onWidthMouseDown}
         onKeyDown={onWidthKeyDown}
         title={t('sidebar.dragWidth')}
-        className='absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-(--accent) focus-visible:bg-(--accent) focus-visible:outline-none'
+        className='absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-accent focus-visible:bg-accent focus-visible:outline-none'
       />
     </aside>
   );
 }
 
 function FunnelIcon() {
-  return (
-    <svg
-      viewBox='0 0 16 16'
-      className='h-3.5 w-3.5'
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='1.6'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      aria-hidden='true'
-    >
-      <path d='M2 3h12l-4.5 5.5V13L6.5 11V8.5L2 3Z' />
-    </svg>
-  );
+  return <Filter size={14} aria-hidden='true' />;
 }
 
 function ContactsFilterMenu({
@@ -643,18 +626,12 @@ function ContactsFilterMenu({
         title={t('sidebar.filterContacts')}
         aria-label={t('sidebar.filterContacts')}
         aria-expanded={open}
-        className={`hover:text-(--accent) ${filtering ? 'text-(--accent)' : 'text-(--text2)'}`}
+        className={`hover:text-accent ${filtering ? 'text-accent' : 'text-text2'}`}
       >
         <FunnelIcon />
       </button>
       {open && (
-        <div
-          className='absolute top-full right-0 z-10 mt-1.5 w-44 rounded-[10px] border py-1.5 text-xs shadow-lg'
-          style={{
-            background: 'var(--surface2)',
-            borderColor: 'var(--border)',
-          }}
-        >
+        <div className='absolute top-full right-0 z-10 mt-1.5 w-44 rounded-card border border-border bg-surface2 py-1.5 text-xs shadow-pop'>
           <MenuHeading label={t('sidebar.filterHeading')} />
           {FILTER_OPTIONS.map((opt) => (
             <MenuRow
@@ -664,10 +641,7 @@ function ContactsFilterMenu({
               onClick={() => onFilterChange(opt.value)}
             />
           ))}
-          <div
-            className='my-1 border-t'
-            style={{ borderColor: 'var(--border)' }}
-          />
+          <div className='my-1 border-t border-border' />
           <MenuHeading label={t('sidebar.orderHeading')} />
           {/* Pinning does nothing when the list is already only favorites. */}
           {filter !== 'favorites' && (
@@ -701,30 +675,18 @@ function MenuToggle({
   onClick: () => void;
 }) {
   return (
-    <button
-      role='switch'
-      aria-checked={checked}
-      onClick={onClick}
-      className='flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-(--text) transition-colors hover:bg-(--surface)'
-    >
-      <span className='truncate'>{label}</span>
-      <span
-        className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
-        style={{ background: checked ? 'var(--accent)' : 'var(--border)' }}
-      >
-        <span
-          className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
-            checked ? 'left-3.5' : 'left-0.5'
-          }`}
-        />
-      </span>
-    </button>
+    <Switch
+      checked={checked}
+      onChange={onClick}
+      label={label}
+      className='px-3 py-1.5 transition-colors hover:bg-surface'
+    />
   );
 }
 
 function MenuHeading({ label }: { label: string }) {
   return (
-    <div className='px-3 py-1 text-[10px] font-semibold tracking-widest text-(--text2) uppercase'>
+    <div className='px-3 py-1 text-[10px] font-semibold tracking-widest text-text2 uppercase'>
       {label}
     </div>
   );
@@ -743,8 +705,8 @@ function MenuRow({
     <button
       aria-pressed={selected}
       onClick={onClick}
-      className={`flex w-full items-center justify-between px-3 py-1.5 text-left transition-colors hover:bg-(--surface) ${
-        selected ? 'text-(--accent)' : 'text-(--text)'
+      className={`flex w-full items-center justify-between px-3 py-1.5 text-left transition-colors hover:bg-surface ${
+        selected ? 'text-accent' : 'text-text'
       }`}
     >
       <span className='truncate'>{label}</span>
@@ -781,10 +743,10 @@ function SidebarItem({
       ref={innerRef}
       className={`group flex w-full items-center gap-2 px-3.5 py-2 text-sm transition-colors ${
         disabled
-          ? 'text-(--text2)'
+          ? 'text-text2'
           : active
-            ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-(--accent)'
-            : 'text-(--text) hover:bg-(--surface2)'
+            ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-accent'
+            : 'text-text hover:bg-surface2'
       }`}
     >
       <button
@@ -798,7 +760,7 @@ function SidebarItem({
         <span className='flex-1 truncate'>{label}</span>
       </button>
       {unread > 0 && (
-        <span className='min-w-4.5 rounded-full bg-(--accent-solid) px-1.5 py-0.5 text-center text-[10px] font-bold text-white'>
+        <span className='min-w-4.5 rounded-full bg-accent-solid px-1.5 py-0.5 text-center text-[10px] font-bold text-white'>
           {unread}
         </span>
       )}
@@ -806,7 +768,7 @@ function SidebarItem({
         onClick={onManage}
         title={t('sidebar.manage')}
         aria-label={t('sidebar.manage')}
-        className='shrink-0 text-(--text2) opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:text-(--text)'
+        className='shrink-0 text-text2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:text-text'
       >
         <MoreHorizontal size={16} aria-hidden='true' />
       </button>
@@ -826,11 +788,11 @@ function EmptyState({
   onAction: () => void;
 }) {
   return (
-    <div className='px-3.5 py-3 text-center text-xs text-(--text2)'>
+    <div className='px-3.5 py-3 text-center text-xs text-text2'>
       <p>{message}</p>
       <button
         onClick={onAction}
-        className='mt-1.5 rounded-md px-2 py-1 font-medium text-(--accent) hover:bg-(--surface2)'
+        className='mt-1.5 rounded-md px-2 py-1 font-medium text-accent hover:bg-surface2'
       >
         {actionLabel}
       </button>

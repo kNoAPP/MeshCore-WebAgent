@@ -11,7 +11,15 @@ import {
   useId,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Moon, Sun, Radio, Search, ShieldAlert, Inbox } from 'lucide-react';
+import {
+  Moon,
+  Sun,
+  Radio,
+  Search,
+  ShieldAlert,
+  Inbox,
+  HardDrive,
+} from 'lucide-react';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
@@ -122,18 +130,15 @@ export function Header() {
       : deviceName;
 
   return (
-    <header
-      className='@container flex shrink-0 items-center gap-3 border-b px-4 py-2.5'
-      style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-    >
+    <header className='@container flex shrink-0 items-center gap-3 border-b px-4 py-2.5 bg-surface border-border'>
       {/* Status dot */}
       <div
         className={`h-2 w-2 shrink-0 rounded-full ${
           connected
-            ? 'bg-(--green) shadow-[0_0_6px_var(--green)]'
+            ? 'bg-green shadow-[0_0_6px_var(--green)]'
             : reconnecting
-              ? 'bg-(--amber) shadow-[0_0_6px_var(--amber)]'
-              : 'bg-(--red) shadow-[0_0_6px_var(--red)]'
+              ? 'bg-amber shadow-[0_0_6px_var(--amber)]'
+              : 'bg-red shadow-[0_0_6px_var(--red)]'
         }`}
       />
 
@@ -144,7 +149,7 @@ export function Header() {
       <span
         role='status'
         aria-live='polite'
-        className='shrink-0 text-xs whitespace-nowrap text-(--text2)'
+        className='shrink-0 text-xs whitespace-nowrap text-text2'
       >
         {/* Each ConnectionStatus maps 1:1 to a header.* key. */}
         {t(`header.${status}`)}
@@ -154,7 +159,7 @@ export function Header() {
         /* Chat/Stats/Settings page switch. All tabs are disabled while
            reconnecting — the link is down, so switching views would only show
            stale or half-synced state behind the reconnecting overlay. */
-        <nav className='flex shrink-0 overflow-hidden rounded-md border border-(--border-control)'>
+        <nav className='flex shrink-0 overflow-hidden rounded-md border border-border-control'>
           {(['chat', 'map', 'stats', 'settings'] as const).map((v) => (
             <button
               key={v}
@@ -163,8 +168,8 @@ export function Header() {
               aria-current={view === v ? 'page' : undefined}
               className={`focus-inset px-2.5 py-1 text-xs whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 view === v
-                  ? 'bg-(--accent-solid) text-white inset-ring-1 inset-ring-(--accent)'
-                  : 'text-(--text2) hover:text-(--accent)'
+                  ? 'bg-accent-solid text-white inset-ring-1 inset-ring-accent'
+                  : 'text-text2 hover:text-accent'
               }`}
             >
               {t(`header.${v}`)}
@@ -179,7 +184,7 @@ export function Header() {
           disabled={reconnecting}
           aria-label={t('command.open')}
           title={t('command.openHint')}
-          className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-(--border-control) disabled:hover:text-(--text2)'
+          className='flex shrink-0 items-center gap-1.5 rounded-md border border-border-control px-2.5 py-1 text-xs text-text2 transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-control disabled:hover:text-text2'
         >
           <Search size={13} />
           <span className='font-medium'>{t('command.search')}</span>
@@ -193,14 +198,15 @@ export function Header() {
           <ProposalsButton />
           <KillSwitchButton />
           {connected && battery && (
-            <span className='hidden shrink-0 whitespace-nowrap text-xs text-(--text2) @6xl:inline'>
-              {formatVoltage(battery.voltage)} 💾{' '}
+            <span className='hidden shrink-0 items-center gap-1 whitespace-nowrap text-xs text-text2 @6xl:inline-flex'>
+              {formatVoltage(battery.voltage)}
+              <HardDrive size={12} aria-hidden='true' />
               {formatStorage(battery.usedKB, battery.totalKB)}
             </span>
           )}
           <button
             onClick={disconnect}
-            className='shrink-0 rounded-md border border-(--border-control) px-2.5 py-1 text-xs whitespace-nowrap text-(--text2) transition-colors hover:border-(--red) hover:text-(--red)'
+            className='shrink-0 rounded-md border border-border-control px-2.5 py-1 text-xs whitespace-nowrap text-text2 transition-colors hover:border-red hover:text-red'
           >
             {t('header.disconnect')}
           </button>
@@ -212,7 +218,7 @@ export function Header() {
           value={locale}
           onChange={(e) => setLocale(e.target.value as SupportedLocale)}
           aria-label={t('header.language')}
-          className='ml-auto cursor-pointer rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent)'
+          className='ml-auto cursor-pointer rounded-md border border-border-control bg-surface px-2 py-1 text-xs text-text2 transition-colors hover:border-accent hover:text-accent'
         >
           {SUPPORTED_LOCALES.map((l) => (
             <option key={l} value={l}>
@@ -226,7 +232,7 @@ export function Header() {
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         aria-label={t('theme.toggle')}
         title={t('theme.toggle')}
-        className={`flex shrink-0 items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) ${
+        className={`flex shrink-0 items-center justify-center rounded-md border border-border-control p-1.5 text-text2 transition-colors hover:border-accent hover:text-accent ${
           active ? '' : 'ml-2'
         }`}
       >
@@ -247,13 +253,13 @@ function DeviceName({ name, detail }: { name: string; detail: string }) {
       aria-describedby={tooltipId}
       className='group/dev relative ml-auto min-w-0 max-w-[16ch] cursor-help'
     >
-      <span className='block truncate text-sm font-semibold text-(--accent)'>
+      <span className='block truncate text-sm font-semibold text-accent'>
         {name}
       </span>
       <span
         id={tooltipId}
         role='tooltip'
-        className='pointer-events-none absolute top-full right-0 z-20 mt-1 hidden w-max max-w-xs rounded-md border border-(--border) bg-(--surface2) px-2 py-1 text-xs font-normal text-(--text) shadow-lg group-hover/dev:block group-focus/dev:block'
+        className='pointer-events-none absolute top-full right-0 z-20 mt-1 hidden w-max max-w-xs rounded-md border border-border bg-surface2 px-2 py-1 text-xs font-normal text-text shadow-pop group-hover/dev:block group-focus/dev:block'
       >
         {detail}
       </span>
@@ -279,7 +285,7 @@ function ProposalsInbox({ count }: { count: number }) {
         onClick={() => setOpen(true)}
         aria-label={t('automation.inbox.title', { count })}
         title={t('automation.inbox.title', { count })}
-        className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--accent) px-2.5 py-1 text-xs font-semibold text-(--accent) transition-colors hover:bg-(--accent-solid) hover:text-white'
+        className='flex shrink-0 items-center gap-1.5 rounded-md border border-accent px-2.5 py-1 text-xs font-semibold text-accent transition-colors hover:bg-accent-solid hover:text-white'
       >
         <Inbox size={13} />
         {count}
@@ -310,7 +316,7 @@ function KillSwitchButton() {
       }}
       aria-label={t('automation.kill')}
       title={t('automation.killHint')}
-      className='flex shrink-0 items-center gap-1.5 rounded-md border border-(--red) px-2.5 py-1 text-xs font-semibold text-(--red) transition-colors hover:bg-(--red-solid) hover:text-white'
+      className='flex shrink-0 items-center gap-1.5 rounded-md border border-red px-2.5 py-1 text-xs font-semibold text-red transition-colors hover:bg-red-solid hover:text-white'
     >
       <ShieldAlert size={13} />
       {t('automation.kill')}
@@ -345,7 +351,7 @@ function AdvertMenu() {
   };
 
   const itemClass =
-    'focus-inset block w-full px-3 py-2 text-left text-xs text-(--text) hover:bg-(--surface) hover:text-(--accent)';
+    'focus-inset block w-full px-3 py-2 text-left text-xs text-text hover:bg-surface hover:text-accent';
 
   return (
     <div className='relative shrink-0' ref={ref}>
@@ -356,15 +362,14 @@ function AdvertMenu() {
         title={t('header.advertise')}
         aria-haspopup='menu'
         aria-expanded={open}
-        className='flex items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:border-(--accent) hover:text-(--accent) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-(--border-control) disabled:hover:text-(--text2)'
+        className='flex items-center justify-center rounded-md border border-border-control p-1.5 text-text2 transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-control disabled:hover:text-text2'
       >
         <Radio size={15} />
       </button>
       {open && (
         <div
           role='menu'
-          className='absolute top-full right-0 z-20 mt-1 min-w-max overflow-hidden rounded-md border border-(--border) shadow-lg'
-          style={{ background: 'var(--surface2)' }}
+          className='absolute top-full right-0 z-20 mt-1 min-w-max overflow-hidden rounded-md border border-border shadow-pop bg-surface2'
         >
           <button
             role='menuitem'

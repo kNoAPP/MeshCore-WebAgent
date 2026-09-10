@@ -163,8 +163,7 @@ export function AddContactModal() {
             },
           )
         }
-        className='mb-3 flex gap-1 rounded-md p-1'
-        style={{ background: 'var(--bg)' }}
+        className='mb-3 flex gap-1 rounded-md p-1 bg-bg'
       >
         {MODES.map((m) => (
           <button
@@ -180,8 +179,8 @@ export function AddContactModal() {
             }}
             className={`flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors ${
               mode === m.id
-                ? 'bg-(--accent-solid) text-white inset-ring-1 inset-ring-(--accent)'
-                : 'text-(--text2) hover:bg-(--surface2)'
+                ? 'bg-accent-solid text-white inset-ring-1 inset-ring-accent'
+                : 'text-text2 hover:bg-surface2'
             }`}
           >
             {t(m.labelKey)}
@@ -194,12 +193,12 @@ export function AddContactModal() {
         aria-labelledby={`add-contact-tab-${mode}`}
       >
         {(mode !== 'discover' || cachedAdverts.length > 0) && (
-          <p className='mb-4 text-xs text-(--text2)'>{hint}</p>
+          <p className='mb-4 text-xs text-text2'>{hint}</p>
         )}
 
         {mode === 'discover' ? (
           cachedAdverts.length === 0 ? (
-            <p className='py-8 text-center text-sm text-(--text2)'>
+            <p className='py-8 text-center text-sm text-text2'>
               {t('discover.empty')}
             </p>
           ) : (
@@ -207,18 +206,18 @@ export function AddContactModal() {
               <div className='relative mb-3'>
                 <Search
                   size={16}
-                  className='absolute top-1/2 left-3 -translate-y-1/2 text-(--text2)'
+                  className='absolute top-1/2 left-3 -translate-y-1/2 text-text2'
                 />
                 <input
                   value={discoverQuery}
                   onChange={(e) => setDiscoverQuery(e.target.value)}
                   placeholder={t('discover.searchPlaceholder')}
                   aria-label={t('discover.searchPlaceholder')}
-                  className='w-full rounded-md border border-(--border) bg-(--bg) px-9 py-2 text-sm outline-none focus:border-(--accent)'
+                  className='w-full rounded-md border border-border bg-bg px-9 py-2 text-sm outline-none focus:border-accent'
                 />
               </div>
               {heard.length === 0 ? (
-                <p className='py-8 text-center text-sm text-(--text2)'>
+                <p className='py-8 text-center text-sm text-text2'>
                   {t('discover.noMatches')}
                 </p>
               ) : (
@@ -237,7 +236,7 @@ export function AddContactModal() {
                       return (
                         <div
                           key={a.pubkeyPrefix}
-                          className='flex items-center gap-3 rounded-md px-2 py-2 hover:bg-(--surface2)'
+                          className='flex items-center gap-3 rounded-md px-2 py-2 hover:bg-surface2'
                         >
                           <span className='text-base'>
                             {ADV_ICON[a.advType] ?? '👤'}
@@ -246,7 +245,7 @@ export function AddContactModal() {
                             <div className='truncate text-sm'>
                               {a.name || a.pubkeyPrefix.slice(0, 8)}
                             </div>
-                            <div className='truncate text-xs text-(--text2)'>
+                            <div className='truncate text-xs text-text2'>
                               {t(
                                 ADV_LABEL_KEY[
                                   a.advType as keyof typeof ADV_LABEL_KEY
@@ -256,22 +255,21 @@ export function AddContactModal() {
                               {formatPubkey(a.pubkey, showFullPublicKeys)}
                             </div>
                             {location && (
-                              <div className='truncate text-xs text-(--text2)'>
+                              <div className='truncate text-xs text-text2'>
                                 {location}
                                 {distance && ` · ${distance}`}
                               </div>
                             )}
                           </div>
                           {added ? (
-                            <span className='text-xs text-(--green)'>
+                            <span className='text-xs text-green'>
                               {t('discover.added')}
                             </span>
                           ) : (
                             <button
                               disabled={!connected}
                               onClick={() => addDiscoveredContact(a)}
-                              className='rounded-md px-3 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
-                              style={{ background: 'var(--accent-solid)' }}
+                              className='rounded-md px-3 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 bg-accent-solid'
                             >
                               {t('discover.add')}
                             </button>
@@ -281,7 +279,7 @@ export function AddContactModal() {
                     })}
                   </div>
                   {heard.length > DISCOVER_RENDER_CAP && (
-                    <p className='mt-3 text-center text-xs text-(--text2)'>
+                    <p className='mt-3 text-center text-xs text-text2'>
                       {t('discover.showing', {
                         shown: DISCOVER_RENDER_CAP,
                         total: heard.length,
@@ -295,48 +293,48 @@ export function AddContactModal() {
         ) : mode === 'paste' ? (
           <div className='space-y-4'>
             <label className='block'>
-              <span className='mb-1 block text-xs text-(--text2)'>
+              <span className='mb-1 block text-xs text-text2'>
                 {t('addContact.link')}
               </span>
               <input
                 value={link}
                 onChange={(e) => setLink(e.target.value)}
                 placeholder={t('addContact.linkPlaceholder')}
-                className='w-full rounded-md border border-(--border) bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
+                className='w-full rounded-md border border-border bg-bg px-3 py-2 font-mono text-xs outline-none focus:border-accent'
               />
             </label>
-            {error && <p className='text-xs text-(--red)'>{error}</p>}
+            {error && <p className='text-xs text-red'>{error}</p>}
           </div>
         ) : (
           <div className='space-y-4'>
             <label className='block'>
-              <span className='mb-1 block text-xs text-(--text2)'>
+              <span className='mb-1 block text-xs text-text2'>
                 {t('addContact.name')}
               </span>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={32}
-                className='w-full rounded-md border border-(--border) bg-(--bg) px-3 py-2 text-sm outline-none focus:border-(--accent)'
+                className='w-full rounded-md border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent'
               />
             </label>
 
             <label className='block'>
-              <span className='mb-1 block text-xs text-(--text2)'>
+              <span className='mb-1 block text-xs text-text2'>
                 {t('addContact.publicKey')}
               </span>
               <input
                 value={pubkey}
                 onChange={(e) => setPubkey(e.target.value)}
                 placeholder={t('addContact.publicKeyPlaceholder')}
-                className={`w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none ${
+                className={`w-full rounded-md border bg-bg px-3 py-2 font-mono text-xs outline-none ${
                   pubkey && !keyValid
-                    ? 'border-(--red)'
-                    : 'border-(--border) focus:border-(--accent)'
+                    ? 'border-red'
+                    : 'border-border focus:border-accent'
                 }`}
               />
               {pubkey && !keyValid && (
-                <span className='mt-1 block text-xs text-(--red)'>
+                <span className='mt-1 block text-xs text-red'>
                   {t('addContact.error.invalidKey')}
                 </span>
               )}
@@ -344,7 +342,7 @@ export function AddContactModal() {
 
             <div>
               <span
-                className='mb-1 block text-xs text-(--text2)'
+                className='mb-1 block text-xs text-text2'
                 id='add-contact-type'
               >
                 {t('addContact.type')}
@@ -373,8 +371,8 @@ export function AddContactModal() {
                     onClick={() => setAdvType(type)}
                     className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
                       advType === type
-                        ? 'border-(--accent) text-(--accent)'
-                        : 'border-(--border) text-(--text2) hover:bg-(--surface2)'
+                        ? 'border-accent text-accent'
+                        : 'border-border text-text2 hover:bg-surface2'
                     }`}
                   >
                     <span>{ADV_ICON[type]}</span>
@@ -384,7 +382,7 @@ export function AddContactModal() {
               </div>
             </div>
 
-            {error && <p className='text-xs text-(--red)'>{error}</p>}
+            {error && <p className='text-xs text-red'>{error}</p>}
           </div>
         )}
       </div>
@@ -392,14 +390,14 @@ export function AddContactModal() {
       <div className='mt-6 flex justify-end gap-2'>
         <button
           onClick={close}
-          className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+          className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
         >
           {mode === 'discover' ? t('common.close') : t('common.cancel')}
         </button>
         {mode !== 'discover' && (
           <button
             onClick={mode === 'paste' ? useLink : submit}
-            className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--accent-hover)'
+            className='rounded-md bg-accent-solid px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover'
           >
             {mode === 'paste' ? t('addContact.review') : t('addContact.add')}
           </button>

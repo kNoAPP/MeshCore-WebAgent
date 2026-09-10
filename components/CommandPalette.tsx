@@ -50,7 +50,7 @@ function Highlighted({
     if (from > end) continue;
     if (from > cursor) parts.push(text.slice(cursor, from));
     parts.push(
-      <span key={from} className='font-semibold text-(--accent)'>
+      <span key={from} className='font-semibold text-accent'>
         {text.slice(from, end + 1)}
       </span>,
     );
@@ -87,22 +87,22 @@ function ResultRow({
       onClick={onActivate}
       onMouseMove={onHover}
       className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left ${
-        active ? 'bg-(--surface2)' : ''
+        active ? 'bg-surface2' : ''
       }`}
     >
-      <Icon size={16} className='shrink-0 text-(--text2)' />
+      <Icon size={16} className='shrink-0 text-text2' />
       <span className='flex min-w-0 flex-1 flex-col'>
-        <span className='truncate text-sm text-(--text)'>
+        <span className='truncate text-sm text-text'>
           <Highlighted text={result.primary} ranges={result.highlight} />
         </span>
         {result.secondary && (
-          <span className='truncate text-xs text-(--text2)'>
+          <span className='truncate text-xs text-text2'>
             {result.secondary}
           </span>
         )}
       </span>
       {result.timestamp != null && (
-        <span className='shrink-0 text-xs text-(--text2)'>
+        <span className='shrink-0 text-xs text-text2'>
           {formatRelative(result.timestamp)}
         </span>
       )}
@@ -199,7 +199,7 @@ export function CommandPalette(): React.ReactElement {
         <div className='relative mb-3'>
           <Search
             size={16}
-            className='absolute top-1/2 left-3 -translate-y-1/2 text-(--text2)'
+            className='absolute top-1/2 left-3 -translate-y-1/2 text-text2'
           />
           <input
             ref={inputRef}
@@ -228,7 +228,7 @@ export function CommandPalette(): React.ReactElement {
                 inputRef.current?.focus();
               }}
               aria-label={t('command.clear')}
-              className='absolute top-1/2 right-3 -translate-y-1/2 text-(--text2) hover:text-(--text)'
+              className='absolute top-1/2 right-3 -translate-y-1/2 text-text2 hover:text-text'
             >
               <X size={16} />
             </button>
@@ -247,7 +247,7 @@ export function CommandPalette(): React.ReactElement {
           className='max-h-[50vh] overflow-y-auto'
         >
           {flat.length === 0 ? (
-            <p className='py-8 text-center text-sm text-(--text2)'>
+            <p className='py-8 text-center text-sm text-text2'>
               {t('command.empty')}
             </p>
           ) : (
@@ -260,7 +260,7 @@ export function CommandPalette(): React.ReactElement {
               >
                 <div
                   aria-hidden='true'
-                  className='px-3 py-1 text-[11px] font-semibold tracking-widest text-(--text2) uppercase'
+                  className='px-3 py-1 text-[11px] font-semibold tracking-widest text-text2 uppercase'
                 >
                   {t(group.headingKey)}
                 </div>

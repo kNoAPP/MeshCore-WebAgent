@@ -13,6 +13,7 @@ import {
   Fragment,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ArrowDown, Send } from 'lucide-react';
 import { useMeshStore, isConvoVisible } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import {
@@ -545,7 +546,7 @@ export function ChatArea() {
 
   if (!activeConvo) {
     return (
-      <div className='flex flex-1 items-center justify-center text-sm text-(--text2)'>
+      <div className='flex flex-1 items-center justify-center text-sm text-text2'>
         {t('chat.empty')}
       </div>
     );
@@ -571,14 +572,11 @@ export function ChatArea() {
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
       {/* Chat header */}
-      <div
-        className='flex shrink-0 items-center gap-2.5 border-b px-4 py-3'
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
+      <div className='flex shrink-0 items-center gap-2.5 border-b px-4 py-3 bg-surface border-border'>
         <span className='text-lg'>{icon}</span>
         <span className='text-[15px] font-semibold'>{activeConvo.label}</span>
         {directContact && <RouteChip contact={directContact} />}
-        <span className='ml-auto text-xs text-(--text2)'>
+        <span className='ml-auto text-xs text-text2'>
           {activeConvo.kind === 'channel'
             ? t('common.channelName', { index: activeConvo.rawId })
             : formatPubkey(
@@ -605,7 +603,7 @@ export function ChatArea() {
           onScroll={handleMessagesScroll}
         >
           {messages.length === 0 && (
-            <div className='mt-8 text-center text-xs text-(--text2)'>
+            <div className='mt-8 text-center text-xs text-text2'>
               {t('chat.noMessages')}
             </div>
           )}
@@ -642,7 +640,7 @@ export function ChatArea() {
               <Fragment key={msg.id ?? firstVisible + i}>
                 {dividerTs != null && (
                   <div className='my-1 flex justify-center'>
-                    <div className='rounded-lg border border-dashed border-(--border) px-3 py-1.5 text-[11px] text-(--text2)'>
+                    <div className='rounded-lg border border-dashed border-border px-3 py-1.5 text-[11px] text-text2'>
                       {formatDateDivider(dividerTs)}
                     </div>
                   </div>
@@ -652,20 +650,11 @@ export function ChatArea() {
                     className='my-1 flex items-center gap-2'
                     data-unread-divider
                   >
-                    <div
-                      className='h-px flex-1'
-                      style={{ background: 'var(--red)' }}
-                    />
-                    <span
-                      className='text-[11px] font-semibold'
-                      style={{ color: 'var(--red)' }}
-                    >
+                    <div className='h-px flex-1 bg-red' />
+                    <span className='text-[11px] font-semibold text-red'>
                       {t('chat.lastUnread')}
                     </span>
-                    <div
-                      className='h-px flex-1'
-                      style={{ background: 'var(--red)' }}
-                    />
+                    <div className='h-px flex-1 bg-red' />
                   </div>
                 )}
                 <div
@@ -673,7 +662,7 @@ export function ChatArea() {
                   data-msg-id={msg.id}
                 >
                   {!msg.system && (
-                    <div className='px-1 text-[11px] text-(--text2)'>
+                    <div className='px-1 text-[11px] text-text2'>
                       {senderLabel}
                     </div>
                   )}
@@ -684,10 +673,7 @@ export function ChatArea() {
                     mentioned={mentioned}
                     statusActions={
                       msg.own && msg.status === 'failed' ? (
-                        <span
-                          className='mr-1.5 inline-flex items-center gap-1.5'
-                          style={{ color: 'var(--amber)' }}
-                        >
+                        <span className='mr-1.5 inline-flex items-center gap-1.5 text-amber'>
                           <span title={t('chat.noAckTooltip')}>
                             {t('chat.noAck')}
                           </span>
@@ -726,35 +712,27 @@ export function ChatArea() {
           <button
             type='button'
             onClick={jumpToBottom}
-            className='absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-md transition hover:opacity-90'
-            style={{ background: 'var(--accent-solid)' }}
+            className='absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-accent-solid px-3.5 py-1.5 text-xs font-semibold text-white shadow-pop transition hover:opacity-90'
           >
             {t('chat.newMessages')}
-            <span aria-hidden>↓</span>
+            <ArrowDown size={13} aria-hidden='true' />
           </button>
         )}
       </div>
 
       {/* Input bar */}
       {directContact?.advType === ADV_TYPE_REPEATER ? (
-        <div
-          className='shrink-0 border-t px-4 py-3 text-center text-xs text-(--text2)'
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-        >
+        <div className='shrink-0 border-t px-4 py-3 text-center text-xs text-text2 bg-surface border-border'>
           {t('chat.repeaterCantMessage')}
         </div>
       ) : (
-        <div
-          className='relative flex shrink-0 flex-col border-t'
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-        >
+        <div className='relative flex shrink-0 flex-col border-t bg-surface border-border'>
           {suggestions.length > 0 && (
             <ul
               id={MENTION_LISTBOX_ID}
               role='listbox'
               aria-label={t('chat.mentions')}
-              className='absolute right-4 bottom-full left-4 mb-1 overflow-hidden rounded-[10px] border border-(--border) shadow-lg'
-              style={{ background: 'var(--surface2)' }}
+              className='absolute right-4 bottom-full left-4 mb-1 overflow-hidden rounded-card border border-border shadow-pop bg-surface2'
             >
               {suggestions.map((name, i) => (
                 <li key={name} role='presentation'>
@@ -769,10 +747,8 @@ export function ChatArea() {
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => insertMention(name)}
                     onMouseMove={() => setMentionIndex(i)}
-                    className={`block w-full px-3 py-2 text-left text-sm text-(--text) hover:text-(--accent) ${
-                      i === activeMentionIndex
-                        ? 'bg-(--surface) text-(--accent)'
-                        : ''
+                    className={`block w-full px-3 py-2 text-left text-sm text-text hover:text-accent ${
+                      i === activeMentionIndex ? 'bg-surface text-accent' : ''
                     }`}
                   >
                     @{name}
@@ -787,7 +763,7 @@ export function ChatArea() {
               paints. */}
           <div role='status'>
             {overLimit && (
-              <div className='px-4 pt-2 text-[11px] text-(--red)'>
+              <div className='px-4 pt-2 text-[11px] text-red'>
                 {t('chat.overByteLimit')}
               </div>
             )}
@@ -814,9 +790,9 @@ export function ChatArea() {
                   ? mentionOptionId(activeMentionIndex)
                   : undefined
               }
-              className='flex-1 resize-none overflow-y-hidden rounded-[10px] border border-(--border) bg-(--surface2) px-3 py-2
-              text-sm text-(--text) outline-none
-              placeholder:text-(--text2) focus:border-(--accent)'
+              className='flex-1 resize-none overflow-y-hidden rounded-card border border-border bg-surface2 px-3 py-2
+              text-sm text-text outline-none
+              placeholder:text-text2 focus:border-accent'
               style={{ maxHeight: 120 }}
             />
             {/* A native textarea can't carry aria-expanded, so this live
@@ -829,10 +805,10 @@ export function ChatArea() {
             <span
               className={`self-center text-[11px] ${
                 overLimit
-                  ? 'text-(--red)'
+                  ? 'text-red'
                   : byteCount > maxBytes - 20
-                    ? 'text-(--yellow)'
-                    : 'text-(--text2)'
+                    ? 'text-yellow'
+                    : 'text-text2'
               }`}
             >
               {byteCount}/{maxBytes}
@@ -842,11 +818,11 @@ export function ChatArea() {
               onClick={handleSend}
               disabled={!text.trim() || overLimit}
               aria-label={t('chat.send')}
-              className='flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-(--accent-solid)
-              text-base text-white transition-opacity
+              className='flex h-9 w-9 shrink-0 items-center justify-center rounded-card bg-accent-solid
+              text-white transition-opacity
               hover:opacity-85 disabled:opacity-40'
             >
-              ➤
+              <Send size={16} aria-hidden='true' />
             </button>
           </div>
         </div>

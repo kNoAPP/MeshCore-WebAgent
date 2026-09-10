@@ -6,6 +6,7 @@
 import { memo, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
+import { Check, CheckCheck, Clock, type LucideIcon } from 'lucide-react';
 import type { Message } from '@/types/meshcore';
 import { formatTime } from '@/lib/i18n/format';
 import { CopyButton } from './CopyButton';
@@ -70,14 +71,16 @@ function renderText(
         key={i}
         className={
           isSelf
-            ? // Own bubbles are already a deep accent fill, so the pale-tint
-              // `.mention-self` override would bury the name there.
+            ? // Own bubbles are already a deep accent fill, so the surface
+              // tone would bury the name there.
               own
-              ? 'font-semibold text-yellow-300'
-              : 'mention-self font-semibold text-yellow-300'
+              ? 'font-semibold text-mention-own'
+              : 'font-semibold text-mention'
             : own
-              ? 'font-semibold text-lime-300'
-              : 'font-semibold text-(--accent)'
+              ? // Already white on the deep accent fill; weight alone marks
+                // the mention, since no tint clears 4.5:1 against it.
+                'font-semibold text-white'
+              : 'font-semibold text-accent'
         }
       >
         @{part.slice(2, -1)}
@@ -91,32 +94,32 @@ function renderText(
 function statusTick(
   t: TFunction,
   msg: Message,
-): { glyph: string; title: string; color?: string } | null {
+): { Icon: LucideIcon; title: string; className?: string } | null {
   if (!msg.own || !msg.status) return null;
   switch (msg.status) {
     case 'sending':
-      return { glyph: '⏳', title: t('message.sending') };
+      return { Icon: Clock, title: t('message.sending') };
     case 'sent':
       return msg.kind === 'channel'
         ? {
-            glyph: '✓',
+            Icon: Check,
             title: t('message.broadcastSent'),
           }
         : {
-            glyph: '✓',
+            Icon: Check,
             title: msg.routeFlood
               ? t('message.sentFloodAwaiting')
               : t('message.sentAwaiting'),
           };
     case 'delivered':
       return {
-        glyph: '✓✓',
+        Icon: CheckCheck,
         title: msg.roundTripMs
           ? t('message.deliveredIn', {
               seconds: (msg.roundTripMs / 1000).toFixed(1),
             })
           : t('message.delivered'),
-        color: 'var(--green)',
+        className: 'text-green',
       };
     case 'failed':
       // The "! No acknowledgment" row rendered below the bubble covers this
@@ -149,7 +152,7 @@ export const MessageBubble = memo(function MessageBubble({
   if (msg.system) {
     return (
       <div className='my-1 flex justify-center'>
-        <div className='rounded-lg border border-dashed border-(--border) px-3 py-1.5 text-[11px] text-(--text2) italic'>
+        <div className='rounded-lg border border-dashed border-border px-3 py-1.5 text-[11px] text-text2 italic'>
           {text}
         </div>
       </div>
@@ -166,10 +169,10 @@ export const MessageBubble = memo(function MessageBubble({
         <div
           className={`max-w-[70%] px-3 py-2 text-sm leading-snug whitespace-pre-wrap wrap-break-word ${
             msg.own
-              ? 'rounded-[14px_4px_14px_14px] bg-(--accent-solid) text-white'
+              ? 'rounded-[14px_4px_14px_14px] bg-accent-solid text-white'
               : mentioned
-                ? 'rounded-[4px_14px_14px_14px] border border-yellow-400/60 bg-yellow-400/10 text-(--text)'
-                : 'rounded-[4px_14px_14px_14px] bg-(--surface2) text-(--text)'
+                ? 'rounded-[4px_14px_14px_14px] border border-mention/60 bg-mention/10 text-text'
+                : 'rounded-[4px_14px_14px_14px] bg-surface2 text-text'
           }`}
         >
           {renderText(text, deviceName, msg.own ?? false)}
@@ -178,15 +181,16 @@ export const MessageBubble = memo(function MessageBubble({
           <CopyButton value={text} />
         </span>
       </div>
-      <div className='px-1 text-[10px] text-(--text2)'>
+      <div className='px-1 text-[10px] text-text2'>
         {statusActions}
         {tick && (
           <span
             title={tick.title}
-            className='mr-1 cursor-default font-semibold'
-            style={tick.color ? { color: tick.color } : undefined}
+            aria-label={tick.title}
+            role='img'
+            className={`mr-1 inline-flex cursor-default align-middle ${tick.className ?? ''}`}
           >
-            {tick.glyph}
+            <tick.Icon size={12} aria-hidden='true' />
           </span>
         )}
         {metaParts(t, msg, time).map((part, i) => (
@@ -269,8 +273,8 @@ function PathToken({
         id={tooltipId}
         role='tooltip'
         className='pointer-events-none absolute bottom-full left-0 z-20 mb-1 hidden w-max max-w-60
-          rounded-md border border-(--border) bg-(--surface2) px-2 py-1 font-mono text-(--text)
-          shadow-lg group-hover/path:block group-focus/path:block'
+          rounded-md border border-border bg-surface2 px-2 py-1 font-mono text-text
+          shadow-pop group-hover/path:block group-focus/path:block'
       >
         {title}
       </span>

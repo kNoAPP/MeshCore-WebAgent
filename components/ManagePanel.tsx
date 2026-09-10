@@ -100,10 +100,10 @@ function ManagePanelView() {
             }}
           />
         ) : (
-          <div className='mt-6 flex justify-end border-t border-(--border) pt-4'>
+          <div className='mt-6 flex justify-end border-t border-border pt-4'>
             <button
               onClick={() => setConfirming(true)}
-              className='rounded-md bg-(--red-dim) px-3 py-1.5 text-sm text-white hover:bg-(--red-dim-hover)'
+              className='rounded-md bg-red-dim px-3 py-1.5 text-sm text-white hover:bg-red-dim-hover'
             >
               {t('manage.removeChannel')}
             </button>
@@ -152,8 +152,8 @@ function ManagePanelView() {
             <DetailRow label={t('manage.distance')} value={distance} />
           )}
         </div>
-        <div className='mt-4 flex items-center justify-between gap-3 border-t border-(--border) pt-4'>
-          <p className='text-xs text-(--text2)'>
+        <div className='mt-4 flex items-center justify-between gap-3 border-t border-border pt-4'>
+          <p className='text-xs text-text2'>
             {connected ? t('manage.advertHint') : t('manage.advertConnectHint')}
           </p>
           <button
@@ -162,7 +162,7 @@ function ManagePanelView() {
               void addDiscoveredContact(advert);
               close();
             }}
-            className='shrink-0 rounded-md bg-(--accent-solid) px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
+            className='shrink-0 rounded-md bg-accent-solid px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
           >
             {t('manage.addContact')}
           </button>
@@ -251,30 +251,30 @@ function ManagePanelView() {
               }}
             />
           ) : (
-            <div className='mt-6 flex flex-wrap justify-end gap-2 border-t border-(--border) pt-4'>
+            <div className='mt-6 flex flex-wrap justify-end gap-2 border-t border-border pt-4'>
               <button
                 onClick={() => toggleFavorite(contact)}
-                className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+                className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
               >
                 {isFav ? t('manage.unfavorite') : t('manage.favorite')}
               </button>
               {hasRoute && (
                 <button
                   onClick={() => resetContactPath(contact)}
-                  className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+                  className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
                 >
                   {t('manage.resetRoute')}
                 </button>
               )}
               <button
                 onClick={() => setSharing(true)}
-                className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+                className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
               >
                 {t('manage.share')}
               </button>
               <button
                 onClick={() => setConfirming(true)}
-                className='rounded-md bg-(--red-dim) px-3 py-1.5 text-sm text-white hover:bg-(--red-dim-hover)'
+                className='rounded-md bg-red-dim px-3 py-1.5 text-sm text-white hover:bg-red-dim-hover'
               >
                 {t('common.remove')}
               </button>
@@ -387,7 +387,7 @@ function ChannelDetails({ channel }: { channel: Channel }) {
       <DetailRow label={t('manage.messages')} value={String(msgCount)} />
       {secretHex && (
         <div className='flex items-center gap-3 text-sm'>
-          <span className='w-24 shrink-0 text-(--text2)'>
+          <span className='w-24 shrink-0 text-text2'>
             {t('manage.secretKey')}
           </span>
           <button
@@ -403,7 +403,7 @@ function ChannelDetails({ channel }: { channel: Channel }) {
               {secretHex}
             </span>
             {!reveal && (
-              <span className='absolute inset-0 flex items-center justify-center text-(--text2)'>
+              <span className='absolute inset-0 flex items-center justify-center text-text2'>
                 <Eye size={16} />
               </span>
             )}
@@ -426,18 +426,18 @@ function ConfirmRow({
 }) {
   const { t } = useTranslation();
   return (
-    <div className='mt-6 flex items-center justify-between gap-3 border-t border-(--border) pt-4'>
-      <span className='text-sm text-(--text2)'>{message}</span>
+    <div className='mt-6 flex items-center justify-between gap-3 border-t border-border pt-4'>
+      <span className='text-sm text-text2'>{message}</span>
       <div className='flex shrink-0 gap-2'>
         <button
           onClick={onCancel}
-          className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+          className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
         >
           {t('common.cancel')}
         </button>
         <button
           onClick={onConfirm}
-          className='rounded-md bg-(--red-solid) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--red-hover)'
+          className='rounded-md bg-red-solid px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-hover'
         >
           {t('common.remove')}
         </button>
@@ -465,7 +465,7 @@ function DetailRow({
 }) {
   return (
     <div className='flex items-center gap-3 text-sm'>
-      <span className='w-24 shrink-0 text-(--text2)'>{label}</span>
+      <span className='w-24 shrink-0 text-text2'>{label}</span>
       <span className={`flex-1 break-all ${mono ? 'font-mono text-xs' : ''}`}>
         {value}
       </span>

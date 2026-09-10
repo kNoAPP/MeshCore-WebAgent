@@ -23,8 +23,7 @@ export function SyncCard({
 }) {
   return (
     <div
-      className={`w-105 max-w-[95vw] rounded-[10px] border p-8 ${className}`}
-      style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      className={`w-105 max-w-[95vw] rounded-card border border-border bg-surface p-8 ${className}`}
     >
       {children}
     </div>
@@ -49,7 +48,7 @@ export function DisconnectButton({
     <div className={className}>
       <button
         onClick={disconnect}
-        className='rounded-lg border border-(--border) px-4 py-2 text-sm font-medium text-(--text2) transition-colors hover:border-(--red) hover:text-(--red)'
+        className='rounded-lg border border-border px-4 py-2 text-sm font-medium text-text2 transition-colors hover:border-red hover:text-red'
       >
         {t('header.disconnect')}
       </button>
@@ -74,7 +73,7 @@ export function SyncDialog({
   return (
     <SyncCard>
       <h2 className='mb-1 text-xl font-bold'>{title}</h2>
-      <p className='mb-5 text-sm text-(--text2)'>{subtitle}</p>
+      <p className='mb-5 text-sm text-text2'>{subtitle}</p>
       <SyncProgressView progress={progress} />
       <DisconnectButton />
     </SyncCard>

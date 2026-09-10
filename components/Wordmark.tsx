@@ -8,7 +8,7 @@
 export function Wordmark() {
   return (
     <>
-      Mesh<span className='text-(--accent)'>Core</span> WebAgent
+      Mesh<span className='text-accent'>Core</span> WebAgent
     </>
   );
 }

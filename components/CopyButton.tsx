@@ -37,14 +37,11 @@ export function CopyButton({
       <button
         onClick={copy}
         aria-label={tooltip}
-        className='text-(--text2) transition-colors hover:text-(--text)'
+        className='text-text2 transition-colors hover:text-text'
       >
         <Copy size={14} />
       </button>
-      <span
-        className='pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
-        style={{ background: 'var(--surface2)', color: 'var(--text)' }}
-      >
+      <span className='pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 bg-surface2 text-text'>
         {copied ? t('common.copied') : tooltip}
       </span>
       <span className='sr-only' role='status'>
