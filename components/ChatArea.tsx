@@ -144,42 +144,40 @@ export function ChatArea() {
     [activeConvo, msgHistory],
   );
 
-  // How many of the newest messages are mounted. History is unbounded and a
-  // long-lived radio accumulates thousands, so only the tail is rendered and
-  // scrolling to the top pages the next chunk in. Tagged with the conversation
-  // it was raised in, so opening another one starts from a single page again.
-  const [messageWindow, setMessageWindow] = useState({
-    convoId,
-    count: MESSAGE_PAGE,
-  });
+  // The oldest message index the window has been opened back to — by scrolling
+  // up, or by a jump — or -1 for just the newest page. An index rather than a
+  // tail count because history only ever appends: an index survives an
+  // incoming message untouched, where a count would have to grow on every one
+  // to hold the same messages mounted.
+  const [messageWindow, setMessageWindow] = useState({ convoId, start: -1 });
   const sameConvo = messageWindow.convoId === convoId;
-  const openedCount = sameConvo ? messageWindow.count : MESSAGE_PAGE;
-  // The oldest message the window has to reach regardless of paging: a
-  // command-palette jump target, or the "last unread" divider the open-
-  // conversation effect scrolls to. Either can sit arbitrarily far back.
-  const anchorIdx = useMemo(() => {
-    let oldest = -1;
-    for (const id of [scrollToMsgId, unreadMarker]) {
-      if (!id) continue;
-      const idx = messages.findIndex((m) => m.id === id);
-      if (idx !== -1 && (oldest === -1 || idx < oldest)) oldest = idx;
-    }
-    return oldest;
-  }, [messages, scrollToMsgId, unreadMarker]);
-  // Reset on a conversation switch and widen for an anchor, both during render
-  // — React's "adjust state when an input changes" pattern — so the anchor is
-  // in the DOM when the scroll effects run and stays mounted after a one-shot
-  // jump request clears.
-  const neededCount =
-    anchorIdx === -1 ? 0 : messages.length - anchorIdx + MESSAGE_PAGE;
-  if (!sameConvo || neededCount > openedCount) {
-    setMessageWindow({
-      convoId,
-      count: Math.max(MESSAGE_PAGE, neededCount),
-    });
+  const openedStart = sameConvo ? messageWindow.start : -1;
+  // Indices that must stay mounted whatever the paging: the "last unread"
+  // divider the open-conversation effect scrolls to, and a pending
+  // command-palette jump. Either can sit arbitrarily far back.
+  const indexOfMsg = useCallback(
+    (id: string | null) => (id ? messages.findIndex((m) => m.id === id) : -1),
+    [messages],
+  );
+  const unreadIdx = indexOfMsg(unreadMarker);
+  const jumpIdx = indexOfMsg(scrollToMsgId);
+  // A jump request is one-shot: the scroll effect clears it. Pin how far back
+  // it reached, or the target would unmount from under the user the moment it
+  // clears. Recorded during render — React's "adjust state when an input
+  // changes" pattern — so it lands before the effect consumes the request, and
+  // it fires once per jump rather than once per message.
+  if (
+    !sameConvo ||
+    (jumpIdx !== -1 && (openedStart === -1 || jumpIdx < openedStart))
+  ) {
+    setMessageWindow({ convoId, start: sameConvo ? jumpIdx : -1 });
   }
-  const visibleCount = Math.max(openedCount, neededCount);
-  const firstVisible = Math.max(0, messages.length - visibleCount);
+  const firstVisible = Math.min(
+    ...[
+      Math.max(0, messages.length - MESSAGE_PAGE),
+      ...[openedStart, unreadIdx, jumpIdx].filter((i) => i >= 0),
+    ],
+  );
   const visibleMessages = messages.slice(firstVisible);
 
   // For each message, the timestamp to render a date divider above it (the
@@ -376,21 +374,29 @@ export function ChatArea() {
         // to the bottom — which the prepend leaves untouched — and restore it
         // before the browser paints.
         growAnchorRef.current = list.scrollHeight - list.scrollTop;
-        setMessageWindow({ convoId, count: visibleCount + MESSAGE_PAGE });
+        setMessageWindow({
+          convoId,
+          start: Math.max(0, firstVisible - MESSAGE_PAGE),
+        });
       },
       { root: list, rootMargin: `${NEAR_TOP_PX}px 0px 0px 0px` },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [convoId, firstVisible, visibleCount]);
+  }, [convoId, firstVisible]);
 
   useLayoutEffect(() => {
     const list = messagesRef.current;
     const anchor = growAnchorRef.current;
     if (anchor == null || !list) return;
     growAnchorRef.current = null;
-    list.scrollTop = list.scrollHeight - anchor;
-  }, [visibleCount]);
+    // While following the live conversation — including the initial fill of a
+    // page shorter than the pane — stay pinned to the bottom; the captured
+    // anchor only matters once the user has scrolled up into history.
+    list.scrollTop = atBottomRef.current
+      ? list.scrollHeight
+      : list.scrollHeight - anchor;
+  }, [firstVisible]);
 
   const jumpToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'auto' });
