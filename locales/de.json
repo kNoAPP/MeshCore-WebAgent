@@ -394,6 +394,29 @@
     "rules": "Regeln",
     "noRules": "Noch keine Regeln. Erstelle eine mit Neue Regel.",
     "enableRule": "Regel aktivieren",
+    "deleteConfirm": "„{{name}}“ endgültig löschen?",
+    "promptSummary_one": "KI-Prompt mit {{count}} Tool ausführen",
+    "promptSummary_other": "KI-Prompt mit {{count}} Tools ausführen",
+    "toolName": {
+      "read_contacts": "Kontakte lesen",
+      "read_channels": "Kanäle lesen",
+      "read_adverts": "Entdeckte Knoten lesen",
+      "read_messages": "Nachrichten lesen",
+      "read_self_info": "Infos dieses Knotens lesen",
+      "read_stats": "Funkstatistiken lesen",
+      "send_direct_message": "Direktnachricht senden",
+      "send_channel_message": "Kanalnachricht senden",
+      "advertise": "Diesen Knoten ankündigen",
+      "add_contact": "Kontakt hinzufügen",
+      "remove_contact": "Kontakt entfernen",
+      "toggle_favorite": "Favorit umschalten",
+      "reset_contact_path": "Route eines Kontakts zurücksetzen"
+    },
+    "toolClass": {
+      "read": "Nur lesend – sendet nie",
+      "transmit": "Sendet – nutzt geteilte Sendezeit und ist limitiert",
+      "write": "Schreibt – ändert die Tabellen dieses Funkgeräts"
+    },
     "trigger": {
       "message": "Eine Nachricht trifft ein",
       "advert": "Ein Knoten kündigt sich an",
@@ -443,6 +466,7 @@
       "title": "Prüfprotokoll",
       "empty": "Noch keine KI-Aktionen.",
       "clear": "Löschen",
+      "clearConfirm": "Gesamtes Protokoll löschen?",
       "noKey": "Kein KI-Schlüssel geladen",
       "llmError": "KI-Fehler: {{kind}}",
       "notAllowed": "Tool nicht erlaubt: {{tool}}",

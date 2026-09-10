@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Plus, ShieldAlert, Check, X } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { ModalShell } from '@/components/ModalShell';
@@ -19,8 +20,14 @@ import {
   MAX_MAX_TOKENS,
   MAX_COOLDOWN_SEC,
 } from '@/lib/ai/engine';
-import { TOOL_NAMES, toolClass, type ToolName } from '@/lib/ai/tools';
+import {
+  TOOL_NAMES,
+  describeAction,
+  toolClass,
+  type ToolName,
+} from '@/lib/ai/tools';
 import { isValidCron } from '@/lib/ai/cron';
+import { formatRelative } from '@/lib/i18n/format';
 import {
   ADV_TYPE_REPEATER,
   ADV_TYPE_ROOM,
@@ -191,7 +198,9 @@ export function ApprovalInboxList() {
             <span className='text-xs wrap-break-word text-(--text)'>
               {a.summary}
             </span>
-            <span className='text-[11px] text-(--text2)'>{a.ruleName}</span>
+            <span className='text-[11px] text-(--text2)'>
+              {a.ruleName} · {formatRelative(Math.floor(a.createdAt / 1000))}
+            </span>
           </div>
           <div className='flex shrink-0 gap-1.5'>
             <button
@@ -247,6 +256,8 @@ function RuleList({
   const { t } = useTranslation();
   const update = useMeshStore((s) => s.updateAutomationRule);
   const remove = useMeshStore((s) => s.removeAutomationRule);
+  // The rule whose row is swapped into delete-confirm mode, or null.
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   return (
     <div className='flex flex-col gap-2 border-t border-(--border) pt-3'>
@@ -270,51 +281,87 @@ function RuleList({
           key={r.id}
           className='flex items-center justify-between gap-2 rounded-md bg-(--surface) px-2.5 py-2'
         >
-          <div className='flex min-w-0 flex-col'>
-            <span className='truncate text-xs font-semibold text-(--text)'>
-              {r.name}
-            </span>
-            <span className='text-[11px] text-(--text2)'>
-              {t(`automation.trigger.${r.trigger.on}`)} ·{' '}
-              {t(`automation.autonomy.${r.autonomy}`)}
-            </span>
-          </div>
-          <div className='flex shrink-0 items-center gap-2'>
-            <button
-              role='switch'
-              aria-checked={r.enabled}
-              aria-label={t('automation.enableRule')}
-              onClick={() => update(r.id, { enabled: !r.enabled })}
-              className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
-              style={{
-                background: r.enabled ? 'var(--accent)' : 'var(--border)',
-              }}
-            >
-              <span
-                className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
-                  r.enabled ? 'left-3.5' : 'left-0.5'
-                }`}
-              />
-            </button>
-            <button
-              onClick={() => onEdit(r)}
-              className='rounded-md border border-(--border-control) px-2 py-1 text-[11px] text-(--text2) hover:text-(--accent)'
-            >
-              {t('automation.edit')}
-            </button>
-            <button
-              onClick={() => {
-                remove(r.id);
-              }}
-              className='rounded-md border border-(--border-control) px-2 py-1 text-[11px] text-(--text2) hover:text-(--red)'
-            >
-              {t('common.delete')}
-            </button>
-          </div>
+          {confirmId === r.id ? (
+            <>
+              <span className='min-w-0 text-[11px] text-(--text2)'>
+                {t('automation.deleteConfirm', { name: r.name })}
+              </span>
+              <div className='flex shrink-0 items-center gap-2'>
+                <button
+                  onClick={() => setConfirmId(null)}
+                  className='rounded-md px-2 py-1 text-[11px] text-(--text) hover:bg-(--surface2)'
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  onClick={() => {
+                    remove(r.id);
+                    setConfirmId(null);
+                  }}
+                  className='rounded-md bg-(--red-solid) px-2 py-1 text-[11px] font-semibold text-white hover:bg-(--red-hover)'
+                >
+                  {t('common.delete')}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className='flex min-w-0 flex-col'>
+                <span className='truncate text-xs font-semibold text-(--text)'>
+                  {r.name}
+                </span>
+                <span className='truncate text-[11px] text-(--text2)'>
+                  {t(`automation.trigger.${r.trigger.on}`)} ·{' '}
+                  {t(`automation.autonomy.${r.autonomy}`)}
+                </span>
+                <span className='truncate text-[11px] text-(--text2)'>
+                  {ruleActionSummary(r.action, t)}
+                </span>
+              </div>
+              <div className='flex shrink-0 items-center gap-2'>
+                <button
+                  role='switch'
+                  aria-checked={r.enabled}
+                  aria-label={t('automation.enableRule')}
+                  onClick={() => update(r.id, { enabled: !r.enabled })}
+                  className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
+                  style={{
+                    background: r.enabled ? 'var(--accent)' : 'var(--border)',
+                  }}
+                >
+                  <span
+                    className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
+                      r.enabled ? 'left-3.5' : 'left-0.5'
+                    }`}
+                  />
+                </button>
+                <button
+                  onClick={() => onEdit(r)}
+                  className='rounded-md border border-(--border-control) px-2 py-1 text-[11px] text-(--text2) hover:text-(--accent)'
+                >
+                  {t('automation.edit')}
+                </button>
+                <button
+                  onClick={() => setConfirmId(r.id)}
+                  className='rounded-md bg-(--red-dim) px-2 py-1 text-[11px] font-semibold text-white hover:bg-(--red-dim-hover)'
+                >
+                  {t('common.delete')}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       ))}
     </div>
   );
+}
+
+// A rule's action as one line of prose. `fixed` actions reuse the same
+// localized renderer the approval inbox and audit log use; `prompt` actions
+// have no concrete call yet, so they name the model task instead.
+function ruleActionSummary(action: RuleAction, t: TFunction): string {
+  if (action.kind === 'fixed') return describeAction(action.tool, action.args);
+  return t('automation.promptSummary', { count: action.allowTools.length });
 }
 
 const selectClass =
@@ -869,7 +916,7 @@ function RuleEditor({
             >
               {TOOL_NAMES.map((tool) => (
                 <option key={tool} value={tool}>
-                  {tool}
+                  {t(`automation.toolName.${tool}`)}
                 </option>
               ))}
             </select>
@@ -985,9 +1032,9 @@ function RuleEditor({
                         ? 'border-(--accent) bg-(--accent-solid) text-white'
                         : 'border-(--border-control) text-(--text2) hover:text-(--text)'
                     }`}
-                    title={toolClass(tool)}
+                    title={t(`automation.toolClass.${toolClass(tool)}`)}
                   >
-                    {tool}
+                    {t(`automation.toolName.${tool}`)}
                   </button>
                 );
               })}
@@ -1106,21 +1153,44 @@ function AuditLogView() {
   const { t } = useTranslation();
   const log = useMeshStore((s) => s.auditLog);
   const clear = useMeshStore((s) => s.clearAuditLog);
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <div className='flex flex-col gap-2 border-t border-(--border) pt-3'>
-      <div className='flex items-center justify-between'>
+      <div className='flex items-center justify-between gap-2'>
         <span className='text-xs font-semibold text-(--text)'>
           {t('automation.audit.title')}
         </span>
-        {log.length > 0 && (
-          <button
-            onClick={() => clear()}
-            className='text-[11px] text-(--text2) hover:text-(--text)'
-          >
-            {t('automation.audit.clear')}
-          </button>
-        )}
+        {log.length > 0 &&
+          (confirming ? (
+            <span className='flex shrink-0 items-center gap-2'>
+              <span className='text-[11px] text-(--text2)'>
+                {t('automation.audit.clearConfirm')}
+              </span>
+              <button
+                onClick={() => setConfirming(false)}
+                className='rounded-md px-2 py-1 text-[11px] text-(--text) hover:bg-(--surface2)'
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => {
+                  clear();
+                  setConfirming(false);
+                }}
+                className='rounded-md bg-(--red-solid) px-2 py-1 text-[11px] font-semibold text-white hover:bg-(--red-hover)'
+              >
+                {t('automation.audit.clear')}
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setConfirming(true)}
+              className='shrink-0 text-[11px] text-(--text2) hover:text-(--text)'
+            >
+              {t('automation.audit.clear')}
+            </button>
+          ))}
       </div>
       {log.length === 0 ? (
         <p className='text-[11px] text-(--text2)'>
@@ -1138,12 +1208,13 @@ function AuditLogView() {
                   {e.ruleName}
                 </span>
                 <span className='shrink-0 text-(--text2)'>
+                  {formatRelative(Math.floor(e.at / 1000))} ·{' '}
                   {t(`automation.outcome.${e.outcome}`)}
                 </span>
               </div>
               <span className='truncate text-(--text2)'>
                 {e.event}
-                {e.tool ? ` · ${e.tool}` : ''}
+                {e.tool ? ` · ${t(`automation.toolName.${e.tool}`)}` : ''}
                 {e.detail ? ` · ${e.detail}` : ''}
               </span>
             </div>
