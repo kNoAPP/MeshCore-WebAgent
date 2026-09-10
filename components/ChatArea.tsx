@@ -154,13 +154,23 @@ export function ChatArea() {
   const openedStart = sameConvo ? messageWindow.start : -1;
   // Indices that must stay mounted whatever the paging: the "last unread"
   // divider the open-conversation effect scrolls to, and a pending
-  // command-palette jump. Either can sit arbitrarily far back.
-  const indexOfMsg = useCallback(
-    (id: string | null) => (id ? messages.findIndex((m) => m.id === id) : -1),
-    [messages],
-  );
-  const unreadIdx = indexOfMsg(unreadMarker);
-  const jumpIdx = indexOfMsg(scrollToMsgId);
+  // command-palette jump. Either can sit arbitrarily far back, but both sit
+  // near the newest end in practice, so one backwards pass that stops as soon
+  // as each wanted id is found beats two full forward scans.
+  const { unreadIdx, jumpIdx } = useMemo(() => {
+    let unread = -1;
+    let jump = -1;
+    if (!unreadMarker && !scrollToMsgId) return { unreadIdx: -1, jumpIdx: -1 };
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const id = messages[i].id;
+      if (unread === -1 && unreadMarker && id === unreadMarker) unread = i;
+      if (jump === -1 && scrollToMsgId && id === scrollToMsgId) jump = i;
+      const unreadDone = unread !== -1 || !unreadMarker;
+      const jumpDone = jump !== -1 || !scrollToMsgId;
+      if (unreadDone && jumpDone) break;
+    }
+    return { unreadIdx: unread, jumpIdx: jump };
+  }, [messages, unreadMarker, scrollToMsgId]);
   // A jump request is one-shot: the scroll effect clears it. Pin how far back
   // it reached, or the target would unmount from under the user the moment it
   // clears. Recorded during render — React's "adjust state when an input
