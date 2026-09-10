@@ -222,6 +222,7 @@
   },
   "settings": {
     "title": "⚙ Paramètres",
+    "sections": "Sections des paramètres",
     "section": {
       "device": "Appareil",
       "identity": "Identité",
@@ -595,6 +596,9 @@
       "requiresReboot": "Nécessite un redémarrage",
       "edit": "Modifier",
       "advanced": "Avancé",
+      "filterLabel": "Filtrer les paramètres",
+      "filterPlaceholder": "Filtrer les paramètres…",
+      "filterEmpty": "Aucun paramètre ne correspond à ce filtre.",
       "actionsTitle": "Actions",
       "location": "Emplacement",
       "locationHint": "Coordonnées annoncées en degrés décimaux.",
