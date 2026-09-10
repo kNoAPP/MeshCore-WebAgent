@@ -169,7 +169,12 @@
     "channels": "Syncing channels",
     "messages": "Syncing messages",
     "received": "{{count}} received",
-    "progress": "{{current}} of {{total}}"
+    "progress": "{{current}} of {{total}}",
+    "label": "Sync progress",
+    "valueText": "{{stage}} — {{percent}}%",
+    "stageDone": "Done",
+    "stageActive": "In progress",
+    "stagePending": "Pending"
   },
   "stats": {
     "title": "📊 Device Stats",
@@ -490,6 +495,7 @@
   "chat": {
     "empty": "Select a channel or contact to start chatting",
     "noMessages": "No messages yet",
+    "transcriptLabel": "Conversation transcript",
     "lastUnread": "Last unread",
     "you": "You",
     "noAck": "No acknowledgment",
@@ -913,6 +919,7 @@
   },
   "toast": {
     "newMessageIn": "New message in {{channel}}",
+    "newMessageInFrom": "{{sender}} in {{channel}}",
     "newMessageFrom": "New message from {{sender}}",
     "connected": "Connected — {{device}}",
     "connectionFailed": "Connection failed",

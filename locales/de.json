@@ -169,7 +169,12 @@
     "channels": "Synchronisiere Kanäle",
     "messages": "Synchronisiere Nachrichten",
     "received": "{{count}} empfangen",
-    "progress": "{{current}} von {{total}}"
+    "progress": "{{current}} von {{total}}",
+    "label": "Synchronisierungsfortschritt",
+    "valueText": "{{stage}} — {{percent}} %",
+    "stageDone": "Fertig",
+    "stageActive": "Läuft",
+    "stagePending": "Ausstehend"
   },
   "stats": {
     "title": "📊 Gerätestatistik",
@@ -490,6 +495,7 @@
   "chat": {
     "empty": "Wähle einen Kanal oder Kontakt, um zu chatten",
     "noMessages": "Noch keine Nachrichten",
+    "transcriptLabel": "Gesprächsverlauf",
     "lastUnread": "Zuletzt ungelesen",
     "you": "Du",
     "noAck": "Keine Bestätigung",
@@ -913,6 +919,7 @@
   },
   "toast": {
     "newMessageIn": "Neue Nachricht in {{channel}}",
+    "newMessageInFrom": "{{sender}} in {{channel}}",
     "newMessageFrom": "Neue Nachricht von {{sender}}",
     "connected": "Verbunden — {{device}}",
     "connectionFailed": "Verbindung fehlgeschlagen",

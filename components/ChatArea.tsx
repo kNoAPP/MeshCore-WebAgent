@@ -13,13 +13,14 @@ import {
   Fragment,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMeshStore } from '@/store/meshStore';
+import { useMeshStore, isConvoVisible } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import {
   ADV_ICON,
   utf8ByteLength,
   formatPubkey,
   isPublicChannelSecret,
+  splitChannelMessage,
 } from '@/lib/utils';
 import { formatDateDivider } from '@/lib/i18n/format';
 import { flashTarget } from '@/lib/ui/flash';
@@ -66,16 +67,6 @@ function getMentionQuery(value: string, cursor: number): string | null {
 
 const MENTION_LISTBOX_ID = 'mention-suggestions';
 const mentionOptionId = (index: number) => `mention-option-${index}`;
-
-// The firmware formats a channel message's text as `<sender>: <body>`.
-function splitChannelMessage(text: string): {
-  sender: string | null;
-  body: string;
-} {
-  const colonIdx = text.indexOf(': ');
-  if (colonIdx === -1) return { sender: null, body: text };
-  return { sender: text.slice(0, colonIdx), body: text.slice(colonIdx + 2) };
-}
 
 /**
  * The main conversation pane for the active channel or contact: header with
@@ -148,6 +139,33 @@ export function ChatArea() {
     () => (activeConvo ? (msgHistory[activeConvo.id] ?? []) : []),
     [activeConvo, msgHistory],
   );
+
+  // Only a message *appended* to the conversation already open is news. The
+  // transcript itself is `aria-live='off'` because a conversation switch swaps
+  // the whole list and paging back prepends old rows — either would flood the
+  // polite queue with messages the user has read. This carries just the
+  // arrival, into a region that was already mounted.
+  const [announcement, setAnnouncement] = useState({ id: '', text: '' });
+  const lastSeenRef = useRef<{ convoId: string | null; lastId?: string }>({
+    convoId: null,
+  });
+
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    const prev = lastSeenRef.current;
+    lastSeenRef.current = { convoId, lastId: last?.id };
+    if (
+      prev.convoId !== convoId ||
+      !last ||
+      last.own ||
+      last.system ||
+      last.id === prev.lastId
+    ) {
+      setAnnouncement({ id: '', text: '' });
+      return;
+    }
+    setAnnouncement({ id: last.id ?? '', text: last.text });
+  }, [messages, convoId]);
 
   // The oldest message index the window has been opened back to — by scrolling
   // up, or by a jump — or -1 for just the newest page. An index rather than a
@@ -317,6 +335,16 @@ export function ChatArea() {
         ? (useMeshStore.getState().msgHistory[convoId] ?? [])
         : [];
       const last = live[live.length - 1];
+      // Arrived while the conversation was off screen (other tab, other
+      // window, other view): leave the scroll where the user left it, so the
+      // unread divider they come back to isn't already scrolled past.
+      if (
+        !last?.own &&
+        convoId &&
+        !isConvoVisible(useMeshStore.getState(), convoId)
+      ) {
+        return;
+      }
       if (!last?.own && !atBottomRef.current) {
         setShowNewIndicator(true);
         return;
@@ -562,7 +590,16 @@ export function ChatArea() {
 
       {/* Messages */}
       <div className='relative flex flex-1 flex-col overflow-hidden'>
+        <span className='sr-only' role='status' aria-live='polite'>
+          {/* Keyed by message id: two arrivals with identical text would
+              otherwise leave the text node untouched, and a live region only
+              announces what actually changed. */}
+          <span key={announcement.id}>{announcement.text}</span>
+        </span>
         <div
+          role='log'
+          aria-live='off'
+          aria-label={t('chat.transcriptLabel')}
           className='flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
           ref={messagesRef}
           onScroll={handleMessagesScroll}

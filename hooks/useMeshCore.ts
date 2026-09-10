@@ -16,6 +16,7 @@ import {
   channelConvoId,
   directConvoId,
   selectPreferences,
+  isConvoVisible,
   type ConnectErrorCode,
 } from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
@@ -48,7 +49,13 @@ import {
 import { splitPathHashes } from '@/lib/meshcore/parsers';
 import { saveRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
-import { toHex, fromHex, bytesEqual, truncateUtf8 } from '@/lib/utils';
+import {
+  toHex,
+  fromHex,
+  bytesEqual,
+  truncateUtf8,
+  splitChannelMessage,
+} from '@/lib/utils';
 import i18n from '@/lib/i18n';
 import type {
   ActiveConvo,
@@ -735,26 +742,47 @@ export function useMeshCore() {
                 ? matchRxPath(msg.pathLen)
                 : undefined;
             const enriched: Message = { ...msg, senderName: undefined, path };
+            // Read before addMessage, which is what makes it visible.
+            const visible = isConvoVisible(useMeshStore.getState(), id);
             addMessage(id, enriched);
-            const chName =
-              c.channels[msg.channelIdx]?.name ||
-              i18n.t('common.channelName', { index: msg.channelIdx });
-            showToast(i18n.t('toast.newMessageIn', { channel: chName }));
+            if (!visible) {
+              const chName =
+                c.channels[msg.channelIdx]?.name ||
+                i18n.t('common.channelName', { index: msg.channelIdx });
+              const sender = splitChannelMessage(msg.text).sender;
+              showToast(
+                sender
+                  ? i18n.t('toast.newMessageInFrom', {
+                      sender,
+                      channel: chName,
+                    })
+                  : i18n.t('toast.newMessageIn', { channel: chName }),
+                '',
+                {
+                  kind: 'channel',
+                  id,
+                  rawId: msg.channelIdx,
+                  label: chName,
+                },
+              );
+            }
             // Emit after the store update so subscribers see a settled world.
             emit({ type: 'message', msg: enriched });
           } else if (msg.kind === 'direct' && msg.pubkeyPrefix) {
             const id = directConvoId(msg.pubkeyPrefix);
             const contact = c.lookupContact(msg.pubkeyPrefix);
-            const enriched: Message = {
-              ...msg,
-              senderName: contact?.name ?? msg.pubkeyPrefix.slice(0, 8),
-            };
+            const sender = contact?.name ?? msg.pubkeyPrefix.slice(0, 8);
+            const enriched: Message = { ...msg, senderName: sender };
+            const visible = isConvoVisible(useMeshStore.getState(), id);
             addMessage(id, enriched);
-            showToast(
-              i18n.t('toast.newMessageFrom', {
-                sender: contact?.name ?? msg.pubkeyPrefix.slice(0, 8),
-              }),
-            );
+            if (!visible) {
+              showToast(i18n.t('toast.newMessageFrom', { sender }), '', {
+                kind: 'direct',
+                id,
+                rawId: msg.pubkeyPrefix,
+                label: sender,
+              });
+            }
             emit({ type: 'message', msg: enriched });
           }
         },
