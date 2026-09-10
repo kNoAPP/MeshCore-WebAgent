@@ -327,10 +327,13 @@ export function ChatArea() {
     const el = messagesRef.current?.querySelector<HTMLElement>(
       `[data-msg-id="${scrollToMsgId}"]`,
     );
+    if (el) {
+      el.scrollIntoView({ behavior: 'auto', block: 'center' });
+      flashTarget(el);
+    }
+    // Cleared last, so the pinning that keeps the target mounted outlives the
+    // scroll; a target that isn't in the DOM still clears rather than sticking.
     setScrollToMsgId(null);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'auto', block: 'center' });
-    flashTarget(el);
   }, [scrollToMsgId, convoId, setScrollToMsgId]);
 
   useEffect(() => {
@@ -571,8 +574,9 @@ export function ChatArea() {
               deviceName.length > 0 &&
               bodyText.toLowerCase().includes(`@[${deviceName.toLowerCase()}]`);
 
-            // The top of the rendered window always gets its day label, so
-            // paging back never leaves the visible messages undated.
+            // The top of the rendered window carries its own day label (when
+            // it has a timestamp at all), so paging back doesn't strand the
+            // visible messages under a divider that scrolled out of range.
             const dividerTs =
               i === 0 ? (msg.timestamp ?? null) : dayDividers[firstVisible + i];
 
