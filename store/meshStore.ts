@@ -124,21 +124,38 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
  */
 export type AiKeyStatus = 'none' | 'memory' | 'persisted';
 
-/** Persisted contacts-list view: filter, order, and favorite pinning. */
+/**
+ * Persisted sidebar state: the contacts list's filter, order and favorite
+ * pinning, plus the layout the user dragged it to. `channelsHeight` is `null`
+ * until the divider is dragged, which is what keeps the Channels section
+ * auto-sizing to its content.
+ */
 export interface ContactView {
   filter: ContactFilter;
   sort: ContactSort;
   pinFavorites: boolean;
+  /** Sidebar width in CSS pixels. */
+  width: number;
+  /** Dragged height of the Channels section in px, or `null` for auto. */
+  channelsHeight: number | null;
 }
+
+/** Drag bounds for the sidebar width, in CSS pixels. */
+export const SIDEBAR_MIN_WIDTH = 180;
+export const SIDEBAR_MAX_WIDTH = 480;
+export const SIDEBAR_DEFAULT_WIDTH = 240;
 
 const DEFAULT_CONTACT_VIEW: ContactView = {
   filter: 'all',
   sort: 'az',
   pinFavorites: true,
+  width: SIDEBAR_DEFAULT_WIDTH,
+  channelsHeight: null,
 };
 
 // A persisted filter/sort value must never reach the sidebar's exhaustive
-// switches unrecognized.
+// switches unrecognized, and a persisted size must never render the sidebar
+// unusable.
 function normalizeContactView(raw: unknown): ContactView {
   const parsed = {
     ...DEFAULT_CONTACT_VIEW,
@@ -155,7 +172,22 @@ function normalizeContactView(raw: unknown): ContactView {
       typeof parsed.pinFavorites === 'boolean'
         ? parsed.pinFavorites
         : DEFAULT_CONTACT_VIEW.pinFavorites,
+    width: clampSidebarWidth(parsed.width),
+    channelsHeight:
+      typeof parsed.channelsHeight === 'number' &&
+      Number.isFinite(parsed.channelsHeight) &&
+      parsed.channelsHeight > 0
+        ? parsed.channelsHeight
+        : null,
   };
+}
+
+/** Keeps a sidebar width inside the draggable range. */
+export function clampSidebarWidth(width: unknown): number {
+  if (typeof width !== 'number' || !Number.isFinite(width)) {
+    return SIDEBAR_DEFAULT_WIDTH;
+  }
+  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, width));
 }
 
 /**
