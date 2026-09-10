@@ -130,18 +130,16 @@ function compareBySort(
  */
 export function Sidebar() {
   const { t } = useTranslation();
-  const {
-    channels,
-    contacts,
-    msgHistory,
-    activeConvo,
-    contactView,
-    setContactView,
-    setManagePanel,
-    setAutoAddOpen,
-    setAddChannelOpen,
-    setAddContactOpen,
-  } = useMeshStore();
+  const channels = useMeshStore((s) => s.channels);
+  const contacts = useMeshStore((s) => s.contacts);
+  const msgHistory = useMeshStore((s) => s.msgHistory);
+  const activeConvo = useMeshStore((s) => s.activeConvo);
+  const contactView = useMeshStore((s) => s.contactView);
+  const setContactView = useMeshStore((s) => s.setContactView);
+  const setManagePanel = useMeshStore((s) => s.setManagePanel);
+  const setAutoAddOpen = useMeshStore((s) => s.setAutoAddOpen);
+  const setAddChannelOpen = useMeshStore((s) => s.setAddChannelOpen);
+  const setAddContactOpen = useMeshStore((s) => s.setAddContactOpen);
   const {
     filter: contactFilter,
     sort: contactSort,
