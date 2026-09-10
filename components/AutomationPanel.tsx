@@ -27,7 +27,7 @@ import {
   type ToolName,
 } from '@/lib/ai/tools';
 import { isValidCron } from '@/lib/ai/cron';
-import { formatRelative } from '@/lib/i18n/format';
+import { formatDateTime, formatTime } from '@/lib/i18n/format';
 import {
   ADV_TYPE_REPEATER,
   ADV_TYPE_ROOM,
@@ -198,8 +198,11 @@ export function ApprovalInboxList() {
             <span className='text-xs wrap-break-word text-(--text)'>
               {a.summary}
             </span>
-            <span className='text-[11px] text-(--text2)'>
-              {a.ruleName} · {formatRelative(Math.floor(a.createdAt / 1000))}
+            <span
+              className='text-[11px] text-(--text2)'
+              title={formatDateTime(Math.floor(a.createdAt / 1000))}
+            >
+              {a.ruleName} · {formatTime(Math.floor(a.createdAt / 1000))}
             </span>
           </div>
           <div className='flex shrink-0 gap-1.5'>
@@ -256,7 +259,6 @@ function RuleList({
   const { t } = useTranslation();
   const update = useMeshStore((s) => s.updateAutomationRule);
   const remove = useMeshStore((s) => s.removeAutomationRule);
-  // The rule whose row is swapped into delete-confirm mode, or null.
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
   return (
@@ -288,6 +290,10 @@ function RuleList({
               </span>
               <div className='flex shrink-0 items-center gap-2'>
                 <button
+                  // Delete unmounts the button that was focused, so the confirm
+                  // takes focus on its safe action rather than dropping the
+                  // keyboard user back to the document.
+                  autoFocus
                   onClick={() => setConfirmId(null)}
                   className='rounded-md px-2 py-1 text-[11px] text-(--text) hover:bg-(--surface2)'
                 >
@@ -1168,6 +1174,7 @@ function AuditLogView() {
                 {t('automation.audit.clearConfirm')}
               </span>
               <button
+                autoFocus
                 onClick={() => setConfirming(false)}
                 className='rounded-md px-2 py-1 text-[11px] text-(--text) hover:bg-(--surface2)'
               >
@@ -1207,8 +1214,11 @@ function AuditLogView() {
                 <span className='truncate font-semibold text-(--text)'>
                   {e.ruleName}
                 </span>
-                <span className='shrink-0 text-(--text2)'>
-                  {formatRelative(Math.floor(e.at / 1000))} ·{' '}
+                <span
+                  className='shrink-0 text-(--text2)'
+                  title={formatDateTime(Math.floor(e.at / 1000))}
+                >
+                  {formatTime(Math.floor(e.at / 1000))} ·{' '}
                   {t(`automation.outcome.${e.outcome}`)}
                 </span>
               </div>
