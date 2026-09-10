@@ -1015,18 +1015,21 @@ export function useMeshCore() {
     ],
   );
 
-  /** Prompts for a USB serial port and connects. */
-  const connectUSB = useCallback(async () => {
-    setConnectError(null);
-    try {
-      const transport = await createUSBTransport();
-      setReconnectSource(transport, 'usb');
-      await connect(transport);
-    } catch (err) {
-      if (err instanceof PickerDismissedError) return;
-      setConnectError(connectErrorCode(err));
-    }
-  }, [connect, setConnectError]);
+  /** Connects over USB serial, prompting for a port unless `port` is given. */
+  const connectUSB = useCallback(
+    async (port?: SerialPort) => {
+      setConnectError(null);
+      try {
+        const transport = await createUSBTransport(port);
+        setReconnectSource(transport, 'usb');
+        await connect(transport);
+      } catch (err) {
+        if (err instanceof PickerDismissedError) return;
+        setConnectError(connectErrorCode(err));
+      }
+    },
+    [connect, setConnectError],
+  );
 
   /** Prompts for a BLE companion and connects. */
   const connectBLE = useCallback(async () => {

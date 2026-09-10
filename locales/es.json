@@ -112,7 +112,10 @@
     "connectWifi": "Conectar WiFi",
     "usb": {
       "info": "Usa la API Web Serial (Chrome / Edge). Conecta tu MeshCore Companion con un cable USB.",
-      "unsupported": "USB no es compatible con este navegador. Usa un navegador compatible como Chrome para conectar por USB."
+      "unsupported": "USB no es compatible con este navegador. Usa un navegador compatible como Chrome para conectar por USB.",
+      "connectSaved": "Conectar a {{device}}",
+      "chooseOther": "Elegir otro dispositivo…",
+      "serialPort": "un puerto serie"
     },
     "ble": {
       "info": "Usa la API Web Bluetooth (Chrome). Busca dispositivos que anuncian el servicio Nordic UART.",

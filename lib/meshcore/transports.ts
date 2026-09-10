@@ -114,10 +114,7 @@ export class USBTransport extends BaseTransport implements ITransport {
   // device) is added only when exactly one exists; shared bridge-chip VID/PIDs
   // make two or more matches ambiguous, so reopen fails rather than guesses.
   private async candidatePorts(): Promise<SerialPort[]> {
-    let ports: SerialPort[] = [];
-    try {
-      ports = await navigator.serial.getPorts();
-    } catch {}
+    const ports = await getGrantedPorts();
     const { usbVendorId, usbProductId } = this.info;
     const matches =
       usbVendorId != null
@@ -447,18 +444,41 @@ export class WiFiTransport extends BaseTransport implements ITransport {
 // ─── Factory helpers ─────────────────────────────────────────────────────────
 
 /**
- * Prompts the user to pick a serial port and returns an opened transport.
+ * Serial ports this origin already holds permission for.
  *
- * @remarks Must be called from a user gesture (Web Serial permission
+ * @remarks Browsers persist a Web Serial grant per origin, so a radio picked
+ * once can be reopened later without a chooser. USB-backed ports only appear
+ * while the device is plugged in.
+ */
+export async function getGrantedPorts(): Promise<SerialPort[]> {
+  if (!('serial' in navigator)) return [];
+  try {
+    return await navigator.serial.getPorts();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Opens a USB serial transport, prompting the user to pick a port when one
+ * isn't supplied.
+ *
+ * @param granted - An already-permitted port from {@link getGrantedPorts}, used
+ * as-is so no chooser is shown.
+ * @remarks Prompting must happen in a user gesture (Web Serial permission
  * requirement). Opens at {@link USB_BAUD_RATE} — native USB ignores the rate.
  */
-export async function createUSBTransport(): Promise<USBTransport> {
-  let port: SerialPort;
-  try {
-    port = await navigator.serial.requestPort();
-  } catch (err) {
-    if (isPickerDismissal(err)) throw new PickerDismissedError();
-    throw err;
+export async function createUSBTransport(
+  granted?: SerialPort,
+): Promise<USBTransport> {
+  let port = granted;
+  if (!port) {
+    try {
+      port = await navigator.serial.requestPort();
+    } catch (err) {
+      if (isPickerDismissal(err)) throw new PickerDismissedError();
+      throw err;
+    }
   }
   const t = new USBTransport(port);
   await t.open();
