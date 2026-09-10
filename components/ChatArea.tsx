@@ -549,7 +549,9 @@ export function ChatArea() {
               {t('chat.noMessages')}
             </div>
           )}
-          <div ref={topSentinelRef} />
+          {/* One pixel tall, not zero: a zero-area target is not a reliable
+              IntersectionObserver root intersection. */}
+          <div ref={topSentinelRef} className='h-px shrink-0' />
           {visibleMessages.map((msg, i) => {
             let senderLabel: string;
             let bodyText = msg.text;
