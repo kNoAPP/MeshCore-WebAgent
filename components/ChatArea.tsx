@@ -135,8 +135,13 @@ export function ChatArea() {
   // mistaken for the user having scrolled up.
   const atBottomRef = useRef(true);
   // Distance from the bottom captured just before a page of history is
-  // prepended, so the reading position can be restored after it mounts.
-  const growAnchorRef = useRef<number | null>(null);
+  // prepended, so the reading position can be restored after it mounts. Tagged
+  // with the conversation it was measured in: a switch between the capture and
+  // the commit would otherwise apply it to a different list.
+  const growAnchorRef = useRef<{
+    convoId: string | null;
+    distanceToBottom: number;
+  } | null>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
 
   const messages = useMemo(
@@ -376,7 +381,14 @@ export function ChatArea() {
     if (!list) return;
     const nearBottom = isNearBottom(list);
     atBottomRef.current = nearBottom;
-    if (nearBottom) setShowNewIndicator(false);
+    if (nearBottom) {
+      setShowNewIndicator(false);
+    } else if (openedStart === -1) {
+      // Reading back through history: pin the window where it is. Left to
+      // slide, the newest-N start would advance on every incoming message and
+      // unmount rows above the viewport out from under the user.
+      setMessageWindow({ convoId, start: firstVisible });
+    }
   };
 
   // Page older history in as the top of the list comes into view, so reading
@@ -393,7 +405,10 @@ export function ChatArea() {
         // Prepending rows pushes the content down, so anchor on the distance
         // to the bottom — which the prepend leaves untouched — and restore it
         // before the browser paints.
-        growAnchorRef.current = list.scrollHeight - list.scrollTop;
+        growAnchorRef.current = {
+          convoId,
+          distanceToBottom: list.scrollHeight - list.scrollTop,
+        };
         setMessageWindow({
           convoId,
           start: Math.max(0, firstVisible - MESSAGE_PAGE),
@@ -410,13 +425,14 @@ export function ChatArea() {
     const anchor = growAnchorRef.current;
     if (anchor == null || !list) return;
     growAnchorRef.current = null;
+    if (anchor.convoId !== convoId) return;
     // While following the live conversation — including the initial fill of a
     // page shorter than the pane — stay pinned to the bottom; the captured
     // anchor only matters once the user has scrolled up into history.
     list.scrollTop = atBottomRef.current
       ? list.scrollHeight
-      : list.scrollHeight - anchor;
-  }, [firstVisible]);
+      : list.scrollHeight - anchor.distanceToBottom;
+  }, [convoId, firstVisible]);
 
   const jumpToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'auto' });
