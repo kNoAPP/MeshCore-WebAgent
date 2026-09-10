@@ -499,10 +499,6 @@ function StatusDashboard({
       rows: s
         ? [
             [t('repeaterAdmin.battery'), formatVoltage(s.battMilliVolts)],
-            [
-              t('repeaterAdmin.batteryPercent'),
-              formatPercent(approxBatteryPercent(s.battMilliVolts)),
-            ],
             ...opt(t('repeaterAdmin.uptime'), s.totalUpTimeSecs, formatUptime),
             [t('repeaterAdmin.queueLength'), num(s.currTxQueueLen)],
           ]

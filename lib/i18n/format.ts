@@ -176,6 +176,16 @@ export function formatKilobytes(kb: number): string {
   return i18n.t('units.kb', { value: kb.toLocaleString(i18n.language) });
 }
 
+/**
+ * Formats a used-of-total kilobyte pair as one compact reading, e.g.
+ * `9/3,169 KB`, for the header's inline storage readout.
+ */
+export function formatStorage(usedKB: number, totalKB: number): string {
+  const used = usedKB.toLocaleString(i18n.language);
+  const total = totalKB.toLocaleString(i18n.language);
+  return i18n.t('units.kb', { value: `${used}/${total}` });
+}
+
 /** Formats a whole percentage, e.g. `73%`. */
 export function formatPercent(value: number): string {
   return i18n.t('units.percent', {
