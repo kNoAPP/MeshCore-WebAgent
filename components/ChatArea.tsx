@@ -188,21 +188,28 @@ export function ChatArea() {
       ...[openedStart, unreadIdx, jumpIdx].filter((i) => i >= 0),
     ],
   );
-  const visibleMessages = messages.slice(firstVisible);
+  const visibleMessages = useMemo(
+    () => messages.slice(firstVisible),
+    [messages, firstVisible],
+  );
 
-  // For each message, the timestamp to render a date divider above it (the
-  // first message of each local calendar day), or null. Timestamp-less
+  // For each mounted message, the timestamp to render a date divider above it
+  // (the first message of each local calendar day), or null. Timestamp-less
   // messages never open a new day, so they don't produce spurious dividers.
+  // Scoped to the window rather than the whole history, so the work scales
+  // with what is rendered — which also means the topmost mounted message
+  // always carries its own day label instead of inheriting one that scrolled
+  // out of range.
   const dayDividers = useMemo(
     () =>
-      messages.map((msg, i) => {
+      visibleMessages.map((msg, i) => {
         if (!msg.timestamp) return null;
         const dayKey = new Date(msg.timestamp * 1000).toDateString();
         // Compare against the most recent earlier message that has a
         // timestamp, so gaps of timestamp-less messages don't split a day.
         let prevDayKey: string | null = null;
         for (let j = i - 1; j >= 0; j--) {
-          const prevTs = messages[j].timestamp;
+          const prevTs = visibleMessages[j].timestamp;
           if (prevTs) {
             prevDayKey = new Date(prevTs * 1000).toDateString();
             break;
@@ -210,7 +217,7 @@ export function ChatArea() {
         }
         return dayKey !== prevDayKey ? msg.timestamp : null;
       }),
-    [messages],
+    [visibleMessages],
   );
 
   // Mentionable names span both saved contacts and anyone seen posting in
@@ -576,11 +583,7 @@ export function ChatArea() {
               deviceName.length > 0 &&
               bodyText.toLowerCase().includes(`@[${deviceName.toLowerCase()}]`);
 
-            // The top of the rendered window carries its own day label (when
-            // it has a timestamp at all), so paging back doesn't strand the
-            // visible messages under a divider that scrolled out of range.
-            const dividerTs =
-              i === 0 ? (msg.timestamp ?? null) : dayDividers[firstVisible + i];
+            const dividerTs = dayDividers[i];
 
             return (
               <Fragment key={msg.id ?? firstVisible + i}>
