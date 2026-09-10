@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
+import { handleRovingKeyDown } from '@/lib/ui/roving';
 import type { AutoAddConfig } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 
@@ -40,7 +41,16 @@ function AutoAddSettingsPanel() {
       widthClass='w-112'
     >
       <div className='space-y-5'>
-        <div className='space-y-2'>
+        <div
+          role='radiogroup'
+          aria-label={t('autoAdd.modeLabel')}
+          className='space-y-2'
+          onKeyDown={(e) =>
+            handleRovingKeyDown(e, 2, selected ? 1 : 0, (i) =>
+              patch({ mode: i === 0 ? 'all' : 'selected' }),
+            )
+          }
+        >
           <Radio
             label={t('autoAdd.all.label')}
             hint={t('autoAdd.all.hint')}
@@ -147,6 +157,9 @@ function Radio({
 }) {
   return (
     <button
+      role='radio'
+      aria-checked={checked}
+      tabIndex={checked ? 0 : -1}
       onClick={onChange}
       className='flex w-full items-start gap-3 rounded-md px-2 py-2 text-left hover:bg-(--surface2)'
     >

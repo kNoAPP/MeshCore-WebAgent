@@ -53,6 +53,8 @@
     "placeholder": "Search messages, contacts, channels…",
     "clear": "Clear search",
     "empty": "No results found",
+    "resultCount_one": "{{count}} result",
+    "resultCount_other": "{{count}} results",
     "group": {
       "recent": "Recent",
       "messages": "Messages",
@@ -99,6 +101,7 @@
   "connect": {
     "title": "Connect to MeshCore",
     "subtitle": "Connect via USB, Bluetooth, or WiFi to your Companion Radio.",
+    "transport": "Connection type",
     "tab": {
       "usb": "USB",
       "ble": "BLE",
@@ -202,6 +205,7 @@
   },
   "autoAdd": {
     "title": "⚙ Auto-add settings",
+    "modeLabel": "Auto-add mode",
     "all": {
       "label": "Auto Add All",
       "hint": "Save every node the radio hears"
@@ -521,6 +525,7 @@
       "neighbors": "Neighbors",
       "console": "Console"
     },
+    "tabsLabel": "Node administration",
     "login": {
       "prompt": "Log in to administer this node.",
       "accessLabel": "Access level",
@@ -781,6 +786,7 @@
   },
   "addChannel": {
     "title": "➕ Add channel",
+    "modeLabel": "How to add a channel",
     "name": "Name",
     "secretGenerated": "Secret key (generated)",
     "regenerate": "Regenerate",
@@ -812,6 +818,7 @@
   },
   "addContact": {
     "title": "➕ Add contact",
+    "modeLabel": "How to add a contact",
     "link": "Contact link",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Name",

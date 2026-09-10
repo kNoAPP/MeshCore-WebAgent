@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
+import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
   fromHex,
   randomSecret,
@@ -151,12 +152,30 @@ export function AddChannelModal() {
       widthClass='w-128'
     >
       <div
+        role='tablist'
+        aria-label={t('addChannel.modeLabel')}
+        onKeyDown={(e) =>
+          handleRovingKeyDown(
+            e,
+            modes.length,
+            modes.findIndex((m) => m.id === mode),
+            (i) => {
+              setMode(modes[i].id);
+              setError('');
+            },
+          )
+        }
         className='mb-3 flex gap-1 rounded-md p-1'
         style={{ background: 'var(--bg)' }}
       >
         {modes.map((m) => (
           <button
             key={m.id}
+            role='tab'
+            id={`add-channel-tab-${m.id}`}
+            aria-selected={mode === m.id}
+            aria-controls='add-channel-tabpanel'
+            tabIndex={mode === m.id ? 0 : -1}
             onClick={() => {
               setMode(m.id);
               setError('');
@@ -171,93 +190,99 @@ export function AddChannelModal() {
           </button>
         ))}
       </div>
-      <p className='mb-4 text-xs text-(--text2)'>{hint}</p>
+      <div
+        id='add-channel-tabpanel'
+        role='tabpanel'
+        aria-labelledby={`add-channel-tab-${mode}`}
+      >
+        <p className='mb-4 text-xs text-(--text2)'>{hint}</p>
 
-      <div className='space-y-4'>
-        {mode === 'joinHashtag' ? (
-          <label className='block'>
-            <span className='mb-1 block text-xs text-(--text2)'>
-              {t('addChannel.name')}
-            </span>
-            <div className='flex items-center rounded-md border border-(--border) bg-(--bg) focus-within:border-(--accent)'>
-              <span className='pl-3 text-sm text-(--text2)'>#</span>
+        <div className='space-y-4'>
+          {mode === 'joinHashtag' ? (
+            <label className='block'>
+              <span className='mb-1 block text-xs text-(--text2)'>
+                {t('addChannel.name')}
+              </span>
+              <div className='flex items-center rounded-md border border-(--border) bg-(--bg) focus-within:border-(--accent)'>
+                <span className='pl-3 text-sm text-(--text2)'>#</span>
+                <input
+                  value={hashtag}
+                  onChange={(e) =>
+                    setHashtag(
+                      e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+                    )
+                  }
+                  maxLength={31}
+                  className='w-full bg-transparent px-1 py-2 text-sm outline-none'
+                />
+              </div>
+            </label>
+          ) : mode === 'joinLink' || mode === 'joinPublic' ? null : (
+            <label className='block'>
+              <span className='mb-1 block text-xs text-(--text2)'>
+                {t('addChannel.name')}
+              </span>
               <input
-                value={hashtag}
-                onChange={(e) =>
-                  setHashtag(
-                    e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
-                  )
-                }
-                maxLength={31}
-                className='w-full bg-transparent px-1 py-2 text-sm outline-none'
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={32}
+                className='w-full rounded-md border bg-(--bg) px-3 py-2 text-sm outline-none focus:border-(--accent)'
+                style={{ borderColor: 'var(--border)' }}
               />
-            </div>
-          </label>
-        ) : mode === 'joinLink' || mode === 'joinPublic' ? null : (
-          <label className='block'>
-            <span className='mb-1 block text-xs text-(--text2)'>
-              {t('addChannel.name')}
-            </span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={32}
-              className='w-full rounded-md border bg-(--bg) px-3 py-2 text-sm outline-none focus:border-(--accent)'
-              style={{ borderColor: 'var(--border)' }}
-            />
-          </label>
-        )}
+            </label>
+          )}
 
-        {mode === 'create' && (
-          <label className='block'>
-            <span className='mb-1 flex items-center justify-between text-xs text-(--text2)'>
-              {t('addChannel.secretGenerated')}
-              <button
-                onClick={() => setGenerated(toHex(randomSecret()))}
-                className='text-(--accent) hover:underline'
-              >
-                {t('addChannel.regenerate')}
-              </button>
-            </span>
-            <input
-              readOnly
-              value={generated}
-              className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs text-(--text2) outline-none'
-              style={{ borderColor: 'var(--border)' }}
-            />
-          </label>
-        )}
+          {mode === 'create' && (
+            <label className='block'>
+              <span className='mb-1 flex items-center justify-between text-xs text-(--text2)'>
+                {t('addChannel.secretGenerated')}
+                <button
+                  onClick={() => setGenerated(toHex(randomSecret()))}
+                  className='text-(--accent) hover:underline'
+                >
+                  {t('addChannel.regenerate')}
+                </button>
+              </span>
+              <input
+                readOnly
+                value={generated}
+                className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs text-(--text2) outline-none'
+                style={{ borderColor: 'var(--border)' }}
+              />
+            </label>
+          )}
 
-        {mode === 'joinPrivate' && (
-          <label className='block'>
-            <span className='mb-1 block text-xs text-(--text2)'>
-              {t('addChannel.secretHex')}
-            </span>
-            <input
-              value={secretHex}
-              onChange={(e) => setSecretHex(e.target.value)}
-              className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
-              style={{ borderColor: 'var(--border)' }}
-            />
-          </label>
-        )}
+          {mode === 'joinPrivate' && (
+            <label className='block'>
+              <span className='mb-1 block text-xs text-(--text2)'>
+                {t('addChannel.secretHex')}
+              </span>
+              <input
+                value={secretHex}
+                onChange={(e) => setSecretHex(e.target.value)}
+                className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
+                style={{ borderColor: 'var(--border)' }}
+              />
+            </label>
+          )}
 
-        {mode === 'joinLink' && (
-          <label className='block'>
-            <span className='mb-1 block text-xs text-(--text2)'>
-              {t('addChannel.link')}
-            </span>
-            <input
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              placeholder={t('addChannel.linkPlaceholder')}
-              className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
-              style={{ borderColor: 'var(--border)' }}
-            />
-          </label>
-        )}
+          {mode === 'joinLink' && (
+            <label className='block'>
+              <span className='mb-1 block text-xs text-(--text2)'>
+                {t('addChannel.link')}
+              </span>
+              <input
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                placeholder={t('addChannel.linkPlaceholder')}
+                className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
+                style={{ borderColor: 'var(--border)' }}
+              />
+            </label>
+          )}
 
-        {error && <p className='text-xs text-(--red)'>{error}</p>}
+          {error && <p className='text-xs text-(--red)'>{error}</p>}
+        </div>
       </div>
 
       <div className='mt-6 flex justify-end gap-2'>

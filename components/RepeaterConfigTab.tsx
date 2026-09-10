@@ -33,6 +33,7 @@ import type {
   RepeaterAction,
 } from '@/lib/meshcore/repeaterConfig';
 import { fmtNum, utf8ByteLength } from '@/lib/utils';
+import { handleRovingKeyDown } from '@/lib/ui/roving';
 import { Card } from './Card';
 import { RefreshButton } from './RefreshButton';
 import { RadioSettingsModal } from './RadioSettings';
@@ -1175,6 +1176,14 @@ function LocationSourceRow({
         <div
           role='radiogroup'
           aria-label={t('settings.locationSource')}
+          onKeyDown={(e) =>
+            handleRovingKeyDown(
+              e,
+              LOCATION_POLICIES.length,
+              LOCATION_POLICIES.findIndex((p) => p.value === policy),
+              (i) => onSelect(LOCATION_POLICIES[i].value),
+            )
+          }
           className='inline-flex rounded-md border border-(--border-control) p-0.5'
         >
           {LOCATION_POLICIES.map(({ value, labelKey }) => {
@@ -1185,6 +1194,7 @@ function LocationSourceRow({
                 type='button'
                 role='radio'
                 aria-checked={active}
+                tabIndex={active ? 0 : -1}
                 disabled={disabled}
                 onClick={() => onSelect(value)}
                 className={`rounded px-3 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${

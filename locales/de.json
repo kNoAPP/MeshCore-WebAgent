@@ -53,6 +53,8 @@
     "placeholder": "Nachrichten, Kontakte, Kanäle durchsuchen…",
     "clear": "Suche löschen",
     "empty": "Keine Ergebnisse gefunden",
+    "resultCount_one": "{{count}} Ergebnis",
+    "resultCount_other": "{{count}} Ergebnisse",
     "group": {
       "recent": "Zuletzt",
       "messages": "Nachrichten",
@@ -99,6 +101,7 @@
   "connect": {
     "title": "Mit MeshCore verbinden",
     "subtitle": "Verbinde dich per USB, Bluetooth oder WiFi mit deinem Companion-Funkgerät.",
+    "transport": "Verbindungsart",
     "tab": {
       "usb": "USB",
       "ble": "BLE",
@@ -202,6 +205,7 @@
   },
   "autoAdd": {
     "title": "⚙ Auto-Hinzufügen-Einstellungen",
+    "modeLabel": "Auto-Hinzufügen-Modus",
     "all": {
       "label": "Alle automatisch hinzufügen",
       "hint": "Jeden vom Funkgerät gehörten Knoten speichern"
@@ -521,6 +525,7 @@
       "neighbors": "Nachbarn",
       "console": "Konsole"
     },
+    "tabsLabel": "Knotenverwaltung",
     "login": {
       "prompt": "Melden Sie sich an, um diesen Knoten zu verwalten.",
       "accessLabel": "Zugriffsebene",
@@ -781,6 +786,7 @@
   },
   "addChannel": {
     "title": "➕ Kanal hinzufügen",
+    "modeLabel": "Wie ein Kanal hinzugefügt wird",
     "name": "Name",
     "secretGenerated": "Geheimer Schlüssel (generiert)",
     "regenerate": "Neu generieren",
@@ -812,6 +818,7 @@
   },
   "addContact": {
     "title": "➕ Kontakt hinzufügen",
+    "modeLabel": "Wie ein Kontakt hinzugefügt wird",
     "link": "Kontakt-Link",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Name",

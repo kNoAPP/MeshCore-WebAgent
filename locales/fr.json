@@ -53,6 +53,8 @@
     "placeholder": "Rechercher des messages, contacts, canaux…",
     "clear": "Effacer la recherche",
     "empty": "Aucun résultat trouvé",
+    "resultCount_one": "{{count}} résultat",
+    "resultCount_other": "{{count}} résultats",
     "group": {
       "recent": "Récents",
       "messages": "Messages",
@@ -99,6 +101,7 @@
   "connect": {
     "title": "Se connecter à MeshCore",
     "subtitle": "Connecte-toi en USB, Bluetooth ou WiFi à ta radio Companion.",
+    "transport": "Type de connexion",
     "tab": {
       "usb": "USB",
       "ble": "BLE",
@@ -202,6 +205,7 @@
   },
   "autoAdd": {
     "title": "⚙ Paramètres d'ajout automatique",
+    "modeLabel": "Mode d'ajout automatique",
     "all": {
       "label": "Tout ajouter automatiquement",
       "hint": "Enregistrer chaque nœud entendu par la radio"
@@ -521,6 +525,7 @@
       "neighbors": "Voisins",
       "console": "Console"
     },
+    "tabsLabel": "Administration du nœud",
     "login": {
       "prompt": "Connectez-vous pour administrer ce nœud.",
       "accessLabel": "Niveau d’accès",
@@ -781,6 +786,7 @@
   },
   "addChannel": {
     "title": "➕ Ajouter un canal",
+    "modeLabel": "Comment ajouter un canal",
     "name": "Nom",
     "secretGenerated": "Clé secrète (générée)",
     "regenerate": "Régénérer",
@@ -812,6 +818,7 @@
   },
   "addContact": {
     "title": "➕ Ajouter un contact",
+    "modeLabel": "Comment ajouter un contact",
     "link": "Lien du contact",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Nom",

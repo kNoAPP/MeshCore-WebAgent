@@ -9,10 +9,13 @@ import { useTranslation } from 'react-i18next';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { getGrantedPorts } from '@/lib/meshcore/transports';
 import { useMeshStore, type ConnectFailure } from '@/store/meshStore';
+import { handleRovingKeyDown } from '@/lib/ui/roving';
 import { version } from '@/package.json';
 import { SyncDialog } from './SyncDialog';
 
 type Tab = 'usb' | 'ble' | 'wifi';
+
+const TABS: readonly Tab[] = ['usb', 'ble', 'wifi'];
 
 const DEFAULT_WIFI_URL = 'ws://192.168.1.100:5000';
 
@@ -177,14 +180,26 @@ export function ConnectPanel() {
 
         {/* Tabs */}
         <div
+          role='tablist'
+          aria-label={t('connect.transport')}
+          onKeyDown={(e) =>
+            handleRovingKeyDown(e, TABS.length, TABS.indexOf(tab), (i) =>
+              changeTab(TABS[i]),
+            )
+          }
           className='mb-5 flex overflow-hidden rounded-lg border'
           style={{ borderColor: 'var(--border)' }}
         >
-          {(['usb', 'ble', 'wifi'] as Tab[]).map((tb, i) => {
+          {TABS.map((tb, i) => {
             const Icon = tb === 'usb' ? Usb : tb === 'ble' ? Bluetooth : Wifi;
             return (
               <button
                 key={tb}
+                role='tab'
+                id={`connect-tab-${tb}`}
+                aria-selected={tab === tb}
+                aria-controls='connect-tabpanel'
+                tabIndex={tab === tb ? 0 : -1}
                 onClick={() => changeTab(tb)}
                 disabled={busy}
                 className={`focus-inset flex flex-1 items-center justify-center gap-1.5 py-2 text-[13px] font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50
@@ -210,91 +225,97 @@ export function ConnectPanel() {
         )}
 
         {/* USB */}
-        {tab === 'usb' && (
-          <div className='flex flex-col gap-3'>
-            {usbSupported ? (
-              <InfoBox>{t('connect.usb.info')}</InfoBox>
-            ) : (
-              <WarningBox>{t('connect.usb.unsupported')}</WarningBox>
-            )}
-            {savedPorts.map((port, i) => (
-              <PrimaryButton
-                key={i}
-                disabled={busy}
-                onClick={() => run(() => connectUSB(port))}
-              >
-                {busy
-                  ? t('connect.connecting')
-                  : t('connect.usb.connectSaved', {
-                      device: portLabel(port) ?? t('connect.usb.serialPort'),
-                    })}
-              </PrimaryButton>
-            ))}
-            {savedPorts.length > 0 ? (
-              <SecondaryButton
-                disabled={busy}
-                onClick={() => run(() => connectUSB())}
-              >
-                {t('connect.usb.chooseOther')}
-              </SecondaryButton>
-            ) : (
-              <PrimaryButton
-                disabled={busy || !usbSupported}
-                onClick={() => run(() => connectUSB())}
-              >
-                {busy ? t('connect.connecting') : t('connect.connectUsb')}
-              </PrimaryButton>
-            )}
-          </div>
-        )}
+        <div
+          id='connect-tabpanel'
+          role='tabpanel'
+          aria-labelledby={`connect-tab-${tab}`}
+        >
+          {tab === 'usb' && (
+            <div className='flex flex-col gap-3'>
+              {usbSupported ? (
+                <InfoBox>{t('connect.usb.info')}</InfoBox>
+              ) : (
+                <WarningBox>{t('connect.usb.unsupported')}</WarningBox>
+              )}
+              {savedPorts.map((port, i) => (
+                <PrimaryButton
+                  key={i}
+                  disabled={busy}
+                  onClick={() => run(() => connectUSB(port))}
+                >
+                  {busy
+                    ? t('connect.connecting')
+                    : t('connect.usb.connectSaved', {
+                        device: portLabel(port) ?? t('connect.usb.serialPort'),
+                      })}
+                </PrimaryButton>
+              ))}
+              {savedPorts.length > 0 ? (
+                <SecondaryButton
+                  disabled={busy}
+                  onClick={() => run(() => connectUSB())}
+                >
+                  {t('connect.usb.chooseOther')}
+                </SecondaryButton>
+              ) : (
+                <PrimaryButton
+                  disabled={busy || !usbSupported}
+                  onClick={() => run(() => connectUSB())}
+                >
+                  {busy ? t('connect.connecting') : t('connect.connectUsb')}
+                </PrimaryButton>
+              )}
+            </div>
+          )}
 
-        {/* BLE */}
-        {tab === 'ble' && (
-          <div className='flex flex-col gap-3'>
-            {bleSupported ? (
+          {/* BLE */}
+          {tab === 'ble' && (
+            <div className='flex flex-col gap-3'>
+              {bleSupported ? (
+                <InfoBox>
+                  {t('connect.ble.info')}
+                  <div className='mt-1.5'>{t('connect.ble.infoExtra')}</div>
+                </InfoBox>
+              ) : (
+                <WarningBox>{t('connect.ble.unsupported')}</WarningBox>
+              )}
+              <PrimaryButton
+                disabled={busy || !bleSupported}
+                onClick={() => run(connectBLE)}
+              >
+                {busy ? t('connect.scanning') : t('connect.scanConnectBle')}
+              </PrimaryButton>
+            </div>
+          )}
+
+          {/* WiFi */}
+          {tab === 'wifi' && (
+            <div className='flex flex-col gap-3'>
               <InfoBox>
-                {t('connect.ble.info')}
-                <div className='mt-1.5'>{t('connect.ble.infoExtra')}</div>
+                {t('connect.wifi.info')}
+                <div className='mt-1.5'>{t('connect.wifi.infoExtra')}</div>
               </InfoBox>
-            ) : (
-              <WarningBox>{t('connect.ble.unsupported')}</WarningBox>
-            )}
-            <PrimaryButton
-              disabled={busy || !bleSupported}
-              onClick={() => run(connectBLE)}
-            >
-              {busy ? t('connect.scanning') : t('connect.scanConnectBle')}
-            </PrimaryButton>
-          </div>
-        )}
-
-        {/* WiFi */}
-        {tab === 'wifi' && (
-          <div className='flex flex-col gap-3'>
-            <InfoBox>
-              {t('connect.wifi.info')}
-              <div className='mt-1.5'>{t('connect.wifi.infoExtra')}</div>
-            </InfoBox>
-            <label className='flex flex-col gap-1'>
-              <span className='text-xs text-(--text2)'>
-                {t('connect.websocketUrl')}
-              </span>
-              <input
-                type='text'
-                value={wifiUrl}
-                onChange={(e) => setEditedUrl(e.target.value)}
-                placeholder={DEFAULT_WIFI_URL}
-                className='input-field'
-              />
-            </label>
-            <PrimaryButton
-              disabled={busy || !wifiUrl.startsWith('ws')}
-              onClick={() => run(() => connectWiFi(wifiUrl))}
-            >
-              {busy ? t('connect.connecting') : t('connect.connectWifi')}
-            </PrimaryButton>
-          </div>
-        )}
+              <label className='flex flex-col gap-1'>
+                <span className='text-xs text-(--text2)'>
+                  {t('connect.websocketUrl')}
+                </span>
+                <input
+                  type='text'
+                  value={wifiUrl}
+                  onChange={(e) => setEditedUrl(e.target.value)}
+                  placeholder={DEFAULT_WIFI_URL}
+                  className='input-field'
+                />
+              </label>
+              <PrimaryButton
+                disabled={busy || !wifiUrl.startsWith('ws')}
+                onClick={() => run(() => connectWiFi(wifiUrl))}
+              >
+                {busy ? t('connect.connecting') : t('connect.connectWifi')}
+              </PrimaryButton>
+            </div>
+          )}
+        </div>
       </div>
       <ConnectFooter />
     </div>
