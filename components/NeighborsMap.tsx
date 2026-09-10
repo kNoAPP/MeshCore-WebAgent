@@ -101,6 +101,9 @@ export function NeighborsMap({
         nodes={nodes}
         edges={edges}
         startView={startView}
+        // Embedded in the Neighbors tab's scroll container: wheeling over it
+        // should scroll the tab, not zoom the map.
+        scrollWheelZoom={false}
         onNodeClick={(node) => {
           // The anchor is the repeater already open in this admin view, so only
           // neighbor markers (always contacts/adverts, never self) open a

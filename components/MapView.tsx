@@ -3,10 +3,16 @@
 
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
-import { useMeshStore } from '@/store/meshStore';
+import {
+  useMeshStore,
+  openConvo,
+  directConvoId,
+  repeaterConvoId,
+} from '@/store/meshStore';
+import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import { collectMapNodes, selfMapNode, type MapNode } from '@/lib/map/nodes';
 import {
   DEFAULT_MAP_PREFS,
@@ -15,14 +21,14 @@ import {
   type MapPrefs,
   type StartView,
 } from '@/lib/map/config';
-import { BaseLeafletMap } from './BaseLeafletMap';
+import { BaseLeafletMap, type NodeAction } from './BaseLeafletMap';
 import { MapLegend } from './MapLegend';
 import { Switch } from './Switch';
 
 function pickIcon(): L.DivIcon {
   const size = MAP_MARKER_SIZE_PX;
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:var(--accent);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.5)"></div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:var(--accent);border:3px solid var(--map-outline);box-shadow:0 1px 4px var(--map-shadow)"></div>`,
     className: '',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
@@ -147,22 +153,52 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     };
   }, [map, mapPicking]);
 
+  // Popup actions per node. Only a real contact can be messaged — an advert is
+  // a node the radio has heard but doesn't hold in its contact table — so that
+  // action is offered conditionally rather than shown as a dead button.
+  const nodeActions = useCallback(
+    (node: MapNode): NodeAction[] => {
+      const actions: NodeAction[] = [];
+      if (node.kind === 'contact') {
+        actions.push({
+          key: 'message',
+          label: t('map.popup.message'),
+          onSelect: (n) => {
+            const isAdminNode =
+              n.advType === ADV_TYPE_REPEATER || n.advType === ADV_TYPE_ROOM;
+            openConvo({
+              kind: isAdminNode ? 'repeater' : 'direct',
+              id: isAdminNode
+                ? repeaterConvoId(n.pubkeyPrefix)
+                : directConvoId(n.pubkeyPrefix),
+              rawId: n.pubkeyPrefix,
+              label: n.name,
+            });
+            useMeshStore.getState().setView('chat');
+          },
+        });
+      }
+      actions.push({
+        key: 'manage',
+        label: t('map.popup.manage'),
+        onSelect: (n) => {
+          // The base map never offers actions on the self marker.
+          if (n.kind === 'self') return;
+          useMeshStore
+            .getState()
+            .setManagePanel({ kind: n.kind, id: n.pubkeyPrefix });
+        },
+      });
+      return actions;
+    },
+    [t],
+  );
+
   return (
     <BaseLeafletMap
       nodes={plotted}
       startView={startView}
-      onNodeClick={
-        mapPicking
-          ? undefined
-          : (node) => {
-              // Self is never clickable; the base map only invokes this for
-              // contact/advert markers.
-              if (node.kind === 'self') return;
-              useMeshStore
-                .getState()
-                .setManagePanel({ kind: node.kind, id: node.pubkeyPrefix });
-            }
-      }
+      nodeActions={mapPicking ? undefined : nodeActions}
       onMoveEnd={(center, zoom) =>
         useMeshStore.getState().setMapPrefs({ center, zoom })
       }
@@ -175,6 +211,13 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
           </span>
         )}
       </div>
+      {plotted.length === 0 && !mapPicking && (
+        <div className='pointer-events-none absolute inset-0 z-1000 flex items-center justify-center p-6'>
+          <p className='pointer-events-auto max-w-sm rounded-card border border-border bg-surface/95 px-4 py-3 text-center text-sm text-text2 backdrop-blur'>
+            {t(favoritesOnly ? 'map.emptyFavorites' : 'map.empty')}
+          </p>
+        </div>
+      )}
       {mapPicking && (
         <div className='pointer-events-none absolute inset-x-0 bottom-6 z-1000 flex justify-center px-3'>
           <div className='pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-md border border-border bg-surface/95 px-3 py-2 text-sm text-text backdrop-blur'>

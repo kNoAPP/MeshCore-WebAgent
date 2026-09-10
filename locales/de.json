@@ -787,6 +787,12 @@
   "map": {
     "self": "Dieser Knoten",
     "markerCap": "{{shown}} von {{total}} Knoten werden angezeigt",
+    "empty": "Noch hat kein Knoten einen Standort gesendet. Standorte kommen mit Adverts, das füllt sich also, sobald das Mesh gehört wird.",
+    "emptyFavorites": "Keiner deiner Favoriten hat bisher einen Standort.",
+    "popup": {
+      "message": "Nachricht",
+      "manage": "Verwalten"
+    },
     "pick": {
       "hint": "Klicke auf die Karte, um den Standort dieses Funkgeräts festzulegen.",
       "confirm": "Standort bestätigen",

@@ -42,8 +42,15 @@ export interface BaseLeafletMapProps {
   /**
    * Invoked when a non-self node's marker is clicked. When omitted, markers are
    * inert (the Map page passes `undefined` while in location-pick mode).
+   * Ignored for nodes {@link nodeActions} offers a popup for.
    */
   onNodeClick?: (node: MapNode) => void;
+  /**
+   * Actions offered in a node's on-map popup. Returning an empty list (or
+   * omitting this) falls back to {@link onNodeClick}. A popup keeps the map
+   * visible, which a modal over it does not.
+   */
+  nodeActions?: (node: MapNode) => NodeAction[];
   /** Invoked after each pan/zoom, for callers that persist the viewport. */
   onMoveEnd?: (center: [number, number], zoom: number) => void;
   /**
@@ -51,8 +58,21 @@ export interface BaseLeafletMapProps {
    * can wire imperative behavior (e.g. click-to-place picking) against it.
    */
   onMapReady?: (map: L.Map | null) => void;
+  /**
+   * Whether the wheel zooms the map. Off for a map embedded in a scrolling
+   * pane, where wheeling should scroll the pane instead. Defaults to `true`.
+   */
+  scrollWheelZoom?: boolean;
   /** Overlays rendered above the map (banners, legend, cap notice). */
   children?: ReactNode;
+}
+
+/** One entry in a marker's popup. */
+export interface NodeAction {
+  /** Stable identifier, used to route the popup's click back here. */
+  key: string;
+  label: string;
+  onSelect: (node: MapNode) => void;
 }
 
 /**
@@ -66,8 +86,10 @@ export function BaseLeafletMap({
   edges,
   startView,
   onNodeClick,
+  nodeActions,
   onMoveEnd,
   onMapReady,
+  scrollWheelZoom = true,
   children,
 }: BaseLeafletMapProps) {
   const { t } = useTranslation();
@@ -87,10 +109,12 @@ export function BaseLeafletMap({
   // would tear down and rebuild the whole map). `clickable` still feeds the
   // marker signature so wiring toggles when a handler is added/removed.
   const onNodeClickRef = useRef(onNodeClick);
+  const nodeActionsRef = useRef(nodeActions);
   const onMoveEndRef = useRef(onMoveEnd);
   const onMapReadyRef = useRef(onMapReady);
   useEffect(() => {
     onNodeClickRef.current = onNodeClick;
+    nodeActionsRef.current = nodeActions;
     onMoveEndRef.current = onMoveEnd;
     onMapReadyRef.current = onMapReady;
   });
@@ -104,6 +128,7 @@ export function BaseLeafletMap({
       // opening viewport is applied below, once the min zoom is known.
       maxBounds: WORLD_BOUNDS,
       maxBoundsViscosity: 1,
+      scrollWheelZoom,
     });
     mapRef.current = map;
 
@@ -167,7 +192,7 @@ export function BaseLeafletMap({
       edgeLayerRef.current = null;
       tileLayerRef.current = null;
     };
-  }, [startView]);
+  }, [startView, scrollWheelZoom]);
 
   // Point the single tile layer at the active theme's CARTO style; light/dark
   // just swaps the URL template, avoiding a remove/re-add flash.
@@ -184,10 +209,16 @@ export function BaseLeafletMap({
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
+    const actionsFor = (n: MapNode) =>
+      n.kind === 'self' ? [] : (nodeActionsRef.current?.(n) ?? []);
     const sig = nodes
       .map(
         (n) =>
-          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.name}`,
+          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.name}:${actionsFor(
+            n,
+          )
+            .map((a) => `${a.key}=${a.label}`)
+            .join(',')}`,
       )
       .join('|');
     // `t` (locale) drives the self tooltip and `clickable` gates click wiring,
@@ -202,7 +233,33 @@ export function BaseLeafletMap({
       const label =
         node.kind === 'self' ? t('map.self') : escapeHtml(node.name);
       marker.bindTooltip(label, { direction: 'top' });
-      if (clickable && node.kind !== 'self') {
+      const actions = actionsFor(node);
+      if (actions.length > 0) {
+        // A popup rather than a modal: the point of a spatial view is that the
+        // map you clicked from stays on screen. The markup is built from the
+        // escaped node name and our own action keys, never raw input.
+        const buttons = actions
+          .map(
+            (a) =>
+              `<button type="button" class="meshcore-popup-action" data-action="${escapeHtml(a.key)}">${escapeHtml(a.label)}</button>`,
+          )
+          .join('');
+        marker.bindPopup(
+          `<div class="meshcore-popup-title">${label}</div><div class="meshcore-popup-actions">${buttons}</div>`,
+          { closeButton: true, minWidth: 140 },
+        );
+        marker.on('popupopen', (e) => {
+          const root = e.popup.getElement();
+          root?.querySelectorAll<HTMLElement>('[data-action]').forEach((el) => {
+            el.addEventListener('click', () => {
+              const key = el.dataset.action;
+              const live = nodeActionsRef.current?.(node) ?? [];
+              live.find((a) => a.key === key)?.onSelect(node);
+              marker.closePopup();
+            });
+          });
+        });
+      } else if (clickable && node.kind !== 'self') {
         marker.on('click', () => onNodeClickRef.current?.(node));
       }
       marker.addTo(layer);
