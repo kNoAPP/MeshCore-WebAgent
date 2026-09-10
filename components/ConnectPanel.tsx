@@ -3,10 +3,11 @@
 
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Bluetooth, PlugZap, Usb, Wifi } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { getGrantedPorts } from '@/lib/meshcore/transports';
 import { useMeshStore, type ConnectFailure } from '@/store/meshStore';
 import { version } from '@/package.json';
 import { SyncDialog } from './SyncDialog';
@@ -14,6 +15,30 @@ import { SyncDialog } from './SyncDialog';
 type Tab = 'usb' | 'ble' | 'wifi';
 
 const DEFAULT_WIFI_URL = 'ws://192.168.1.100:5000';
+
+// Chip vendors MeshCore boards ship with, so a saved port reads as a device
+// rather than four hex digits.
+const USB_VENDORS: Record<number, string> = {
+  0x0403: 'FTDI',
+  0x10c4: 'Silicon Labs',
+  0x1915: 'Nordic',
+  0x1a86: 'WCH',
+  0x239a: 'Adafruit',
+  0x2e8a: 'Raspberry Pi',
+  0x303a: 'Espressif',
+};
+
+const hex4 = (n: number) => n.toString(16).toUpperCase().padStart(4, '0');
+
+// Web Serial exposes no product name, only USB ids — enough to tell two saved
+// radios apart. Null for a non-USB port, which has no ids at all.
+function portLabel(port: SerialPort): string | null {
+  const { usbVendorId, usbProductId } = port.getInfo();
+  if (usbVendorId == null) return null;
+  const ids = `${hex4(usbVendorId)}:${hex4(usbProductId ?? 0)}`;
+  const vendor = USB_VENDORS[usbVendorId];
+  return vendor ? `${vendor} ${ids}` : ids;
+}
 
 interface TransportSupport {
   usb: boolean;
@@ -45,6 +70,7 @@ export function ConnectPanel() {
   const [pickedTab, setPickedTab] = useState<Tab | null>(null);
   const [editedUrl, setEditedUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [savedPorts, setSavedPorts] = useState<SerialPort[]>([]);
   // null during the prerender — the static export has no `navigator`
   const support = useSyncExternalStore(
     subscribeNever,
@@ -63,6 +89,26 @@ export function ConnectPanel() {
   const wifiUrl = editedUrl ?? lastFailure?.url ?? DEFAULT_WIFI_URL;
   const usbSupported = support?.usb ?? true;
   const bleSupported = support?.ble ?? true;
+
+  // Ports already granted to this origin can be reopened without the chooser.
+  // Plugging a radio in while this screen is up adds one, so track the events.
+  useEffect(() => {
+    if (!('serial' in navigator)) return;
+    let alive = true;
+    const refresh = () => {
+      void getGrantedPorts().then((ports) => {
+        if (alive) setSavedPorts(ports);
+      });
+    };
+    refresh();
+    navigator.serial.addEventListener('connect', refresh);
+    navigator.serial.addEventListener('disconnect', refresh);
+    return () => {
+      alive = false;
+      navigator.serial.removeEventListener('connect', refresh);
+      navigator.serial.removeEventListener('disconnect', refresh);
+    };
+  }, []);
 
   // Switching transports clears a stale error from the previous attempt.
   const changeTab = (tb: Tab) => {
@@ -171,12 +217,34 @@ export function ConnectPanel() {
             ) : (
               <WarningBox>{t('connect.usb.unsupported')}</WarningBox>
             )}
-            <PrimaryButton
-              disabled={busy || !usbSupported}
-              onClick={() => run(() => connectUSB())}
-            >
-              {busy ? t('connect.connecting') : t('connect.connectUsb')}
-            </PrimaryButton>
+            {savedPorts.map((port, i) => (
+              <PrimaryButton
+                key={i}
+                disabled={busy}
+                onClick={() => run(() => connectUSB(port))}
+              >
+                {busy
+                  ? t('connect.connecting')
+                  : t('connect.usb.connectSaved', {
+                      device: portLabel(port) ?? t('connect.usb.serialPort'),
+                    })}
+              </PrimaryButton>
+            ))}
+            {savedPorts.length > 0 ? (
+              <SecondaryButton
+                disabled={busy}
+                onClick={() => run(() => connectUSB())}
+              >
+                {t('connect.usb.chooseOther')}
+              </SecondaryButton>
+            ) : (
+              <PrimaryButton
+                disabled={busy || !usbSupported}
+                onClick={() => run(() => connectUSB())}
+              >
+                {busy ? t('connect.connecting') : t('connect.connectUsb')}
+              </PrimaryButton>
+            )}
           </div>
         )}
 
@@ -333,6 +401,24 @@ function PrimaryButton({
       className='w-full rounded-lg bg-(--accent-solid) py-2.5 text-sm font-semibold
 text-white transition-opacity hover:opacity-90
 disabled:cursor-not-allowed disabled:opacity-45'
+    >
+      {' '}
+      {children}{' '}
+    </button>
+  );
+}
+
+function SecondaryButton({
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      {...props}
+      style={{ borderColor: 'var(--border)' }}
+      className='w-full rounded-lg border py-2.5 text-sm font-medium text-(--text2)
+transition-colors hover:text-(--text) disabled:cursor-not-allowed
+disabled:opacity-45'
     >
       {' '}
       {children}{' '}
