@@ -196,6 +196,24 @@ export interface Toast {
 export type ConnectErrorCode = 'connectionFailed' | 'radioNoResponse';
 
 /**
+ * A message that just landed, recorded by {@link MeshActions.addMessage}. Kept
+ * flat rather than as a pointer into `msgHistory` so a reader can't
+ * accidentally resolve it against a later, rebuilt list.
+ */
+export interface MessageArrival {
+  convoId: string;
+  msgId: string;
+  text: string;
+  own: boolean;
+  system: boolean;
+  /**
+   * Whether the conversation was on screen *when this landed* — captured here
+   * rather than re-derived later, so returning to a blurred tab can't replay
+   * an announcement for a message the toast already covered.
+   */
+  visible: boolean;
+}
+/**
  * The radio auto-reconnect gave up on, kept past the session teardown so the
  * connect screen can say what was lost and offer a one-click retry.
  */
@@ -336,6 +354,13 @@ interface MeshState {
 
   // Conversations
   msgHistory: Record<string, Message[]>;
+  /**
+   * The last message {@link MeshActions.addMessage} appended — the one signal
+   * that a message *arrived now*, as opposed to `msgHistory` merely changing,
+   * which `restoreHistory` also does with messages the user read days ago.
+   * `null` until one arrives.
+   */
+  lastArrival: MessageArrival | null;
   activeConvo: ActiveConvo | null;
   /**
    * Id of a message the open conversation should scroll to and briefly
@@ -631,6 +656,7 @@ const initialState: MeshState = {
   advertCache: {},
   autoAddConfig: DEFAULT_AUTOADD_CONFIG,
   msgHistory: {},
+  lastArrival: null,
   activeConvo: null,
   scrollToMsgId: null,
   unreadMarkers: {},
@@ -759,12 +785,23 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   addMessage: (id, msg) =>
     set((state) => {
       const prev = state.msgHistory[id] ?? [];
+      const visible = isConvoVisible(state, id);
       const enriched: Message = {
         ...msg,
         id: msg.id ?? crypto.randomUUID(),
-        _unread: !isConvoVisible(state, id),
+        _unread: !visible,
       };
-      return { msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] } };
+      return {
+        msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },
+        lastArrival: {
+          convoId: id,
+          msgId: enriched.id as string,
+          text: enriched.text,
+          own: enriched.own ?? false,
+          system: enriched.system ?? false,
+          visible,
+        },
+      };
     }),
 
   updateMessage: (id, msgId, patch) =>
@@ -859,7 +896,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   showToast: (text, variant = '', convo) => {
     const id = ++toastSeq;
     set({ toast: { text, variant, id, convo } });
-    if (variant === 'error') return;
+    // Errors and toasts that carry an action both wait to be dismissed: three
+    // seconds is not long enough to tab to a button that was only just
+    // inserted, and yanking it away can drop focus mid-reach.
+    if (variant === 'error' || convo) return;
     setTimeout(() => {
       if (get().toast?.id === id) set({ toast: null });
     }, 3000);
@@ -1070,7 +1110,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   reset: () =>
     set({
       ...initialState,
-      toast: get().toast,
+      // A plain notice about the session that just ended still reads on the
+      // connect screen, but one carrying a conversation does not: its target
+      // belongs to the radio that just went away, and clicking it in the next
+      // session would select the wrong thread.
+      toast: get().toast?.convo ? null : get().toast,
       // The deployed build doesn't change with the radio, so a pending update
       // outlives the session it was noticed in.
       updateAvailable: get().updateAvailable,
@@ -1144,13 +1188,17 @@ export function openConvo(convo: ActiveConvo): void {
 
 /**
  * Whether conversation {@link id} is actually on screen: it is the open
- * conversation, the chat view is the one showing, and this tab has focus.
- * Messages arriving in a visible conversation are read on arrival and raise no
- * toast; everything else is unread and worth announcing.
+ * conversation, the chat view is the one showing, this tab has focus, and no
+ * reconnect overlay is covering the app. Messages arriving in a visible
+ * conversation are read on arrival and raise no toast; everything else is
+ * unread and worth announcing.
  */
 export function isConvoVisible(state: MeshState, id: string): boolean {
   return (
-    state.activeConvo?.id === id && state.view === 'chat' && state.windowFocused
+    state.status === 'connected' &&
+    state.activeConvo?.id === id &&
+    state.view === 'chat' &&
+    state.windowFocused
   );
 }
 
