@@ -45,10 +45,14 @@ export function Toast() {
     dismissToast();
   };
 
+  // Keyed by the toast id: two toasts with identical text and variant would
+  // otherwise reuse this card unchanged, and a live region only announces
+  // content that actually changed.
   const card =
     toast &&
     (convo ? (
       <button
+        key={toast.id}
         type='button'
         onClick={openTarget}
         className={`${shell} hover:border-(--accent) focus-visible:outline-2 focus-visible:outline-(--accent)`}
@@ -56,7 +60,7 @@ export function Toast() {
         {toast.text}
       </button>
     ) : (
-      <div className={shell}>
+      <div key={toast.id} className={shell}>
         <span>{toast.text}</span>
         {isError && (
           <button

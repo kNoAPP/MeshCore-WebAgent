@@ -145,7 +145,7 @@ export function ChatArea() {
   // the whole list and paging back prepends old rows — either would flood the
   // polite queue with messages the user has read. This carries just the
   // arrival, into a region that was already mounted.
-  const [announcement, setAnnouncement] = useState('');
+  const [announcement, setAnnouncement] = useState({ id: '', text: '' });
   const lastSeenRef = useRef<{ convoId: string | null; lastId?: string }>({
     convoId: null,
   });
@@ -161,10 +161,10 @@ export function ChatArea() {
       last.system ||
       last.id === prev.lastId
     ) {
-      setAnnouncement('');
+      setAnnouncement({ id: '', text: '' });
       return;
     }
-    setAnnouncement(last.text);
+    setAnnouncement({ id: last.id ?? '', text: last.text });
   }, [messages, convoId]);
 
   // The oldest message index the window has been opened back to — by scrolling
@@ -591,7 +591,10 @@ export function ChatArea() {
       {/* Messages */}
       <div className='relative flex flex-1 flex-col overflow-hidden'>
         <span className='sr-only' role='status' aria-live='polite'>
-          {announcement}
+          {/* Keyed by message id: two arrivals with identical text would
+              otherwise leave the text node untouched, and a live region only
+              announces what actually changed. */}
+          <span key={announcement.id}>{announcement.text}</span>
         </span>
         <div
           role='log'
