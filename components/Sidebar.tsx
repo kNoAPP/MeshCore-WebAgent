@@ -166,14 +166,12 @@ export function Sidebar() {
   } = contactView;
   // The height the Channels section wants when the user hasn't dragged the
   // divider. Transient: derived from a measurement, never persisted.
-  const [autoChannelsHeight, setAutoChannelsHeight] = useState(160);
-  const channelsHeight = storedChannelsHeight ?? autoChannelsHeight;
   const [query, setQuery] = useState('');
   const dragStartY = useRef<number | null>(null);
   const dragStartH = useRef(160);
   const sidebarRef = useRef<HTMLElement>(null);
   const channelsSectionRef = useRef<HTMLDivElement>(null);
-  const channelsContentRef = useRef<HTMLUListElement>(null);
+  const channelsContentRef = useRef<HTMLDivElement>(null);
   const channelsHeaderRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<HTMLDivElement>(null);
   const activeItemRef = useRef<HTMLLIElement>(null);
@@ -193,20 +191,33 @@ export function Sidebar() {
     const contentH = channelsContentRef.current?.offsetHeight ?? 9999;
     return Math.ceil(contentH + headerH + sectionPadding) + 1;
   }, []);
+  // The heights the Channels section can take: `fit` is what its content needs
+  // (the drag ceiling), `auto` is where an undragged divider sits. Both are
+  // measured, never persisted.
+  const [sectionBounds, setSectionBounds] = useState({ fit: 160, auto: 160 });
 
   useLayoutEffect(() => {
-    if (storedChannelsHeight !== null || !sidebarRef.current) return;
+    if (!sidebarRef.current) return;
     const dividerH = dividerRef.current?.offsetHeight ?? 0;
-    const contactsMatchHeight = Math.floor(
-      (sidebarRef.current.offsetHeight - dividerH) / 2,
+    const available = sidebarRef.current.offsetHeight - dividerH;
+    const fit = Math.max(
+      MIN_SECTION_PX,
+      Math.min(measureChannelsFitHeight(), available),
     );
-    setAutoChannelsHeight(
-      Math.max(
-        MIN_SECTION_PX,
-        Math.min(measureChannelsFitHeight(), contactsMatchHeight),
-      ),
-    );
-  }, [sortedChannels.length, measureChannelsFitHeight, storedChannelsHeight]);
+    setSectionBounds({
+      fit,
+      auto: Math.max(MIN_SECTION_PX, Math.min(fit, Math.floor(available / 2))),
+    });
+  }, [sortedChannels.length, measureChannelsFitHeight]);
+
+  // A stored height is clamped on every render, not just on load: the same
+  // value that fit a tall window would otherwise clip the Channels header or
+  // push Contacts off the bottom in a short one.
+  const channelsHeight = Math.max(
+    MIN_SECTION_PX,
+    Math.min(sectionBounds.fit, storedChannelsHeight ?? sectionBounds.auto),
+  );
+
   // Precompute each contact's latest-message timestamp once so the comparator
   // doesn't recompute it on every comparison during sort. Only the 'latest'
   // order needs it, so other orders reuse a shared empty map — that keeps this
@@ -276,7 +287,7 @@ export function Sidebar() {
         if (dragStartY.current === null || !sidebarRef.current) return;
         const delta = ev.clientY - dragStartY.current;
         const next = Math.min(
-          measureChannelsFitHeight(),
+          sectionBounds.fit,
           Math.max(MIN_SECTION_PX, dragStartH.current + delta),
         );
         setChannelsHeight(next);
@@ -291,7 +302,7 @@ export function Sidebar() {
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
     },
-    [channelsHeight, measureChannelsFitHeight, setChannelsHeight],
+    [channelsHeight, sectionBounds.fit, setChannelsHeight],
   );
 
   const onDividerKeyDown = useCallback(
@@ -309,13 +320,10 @@ export function Sidebar() {
       const current =
         useMeshStore.getState().contactView.channelsHeight ?? channelsHeight;
       setChannelsHeight(
-        Math.min(
-          measureChannelsFitHeight(),
-          Math.max(MIN_SECTION_PX, current + step),
-        ),
+        Math.min(sectionBounds.fit, Math.max(MIN_SECTION_PX, current + step)),
       );
     },
-    [channelsHeight, measureChannelsFitHeight, setChannelsHeight],
+    [channelsHeight, sectionBounds.fit, setChannelsHeight],
   );
 
   const onWidthMouseDown = useCallback(
@@ -393,42 +401,49 @@ export function Sidebar() {
           </button>
         </div>
         <div className='flex-1 overflow-y-auto'>
-          <ul ref={channelsContentRef} aria-labelledby='sidebar-channels'>
-            {sortedChannels.map((ch) => {
-              const id = channelConvoId(ch.idx);
-              const unread = unreadCount(msgHistory, id);
-              const active = activeConvo?.id === id;
-              return (
-                <SidebarItem
-                  key={id}
-                  innerRef={active ? activeItemRef : undefined}
-                  icon={isPublicChannelSecret(ch.secret) ? '📢' : '🔒'}
-                  label={ch.name || t('common.channelName', { index: ch.idx })}
-                  active={active}
-                  unread={unread}
-                  onManage={() =>
-                    setManagePanel({ kind: 'channel', id: String(ch.idx) })
-                  }
-                  onClick={() =>
-                    openConvo({
-                      kind: 'channel',
-                      id,
-                      rawId: ch.idx,
-                      label:
-                        ch.name || t('common.channelName', { index: ch.idx }),
-                    })
-                  }
-                />
-              );
-            })}
-          </ul>
-          {sortedChannels.length === 0 && (
-            <EmptyState
-              message={t('sidebar.noChannels')}
-              actionLabel={t('sidebar.addChannel')}
-              onAction={() => setAddChannelOpen(true)}
-            />
-          )}
+          {/* The measured content area: the empty state has to be inside it,
+              or a channel-less sidebar auto-sizes down to the header and
+              hides its own Add action. */}
+          <div ref={channelsContentRef}>
+            <ul aria-labelledby='sidebar-channels'>
+              {sortedChannels.map((ch) => {
+                const id = channelConvoId(ch.idx);
+                const unread = unreadCount(msgHistory, id);
+                const active = activeConvo?.id === id;
+                return (
+                  <SidebarItem
+                    key={id}
+                    innerRef={active ? activeItemRef : undefined}
+                    icon={isPublicChannelSecret(ch.secret) ? '📢' : '🔒'}
+                    label={
+                      ch.name || t('common.channelName', { index: ch.idx })
+                    }
+                    active={active}
+                    unread={unread}
+                    onManage={() =>
+                      setManagePanel({ kind: 'channel', id: String(ch.idx) })
+                    }
+                    onClick={() =>
+                      openConvo({
+                        kind: 'channel',
+                        id,
+                        rawId: ch.idx,
+                        label:
+                          ch.name || t('common.channelName', { index: ch.idx }),
+                      })
+                    }
+                  />
+                );
+              })}
+            </ul>
+            {sortedChannels.length === 0 && (
+              <EmptyState
+                message={t('sidebar.noChannels')}
+                actionLabel={t('sidebar.addChannel')}
+                onAction={() => setAddChannelOpen(true)}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -438,6 +453,9 @@ export function Sidebar() {
         role='separator'
         aria-orientation='horizontal'
         aria-label={t('sidebar.dragResize')}
+        aria-valuenow={channelsHeight}
+        aria-valuemin={MIN_SECTION_PX}
+        aria-valuemax={sectionBounds.fit}
         tabIndex={0}
         onMouseDown={onDividerMouseDown}
         onKeyDown={onDividerKeyDown}

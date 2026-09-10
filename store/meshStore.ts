@@ -140,9 +140,11 @@ export interface ContactView {
   channelsHeight: number | null;
 }
 
-/** Drag bounds for the sidebar width, in CSS pixels. */
+/** Narrowest the sidebar can be dragged, in CSS pixels. */
 export const SIDEBAR_MIN_WIDTH = 180;
+/** Widest the sidebar can be dragged, in CSS pixels. */
 export const SIDEBAR_MAX_WIDTH = 480;
+/** Sidebar width before the user drags it, in CSS pixels. */
 export const SIDEBAR_DEFAULT_WIDTH = 240;
 
 const DEFAULT_CONTACT_VIEW: ContactView = {
@@ -173,6 +175,8 @@ function normalizeContactView(raw: unknown): ContactView {
         ? parsed.pinFavorites
         : DEFAULT_CONTACT_VIEW.pinFavorites,
     width: clampSidebarWidth(parsed.width),
+    // Only sanity-checked here — the real ceiling is the sidebar's own height,
+    // which only the component can measure, so it clamps on every render.
     channelsHeight:
       typeof parsed.channelsHeight === 'number' &&
       Number.isFinite(parsed.channelsHeight) &&
