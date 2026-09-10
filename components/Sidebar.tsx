@@ -197,17 +197,32 @@ export function Sidebar() {
   const [sectionBounds, setSectionBounds] = useState({ fit: 160, auto: 160 });
 
   useLayoutEffect(() => {
-    if (!sidebarRef.current) return;
-    const dividerH = dividerRef.current?.offsetHeight ?? 0;
-    const available = sidebarRef.current.offsetHeight - dividerH;
-    const fit = Math.max(
-      MIN_SECTION_PX,
-      Math.min(measureChannelsFitHeight(), available),
-    );
-    setSectionBounds({
-      fit,
-      auto: Math.max(MIN_SECTION_PX, Math.min(fit, Math.floor(available / 2))),
-    });
+    const aside = sidebarRef.current;
+    if (!aside) return;
+    const measure = () => {
+      const dividerH = dividerRef.current?.offsetHeight ?? 0;
+      const available = aside.offsetHeight - dividerH;
+      // Contacts keeps its own minimum: a maximized split must never leave the
+      // lower section with nothing to render into.
+      const ceiling = Math.max(MIN_SECTION_PX, available - MIN_SECTION_PX);
+      const fit = Math.max(
+        MIN_SECTION_PX,
+        Math.min(measureChannelsFitHeight(), ceiling),
+      );
+      setSectionBounds({
+        fit,
+        auto: Math.max(
+          MIN_SECTION_PX,
+          Math.min(fit, Math.floor(available / 2)),
+        ),
+      });
+    };
+    measure();
+    // The window can be resized without any of this effect's inputs changing,
+    // and a bound measured against the old height would then hide Contacts.
+    const observer = new ResizeObserver(measure);
+    observer.observe(aside);
+    return () => observer.disconnect();
   }, [sortedChannels.length, measureChannelsFitHeight]);
 
   // A stored height is clamped on every render, not just on load: the same
