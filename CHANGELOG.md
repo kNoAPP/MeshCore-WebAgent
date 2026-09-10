@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.24.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.23.0...v1.24.0) (2026-09-10)
+
+
+### Features
+
+* **connect:** reopen granted USB ports without the chooser ([#265](https://github.com/kNoAPP/MeshCore-WebAgent/issues/265)) ([ffc1565](https://github.com/kNoAPP/MeshCore-WebAgent/commit/ffc1565e19b833866cf4e0bf2b5aedcd08cf8c6f))
+* **settings:** widen settings and add a section rail ([#269](https://github.com/kNoAPP/MeshCore-WebAgent/issues/269)) ([ae2862b](https://github.com/kNoAPP/MeshCore-WebAgent/commit/ae2862b49b55213a42d3dd63969af94f5315e968))
+
+
+### Bug Fixes
+
+* **a11y:** give composite widgets real roles and keyboard models ([#270](https://github.com/kNoAPP/MeshCore-WebAgent/issues/270)) ([364079b](https://github.com/kNoAPP/MeshCore-WebAgent/commit/364079bf064b7fbbf87103eb6a8247f2ced8d021))
+* **automation:** confirm before deleting a rule or clearing the audit log ([#267](https://github.com/kNoAPP/MeshCore-WebAgent/issues/267)) ([dc952de](https://github.com/kNoAPP/MeshCore-WebAgent/commit/dc952de74edf80b38a9adaa151a071c560a8bcee))
+
+
+### Performance Improvements
+
+* **chat:** scope store subscriptions and window the message list ([#268](https://github.com/kNoAPP/MeshCore-WebAgent/issues/268)) ([cdc96dc](https://github.com/kNoAPP/MeshCore-WebAgent/commit/cdc96dca5c16533238c35da95e66a301fb6e3a65))
+
 ## [1.23.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.22.2...v1.23.0) (2026-09-09)
 
 
