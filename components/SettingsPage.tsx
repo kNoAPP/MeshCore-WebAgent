@@ -82,7 +82,9 @@ export function SettingsPage() {
 
   return (
     <div className='flex flex-1 flex-col overflow-y-auto p-7'>
-      <div className='mx-auto flex w-full max-w-6xl gap-6'>
+      {/* The rail is added on top of the 6xl content column, not carved out of
+          it, so the cards keep the same measure the other pages use. */}
+      <div className='mx-auto flex w-full max-w-6xl gap-6 lg:max-w-[calc(72rem+12.5rem)]'>
         <SectionRail />
         <div className='min-w-0 flex-1'>
           <div className='mb-5'>
