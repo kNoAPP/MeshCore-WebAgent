@@ -43,16 +43,20 @@ export function SyncProgressView({ progress }: { progress: SyncProgress }) {
   const { t } = useTranslation();
   const { stage, percent } = progress;
   const stageIdx = SYNC_STAGES.indexOf(stage);
+  const stageLabel = `${t(SYNC_STAGE_KEY[stage])}${syncDetail(t, progress)}`;
   return (
     <>
       <div className='mb-1.5 flex items-baseline justify-between gap-3'>
-        <span className='text-sm'>
-          {t(SYNC_STAGE_KEY[stage])}
-          {syncDetail(t, progress)}…
-        </span>
+        <span className='text-sm'>{stageLabel}…</span>
         <span className='text-xs text-(--text2)'>{percent}%</span>
       </div>
       <div
+        role='progressbar'
+        aria-label={t('sync.label')}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        aria-valuetext={t('sync.valueText', { stage: stageLabel, percent })}
         className='h-2 w-full overflow-hidden rounded-full'
         style={{ background: 'var(--border)' }}
       >
@@ -77,10 +81,19 @@ export function SyncProgressView({ progress }: { progress: SyncProgress }) {
                     : 'var(--text2)',
               }}
             >
-              <span className='w-3 text-center'>
+              <span className='w-3 text-center' aria-hidden='true'>
                 {done ? '✓' : active ? '●' : '○'}
               </span>
               {t(SYNC_STAGE_KEY[s])}
+              <span className='sr-only'>
+                {t(
+                  done
+                    ? 'sync.stageDone'
+                    : active
+                      ? 'sync.stageActive'
+                      : 'sync.stagePending',
+                )}
+              </span>
             </li>
           );
         })}
