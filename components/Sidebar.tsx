@@ -151,10 +151,10 @@ export function Sidebar() {
   const userResized = useRef(false);
   const sidebarRef = useRef<HTMLElement>(null);
   const channelsSectionRef = useRef<HTMLDivElement>(null);
-  const channelsContentRef = useRef<HTMLDivElement>(null);
+  const channelsContentRef = useRef<HTMLUListElement>(null);
   const channelsHeaderRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<HTMLDivElement>(null);
-  const activeItemRef = useRef<HTMLDivElement>(null);
+  const activeItemRef = useRef<HTMLLIElement>(null);
 
   const sortedChannels = Object.values(channels).sort((a, b) => a.idx - b.idx);
 
@@ -265,9 +265,12 @@ export function Sidebar() {
           ref={channelsHeaderRef}
           className='flex shrink-0 items-center justify-between px-3.5 pb-1'
         >
-          <span className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'>
+          <h2
+            id='sidebar-channels'
+            className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'
+          >
             {t('sidebar.channels')}
-          </span>
+          </h2>
           <button
             onClick={() => setAddChannelOpen(true)}
             title={t('sidebar.addChannel')}
@@ -278,7 +281,7 @@ export function Sidebar() {
           </button>
         </div>
         <div className='flex-1 overflow-y-auto'>
-          <div ref={channelsContentRef}>
+          <ul ref={channelsContentRef} aria-labelledby='sidebar-channels'>
             {sortedChannels.map((ch) => {
               const id = channelConvoId(ch.idx);
               const unread = unreadCount(msgHistory, id);
@@ -306,7 +309,7 @@ export function Sidebar() {
                 />
               );
             })}
-          </div>
+          </ul>
         </div>
       </div>
 
@@ -328,9 +331,12 @@ export function Sidebar() {
       {/* Contacts */}
       <div className='flex min-h-0 flex-1 flex-col overflow-hidden pt-2'>
         <div className='flex shrink-0 items-center justify-between px-3.5 pb-1'>
-          <span className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'>
+          <h2
+            id='sidebar-contacts'
+            className='text-[11px] font-semibold tracking-widest text-(--text2) uppercase'
+          >
             {t('sidebar.contacts')}
-          </span>
+          </h2>
           <div className='flex items-center gap-2'>
             <ContactsFilterMenu
               filter={contactFilter}
@@ -363,40 +369,42 @@ export function Sidebar() {
           </div>
         </div>
         <div className='flex-1 overflow-y-auto'>
-          {sortedContacts.map((c) => {
-            // Repeaters and room servers are remote-admin targets, so
-            // selecting one opens its main-window admin view instead of a chat.
-            const isAdminNode =
-              c.advType === ADV_TYPE_REPEATER || c.advType === ADV_TYPE_ROOM;
-            const id = isAdminNode
-              ? repeaterConvoId(c.pubkeyPrefix)
-              : directConvoId(c.pubkeyPrefix);
-            const unread = unreadCount(msgHistory, id);
-            const active = activeConvo?.id === id;
-            const isFav = (c.flags & FAVORITE_FLAG) !== 0;
-            const label = c.name || c.pubkeyPrefix.slice(0, 8);
-            return (
-              <SidebarItem
-                key={id}
-                innerRef={active ? activeItemRef : undefined}
-                icon={isFav ? '⭐' : (ADV_ICON[c.advType] ?? '👤')}
-                label={label}
-                active={active}
-                unread={unread}
-                onManage={() =>
-                  setManagePanel({ kind: 'contact', id: c.pubkeyPrefix })
-                }
-                onClick={() =>
-                  openConvo({
-                    kind: isAdminNode ? 'repeater' : 'direct',
-                    id,
-                    rawId: c.pubkeyPrefix,
-                    label,
-                  })
-                }
-              />
-            );
-          })}
+          <ul aria-labelledby='sidebar-contacts'>
+            {sortedContacts.map((c) => {
+              // Repeaters and room servers are remote-admin targets, so
+              // selecting one opens its admin view instead of a chat.
+              const isAdminNode =
+                c.advType === ADV_TYPE_REPEATER || c.advType === ADV_TYPE_ROOM;
+              const id = isAdminNode
+                ? repeaterConvoId(c.pubkeyPrefix)
+                : directConvoId(c.pubkeyPrefix);
+              const unread = unreadCount(msgHistory, id);
+              const active = activeConvo?.id === id;
+              const isFav = (c.flags & FAVORITE_FLAG) !== 0;
+              const label = c.name || c.pubkeyPrefix.slice(0, 8);
+              return (
+                <SidebarItem
+                  key={id}
+                  innerRef={active ? activeItemRef : undefined}
+                  icon={isFav ? '⭐' : (ADV_ICON[c.advType] ?? '👤')}
+                  label={label}
+                  active={active}
+                  unread={unread}
+                  onManage={() =>
+                    setManagePanel({ kind: 'contact', id: c.pubkeyPrefix })
+                  }
+                  onClick={() =>
+                    openConvo({
+                      kind: isAdminNode ? 'repeater' : 'direct',
+                      id,
+                      rawId: c.pubkeyPrefix,
+                      label,
+                    })
+                  }
+                />
+              );
+            })}
+          </ul>
         </div>
       </div>
     </aside>
@@ -579,13 +587,13 @@ function SidebarItem({
   unread: number;
   disabled?: boolean;
   title?: string;
-  innerRef?: React.Ref<HTMLDivElement>;
+  innerRef?: React.Ref<HTMLLIElement>;
   onManage: () => void;
   onClick: () => void;
 }) {
   const { t } = useTranslation();
   return (
-    <div
+    <li
       ref={innerRef}
       className={`group flex w-full items-center gap-2 px-3.5 py-2 text-sm transition-colors ${
         disabled
@@ -599,6 +607,7 @@ function SidebarItem({
         onClick={disabled ? undefined : onClick}
         disabled={disabled}
         title={title}
+        aria-current={active ? 'true' : undefined}
         className={`flex min-w-0 flex-1 items-center gap-2 text-left ${disabled ? 'cursor-default' : ''}`}
       >
         <span className='shrink-0 text-base'>{icon}</span>
@@ -617,6 +626,6 @@ function SidebarItem({
       >
         ⋯
       </button>
-    </div>
+    </li>
   );
 }

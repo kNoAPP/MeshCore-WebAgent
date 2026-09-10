@@ -81,6 +81,9 @@ function ResultRow({
       data-idx={index}
       role='option'
       aria-selected={active}
+      // The input owns the tab stop and drives `aria-activedescendant`; a
+      // focusable option would put ~30 extra stops between it and Close.
+      tabIndex={-1}
       onClick={onActivate}
       onMouseMove={onHover}
       className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left ${
@@ -174,6 +177,12 @@ export function CommandPalette(): React.ReactElement {
       setActive(
         flat.length ? (activeIndex - 1 + flat.length) % flat.length : 0,
       );
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setActive(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setActive(flat.length ? flat.length - 1 : 0);
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const result = flat[activeIndex];
@@ -225,6 +234,10 @@ export function CommandPalette(): React.ReactElement {
             </button>
           )}
         </div>
+
+        <p className='sr-only' role='status'>
+          {t('command.resultCount', { count: flat.length })}
+        </p>
 
         <div
           ref={listRef}

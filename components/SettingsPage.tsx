@@ -14,6 +14,7 @@ import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
 import { fmtNum, utf8ByteLength, contactShareUri, ADV_ICON } from '@/lib/utils';
 import { flashTarget } from '@/lib/ui/flash';
+import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
   MAX_ADVERT_NAME_BYTES,
   ADVERT_LAT_MIN,
@@ -563,6 +564,14 @@ function LocationCard() {
               <div
                 role='radiogroup'
                 aria-label={t('settings.locationSource')}
+                onKeyDown={(e) =>
+                  handleRovingKeyDown(
+                    e,
+                    LOCATION_SOURCES.length,
+                    LOCATION_SOURCES.findIndex((s) => s.useGps === usingGps),
+                    (i) => void selectSource(LOCATION_SOURCES[i].useGps),
+                  )
+                }
                 className='inline-flex rounded-md border border-(--border-control) p-0.5'
               >
                 {LOCATION_SOURCES.map(({ useGps, label }) => {
@@ -572,6 +581,7 @@ function LocationCard() {
                       key={label}
                       role='radio'
                       aria-checked={active}
+                      tabIndex={active ? 0 : -1}
                       disabled={!editable || savingSource}
                       onClick={() => void selectSource(useGps)}
                       className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
