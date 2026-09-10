@@ -349,7 +349,9 @@ export function describeAction(
         name: contactName(args.pubkeyPrefix),
       });
     default:
-      return name;
+      // Read tools have no arguments worth narrating; the localized tool name
+      // is the whole description.
+      return i18n.t(`automation.toolName.${name}`);
   }
 }
 

@@ -58,6 +58,8 @@
     "placeholder": "Buscar mensajes, contactos, canales…",
     "clear": "Borrar búsqueda",
     "empty": "No se encontraron resultados",
+    "resultCount_one": "{{count}} resultado",
+    "resultCount_other": "{{count}} resultados",
     "group": {
       "recent": "Recientes",
       "messages": "Mensajes",
@@ -104,6 +106,7 @@
   "connect": {
     "title": "Conectar a MeshCore",
     "subtitle": "Conéctate por USB, Bluetooth o WiFi a tu Radio Companion.",
+    "transport": "Tipo de conexión",
     "tab": {
       "usb": "USB",
       "ble": "BLE",
@@ -209,6 +212,7 @@
   },
   "autoAdd": {
     "title": "⚙ Ajustes de auto-añadir",
+    "modeLabel": "Modo de auto-añadir",
     "all": {
       "label": "Auto-añadir todos",
       "hint": "Guardar cada nodo que la radio escuche"
@@ -229,6 +233,7 @@
   },
   "settings": {
     "title": "⚙ Configuración",
+    "sections": "Secciones de configuración",
     "section": {
       "device": "Dispositivo",
       "identity": "Identidad",
@@ -400,6 +405,29 @@
     "rules": "Reglas",
     "noRules": "Aún no hay reglas. Crea una con Nueva regla.",
     "enableRule": "Activar regla",
+    "deleteConfirm": "¿Eliminar «{{name}}» de forma permanente?",
+    "promptSummary_one": "Ejecutar una consulta de IA con {{count}} herramienta",
+    "promptSummary_other": "Ejecutar una consulta de IA con {{count}} herramientas",
+    "toolName": {
+      "read_contacts": "Leer contactos",
+      "read_channels": "Leer canales",
+      "read_adverts": "Leer nodos descubiertos",
+      "read_messages": "Leer mensajes",
+      "read_self_info": "Leer la información de este nodo",
+      "read_stats": "Leer estadísticas de radio",
+      "send_direct_message": "Enviar un mensaje directo",
+      "send_channel_message": "Enviar un mensaje de canal",
+      "advertise": "Anunciar este nodo",
+      "add_contact": "Añadir un contacto",
+      "remove_contact": "Eliminar un contacto",
+      "toggle_favorite": "Alternar favorito",
+      "reset_contact_path": "Restablecer la ruta de un contacto"
+    },
+    "toolClass": {
+      "read": "Solo lectura: nunca transmite",
+      "transmit": "Transmite: usa tiempo de aire compartido y está limitado",
+      "write": "Escribe: modifica las tablas de esta radio"
+    },
     "trigger": {
       "message": "Llega un mensaje",
       "advert": "Un nodo se anuncia",
@@ -449,6 +477,7 @@
       "title": "Registro de auditoría",
       "empty": "Aún no hay acciones de IA.",
       "clear": "Borrar",
+      "clearConfirm": "¿Borrar todo el registro?",
       "noKey": "No hay clave de IA cargada",
       "llmError": "Error de IA: {{kind}}",
       "notAllowed": "Herramienta no permitida: {{tool}}",
@@ -527,6 +556,7 @@
       "neighbors": "Vecinos",
       "console": "Consola"
     },
+    "tabsLabel": "Administración del nodo",
     "login": {
       "prompt": "Inicia sesión para administrar este nodo.",
       "accessLabel": "Nivel de acceso",
@@ -600,6 +630,9 @@
       "requiresReboot": "Requiere reinicio",
       "edit": "Editar",
       "advanced": "Avanzado",
+      "filterLabel": "Filtrar ajustes",
+      "filterPlaceholder": "Filtrar ajustes…",
+      "filterEmpty": "Ningún ajuste coincide con este filtro.",
       "actionsTitle": "Acciones",
       "location": "Ubicación",
       "locationHint": "Coordenadas anunciadas en grados decimales.",
@@ -786,6 +819,7 @@
   },
   "addChannel": {
     "title": "➕ Añadir canal",
+    "modeLabel": "Cómo añadir un canal",
     "name": "Nombre",
     "secretGenerated": "Clave secreta (generada)",
     "regenerate": "Regenerar",
@@ -817,6 +851,7 @@
   },
   "addContact": {
     "title": "➕ Añadir contacto",
+    "modeLabel": "Cómo añadir un contacto",
     "link": "Enlace de contacto",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Nombre",

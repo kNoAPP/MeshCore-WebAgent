@@ -21,6 +21,7 @@ import { parseNeighborsReply } from '@/lib/meshcore/repeaterCli';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
 import { ADV_TYPE_REPEATER } from '@/lib/meshcore/constants';
 import { locateNeighborNode } from '@/lib/map/nodes';
+import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
   formatAirtime,
   formatDbm,
@@ -210,7 +211,12 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
       {authed ? (
         <>
           <TabBar tabs={tabs} active={activeTab} onSelect={setTab} />
-          <div className='flex-1 overflow-y-auto p-4'>
+          <div
+            id='repeater-tabpanel'
+            role='tabpanel'
+            aria-labelledby={`repeater-tab-${activeTab}`}
+            className='flex-1 overflow-y-auto p-4'
+          >
             {activeTab === 'status' && (
               <StatusDashboard
                 status={session?.status}
@@ -274,13 +280,22 @@ function TabBar({
   return (
     <div
       role='tablist'
+      aria-label={t('repeaterAdmin.tabsLabel')}
+      onKeyDown={(e) =>
+        handleRovingKeyDown(e, tabs.length, tabs.indexOf(active), (i) =>
+          onSelect(tabs[i]),
+        )
+      }
       className='flex shrink-0 gap-1 overflow-x-auto border-b border-(--border) px-3'
     >
       {tabs.map((id) => (
         <button
           key={id}
           role='tab'
+          id={`repeater-tab-${id}`}
           aria-selected={active === id}
+          aria-controls='repeater-tabpanel'
+          tabIndex={active === id ? 0 : -1}
           onClick={() => onSelect(id)}
           className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap ${
             active === id
@@ -332,6 +347,11 @@ function LoginGate({
       <div
         role='radiogroup'
         aria-label={t('repeaterAdmin.login.accessLabel')}
+        onKeyDown={(e) =>
+          handleRovingKeyDown(e, 2, kind === 'admin' ? 0 : 1, (i) =>
+            setKind(i === 0 ? 'admin' : 'guest'),
+          )
+        }
         className='grid grid-cols-2 gap-2'
       >
         {(['admin', 'guest'] as const).map((k) => (
@@ -340,6 +360,7 @@ function LoginGate({
             type='button'
             role='radio'
             aria-checked={kind === k}
+            tabIndex={kind === k ? 0 : -1}
             onClick={() => setKind(k)}
             disabled={pending}
             className={`rounded-md border px-3 py-2 text-left disabled:opacity-50 ${

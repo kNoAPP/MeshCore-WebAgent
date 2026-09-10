@@ -5,11 +5,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMeshStore, type SettingsSection } from '@/store/meshStore';
+import {
+  useMeshStore,
+  SETTINGS_SECTIONS,
+  type SettingsSection,
+} from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
 import { fmtNum, utf8ByteLength, contactShareUri, ADV_ICON } from '@/lib/utils';
 import { flashTarget } from '@/lib/ui/flash';
+import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
   MAX_ADVERT_NAME_BYTES,
   ADVERT_LAT_MIN,
@@ -78,139 +83,150 @@ export function SettingsPage() {
 
   return (
     <div className='flex flex-1 flex-col overflow-y-auto p-7'>
-      <div className='mx-auto w-full max-w-3xl'>
-        <div className='mb-5'>
-          <h2 className='text-base font-bold'>{t('settings.title')}</h2>
-        </div>
+      {/* The rail is added on top of the 6xl content column, not carved out of
+          it, so the cards keep the same measure the other pages use. */}
+      <div className='mx-auto flex w-full max-w-6xl gap-6 lg:max-w-[calc(72rem+12.5rem)]'>
+        <SectionRail />
+        <div className='min-w-0 flex-1'>
+          <div className='mb-5'>
+            <h2 className='text-base font-bold'>{t('settings.title')}</h2>
+          </div>
 
-        <div className='grid grid-cols-2 gap-4'>
-          <Card title={t('settings.section.device')} section='device'>
-            <Row label={t('settings.model')} value={device?.model || unknown} />
-            <Row
-              label={t('settings.firmware')}
-              value={device ? String(device.fwVersion) : unknown}
-            />
-            <Row
-              label={t('settings.build')}
-              value={device?.version || unknown}
-            />
-            <Row
-              label={t('settings.maxContacts')}
-              value={device ? num(device.maxContacts) : unknown}
-            />
-            <Row
-              label={t('settings.maxChannels')}
-              value={device ? num(device.maxChannels) : unknown}
-            />
-            {device?.blePin != null && (
-              <Row label={t('settings.blePin')} value={String(device.blePin)} />
-            )}
-          </Card>
+          <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
+            <Card title={t('settings.section.device')} section='device'>
+              <Row
+                label={t('settings.model')}
+                value={device?.model || unknown}
+              />
+              <Row
+                label={t('settings.firmware')}
+                value={device ? String(device.fwVersion) : unknown}
+              />
+              <Row
+                label={t('settings.build')}
+                value={device?.version || unknown}
+              />
+              <Row
+                label={t('settings.maxContacts')}
+                value={device ? num(device.maxContacts) : unknown}
+              />
+              <Row
+                label={t('settings.maxChannels')}
+                value={device ? num(device.maxChannels) : unknown}
+              />
+              {device?.blePin != null && (
+                <Row
+                  label={t('settings.blePin')}
+                  value={String(device.blePin)}
+                />
+              )}
+            </Card>
 
-          <Card
-            title={t('settings.section.radio')}
-            section='radio'
-            action={
-              <button
-                onClick={() => setRadioEditOpen(true)}
-                disabled={!canEditRadio}
-                title={t('settings.editRadio')}
-                className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
-              >
-                {t('settings.edit')}
-              </button>
-            }
-          >
-            <Row
-              label={t('settings.frequency')}
-              value={
-                selfInfo?.radioFreq != null
-                  ? t('settings.mhz', { value: num(selfInfo.radioFreq) })
-                  : unknown
+            <Card
+              title={t('settings.section.radio')}
+              section='radio'
+              action={
+                <button
+                  onClick={() => setRadioEditOpen(true)}
+                  disabled={!canEditRadio}
+                  title={t('settings.editRadio')}
+                  className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+                >
+                  {t('settings.edit')}
+                </button>
               }
-            />
-            <Row
-              label={t('settings.bandwidth')}
-              value={
-                selfInfo?.radioBw != null
-                  ? t('settings.khz', { value: num(selfInfo.radioBw) })
-                  : unknown
+            >
+              <Row
+                label={t('settings.frequency')}
+                value={
+                  selfInfo?.radioFreq != null
+                    ? t('settings.mhz', { value: num(selfInfo.radioFreq) })
+                    : unknown
+                }
+              />
+              <Row
+                label={t('settings.bandwidth')}
+                value={
+                  selfInfo?.radioBw != null
+                    ? t('settings.khz', { value: num(selfInfo.radioBw) })
+                    : unknown
+                }
+              />
+              <Row
+                label={t('settings.spreadingFactor')}
+                value={
+                  selfInfo?.radioSf != null ? num(selfInfo.radioSf) : unknown
+                }
+              />
+              <Row
+                label={t('settings.codingRate')}
+                value={
+                  selfInfo?.radioCr != null ? num(selfInfo.radioCr) : unknown
+                }
+              />
+              <Row
+                label={t('settings.txPower')}
+                value={
+                  selfInfo?.txPower != null
+                    ? t('units.dbm', { value: num(selfInfo.txPower) })
+                    : unknown
+                }
+              />
+              <Row
+                label={t('settings.maxTxPower')}
+                value={
+                  selfInfo?.maxTxPower != null
+                    ? t('units.dbm', { value: num(selfInfo.maxTxPower) })
+                    : unknown
+                }
+              />
+            </Card>
+
+            <Card
+              title={t('settings.section.identity')}
+              className='md:col-span-2 xl:col-span-1'
+              section='identity'
+              action={
+                <button
+                  onClick={() => setShareOpen(true)}
+                  disabled={!selfInfo?.pubkey}
+                  className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent-solid)'
+                >
+                  {t('settings.shareNode')}
+                </button>
               }
-            />
-            <Row
-              label={t('settings.spreadingFactor')}
-              value={
-                selfInfo?.radioSf != null ? num(selfInfo.radioSf) : unknown
-              }
-            />
-            <Row
-              label={t('settings.codingRate')}
-              value={
-                selfInfo?.radioCr != null ? num(selfInfo.radioCr) : unknown
-              }
-            />
-            <Row
-              label={t('settings.txPower')}
-              value={
-                selfInfo?.txPower != null
-                  ? t('units.dbm', { value: num(selfInfo.txPower) })
-                  : unknown
-              }
-            />
-            <Row
-              label={t('settings.maxTxPower')}
-              value={
-                selfInfo?.maxTxPower != null
-                  ? t('units.dbm', { value: num(selfInfo.maxTxPower) })
-                  : unknown
-              }
-            />
-          </Card>
+            >
+              <NodeNameRow />
+              <Row
+                label={t('settings.publicKey')}
+                value={selfInfo?.pubkey || unknown}
+                mono
+                copy={selfInfo?.pubkey || undefined}
+              />
+            </Card>
 
-          <Card
-            title={t('settings.section.identity')}
-            className='col-span-2'
-            section='identity'
-            action={
-              <button
-                onClick={() => setShareOpen(true)}
-                disabled={!selfInfo?.pubkey}
-                className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent-solid)'
-              >
-                {t('settings.shareNode')}
-              </button>
-            }
-          >
-            <NodeNameRow />
-            <Row
-              label={t('settings.publicKey')}
-              value={selfInfo?.pubkey || unknown}
-              mono
-              copy={selfInfo?.pubkey || undefined}
-            />
-          </Card>
+            <LocationCard />
 
-          <LocationCard />
+            <DisplayCard />
 
-          <DisplayCard />
+            <Card
+              title={t('settings.section.ai')}
+              className='md:col-span-2 xl:col-span-3'
+              section='ai'
+            >
+              <AiSettingsBody />
+            </Card>
 
-          <Card
-            title={t('settings.section.ai')}
-            className='col-span-2'
-            section='ai'
-          >
-            <AiSettingsBody />
-          </Card>
+            <Card
+              title={t('settings.section.automation')}
+              className='md:col-span-2 xl:col-span-3'
+              section='automation'
+            >
+              <AutomationSettingsBody />
+            </Card>
 
-          <Card
-            title={t('settings.section.automation')}
-            className='col-span-2'
-            section='automation'
-          >
-            <AutomationSettingsBody />
-          </Card>
-
-          <RebootCard />
+            <RebootCard />
+          </div>
         </div>
       </div>
 
@@ -322,9 +338,9 @@ function NodeNameRow() {
       style={{ borderColor: 'var(--border)' }}
     >
       <span className='shrink-0 text-(--text2)'>{t('settings.nodeName')}</span>
-      <div className='flex shrink-0 items-center gap-2'>
+      <div className='flex min-w-0 flex-1 items-center justify-end gap-2'>
         <div
-          className={`field-group flex w-52 items-center overflow-hidden rounded-md border bg-(--surface) focus-within:border-(--accent) ${
+          className={`field-group flex w-52 min-w-0 items-center overflow-hidden rounded-md border bg-(--surface) focus-within:border-(--accent) ${
             !valid && draft.trim() !== ''
               ? 'border-(--red)'
               : 'border-(--border-control)'
@@ -501,7 +517,7 @@ function LocationCard() {
   return (
     <Card
       title={t('settings.section.location')}
-      className='col-span-2'
+      className='md:col-span-2'
       section='location'
     >
       <p className='mb-3 text-xs text-(--text2)'>
@@ -548,6 +564,14 @@ function LocationCard() {
               <div
                 role='radiogroup'
                 aria-label={t('settings.locationSource')}
+                onKeyDown={(e) =>
+                  handleRovingKeyDown(
+                    e,
+                    LOCATION_SOURCES.length,
+                    LOCATION_SOURCES.findIndex((s) => s.useGps === usingGps),
+                    (i) => void selectSource(LOCATION_SOURCES[i].useGps),
+                  )
+                }
                 className='inline-flex rounded-md border border-(--border-control) p-0.5'
               >
                 {LOCATION_SOURCES.map(({ useGps, label }) => {
@@ -557,6 +581,7 @@ function LocationCard() {
                       key={label}
                       role='radio'
                       aria-checked={active}
+                      tabIndex={active ? 0 : -1}
                       disabled={!editable || savingSource}
                       onClick={() => void selectSource(useGps)}
                       className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -656,7 +681,7 @@ function RebootCard() {
   return (
     <Card
       title={t('settings.section.danger')}
-      className='col-span-2'
+      className='md:col-span-2 xl:col-span-3'
       section='danger'
     >
       <p className='mb-3 text-xs text-(--text2)'>{t('settings.rebootHint')}</p>
@@ -709,7 +734,7 @@ function DisplayCard() {
   return (
     <Card
       title={t('settings.section.display')}
-      className='col-span-2'
+      className='md:col-span-2 xl:col-span-1'
       section='display'
     >
       <div
@@ -783,6 +808,32 @@ function Card({
       anchorId={section ? `settings-${section}` : undefined}
       {...rest}
     />
+  );
+}
+
+// Jumping reuses `openSettingsSection`, the same one-shot deep link the command
+// palette raises, so the scroll and flash behave identically from both entry
+// points. Hidden below `lg`, where the rail would cost more width than the
+// single-column card list can spare.
+function SectionRail() {
+  const { t } = useTranslation();
+  const openSection = useMeshStore((s) => s.openSettingsSection);
+
+  return (
+    <nav
+      aria-label={t('settings.sections')}
+      className='sticky top-0 hidden w-44 shrink-0 flex-col gap-0.5 self-start lg:flex'
+    >
+      {SETTINGS_SECTIONS.map((section) => (
+        <button
+          key={section}
+          onClick={() => openSection(section)}
+          className='rounded-md px-2.5 py-1.5 text-left text-xs text-(--text2) hover:bg-(--surface2) hover:text-(--text)'
+        >
+          {t(`settings.section.${section}`)}
+        </button>
+      ))}
+    </nav>
   );
 }
 

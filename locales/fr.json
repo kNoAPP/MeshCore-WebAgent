@@ -58,6 +58,8 @@
     "placeholder": "Rechercher des messages, contacts, canaux…",
     "clear": "Effacer la recherche",
     "empty": "Aucun résultat trouvé",
+    "resultCount_one": "{{count}} résultat",
+    "resultCount_other": "{{count}} résultats",
     "group": {
       "recent": "Récents",
       "messages": "Messages",
@@ -104,6 +106,7 @@
   "connect": {
     "title": "Se connecter à MeshCore",
     "subtitle": "Connecte-toi en USB, Bluetooth ou WiFi à ta radio Companion.",
+    "transport": "Type de connexion",
     "tab": {
       "usb": "USB",
       "ble": "BLE",
@@ -209,6 +212,7 @@
   },
   "autoAdd": {
     "title": "⚙ Paramètres d'ajout automatique",
+    "modeLabel": "Mode d'ajout automatique",
     "all": {
       "label": "Tout ajouter automatiquement",
       "hint": "Enregistrer chaque nœud entendu par la radio"
@@ -229,6 +233,7 @@
   },
   "settings": {
     "title": "⚙ Paramètres",
+    "sections": "Sections des paramètres",
     "section": {
       "device": "Appareil",
       "identity": "Identité",
@@ -400,6 +405,29 @@
     "rules": "Règles",
     "noRules": "Aucune règle pour l'instant. Créez-en une avec Nouvelle règle.",
     "enableRule": "Activer la règle",
+    "deleteConfirm": "Supprimer définitivement « {{name}} » ?",
+    "promptSummary_one": "Exécuter une invite IA avec {{count}} outil",
+    "promptSummary_other": "Exécuter une invite IA avec {{count}} outils",
+    "toolName": {
+      "read_contacts": "Lire les contacts",
+      "read_channels": "Lire les canaux",
+      "read_adverts": "Lire les nœuds découverts",
+      "read_messages": "Lire les messages",
+      "read_self_info": "Lire les infos de ce nœud",
+      "read_stats": "Lire les statistiques radio",
+      "send_direct_message": "Envoyer un message direct",
+      "send_channel_message": "Envoyer un message de canal",
+      "advertise": "Annoncer ce nœud",
+      "add_contact": "Ajouter un contact",
+      "remove_contact": "Supprimer un contact",
+      "toggle_favorite": "Basculer un favori",
+      "reset_contact_path": "Réinitialiser la route d'un contact"
+    },
+    "toolClass": {
+      "read": "Lecture seule — n'émet jamais",
+      "transmit": "Émet — utilise le temps d'antenne partagé et est limité",
+      "write": "Écrit — modifie les tables de cette radio"
+    },
     "trigger": {
       "message": "Un message arrive",
       "advert": "Un nœud s'annonce",
@@ -449,6 +477,7 @@
       "title": "Journal d'audit",
       "empty": "Aucune action IA pour l'instant.",
       "clear": "Effacer",
+      "clearConfirm": "Effacer tout le journal ?",
       "noKey": "Aucune clé IA chargée",
       "llmError": "Erreur IA : {{kind}}",
       "notAllowed": "Outil non autorisé : {{tool}}",
@@ -527,6 +556,7 @@
       "neighbors": "Voisins",
       "console": "Console"
     },
+    "tabsLabel": "Administration du nœud",
     "login": {
       "prompt": "Connectez-vous pour administrer ce nœud.",
       "accessLabel": "Niveau d’accès",
@@ -600,6 +630,9 @@
       "requiresReboot": "Nécessite un redémarrage",
       "edit": "Modifier",
       "advanced": "Avancé",
+      "filterLabel": "Filtrer les paramètres",
+      "filterPlaceholder": "Filtrer les paramètres…",
+      "filterEmpty": "Aucun paramètre ne correspond à ce filtre.",
       "actionsTitle": "Actions",
       "location": "Emplacement",
       "locationHint": "Coordonnées annoncées en degrés décimaux.",
@@ -786,6 +819,7 @@
   },
   "addChannel": {
     "title": "➕ Ajouter un canal",
+    "modeLabel": "Comment ajouter un canal",
     "name": "Nom",
     "secretGenerated": "Clé secrète (générée)",
     "regenerate": "Régénérer",
@@ -817,6 +851,7 @@
   },
   "addContact": {
     "title": "➕ Ajouter un contact",
+    "modeLabel": "Comment ajouter un contact",
     "link": "Lien du contact",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Nom",

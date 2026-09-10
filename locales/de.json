@@ -58,6 +58,8 @@
     "placeholder": "Nachrichten, Kontakte, Kanäle durchsuchen…",
     "clear": "Suche löschen",
     "empty": "Keine Ergebnisse gefunden",
+    "resultCount_one": "{{count}} Ergebnis",
+    "resultCount_other": "{{count}} Ergebnisse",
     "group": {
       "recent": "Zuletzt",
       "messages": "Nachrichten",
@@ -104,6 +106,7 @@
   "connect": {
     "title": "Mit MeshCore verbinden",
     "subtitle": "Verbinde dich per USB, Bluetooth oder WiFi mit deinem Companion-Funkgerät.",
+    "transport": "Verbindungsart",
     "tab": {
       "usb": "USB",
       "ble": "BLE",
@@ -209,6 +212,7 @@
   },
   "autoAdd": {
     "title": "⚙ Auto-Hinzufügen-Einstellungen",
+    "modeLabel": "Auto-Hinzufügen-Modus",
     "all": {
       "label": "Alle automatisch hinzufügen",
       "hint": "Jeden vom Funkgerät gehörten Knoten speichern"
@@ -229,6 +233,7 @@
   },
   "settings": {
     "title": "⚙ Einstellungen",
+    "sections": "Einstellungsbereiche",
     "section": {
       "device": "Gerät",
       "identity": "Identität",
@@ -400,6 +405,29 @@
     "rules": "Regeln",
     "noRules": "Noch keine Regeln. Erstelle eine mit Neue Regel.",
     "enableRule": "Regel aktivieren",
+    "deleteConfirm": "„{{name}}“ endgültig löschen?",
+    "promptSummary_one": "KI-Prompt mit {{count}} Tool ausführen",
+    "promptSummary_other": "KI-Prompt mit {{count}} Tools ausführen",
+    "toolName": {
+      "read_contacts": "Kontakte lesen",
+      "read_channels": "Kanäle lesen",
+      "read_adverts": "Entdeckte Knoten lesen",
+      "read_messages": "Nachrichten lesen",
+      "read_self_info": "Infos dieses Knotens lesen",
+      "read_stats": "Funkstatistiken lesen",
+      "send_direct_message": "Direktnachricht senden",
+      "send_channel_message": "Kanalnachricht senden",
+      "advertise": "Diesen Knoten ankündigen",
+      "add_contact": "Kontakt hinzufügen",
+      "remove_contact": "Kontakt entfernen",
+      "toggle_favorite": "Favorit umschalten",
+      "reset_contact_path": "Route eines Kontakts zurücksetzen"
+    },
+    "toolClass": {
+      "read": "Nur lesend – sendet nie",
+      "transmit": "Sendet – nutzt geteilte Sendezeit und ist limitiert",
+      "write": "Schreibt – ändert die Tabellen dieses Funkgeräts"
+    },
     "trigger": {
       "message": "Eine Nachricht trifft ein",
       "advert": "Ein Knoten kündigt sich an",
@@ -449,6 +477,7 @@
       "title": "Prüfprotokoll",
       "empty": "Noch keine KI-Aktionen.",
       "clear": "Löschen",
+      "clearConfirm": "Gesamtes Protokoll löschen?",
       "noKey": "Kein KI-Schlüssel geladen",
       "llmError": "KI-Fehler: {{kind}}",
       "notAllowed": "Tool nicht erlaubt: {{tool}}",
@@ -527,6 +556,7 @@
       "neighbors": "Nachbarn",
       "console": "Konsole"
     },
+    "tabsLabel": "Knotenverwaltung",
     "login": {
       "prompt": "Melden Sie sich an, um diesen Knoten zu verwalten.",
       "accessLabel": "Zugriffsebene",
@@ -600,6 +630,9 @@
       "requiresReboot": "Neustart erforderlich",
       "edit": "Bearbeiten",
       "advanced": "Erweitert",
+      "filterLabel": "Einstellungen filtern",
+      "filterPlaceholder": "Einstellungen filtern…",
+      "filterEmpty": "Keine Einstellungen entsprechen diesem Filter.",
       "actionsTitle": "Aktionen",
       "location": "Standort",
       "locationHint": "Angekündigte Koordinaten in Dezimalgrad.",
@@ -786,6 +819,7 @@
   },
   "addChannel": {
     "title": "➕ Kanal hinzufügen",
+    "modeLabel": "Wie ein Kanal hinzugefügt wird",
     "name": "Name",
     "secretGenerated": "Geheimer Schlüssel (generiert)",
     "regenerate": "Neu generieren",
@@ -817,6 +851,7 @@
   },
   "addContact": {
     "title": "➕ Kontakt hinzufügen",
+    "modeLabel": "Wie ein Kontakt hinzugefügt wird",
     "link": "Kontakt-Link",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Name",

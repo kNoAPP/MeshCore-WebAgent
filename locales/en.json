@@ -58,6 +58,8 @@
     "placeholder": "Search messages, contacts, channels…",
     "clear": "Clear search",
     "empty": "No results found",
+    "resultCount_one": "{{count}} result",
+    "resultCount_other": "{{count}} results",
     "group": {
       "recent": "Recent",
       "messages": "Messages",
@@ -104,6 +106,7 @@
   "connect": {
     "title": "Connect to MeshCore",
     "subtitle": "Connect via USB, Bluetooth, or WiFi to your Companion Radio.",
+    "transport": "Connection type",
     "tab": {
       "usb": "USB",
       "ble": "BLE",
@@ -209,6 +212,7 @@
   },
   "autoAdd": {
     "title": "⚙ Auto-add settings",
+    "modeLabel": "Auto-add mode",
     "all": {
       "label": "Auto Add All",
       "hint": "Save every node the radio hears"
@@ -229,6 +233,7 @@
   },
   "settings": {
     "title": "⚙ Settings",
+    "sections": "Settings sections",
     "section": {
       "device": "Device",
       "identity": "Identity",
@@ -400,6 +405,29 @@
     "rules": "Rules",
     "noRules": "No rules yet. Create one with New rule.",
     "enableRule": "Enable rule",
+    "deleteConfirm": "Delete “{{name}}” permanently?",
+    "promptSummary_one": "Run an AI prompt with {{count}} tool",
+    "promptSummary_other": "Run an AI prompt with {{count}} tools",
+    "toolName": {
+      "read_contacts": "Read contacts",
+      "read_channels": "Read channels",
+      "read_adverts": "Read discovered nodes",
+      "read_messages": "Read messages",
+      "read_self_info": "Read this node's info",
+      "read_stats": "Read radio stats",
+      "send_direct_message": "Send a direct message",
+      "send_channel_message": "Send a channel message",
+      "advertise": "Advertise this node",
+      "add_contact": "Add a contact",
+      "remove_contact": "Remove a contact",
+      "toggle_favorite": "Toggle a favorite",
+      "reset_contact_path": "Reset a contact's route"
+    },
+    "toolClass": {
+      "read": "Read-only — never transmits",
+      "transmit": "Transmits — uses shared airtime and is rate-limited",
+      "write": "Writes — changes this radio's tables"
+    },
     "trigger": {
       "message": "A message arrives",
       "advert": "A node advertises",
@@ -449,6 +477,7 @@
       "title": "Audit log",
       "empty": "No AI actions yet.",
       "clear": "Clear",
+      "clearConfirm": "Clear the whole log?",
       "noKey": "No AI key loaded",
       "llmError": "AI error: {{kind}}",
       "notAllowed": "Tool not allowed: {{tool}}",
@@ -527,6 +556,7 @@
       "neighbors": "Neighbors",
       "console": "Console"
     },
+    "tabsLabel": "Node administration",
     "login": {
       "prompt": "Log in to administer this node.",
       "accessLabel": "Access level",
@@ -600,6 +630,9 @@
       "requiresReboot": "Requires reboot",
       "edit": "Edit",
       "advanced": "Advanced",
+      "filterLabel": "Filter settings",
+      "filterPlaceholder": "Filter settings…",
+      "filterEmpty": "No settings match this filter.",
       "actionsTitle": "Actions",
       "location": "Location",
       "locationHint": "Advertised coordinates in decimal degrees.",
@@ -786,6 +819,7 @@
   },
   "addChannel": {
     "title": "➕ Add channel",
+    "modeLabel": "How to add a channel",
     "name": "Name",
     "secretGenerated": "Secret key (generated)",
     "regenerate": "Regenerate",
@@ -817,6 +851,7 @@
   },
   "addContact": {
     "title": "➕ Add contact",
+    "modeLabel": "How to add a contact",
     "link": "Contact link",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Name",
