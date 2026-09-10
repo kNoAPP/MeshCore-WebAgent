@@ -19,7 +19,8 @@ import type { KeyboardEvent } from 'react';
  * Attach to the container's `onKeyDown`; give each child `role='radio'` or
  * `role='tab'` and `tabIndex={selected ? 0 : -1}`.
  *
- * @param event - the container's keydown; consumed only for handled keys.
+ * @param event - the container's keydown; consumed only for handled keys, and
+ * never for a modified chord.
  * @param count - number of children in the widget.
  * @param active - index of the currently selected child, or `-1` when none is;
  * movement then starts from the first child.
@@ -32,6 +33,9 @@ export function handleRovingKeyDown(
   select: (index: number) => void,
 ): void {
   if (count === 0) return;
+  // A modified chord is the browser's or the OS's (Ctrl+Home, Alt+Left,
+  // Shift+arrow selection), never the widget's.
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   const container = event.currentTarget;
   const tablist = container.getAttribute('role') === 'tablist';
   const vertical = container.getAttribute('aria-orientation') === 'vertical';
