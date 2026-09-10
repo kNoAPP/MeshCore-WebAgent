@@ -32,7 +32,11 @@ export function Toast() {
     : 'pointer-events-none whitespace-nowrap';
 
   const card = toast && (
+    // Keyed by the toast id: two toasts with identical text and variant would
+    // otherwise reuse this card unchanged, and a live region only announces
+    // content that actually changed.
     <div
+      key={toast.id}
       className={`rounded-lg border bg-(--surface2) px-4 py-2.5 text-sm shadow-lg ${interaction} ${colors[toast.variant]}`}
     >
       <span>{toast.text}</span>

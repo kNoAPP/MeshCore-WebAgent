@@ -22,6 +22,7 @@ import { AddChannelModal } from './AddChannelModal';
 import { AddContactModal } from './AddContactModal';
 import { CommandPalette } from './CommandPalette';
 import { AutomationRunner } from './AutomationRunner';
+import { SyncAnnouncer } from './SyncProgressView';
 import { Toast } from './Toast';
 
 // Leaflet and the map view are loaded only when the map opens, keeping the
@@ -119,6 +120,7 @@ export function AppShell() {
         </>
       )}
       <Toast />
+      <SyncAnnouncer />
     </div>
   );
 }
