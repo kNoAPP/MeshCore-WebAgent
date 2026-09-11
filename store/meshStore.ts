@@ -392,10 +392,12 @@ interface MeshState {
   // Conversations
   msgHistory: Record<string, Message[]>;
   /**
-   * The last message {@link MeshActions.addMessage} appended — the one signal
-   * that a message *arrived now*, as opposed to `msgHistory` merely changing,
-   * which `restoreHistory` also does with messages the user read days ago.
-   * `null` until one arrives.
+   * The last message {@link MeshActions.addMessage} appended that was not the
+   * user's own — the one signal that a message *arrived now*, as opposed to
+   * `msgHistory` merely changing, which `restoreHistory` also does with
+   * messages the user read days ago. An own send leaves this alone so it can't
+   * displace an arrival the announcer hasn't rendered yet. `null` until one
+   * arrives.
    */
   lastArrival: MessageArrival | null;
   activeConvo: ActiveConvo | null;
@@ -847,15 +849,19 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       };
       return {
         msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },
-        lastArrival: {
-          convoId: id,
-          msgId: enriched.id as string,
-          text: enriched.text,
-          senderName: enriched.senderName,
-          own: enriched.own ?? false,
-          system: enriched.system ?? false,
-          visible,
-        },
+        // An own send has nothing to announce and must not displace an inbound
+        // arrival the announcer hasn't rendered yet.
+        lastArrival: enriched.own
+          ? state.lastArrival
+          : {
+              convoId: id,
+              msgId: enriched.id as string,
+              text: enriched.text,
+              senderName: enriched.senderName,
+              own: false,
+              system: enriched.system ?? false,
+              visible,
+            },
       };
     }),
 

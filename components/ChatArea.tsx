@@ -294,6 +294,10 @@ export function ChatArea() {
         if (i === 0 || dayDividers[i] != null) return true;
         const prev = visibleMessages[i - 1];
         if (!senderKeys[i] || senderKeys[i - 1] !== senderKeys[i]) return true;
+        // The same pubkey can still resolve to a different name (a contact
+        // removed mid-conversation falls back to its prefix), and a changed
+        // name is worth showing.
+        if (senderLabels[i - 1] !== senderLabels[i]) return true;
         if (prev.own !== msg.own) return true;
         const gap = (msg.timestamp ?? 0) - (prev.timestamp ?? 0);
         return (
