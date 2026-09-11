@@ -270,7 +270,10 @@ function DeviceName({ name, detail }: { name: string; detail: string }) {
 // state, so a newly arriving proposal always starts closed.
 function ProposalsButton() {
   const count = useMeshStore((s) => s.stagedActions.length);
-  if (count === 0) return null;
+  // An approval executes immediately and the inbox drops the proposal either
+  // way, so offering it over a dead link would silently discard the action.
+  const reconnecting = useMeshStore((s) => s.status) === 'reconnecting';
+  if (count === 0 || reconnecting) return null;
   return <ProposalsInbox count={count} />;
 }
 

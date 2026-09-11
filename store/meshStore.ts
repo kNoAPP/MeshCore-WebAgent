@@ -755,7 +755,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   // or a message drained behind a reconnect overlay (or a dialog) stays unread
   // with no divider until something unrelated happens to fire it.
   setStatus: (status) => {
-    set({ status });
+    // A reconnect re-runs the hydrate, so the next blob has to be able to
+    // announce itself again to anything waiting on it.
+    set(
+      status === 'connecting' || status === 'reconnecting'
+        ? { status, prefsHydrated: false }
+        : { status },
+    );
     if (status === 'connected') catchUpVisibleConvo();
   },
   setDeviceName: (deviceName) => set({ deviceName }),

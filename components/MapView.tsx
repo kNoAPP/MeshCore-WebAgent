@@ -129,6 +129,9 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   }, []);
   useEffect(() => {
     if (!map || mapPicking) return;
+    // A reconnect clears the flag and re-runs the hydrate, so that session's
+    // saved viewport gets its own chance to apply.
+    if (!prefsHydrated) framedOnPrefs.current = false;
     if (prefsHydrated && !framedOnPrefs.current) {
       framedOnPrefs.current = true;
       if (userMoved.current) {

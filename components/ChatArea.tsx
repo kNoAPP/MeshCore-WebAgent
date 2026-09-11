@@ -255,12 +255,10 @@ export function ChatArea() {
           return splitChannelMessage(msg.text).sender?.trim() || '?';
         }
         const contact = matchContact(contacts, msg.pubkeyPrefix);
-        return (
-          contact?.name ||
-          msg.senderName ||
-          msg.pubkeyPrefix?.slice(0, 8) ||
-          '?'
-        );
+        // Deliberately not `msg.senderName`: that is the name captured when
+        // the message arrived, so a removed or renamed contact would keep
+        // showing it while the sidebar and the grouping key had moved on.
+        return contact?.name || msg.pubkeyPrefix?.slice(0, 8) || '?';
       }),
     [visibleMessages, contacts, t],
   );
