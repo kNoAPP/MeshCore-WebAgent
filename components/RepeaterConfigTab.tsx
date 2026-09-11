@@ -711,14 +711,15 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
   };
 
   // One gesture for the whole tab, since the load-on-demand model otherwise
-  // needs four separate clicks to answer "what is this node set to?".
+  // needs four separate clicks to answer "what is this node set to?". The
+  // composite `radio` setting is included: the Radio card reads it too, and
+  // leaving it out would make "Load all" quietly skip the radio parameters.
   const loadAll = () => {
-    const all = [
+    refreshSection([
       ...REPEATER_SETTING_GROUPS.flatMap((g) => [...g.settings]),
       ...advancedSettings,
       ...(gpsSupported === false ? [] : REPEATER_GPS_SETTINGS),
-    ].filter((s) => s.kind !== 'radio');
-    refreshSection(all);
+    ]);
   };
 
   return (
@@ -832,6 +833,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                   txValue={values.tx ?? ''}
                   busy={sectionBusy(RADIO_FIELDS)}
                   loaded={sectionLoaded(RADIO_FIELDS)}
+                  failed={RADIO_FIELDS.some((s) => failed.has(s.id))}
                   onEdit={() => setRadioEditOpen(true)}
                   onRefresh={() => refreshSection(RADIO_FIELDS)}
                 />
@@ -1202,6 +1204,9 @@ function NumberEntry({
         value={slider}
         onChange={(e) => onChange(e.target.value)}
         onPointerUp={onCommitEdit}
+        // Arrow keys still move the thumb, so it needs a commit too — on blur,
+        // not on key-up, which is what made one keyboard edit a round trip.
+        onBlur={onCommitEdit}
         className='hidden w-32 accent-accent sm:block'
       />
       <NumberField
@@ -1457,6 +1462,7 @@ function RadioSection({
   txValue,
   busy,
   loaded,
+  failed,
   onEdit,
   onRefresh,
 }: {
@@ -1464,6 +1470,8 @@ function RadioSection({
   txValue: string;
   busy: boolean;
   loaded: boolean;
+  /** Neither field answered its read, so the rows offer a retry. */
+  failed: boolean;
   onEdit: () => void;
   onRefresh: () => void;
 }) {
@@ -1520,6 +1528,8 @@ function RadioSection({
           label={row.label}
           value={row.value}
           loading={busy}
+          failed={failed}
+          onRetry={onRefresh}
         />
       ))}
     </Card>
@@ -1530,15 +1540,24 @@ function ValueRow({
   label,
   value,
   loading,
+  failed,
+  onRetry,
 }: {
   label: string;
   value: string | null;
   loading: boolean;
+  failed?: boolean;
+  onRetry?: () => void;
 }) {
   return (
     <div className={ROW_CLASS}>
       <span className='shrink-0 text-text2'>{label}</span>
-      <FieldSlot loading={loading} loaded={value != null}>
+      <FieldSlot
+        loading={loading}
+        loaded={value != null}
+        failed={failed}
+        onRetry={onRetry}
+      >
         <span className='font-semibold'>{value}</span>
       </FieldSlot>
     </div>
