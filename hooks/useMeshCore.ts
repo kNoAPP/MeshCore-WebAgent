@@ -773,11 +773,15 @@ export function useMeshCore() {
             // Emit after the store update so subscribers see a settled world.
             emit({ type: 'message', msg: enriched });
           } else if (msg.kind === 'direct' && msg.pubkeyPrefix) {
-            const id = directConvoId(msg.pubkeyPrefix);
             const contact = c.lookupContact(msg.pubkeyPrefix);
+            // A v3 frame's prefix can be longer than the one stored for the
+            // contact. The sidebar keys conversations off the contact, so use
+            // its prefix or the thread splits in two.
+            const prefix = contact?.pubkeyPrefix ?? msg.pubkeyPrefix;
+            const id = directConvoId(prefix);
             // An empty contact name would leave "New message from " dangling,
             // so fall back to the prefix exactly as the sidebar does.
-            const sender = contact?.name || msg.pubkeyPrefix.slice(0, 8);
+            const sender = contact?.name || prefix.slice(0, 8);
             const enriched: Message = { ...msg, senderName: sender };
             const state = useMeshStore.getState();
             const visible = isConvoVisible(state, id);
@@ -786,7 +790,7 @@ export function useMeshCore() {
               showToast(i18n.t('toast.newMessageFrom', { sender }), '', {
                 kind: 'direct',
                 id,
-                rawId: msg.pubkeyPrefix,
+                rawId: prefix,
                 label: sender,
               });
             }

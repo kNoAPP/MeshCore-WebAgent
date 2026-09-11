@@ -131,17 +131,21 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     if (!map || mapPicking) return;
     if (prefsHydrated && !framedOnPrefs.current) {
       framedOnPrefs.current = true;
-      framedOnData.current = true;
       if (userMoved.current) {
+        framedOnData.current = true;
         // Restoring the blob just overwrote `mapPrefs`, and its debounced save
         // is subscribed after that, so a pan made during the load would be
         // lost. Put the live viewport back.
         const [lat, lng, zoom] = viewOf(map);
         useMeshStore.getState().setMapPrefs({ center: [lat, lng], zoom });
-      } else if (savedPrefs) {
-        frame(map, { center: savedPrefs.center, zoom: savedPrefs.zoom });
+        return;
       }
-      return;
+      if (savedPrefs) {
+        framedOnData.current = true;
+        frame(map, { center: savedPrefs.center, zoom: savedPrefs.zoom });
+        return;
+      }
+      // This radio has no saved viewport, so data is still worth framing on.
     }
     if (userMoved.current || framedOnData.current) return;
     if (!self && nodes.length === 0) return;
@@ -259,8 +263,13 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
       startView={startView}
       nodeActions={mapPicking ? undefined : nodeActions}
       onMoveEnd={(center, zoom) => {
-        if (framing.current) framing.current = false;
-        else userMoved.current = true;
+        // `mapPrefs` is null until the *user* moves the map, so our own
+        // framing must not persist itself as a saved viewport.
+        if (framing.current) {
+          framing.current = false;
+          return;
+        }
+        userMoved.current = true;
         useMeshStore.getState().setMapPrefs({ center, zoom });
       }}
       onMapReady={setMap}
