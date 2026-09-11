@@ -754,9 +754,13 @@ export function useMeshCore() {
                 : undefined;
             const enriched: Message = { ...msg, senderName: undefined, path };
             // Read before addMessage, which is what makes it visible.
-            const visible = isConvoVisible(useMeshStore.getState(), id);
+            const state = useMeshStore.getState();
+            const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
-            if (!visible) {
+            // `c.init()` drains the radio's backlog while the connect screen is
+            // still up, where a "go to this conversation" toast leads nowhere.
+            // Those messages stay unread instead.
+            if (!visible && state.status === 'connected') {
               const chName =
                 c.channels[msg.channelIdx]?.name ||
                 i18n.t('common.channelName', { index: msg.channelIdx });
@@ -780,19 +784,24 @@ export function useMeshCore() {
             // Emit after the store update so subscribers see a settled world.
             emit({ type: 'message', msg: enriched });
           } else if (msg.kind === 'direct' && msg.pubkeyPrefix) {
-            const id = directConvoId(msg.pubkeyPrefix);
             const contact = c.lookupContact(msg.pubkeyPrefix);
+            // A v3 frame's prefix can be longer than the one stored for the
+            // contact. The sidebar keys conversations off the contact, so use
+            // its prefix or the thread splits in two.
+            const prefix = contact?.pubkeyPrefix ?? msg.pubkeyPrefix;
+            const id = directConvoId(prefix);
             // An empty contact name would leave "New message from " dangling,
             // so fall back to the prefix exactly as the sidebar does.
-            const sender = contact?.name || msg.pubkeyPrefix.slice(0, 8);
+            const sender = contact?.name || prefix.slice(0, 8);
             const enriched: Message = { ...msg, senderName: sender };
-            const visible = isConvoVisible(useMeshStore.getState(), id);
+            const state = useMeshStore.getState();
+            const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
-            if (!visible) {
+            if (!visible && state.status === 'connected') {
               showToast(i18n.t('toast.newMessageFrom', { sender }), '', {
                 kind: 'direct',
                 id,
-                rawId: msg.pubkeyPrefix,
+                rawId: prefix,
                 label: sender,
               });
             }

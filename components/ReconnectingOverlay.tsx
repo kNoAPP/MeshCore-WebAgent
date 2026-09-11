@@ -3,10 +3,11 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LoaderCircle } from 'lucide-react';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useMeshStore } from '@/store/meshStore';
 import { SyncDialog, SyncCard, DisconnectButton } from './SyncDialog';
 
@@ -41,10 +42,29 @@ export function ReconnectingOverlay() {
   }, [resumeAt]);
   const seconds = Math.ceil(remainingMs / 1000);
 
+  // `AppShell` only inerts `main`, so without this the header stays reachable
+  // behind an overlay whose only legitimate exit is Disconnect.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
+
+  // The trap only sees keys bubbling out of the container, so it can't help
+  // once the focused control is unmounted — which is exactly what happens when
+  // an attempt starts and Retry gives way to the sync card. Take focus back to
+  // the dialog itself so the next Tab stays inside it.
+  const syncing = syncProgress !== null;
+  const waiting = progress?.waiting ?? false;
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (el && !el.contains(document.activeElement)) el.focus();
+  }, [syncing, waiting]);
+
   return (
     <div
-      className='absolute inset-0 z-40 flex items-center justify-center p-4 backdrop-blur-sm bg-[color-mix(in_srgb,var(--bg)_60%,transparent)]'
+      ref={dialogRef}
+      tabIndex={-1}
+      className='absolute inset-0 z-40 flex items-center justify-center bg-scrim p-4 backdrop-blur-sm'
       role='alertdialog'
+      aria-modal='true'
       aria-busy='true'
       aria-label={t('connect.reconnecting.title')}
     >

@@ -392,10 +392,12 @@ interface MeshState {
   // Conversations
   msgHistory: Record<string, Message[]>;
   /**
-   * The last message {@link MeshActions.addMessage} appended — the one signal
-   * that a message *arrived now*, as opposed to `msgHistory` merely changing,
-   * which `restoreHistory` also does with messages the user read days ago.
-   * `null` until one arrives.
+   * The last message {@link MeshActions.addMessage} appended that was not the
+   * user's own — the one signal that a message *arrived now*, as opposed to
+   * `msgHistory` merely changing, which `restoreHistory` also does with
+   * messages the user read days ago. An own send leaves this alone so it can't
+   * displace an arrival the announcer hasn't rendered yet. `null` until one
+   * arrives.
    */
   lastArrival: MessageArrival | null;
   activeConvo: ActiveConvo | null;
@@ -436,6 +438,12 @@ interface MeshState {
   aiPref: AiPref;
   /** Persisted viewport, or `null` until the user first pans/zooms the map. */
   mapPrefs: MapPrefs | null;
+  /**
+   * True once this radio's preferences blob has been read. The session reports
+   * `connected` before that read finishes, so a `null` preference means "not
+   * loaded yet" until this flips.
+   */
+  prefsHydrated: boolean;
   toast: Toast | null;
   /**
    * True once a newer build has been deployed while a session was live, so the
@@ -705,6 +713,7 @@ const initialState: MeshState = {
   showFullPublicKeys: false,
   aiPref: DEFAULT_AI_PREF,
   mapPrefs: null,
+  prefsHydrated: false,
   toast: null,
   updateAvailable: false,
   connectError: null,
@@ -746,7 +755,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   // or a message drained behind a reconnect overlay (or a dialog) stays unread
   // with no divider until something unrelated happens to fire it.
   setStatus: (status) => {
-    set({ status });
+    // A reconnect re-runs the hydrate, so the next blob has to be able to
+    // announce itself again to anything waiting on it.
+    set(
+      status === 'connecting' || status === 'reconnecting'
+        ? { status, prefsHydrated: false }
+        : { status },
+    );
     if (status === 'connected') catchUpVisibleConvo();
   },
   setDeviceName: (deviceName) => set({ deviceName }),
@@ -822,6 +837,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         typeof p.showFullPublicKeys === 'boolean'
           ? p.showFullPublicKeys
           : false,
+      prefsHydrated: true,
     });
   },
 
@@ -832,19 +848,32 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       const enriched: Message = {
         ...msg,
         id: msg.id ?? crypto.randomUUID(),
-        _unread: !visible,
+        // Only inbound traffic can be unread: an automation's own send lands
+        // in a conversation the user isn't looking at, and a system note is
+        // not something to come back to.
+        _unread: !visible && !msg.own && !msg.system,
       };
+      // The frame parser hands over a whole input chunk at once, so an
+      // off-screen frame can land in the same tick as an on-screen one. Only
+      // an on-screen arrival may displace another on-screen arrival, or the
+      // announcement for the one the user is looking at is lost.
+      const keepArrival =
+        enriched.own || (!visible && (state.lastArrival?.visible ?? false));
       return {
         msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },
-        lastArrival: {
-          convoId: id,
-          msgId: enriched.id as string,
-          text: enriched.text,
-          senderName: enriched.senderName,
-          own: enriched.own ?? false,
-          system: enriched.system ?? false,
-          visible,
-        },
+        // An own send has nothing to announce and must not displace an inbound
+        // arrival the announcer hasn't rendered yet.
+        lastArrival: keepArrival
+          ? state.lastArrival
+          : {
+              convoId: id,
+              msgId: enriched.id as string,
+              text: enriched.text,
+              senderName: enriched.senderName,
+              own: false,
+              system: enriched.system ?? false,
+              visible,
+            },
       };
     }),
 

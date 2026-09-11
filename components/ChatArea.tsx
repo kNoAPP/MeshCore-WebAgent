@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowDown, Send } from 'lucide-react';
 import { useMeshStore, isConvoVisible } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import type { Contact } from '@/types/meshcore';
 import {
   ADV_ICON,
   utf8ByteLength,
@@ -50,6 +51,24 @@ const NEAR_TOP_PX = 240;
 
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
+}
+
+// Either side can be the shorter prefix: a v3 frame can carry more of the key
+// than the contact table stores, so the match has to go both ways — the same
+// rule `MeshCoreClient.lookupContact` applies.
+function matchContact(
+  contacts: Record<string, Contact>,
+  prefix: string | undefined,
+): Contact | undefined {
+  if (!prefix) return undefined;
+  return (
+    contacts[prefix] ??
+    Object.values(contacts).find(
+      (entry) =>
+        entry.pubkeyPrefix.startsWith(prefix) ||
+        prefix.startsWith(entry.pubkeyPrefix),
+    )
+  );
 }
 
 // Null when the cursor isn't in a mention: whitespace follows the at-sign, the
@@ -224,43 +243,42 @@ export function ChatArea() {
   );
 
   // Resolved sender label per mounted message: the channel prefix, the
-  // contact's name, or null for a system note and for own messages (which are
-  // already marked by their side, color and corner — a "You" header on top of
-  // that is pure repetition).
+  // contact's name, "You" for an own message, or null for a system note. Own
+  // runs are labelled for screen readers only — on screen their side, color and
+  // corner already say it.
   const senderLabels = useMemo(
     () =>
       visibleMessages.map((msg) => {
-        if (msg.system || msg.own) return null;
+        if (msg.system) return null;
+        if (msg.own) return t('chat.you');
         if (msg.kind === 'channel') {
           return splitChannelMessage(msg.text).sender?.trim() || '?';
         }
-        const prefix = msg.pubkeyPrefix;
-        const contact = prefix
-          ? (contacts[prefix] ??
-            Object.values(contacts).find((entry) =>
-              entry.pubkeyPrefix.startsWith(prefix),
-            ))
-          : undefined;
-        return (
-          contact?.name ||
-          msg.senderName ||
-          msg.pubkeyPrefix?.slice(0, 8) ||
-          '?'
-        );
+        const contact = matchContact(contacts, msg.pubkeyPrefix);
+        // Deliberately not `msg.senderName`: that is the name captured when
+        // the message arrived, so a removed or renamed contact would keep
+        // showing it while the sidebar and the grouping key had moved on.
+        return contact?.name || msg.pubkeyPrefix?.slice(0, 8) || '?';
       }),
-    [visibleMessages, contacts],
+    [visibleMessages, contacts, t],
   );
   const senderKeys = useMemo(
     () =>
       visibleMessages.map((msg) => {
-        if (msg.system || msg.own) return null;
+        if (msg.system) return null;
+        if (msg.own) return 'own';
         if (msg.kind === 'channel') {
           const sender = splitChannelMessage(msg.text).sender?.trim();
-          return sender ? `channel:${sender}` : null;
+          // A stable key for an unnamed sender, so its turn still gets the
+          // `?` label rather than no header at all.
+          return sender ? `channel:${sender}` : 'channel:?';
         }
-        return msg.pubkeyPrefix ? `direct:${msg.pubkeyPrefix}` : null;
+        // The contact's own prefix, so a short and a long frame prefix for the
+        // same sender stay one turn.
+        const contact = matchContact(contacts, msg.pubkeyPrefix);
+        return `direct:${contact?.pubkeyPrefix ?? msg.pubkeyPrefix ?? '?'}`;
       }),
-    [visibleMessages],
+    [visibleMessages, contacts],
   );
 
   // Whether each message needs its own sender header. A burst from one contact
@@ -274,6 +292,10 @@ export function ChatArea() {
         if (i === 0 || dayDividers[i] != null) return true;
         const prev = visibleMessages[i - 1];
         if (!senderKeys[i] || senderKeys[i - 1] !== senderKeys[i]) return true;
+        // The same pubkey can still resolve to a different name (a contact
+        // removed mid-conversation falls back to its prefix), and a changed
+        // name is worth showing.
+        if (senderLabels[i - 1] !== senderLabels[i]) return true;
         if (prev.own !== msg.own) return true;
         const gap = (msg.timestamp ?? 0) - (prev.timestamp ?? 0);
         return (
@@ -380,6 +402,16 @@ export function ChatArea() {
       // unread divider they come back to isn't already scrolled past.
       if (convoId && (arrivedHidden || !isConvoVisible(state, convoId))) {
         atBottomRef.current = false;
+        // Nothing scrolled while it was hidden and this effect won't re-run on
+        // the way back, so leave the bubble as the cue that there is something
+        // below the fold.
+        const list = messagesRef.current;
+        const below = list
+          ? list.scrollHeight - list.scrollTop > list.clientHeight
+          : false;
+        if (!last?.own && below) {
+          setShowNewIndicator(true);
+        }
         return;
       }
       if (!last?.own && !atBottomRef.current) {
@@ -680,19 +712,15 @@ export function ChatArea() {
                   className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
                   data-msg-id={msg.id}
                 >
-                  {!msg.system && (
+                  {!msg.system && showHeader[i] && (
                     <div
                       className={
-                        showHeader[i]
-                          ? 'px-1 text-[11px] text-text2'
-                          : 'sr-only'
+                        msg.own ? 'sr-only' : 'px-1 text-[11px] text-text2'
                       }
                     >
-                      {msg.own
-                        ? t('chat.you')
-                        : senderLabels[i] === '?'
-                          ? t('common.unknown')
-                          : senderLabels[i]}
+                      {senderLabels[i] === '?'
+                        ? t('common.unknown')
+                        : senderLabels[i]}
                     </div>
                   )}
                   <MessageBubble

@@ -22,6 +22,7 @@ export function Toast() {
   const toast = useMeshStore((s) => s.toast);
   const dismissToast = useMeshStore((s) => s.dismissToast);
   const setView = useMeshStore((s) => s.setView);
+  const openModals = useMeshStore((s) => s.openModals);
 
   const colors = {
     success: 'border-green text-green',
@@ -30,7 +31,10 @@ export function Toast() {
   };
 
   const isError = toast?.variant === 'error';
-  const convo = toast?.convo;
+  // The toast sits outside the subtree a dialog marks inert, so its action
+  // would be a way out of the modal's focus boundary and into another
+  // conversation. Announce the message, but don't offer the jump.
+  const convo = openModals === 0 ? toast?.convo : undefined;
   const interaction =
     isError || convo
       ? 'pointer-events-auto flex max-w-[90vw] items-start gap-2 text-left'
