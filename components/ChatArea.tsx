@@ -308,10 +308,18 @@ export function ChatArea() {
         ? (useMeshStore.getState().msgHistory[convoId] ?? [])
         : [];
       const last = live[live.length - 1];
+      // Visibility as of the arrival itself, not as of this effect: focus can
+      // return (freezing the unread divider) before the effect flushes.
+      const arrival = useMeshStore.getState().lastArrival;
+      const arrivedHidden =
+        !!arrival && arrival.msgId === last?.id && !arrival.visible;
       // Arrived while the conversation was off screen (other tab, other
       // window, other view): leave the scroll where the user left it, so the
       // unread divider they come back to isn't already scrolled past.
-      if (convoId && !isConvoVisible(useMeshStore.getState(), convoId)) {
+      if (
+        convoId &&
+        (arrivedHidden || !isConvoVisible(useMeshStore.getState(), convoId))
+      ) {
         return;
       }
       if (!last?.own && !atBottomRef.current) {
