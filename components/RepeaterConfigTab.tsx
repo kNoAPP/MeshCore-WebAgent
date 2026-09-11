@@ -798,12 +798,31 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                       );
                       return (
                         <Fragment key='location'>
-                          {gpsSupported === true && (
+                          {(gpsSupported === true ||
+                            failed.has('gps') ||
+                            failed.has('gpsAdvert')) && (
                             <LocationSourceRow
                               policy={advertPolicy}
                               status={sourceStatus}
                               errorText={errorMsg.gps ?? errorMsg.gpsAdvert}
-                              disabled={sourceStatus === 'saving'}
+                              disabled={
+                                sourceStatus === 'saving' ||
+                                pending.has('gps') ||
+                                pending.has('gpsAdvert') ||
+                                failed.has('gps') ||
+                                failed.has('gpsAdvert') ||
+                                !values.gps ||
+                                !values.gpsAdvert
+                              }
+                              pending={pending}
+                              failed={failed}
+                              onRetry={(id) =>
+                                refreshSection(
+                                  REPEATER_GPS_SETTINGS.filter(
+                                    (setting) => setting.id === id,
+                                  ),
+                                )
+                              }
                               onSelect={selectPolicy}
                             />
                           )}
@@ -1149,7 +1168,7 @@ function NumberField({
         type='number'
         inputMode='decimal'
         aria-label={ariaLabel}
-        step={setting.integer ? 1 : 'any'}
+        step={setting.step}
         min={setting.min}
         max={setting.max}
         value={value}
@@ -1313,12 +1332,18 @@ function LocationSourceRow({
   status,
   errorText,
   disabled,
+  pending,
+  failed,
+  onRetry,
   onSelect,
 }: {
   policy: string;
   status?: SaveStatus;
   errorText?: string;
   disabled: boolean;
+  pending: ReadonlySet<string>;
+  failed: ReadonlySet<string>;
+  onRetry: (id: 'gps' | 'gpsAdvert') => void;
   onSelect: (policy: (typeof GPS_ADVERT_OPTIONS)[number]) => void;
 }) {
   const { t } = useTranslation();
@@ -1328,12 +1353,33 @@ function LocationSourceRow({
   const tabStop = activeIdx === -1 ? 0 : activeIdx;
   return (
     <div className={ROW_CLASS}>
-      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
+      <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
         <span className='truncate text-text2'>
           {t('settings.locationSource')}
         </span>
+        <span className='text-[11px] leading-snug text-text2 opacity-80'>
+          {t('repeaterAdmin.config.fields.gps.hint')}
+        </span>
+        <span className='text-[11px] leading-snug text-text2 opacity-80'>
+          {t('repeaterAdmin.config.fields.gpsAdvert.hint')}
+        </span>
       </div>
-      <div className='flex shrink-0 items-center gap-2'>
+      <div className='flex shrink-0 flex-col items-end gap-2'>
+        {(['gps', 'gpsAdvert'] as const).map((id) =>
+          pending.has(id) || failed.has(id) ? (
+            <div key={id} className='flex items-center gap-2 text-xs'>
+              <span>{t(`repeaterAdmin.config.fields.${id}.label`)}</span>
+              <FieldSlot
+                loading={pending.has(id)}
+                loaded={false}
+                failed={failed.has(id)}
+                onRetry={() => onRetry(id)}
+              >
+                {null}
+              </FieldSlot>
+            </div>
+          ) : null,
+        )}
         <div
           role='radiogroup'
           aria-label={t('settings.locationSource')}
@@ -1380,8 +1426,6 @@ function LocationRow({
   lonProps?: RowProps;
 }) {
   const { t } = useTranslation();
-  const loading = latProps.loading || (lonProps?.loading ?? false);
-  const loaded = latProps.value !== '' || (lonProps?.value ?? '') !== '';
   const disabled = latProps.disabled ?? false;
   // One status for the whole row, since lat and lon commit as a pair: any write
   // in flight shows saving, any failure shows the error, else the saved tick.
@@ -1389,26 +1433,30 @@ function LocationRow({
   const rowError = latProps.errorText ?? lonProps?.errorText;
   return (
     <div className={ROW_CLASS}>
-      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
+      <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
         <span className='truncate text-text2'>
           {t('repeaterAdmin.config.location')}
         </span>
+        <span className='text-[11px] leading-snug text-text2 opacity-80'>
+          {t('repeaterAdmin.config.fields.lat.hint')}
+        </span>
+        <span className='text-[11px] leading-snug text-text2 opacity-80'>
+          {t('repeaterAdmin.config.fields.lon.hint')}
+        </span>
       </div>
       <div className='flex shrink-0 flex-wrap items-center justify-end gap-2'>
-        <FieldSlot loading={loading} loaded={loaded}>
-          <CoordField {...latProps} />
-          {lonProps && <CoordField {...lonProps} />}
-          {!disabled && (
-            <button
-              type='button'
-              onClick={() => useMeshStore.getState().startLocationPick('chat')}
-              className='shrink-0 rounded-md border border-border-control px-3 py-1 text-xs text-text2 hover:text-text'
-            >
-              {t('settings.setOnMap')}
-            </button>
-          )}
-          <SaveStatusChip status={rowStatus} errorText={rowError} />
-        </FieldSlot>
+        <CoordField {...latProps} />
+        {lonProps && <CoordField {...lonProps} />}
+        {!disabled && (
+          <button
+            type='button'
+            onClick={() => useMeshStore.getState().startLocationPick('chat')}
+            className='shrink-0 rounded-md border border-border-control px-3 py-1 text-xs text-text2 hover:text-text'
+          >
+            {t('settings.setOnMap')}
+          </button>
+        )}
+        <SaveStatusChip status={rowStatus} errorText={rowError} />
       </div>
     </div>
   );
@@ -1429,6 +1477,9 @@ function CoordField({
   onDraft,
   onCommit,
   disabled,
+  loading,
+  failed,
+  onRetry,
 }: RowProps) {
   const { t } = useTranslation();
   const label = t(`repeaterAdmin.config.fields.${setting.id}.label`);
@@ -1441,16 +1492,23 @@ function CoordField({
   return (
     <div className='flex items-center gap-1.5'>
       <span className='text-[11px] text-text2'>{label}</span>
-      <NumberField
-        setting={setting as NumberSetting}
-        value={draft}
-        valid={valid}
-        disabled={!!disabled}
-        ariaLabel={label}
-        width='w-36'
-        onChange={onDraft}
-        onCommitEdit={commitEdit}
-      />
+      <FieldSlot
+        loading={loading}
+        loaded={value !== ''}
+        failed={failed}
+        onRetry={onRetry}
+      >
+        <NumberField
+          setting={setting as NumberSetting}
+          value={draft}
+          valid={valid}
+          disabled={!!disabled}
+          ariaLabel={label}
+          width='w-36'
+          onChange={onDraft}
+          onCommitEdit={commitEdit}
+        />
+      </FieldSlot>
     </div>
   );
 }
@@ -1534,6 +1592,12 @@ function RadioSection({
         </div>
       }
     >
+      <p className='mb-1 text-[11px] leading-snug text-text2 opacity-80'>
+        {t('repeaterAdmin.config.fields.radio.hint')}
+      </p>
+      <p className='mb-2 text-[11px] leading-snug text-text2 opacity-80'>
+        {t('repeaterAdmin.config.fields.tx.hint')}
+      </p>
       {rows.map((row) => (
         <ValueRow
           key={row.label}
