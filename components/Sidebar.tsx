@@ -13,7 +13,14 @@ import {
   useMemo,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Settings2, MoreHorizontal, Filter } from 'lucide-react';
+import {
+  Plus,
+  Settings2,
+  MoreHorizontal,
+  Filter,
+  Star,
+  Check,
+} from 'lucide-react';
 import {
   useMeshStore,
   openConvo,
@@ -577,7 +584,13 @@ export function Sidebar() {
                 <SidebarItem
                   key={id}
                   innerRef={active ? activeItemRef : undefined}
-                  icon={isFav ? '⭐' : (ADV_ICON[c.advType] ?? '👤')}
+                  icon={
+                    isFav ? (
+                      <Star size={16} className='fill-current' />
+                    ) : (
+                      (ADV_ICON[c.advType] ?? '👤')
+                    )
+                  }
                   label={label}
                   active={active}
                   unread={unread}
@@ -750,7 +763,7 @@ function MenuRow({
       }`}
     >
       <span className='truncate'>{label}</span>
-      {selected && <span className='shrink-0'>✓</span>}
+      {selected && <Check size={16} className='shrink-0' aria-hidden='true' />}
     </button>
   );
 }
@@ -767,7 +780,7 @@ function SidebarItem({
   onManage,
   onClick,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   active: boolean;
   unread: number;
