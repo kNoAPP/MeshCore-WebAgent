@@ -9,6 +9,7 @@ import { useMeshStore } from '@/store/meshStore';
 import { setApiKey, forgetApiKey } from '@/lib/ai/secret';
 import { type AiPref } from '@/lib/ai/pref';
 import { Select } from './Select';
+import { SaveStatusChip, useSaveStatus } from './SaveStatus';
 import { Switch } from './Switch';
 import {
   getProvider,
@@ -51,7 +52,12 @@ export function AiSettingsBody() {
   const setAiPref = useMeshStore((s) => s.setAiPref);
   const [keyInput, setKeyInput] = useState('');
   const [remember, setRemember] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const {
+    status: saveStatus,
+    errorText: saveError,
+    run: runSave,
+  } = useSaveStatus();
+  const saving = saveStatus === 'saving';
 
   const provider = getProvider(pref.providerId);
   const canRemember = connected;
@@ -72,12 +78,18 @@ export function AiSettingsBody() {
   const save = async () => {
     const value = keyInput.trim();
     if (!value || saving) return;
-    setSaving(true);
-    await setApiKey(value, remember && canRemember);
-    setSaving(false);
+    const { ok } = await runSave(async () => {
+      try {
+        await setApiKey(value, remember && canRemember);
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    });
     // Drop the plaintext from the field as soon as it's handed off — the store
-    // status indicator reflects that a key is now loaded.
-    setKeyInput('');
+    // status indicator reflects that a key is now loaded. A failed save keeps
+    // it, so the user isn't made to paste the key again.
+    if (ok) setKeyInput('');
   };
 
   const forget = async () => {
@@ -169,6 +181,7 @@ export function AiSettingsBody() {
           >
             {t('settings.ai.save')}
           </button>
+          <SaveStatusChip status={saveStatus} errorText={saveError} />
         </div>
       </div>
 

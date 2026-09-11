@@ -290,7 +290,11 @@ function NodeNameRow() {
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const status = useMeshStore((s) => s.status);
   const { setNodeName } = useMeshCore();
-  const { status: saveStatus, run: runSave } = useSaveStatus();
+  const {
+    status: saveStatus,
+    errorText: saveError,
+    run: runSave,
+  } = useSaveStatus();
 
   const currentName = selfInfo?.name ?? '';
   const [draft, setDraft] = useState(currentName);
@@ -325,7 +329,7 @@ function NodeNameRow() {
       return;
     }
     const submitted = draft;
-    void runSave(() => setNodeName(trimmed)).then((ok) => {
+    void runSave(() => setNodeName(trimmed)).then(({ ok }) => {
       if (ok) setDraft((cur) => (cur === submitted ? trimmed : cur));
     });
   };
@@ -361,7 +365,7 @@ function NodeNameRow() {
             {byteCount}/{MAX_ADVERT_NAME_BYTES}
           </span>
         </div>
-        <SaveStatusChip status={saveStatus} />
+        <SaveStatusChip status={saveStatus} errorText={saveError} />
       </div>
     </div>
   );
@@ -389,20 +393,62 @@ function LocationCard() {
   const { setLocation, setLocationPolicy, setLocationSource } = useMeshCore();
 
   const fmtDeg = (v?: number) => (v ? String(v) : '');
+  // The card does *not* remount on a store update, so the coordinate the radio
+  // reports has to be reconciled at render time — the same known/draft pattern
+  // `NodeNameRow` uses above. Without it, opening Settings before the
+  // post-connect hydrate lands leaves the fields blank forever, and switching
+  // the source to GPS leaves them showing a fixed coordinate the radio is no
+  // longer advertising.
+  const advLat = useMeshStore((s) => s.selfInfo?.advLat);
+  const advLon = useMeshStore((s) => s.selfInfo?.advLon);
+  const deviceCoords = { lat: fmtDeg(advLat), lon: fmtDeg(advLon) };
   // Seed from a coordinate the map picker just handed back (the store's
   // one-shot `pendingLocation`), else this radio's current advertised location.
-  // The card remounts on the return from the map, so reading it at init works.
-  const [latStr, setLatStr] = useState(() => {
+  const [edit, setEdit] = useState<{
+    known: { lat: string; lon: string };
+    lat: string;
+    lon: string;
+  }>(() => {
     const p = useMeshStore.getState().pendingLocation;
-    return p ? String(p.lat) : fmtDeg(useMeshStore.getState().selfInfo?.advLat);
+    const known = {
+      lat: fmtDeg(useMeshStore.getState().selfInfo?.advLat),
+      lon: fmtDeg(useMeshStore.getState().selfInfo?.advLon),
+    };
+    return p
+      ? { known, lat: String(p.lat), lon: String(p.lon) }
+      : { known, ...known };
   });
-  const [lonStr, setLonStr] = useState(() => {
-    const p = useMeshStore.getState().pendingLocation;
-    return p ? String(p.lon) : fmtDeg(useMeshStore.getState().selfInfo?.advLon);
-  });
-  const { status: coordStatus, run: runCoordSave } = useSaveStatus();
-  const { status: sourceStatus, run: runSourceSave } = useSaveStatus();
-  const { status: advertiseStatus, run: runAdvertiseSave } = useSaveStatus();
+  // A new device value supersedes an untouched draft; an edit in progress is
+  // left alone.
+  const pristine = edit.lat === edit.known.lat && edit.lon === edit.known.lon;
+  const reconciled =
+    deviceCoords.lat !== edit.known.lat || deviceCoords.lon !== edit.known.lon
+      ? {
+          known: deviceCoords,
+          lat: pristine ? deviceCoords.lat : edit.lat,
+          lon: pristine ? deviceCoords.lon : edit.lon,
+        }
+      : edit;
+  if (reconciled !== edit) setEdit(reconciled);
+  const latStr = reconciled.lat;
+  const lonStr = reconciled.lon;
+  const setLatStr = (lat: string) => setEdit((e) => ({ ...e, lat }));
+  const setLonStr = (lon: string) => setEdit((e) => ({ ...e, lon }));
+  const {
+    status: coordStatus,
+    errorText: coordError,
+    run: runCoordSave,
+  } = useSaveStatus();
+  const {
+    status: sourceStatus,
+    errorText: sourceError,
+    run: runSourceSave,
+  } = useSaveStatus();
+  const {
+    status: advertiseStatus,
+    errorText: advertiseError,
+    run: runAdvertiseSave,
+  } = useSaveStatus();
   const savingSource = sourceStatus === 'saving';
   const savingAdvertise = advertiseStatus === 'saving';
   // Last coordinate successfully written to the radio, so a blur that changed
@@ -427,7 +473,7 @@ function LocationCard() {
       st.selfInfo?.advLocPolicy === ADVERT_LOC_POLICY.SHARE;
     if (!connected || gps) return;
     void runCoordSave(() => setLocation(pending.lat, pending.lon)).then(
-      (ok) => {
+      ({ ok }) => {
         if (ok) {
           lastSaved.current = {
             lat: String(pending.lat),
@@ -482,7 +528,7 @@ function LocationCard() {
     if (latStr === lastSaved.current.lat && lonStr === lastSaved.current.lon) {
       return;
     }
-    const ok = await runCoordSave(() => setLocation(latNum, lonNum));
+    const { ok } = await runCoordSave(() => setLocation(latNum, lonNum));
     if (ok) lastSaved.current = { lat: latStr, lon: lonStr };
   };
 
@@ -526,7 +572,7 @@ function LocationCard() {
         <span>{t('settings.advertiseLocation')}</span>
         <span className='flex items-center gap-2'>
           <SwitchTrack checked={advertising} />
-          <SaveStatusChip status={advertiseStatus} />
+          <SaveStatusChip status={advertiseStatus} errorText={advertiseError} />
         </span>
       </button>
       {showSource && (
@@ -577,7 +623,7 @@ function LocationCard() {
                   );
                 })}
               </div>
-              <SaveStatusChip status={sourceStatus} />
+              <SaveStatusChip status={sourceStatus} errorText={sourceError} />
             </span>
           </div>
         </div>
@@ -631,7 +677,7 @@ function LocationCard() {
           >
             {t('settings.setOnMap')}
           </button>
-          <SaveStatusChip status={coordStatus} />
+          <SaveStatusChip status={coordStatus} errorText={coordError} />
         </div>
       </div>
     </Card>
@@ -716,31 +762,40 @@ function DisplayCard() {
       className='md:col-span-2 xl:col-span-1'
       section='display'
     >
+      {/* These three are local preferences, not radio writes, so they have no
+          save lifecycle — but they keep the chip gutter so their controls line
+          up with the Identity and Location rows above. */}
       <div className='flex items-center justify-between gap-3 border-b border-border py-1.5 text-xs'>
         <span className='shrink-0 text-text2'>{t('header.language')}</span>
-        <Select
-          value={locale}
-          onChange={setLocale}
-          ariaLabel={t('header.language')}
-          options={SUPPORTED_LOCALES.map((l) => ({
-            value: l,
-            label: LOCALE_NAMES[l],
-          }))}
-          className='cursor-pointer transition-colors hover:border-accent'
-        />
+        <span className='flex items-center gap-2'>
+          <Select
+            value={locale}
+            onChange={setLocale}
+            ariaLabel={t('header.language')}
+            options={SUPPORTED_LOCALES.map((l) => ({
+              value: l,
+              label: LOCALE_NAMES[l],
+            }))}
+            className='cursor-pointer transition-colors hover:border-accent'
+          />
+          <SaveStatusChip />
+        </span>
       </div>
       <div className='flex items-center justify-between gap-3 py-1.5 text-xs'>
         <span className='shrink-0 text-text2'>{t('settings.units')}</span>
-        <Select
-          value={unitSystem}
-          onChange={setUnitSystem}
-          ariaLabel={t('settings.units')}
-          options={SUPPORTED_UNIT_SYSTEMS.map((u) => ({
-            value: u,
-            label: t(`settings.units_${u}`),
-          }))}
-          className='cursor-pointer transition-colors hover:border-accent'
-        />
+        <span className='flex items-center gap-2'>
+          <Select
+            value={unitSystem}
+            onChange={setUnitSystem}
+            ariaLabel={t('settings.units')}
+            options={SUPPORTED_UNIT_SYSTEMS.map((u) => ({
+              value: u,
+              label: t(`settings.units_${u}`),
+            }))}
+            className='cursor-pointer transition-colors hover:border-accent'
+          />
+          <SaveStatusChip />
+        </span>
       </div>
       <Switch
         checked={showFullPublicKeys}
@@ -748,7 +803,7 @@ function DisplayCard() {
         label={
           <span className='text-text2'>{t('settings.showFullPublicKeys')}</span>
         }
-        className='border-t border-border py-1.5'
+        className='border-t border-border py-1.5 pr-6'
       />
     </Card>
   );
