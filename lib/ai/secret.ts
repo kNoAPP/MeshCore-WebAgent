@@ -86,10 +86,14 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
   }
   ctx = { pubkey, storageKey };
   // Settle a deletion the user asked for before this existed, so a remembered
-  // copy they declined or forgot can't survive into the next session.
+  // copy they declined or forgot can't survive into the next session. The
+  // obligation stands until the delete actually lands — `enqueue` runs it
+  // ahead of the restore that useMeshCore kicks off next, which checks the
+  // flag before loading anything.
   if (clearOwed) {
-    clearOwed = false;
-    void enqueue(() => clearSecret(pubkey, API_KEY_NAME));
+    void enqueue(() => clearSecret(pubkey, API_KEY_NAME)).then((ok) => {
+      clearOwed = !ok;
+    });
   }
 }
 
@@ -175,9 +179,11 @@ export async function loadPersistedApiKey(): Promise<boolean> {
   // (generation changed) — never resurrect a key onto a dead context or clobber
   // a newer value the user just chose. Also stand down if a key is already in
   // memory: a reconnect keeps the live key, and a key entered during the
-  // connect window must not be overwritten by the remembered one.
+  // connect window must not be overwritten by the remembered one. A deletion
+  // still owed means this record is one the user already asked to be rid of.
   if (
     value === null ||
+    clearOwed ||
     ctx !== active ||
     generation !== mine ||
     apiKey !== null

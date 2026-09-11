@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { MeshCoreClient } from '@/lib/meshcore/client';
 import { MeshConnectError, PickerDismissedError } from '@/lib/meshcore/errors';
 import {
@@ -2011,28 +2011,42 @@ export function useMeshCore() {
     }
   }, [client, showToast]);
 
+  // A save writes two commands, and the client's queue only serializes
+  // individual exchanges — so two overlapping saves could leave the radio with
+  // the mode from one edit and the per-type bitmask from the other.
+  const autoAddChain = useRef<Promise<void>>(Promise.resolve());
+
   /** Persists auto-add settings locally and writes them to the radio. */
   const applyAutoAddConfig = useCallback(
-    async (cfg: AutoAddConfig): Promise<WriteResult> => {
-      // Persist locally only after the radio write succeeds, so a failed write
-      // doesn't leave the app showing settings the radio never accepted. With
-      // no transmittable link (disconnected or mid-reconnect), just remember
-      // the preference locally.
-      if (!canTransmit(client)) {
-        setAutoAddConfig(cfg);
-        return { ok: true };
-      }
-      try {
-        await client.setAutoAddPrefs(cfg);
-        setAutoAddConfig(cfg);
-        return { ok: true };
-      } catch (err) {
-        const error = i18n.t('toast.saveSettingsFailed', {
-          error: (err as Error).message,
-        });
-        showToast(error, 'error');
-        return { ok: false, error };
-      }
+    (cfg: AutoAddConfig): Promise<WriteResult> => {
+      const write = autoAddChain.current.then(
+        async (): Promise<WriteResult> => {
+          // Persist locally only after the radio write succeeds, so a failed
+          // write doesn't leave the app showing settings the radio never
+          // accepted. With no transmittable link (disconnected or
+          // mid-reconnect), just remember the preference locally.
+          if (!canTransmit(client)) {
+            setAutoAddConfig(cfg);
+            return { ok: true };
+          }
+          try {
+            await client.setAutoAddPrefs(cfg);
+            setAutoAddConfig(cfg);
+            return { ok: true };
+          } catch (err) {
+            const error = i18n.t('toast.saveSettingsFailed', {
+              error: (err as Error).message,
+            });
+            showToast(error, 'error');
+            return { ok: false, error };
+          }
+        },
+      );
+      autoAddChain.current = write.then(
+        () => undefined,
+        () => undefined,
+      );
+      return write;
     },
     [client, setAutoAddConfig, showToast],
   );
