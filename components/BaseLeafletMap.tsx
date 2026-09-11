@@ -230,7 +230,12 @@ export function BaseLeafletMap({
 
     layer.clearLayers();
     for (const node of nodes) {
-      const marker = L.marker([node.lat, node.lon], { icon: nodeIcon(node) });
+      const marker = L.marker([node.lat, node.lon], {
+        icon: nodeIcon(node),
+        // Without a popup or click handler (location-pick mode) a marker would
+        // otherwise swallow the click the map needs to place the pin.
+        bubblingMouseEvents: !clickable && !hasNodeActions,
+      });
       const label =
         node.kind === 'self' ? t('map.self') : escapeHtml(node.name);
       marker.bindTooltip(label, { direction: 'top' });

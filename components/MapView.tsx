@@ -95,14 +95,15 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   // 'connected', so a map opened in that window (a `#/map` deep link, or
   // switching straight to Map) captures the fallback view. Re-frame on the
   // saved viewport when it lands — but never once the user has moved the map
-  // themselves, since their pan writes `mapPrefs` too.
+  // themselves, since their pan writes `mapPrefs` too. Held off while picking
+  // a location: the re-frame remounts Leaflet, which would drop the placed pin.
   const savedPrefs = useMeshStore((s) => s.mapPrefs);
   const viewportSettled = useRef(savedPrefs != null);
   useEffect(() => {
-    if (viewportSettled.current || !savedPrefs) return;
+    if (viewportSettled.current || !savedPrefs || mapPicking) return;
     viewportSettled.current = true;
     setStartView({ center: savedPrefs.center, zoom: savedPrefs.zoom });
-  }, [savedPrefs]);
+  }, [savedPrefs, mapPicking]);
   // When on, only favorited contacts (plus this node) are plotted.
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
