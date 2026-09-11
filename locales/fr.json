@@ -791,6 +791,7 @@
     "emptyFavorites": "Aucun de tes favoris n'a encore de position.",
     "popup": {
       "message": "Message",
+      "administer": "Administrer",
       "manage": "Gérer"
     },
     "pick": {

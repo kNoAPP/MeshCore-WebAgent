@@ -375,7 +375,7 @@ html {
 }
 .meshcore-map .leaflet-popup-content-wrapper {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--card-radius);
 }
 .meshcore-map .leaflet-popup-content {
   margin: 10px 12px;

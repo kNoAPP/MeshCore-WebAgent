@@ -251,12 +251,15 @@ export function BaseLeafletMap({
         marker.on('popupopen', (e) => {
           const root = e.popup.getElement();
           root?.querySelectorAll<HTMLElement>('[data-action]').forEach((el) => {
-            el.addEventListener('click', () => {
+            // Assigned, not added: Leaflet reuses the popup's elements, so an
+            // `addEventListener` per open would stack up and fire one click
+            // once per time the popup had been opened.
+            el.onclick = () => {
               const key = el.dataset.action;
               const live = nodeActionsRef.current?.(node) ?? [];
               live.find((a) => a.key === key)?.onSelect(node);
               marker.closePopup();
-            });
+            };
           });
         });
       } else if (clickable && node.kind !== 'self') {
