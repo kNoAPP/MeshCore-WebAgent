@@ -5,6 +5,7 @@
 
 import { useMemo } from 'react';
 import { useMeshStore } from '@/store/meshStore';
+import i18n from '@/lib/i18n';
 
 /**
  * A polite live region carrying the message that just arrived, mounted for the
@@ -37,7 +38,15 @@ export function MessageAnnouncer() {
     ) {
       return { id: '', text: '' };
     }
-    return { id: lastArrival.msgId, text: lastArrival.text };
+    return {
+      id: lastArrival.msgId,
+      text: lastArrival.senderName
+        ? i18n.t('chat.messageAnnouncement', {
+            sender: lastArrival.senderName,
+            message: lastArrival.text,
+          })
+        : lastArrival.text,
+    };
   }, [lastArrival]);
 
   return (

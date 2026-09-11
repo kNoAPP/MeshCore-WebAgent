@@ -26,10 +26,10 @@ import { useAdvertise } from '@/hooks/useAdvertise';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { formatStorage, formatVoltage } from '@/lib/i18n/format';
 import { Wordmark } from './Wordmark';
+import { Select } from './Select';
 import { ModalShell } from './ModalShell';
 import { ApprovalInboxList } from './AutomationPanel';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
-import type { SupportedLocale } from '@/lib/i18n/config';
 import { DEFAULT_THEME } from '@/lib/theme/config';
 
 // "/" must not hijack a text field.
@@ -214,18 +214,16 @@ export function Header() {
       )}
 
       {!active && (
-        <select
+        <Select
           value={locale}
-          onChange={(e) => setLocale(e.target.value as SupportedLocale)}
-          aria-label={t('header.language')}
-          className='ml-auto cursor-pointer rounded-md border border-border-control bg-surface px-2 py-1 text-xs text-text2 transition-colors hover:border-accent hover:text-accent'
-        >
-          {SUPPORTED_LOCALES.map((l) => (
-            <option key={l} value={l}>
-              {LOCALE_NAMES[l]}
-            </option>
-          ))}
-        </select>
+          onChange={setLocale}
+          ariaLabel={t('header.language')}
+          className='ml-auto cursor-pointer transition-colors hover:border-accent hover:text-accent'
+          options={SUPPORTED_LOCALES.map((locale) => ({
+            value: locale,
+            label: LOCALE_NAMES[locale],
+          }))}
+        />
       )}
 
       <button

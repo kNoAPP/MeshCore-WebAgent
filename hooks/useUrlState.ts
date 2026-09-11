@@ -199,9 +199,9 @@ export function useUrlState(): void {
 
     // Set while a route write is waiting on the microtask queue. One user
     // action often touches several store fields in a row — the command palette
-    // calls `setView('chat')` and then `openConvo(...)` — and the subscription
+    // calls `openConvo(...)` and then `setView('chat')` — and the subscription
     // runs once per `set`, so writing straight away would leave an
-    // intermediate entry (the old conversation on the new page) for Back to
+    // intermediate entry (the new conversation on the old page) for Back to
     // land on. Deferring collapses the turn into a single entry; a move made
     // in a later user event is a separate task and still gets its own.
     let writeQueued = false;

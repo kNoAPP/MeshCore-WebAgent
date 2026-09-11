@@ -496,6 +496,7 @@
     "empty": "Select a channel or contact to start chatting",
     "noMessages": "No messages yet",
     "transcriptLabel": "Conversation transcript",
+    "messageAnnouncement": "{{sender}}: {{message}}",
     "lastUnread": "Last unread",
     "you": "You",
     "noAck": "No acknowledgment",
