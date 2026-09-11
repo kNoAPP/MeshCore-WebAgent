@@ -240,6 +240,7 @@ export interface MessageArrival {
   convoId: string;
   msgId: string;
   text: string;
+  senderName?: string;
   own: boolean;
   system: boolean;
   /**
@@ -839,6 +840,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
           convoId: id,
           msgId: enriched.id as string,
           text: enriched.text,
+          senderName: enriched.senderName,
           own: enriched.own ?? false,
           system: enriched.system ?? false,
           visible,
@@ -965,12 +967,14 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   },
   startLocationPick: (returnTo = 'settings') =>
     set({ mapPicking: true, view: 'map', locationPickReturn: returnTo }),
-  confirmLocationPick: (lat, lon) =>
+  confirmLocationPick: (lat, lon) => {
     set((s) => ({
       mapPicking: false,
       view: s.locationPickReturn,
       pendingLocation: { lat, lon },
-    })),
+    }));
+    catchUpVisibleConvo();
+  },
   cancelLocationPick: () => set({ mapPicking: false }),
   clearPendingLocation: () => set({ pendingLocation: null }),
   setManagePanel: (managePanel) => set({ managePanel }),
@@ -1219,16 +1223,17 @@ export function isActiveStatus(status: ConnectionStatus): boolean {
   return status === 'connected' || status === 'reconnecting';
 }
 
-/** Opens a conversation and marks it read in one step. */
+/** Selects a conversation, marking it read only when it is visible. */
 export function openConvo(convo: ActiveConvo): void {
   const { setActiveConvo, markRead, setUnreadMarker, msgHistory } =
     useMeshStore.getState();
+  setActiveConvo(convo);
+  if (!isConvoVisible(useMeshStore.getState(), convo.id)) return;
   // Freeze the "last unread" divider at the first unread message before
   // markRead clears the flags, so the boundary the user left off at stays
   // visible for this viewing.
   const firstUnread = (msgHistory[convo.id] ?? []).find((m) => m._unread);
   setUnreadMarker(convo.id, firstUnread?.id ?? null);
-  setActiveConvo(convo);
   markRead(convo.id);
 }
 

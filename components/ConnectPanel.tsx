@@ -199,9 +199,8 @@ export function ConnectPanel() {
                 onClick={() => changeTab(tb)}
                 disabled={busy}
                 className={`focus-inset flex flex-1 items-center justify-center gap-1.5 py-2 text-[13px] font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50
-                ${i > 0 ? 'border-l' : ''}
+                ${i > 0 ? 'border-l border-border' : ''}
                 ${tab === tb ? 'bg-accent-solid text-white inset-ring-1 inset-ring-accent' : 'text-text2 hover:text-text'}`}
-                style={i > 0 ? { borderColor: 'var(--border)' } : {}}
               >
                 <Icon size={15} aria-hidden='true' />
                 {tb === 'usb'
