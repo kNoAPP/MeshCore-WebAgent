@@ -103,12 +103,7 @@ function lastMessageTime(
   msgHistory: Record<string, Message[]>,
   contact: Contact,
 ): number {
-  const isAdminNode =
-    contact.advType === ADV_TYPE_REPEATER || contact.advType === ADV_TYPE_ROOM;
-  const id = isAdminNode
-    ? repeaterConvoId(contact.pubkeyPrefix)
-    : directConvoId(contact.pubkeyPrefix);
-  const msgs = msgHistory[id];
+  const msgs = msgHistory[directConvoId(contact.pubkeyPrefix)];
   if (!msgs?.length) return 0;
   let latest = 0;
   for (const m of msgs) {
@@ -179,6 +174,9 @@ export function Sidebar() {
   const channelsSectionRef = useRef<HTMLDivElement>(null);
   const channelsContentRef = useRef<HTMLDivElement>(null);
   const channelsHeaderRef = useRef<HTMLDivElement>(null);
+  const contactsSectionRef = useRef<HTMLDivElement>(null);
+  const contactsHeaderRef = useRef<HTMLDivElement>(null);
+  const contactsSearchRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<HTMLDivElement>(null);
   const activeItemRef = useRef<HTMLLIElement>(null);
   const filterInputId = useId();
@@ -210,7 +208,19 @@ export function Sidebar() {
       const available = aside.offsetHeight - dividerH;
       // Contacts keeps its own minimum: a maximized split must never leave the
       // lower section with nothing to render into.
-      const ceiling = Math.max(MIN_SECTION_PX, Math.floor(available / 2));
+      const contactsStyle = contactsSectionRef.current
+        ? getComputedStyle(contactsSectionRef.current)
+        : null;
+      const contactsPadding = contactsStyle
+        ? parseFloat(contactsStyle.paddingTop) +
+          parseFloat(contactsStyle.paddingBottom)
+        : 0;
+      const contactsMinimum =
+        contactsPadding +
+        (contactsHeaderRef.current?.offsetHeight ?? 0) +
+        (contactsSearchRef.current?.offsetHeight ?? 0) +
+        MIN_SECTION_PX;
+      const ceiling = Math.max(MIN_SECTION_PX, available - contactsMinimum);
       const fit = Math.max(
         MIN_SECTION_PX,
         Math.min(measureChannelsFitHeight(), ceiling),
@@ -228,6 +238,8 @@ export function Sidebar() {
     // and a bound measured against the old height would then hide Contacts.
     const observer = new ResizeObserver(measure);
     observer.observe(aside);
+    if (contactsHeaderRef.current) observer.observe(contactsHeaderRef.current);
+    if (contactsSearchRef.current) observer.observe(contactsSearchRef.current);
     return () => observer.disconnect();
   }, [sortedChannels.length, measureChannelsFitHeight]);
 
@@ -338,8 +350,13 @@ export function Sidebar() {
       e.preventDefault();
       // Live, not the render's copy: a held arrow key repeats faster than
       // React re-renders, and a stale base would swallow every repeat but one.
-      const current =
-        useMeshStore.getState().contactView.channelsHeight ?? channelsHeight;
+      const current = Math.min(
+        sectionBounds.fit,
+        Math.max(
+          MIN_SECTION_PX,
+          useMeshStore.getState().contactView.channelsHeight ?? channelsHeight,
+        ),
+      );
       setChannelsHeight(
         Math.min(sectionBounds.fit, Math.max(MIN_SECTION_PX, current + step)),
       );
@@ -484,8 +501,14 @@ export function Sidebar() {
       </div>
 
       {/* Contacts */}
-      <div className='flex min-h-0 flex-1 flex-col overflow-hidden pt-2'>
-        <div className='flex shrink-0 items-center justify-between px-3.5 pb-1'>
+      <div
+        ref={contactsSectionRef}
+        className='flex min-h-0 flex-1 flex-col overflow-hidden pt-2'
+      >
+        <div
+          ref={contactsHeaderRef}
+          className='flex shrink-0 items-center justify-between px-3.5 pb-1'
+        >
           <h2
             id='sidebar-contacts'
             className='text-[11px] font-semibold tracking-widest text-text2 uppercase'
@@ -523,7 +546,7 @@ export function Sidebar() {
             </button>
           </div>
         </div>
-        <div className='shrink-0 px-3.5 pt-1 pb-2'>
+        <div ref={contactsSearchRef} className='shrink-0 px-3.5 pt-1 pb-2'>
           <label className='sr-only' htmlFor={filterInputId}>
             {t('sidebar.searchContacts')}
           </label>

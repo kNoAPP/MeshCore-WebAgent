@@ -312,11 +312,7 @@ export function ChatArea() {
       // Arrived while the conversation was off screen (other tab, other
       // window, other view): leave the scroll where the user left it, so the
       // unread divider they come back to isn't already scrolled past.
-      if (
-        !last?.own &&
-        convoId &&
-        !isConvoVisible(useMeshStore.getState(), convoId)
-      ) {
+      if (convoId && !isConvoVisible(useMeshStore.getState(), convoId)) {
         return;
       }
       if (!last?.own && !atBottomRef.current) {
