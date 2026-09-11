@@ -771,7 +771,9 @@ export function useMeshCore() {
           } else if (msg.kind === 'direct' && msg.pubkeyPrefix) {
             const id = directConvoId(msg.pubkeyPrefix);
             const contact = c.lookupContact(msg.pubkeyPrefix);
-            const sender = contact?.name ?? msg.pubkeyPrefix.slice(0, 8);
+            // An empty contact name would leave "New message from " dangling,
+            // so fall back to the prefix exactly as the sidebar does.
+            const sender = contact?.name || msg.pubkeyPrefix.slice(0, 8);
             const enriched: Message = { ...msg, senderName: sender };
             const visible = isConvoVisible(useMeshStore.getState(), id);
             addMessage(id, enriched);
