@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowDown, Send } from 'lucide-react';
 import { useMeshStore, isConvoVisible } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import type { Contact } from '@/types/meshcore';
 import {
   ADV_ICON,
   utf8ByteLength,
@@ -50,6 +51,24 @@ const NEAR_TOP_PX = 240;
 
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
+}
+
+// Either side can be the shorter prefix: a v3 frame can carry more of the key
+// than the contact table stores, so the match has to go both ways — the same
+// rule `MeshCoreClient.lookupContact` applies.
+function matchContact(
+  contacts: Record<string, Contact>,
+  prefix: string | undefined,
+): Contact | undefined {
+  if (!prefix) return undefined;
+  return (
+    contacts[prefix] ??
+    Object.values(contacts).find(
+      (entry) =>
+        entry.pubkeyPrefix.startsWith(prefix) ||
+        prefix.startsWith(entry.pubkeyPrefix),
+    )
+  );
 }
 
 // Null when the cursor isn't in a mention: whitespace follows the at-sign, the
@@ -235,13 +254,7 @@ export function ChatArea() {
         if (msg.kind === 'channel') {
           return splitChannelMessage(msg.text).sender?.trim() || '?';
         }
-        const prefix = msg.pubkeyPrefix;
-        const contact = prefix
-          ? (contacts[prefix] ??
-            Object.values(contacts).find((entry) =>
-              entry.pubkeyPrefix.startsWith(prefix),
-            ))
-          : undefined;
+        const contact = matchContact(contacts, msg.pubkeyPrefix);
         return (
           contact?.name ||
           msg.senderName ||
@@ -262,9 +275,12 @@ export function ChatArea() {
           // `?` label rather than no header at all.
           return sender ? `channel:${sender}` : 'channel:?';
         }
-        return `direct:${msg.pubkeyPrefix ?? '?'}`;
+        // The contact's own prefix, so a short and a long frame prefix for the
+        // same sender stay one turn.
+        const contact = matchContact(contacts, msg.pubkeyPrefix);
+        return `direct:${contact?.pubkeyPrefix ?? msg.pubkeyPrefix ?? '?'}`;
       }),
-    [visibleMessages],
+    [visibleMessages, contacts],
   );
 
   // Whether each message needs its own sender header. A burst from one contact
