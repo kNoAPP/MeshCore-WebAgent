@@ -1235,6 +1235,8 @@ export function openConvo(convo: ActiveConvo): void {
   const firstUnread = (msgHistory[convo.id] ?? []).find((m) => m._unread);
   setUnreadMarker(convo.id, firstUnread?.id ?? null);
   markRead(convo.id);
+  const state = useMeshStore.getState();
+  if (state.toast?.convo?.id === convo.id) state.dismissToast();
 }
 
 /**
@@ -1263,6 +1265,7 @@ function catchUpVisibleConvo(): void {
   const state = useMeshStore.getState();
   const convo = state.activeConvo;
   if (!convo || !isConvoVisible(state, convo.id)) return;
+  if (state.toast?.convo?.id === convo.id) state.dismissToast();
   if (unreadCount(state.msgHistory, convo.id) === 0) return;
   openConvo(convo);
 }
