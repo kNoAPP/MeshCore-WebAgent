@@ -35,6 +35,11 @@ let generation = 0;
 // stale key on disk to resurface on the next connect.
 let ioChain: Promise<unknown> = Promise.resolve();
 
+// A "don't remember this" save or an explicit Forget can be made before the
+// session binds its encryption context — the app reports `connected` first.
+// Neither can reach IndexedDB yet, so the deletion is owed until it can.
+let clearOwed = false;
+
 function enqueue<T>(op: () => Promise<T>): Promise<T> {
   const run = ioChain.then(op, op);
   // Keep the chain alive whether the op resolved or rejected, and drop the
@@ -80,6 +85,12 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
     syncStatus();
   }
   ctx = { pubkey, storageKey };
+  // Settle a deletion the user asked for before this existed, so a remembered
+  // copy they declined or forgot can't survive into the next session.
+  if (clearOwed) {
+    clearOwed = false;
+    void enqueue(() => clearSecret(pubkey, API_KEY_NAME));
+  }
 }
 
 /**
@@ -116,7 +127,13 @@ export async function setApiKey(
   // Capture the context so the queued write targets this radio even if the
   // session is torn down (ctx nulled) before the op runs.
   const active = ctx;
-  if (!active) return !remember;
+  if (!active) {
+    // Nothing can be written or deleted yet. Owe the deletion so a remembered
+    // copy the user has just declined doesn't outlive this session, and report
+    // the failure rather than claiming a removal that hasn't happened.
+    if (!remember) clearOwed = true;
+    return false;
+  }
 
   let landed = false;
   if (remember) {
@@ -176,7 +193,8 @@ export async function loadPersistedApiKey(): Promise<boolean> {
 /**
  * Wipes the in-memory key and deletes any persisted copy for the connected
  * radio. Use for an explicit "forget key" action.
- * @returns whether the persisted copy was removed, or no context was active.
+ * @returns whether the persisted copy was removed. False when no context is
+ * bound yet — the deletion is owed until one is, and cannot be confirmed here.
  */
 export async function forgetApiKey(): Promise<boolean> {
   generation++;
@@ -184,9 +202,11 @@ export async function forgetApiKey(): Promise<boolean> {
   persisted = false;
   const active = ctx;
   syncStatus();
-  return active
-    ? enqueue(() => clearSecret(active.pubkey, API_KEY_NAME))
-    : true;
+  if (!active) {
+    clearOwed = true;
+    return false;
+  }
+  return enqueue(() => clearSecret(active.pubkey, API_KEY_NAME));
 }
 
 /**
@@ -199,6 +219,9 @@ export function wipeApiKey(): void {
   apiKey = null;
   persisted = false;
   ctx = null;
+  // An owed deletion belongs to the session that asked for it; carrying it
+  // forward would delete the next radio's remembered key instead.
+  clearOwed = false;
   syncStatus();
 }
 

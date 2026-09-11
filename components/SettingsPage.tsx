@@ -31,7 +31,7 @@ import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
 import { SaveStatusChip, useSaveStatus } from './SaveStatus';
 import { Select } from './Select';
-import { Switch, SwitchTrack } from './Switch';
+import { SwitchTrack } from './Switch';
 import { AiSettingsBody } from './AiSettings';
 import { AutomationSettingsBody } from './AutomationPanel';
 import { SUPPORTED_UNIT_SYSTEMS } from '@/lib/units/config';
@@ -794,14 +794,18 @@ function DisplayCard() {
           <SaveStatusChip />
         </span>
       </div>
-      <Switch
-        checked={showFullPublicKeys}
-        onChange={setShowFullPublicKeys}
-        label={
-          <span className='text-text2'>{t('settings.showFullPublicKeys')}</span>
-        }
-        className='border-t border-border py-1.5 pr-6'
-      />
+      <button
+        role='switch'
+        aria-checked={showFullPublicKeys}
+        onClick={() => setShowFullPublicKeys(!showFullPublicKeys)}
+        className='flex w-full items-center justify-between gap-3 border-t border-border py-1.5 text-left text-xs text-text'
+      >
+        <span className='text-text2'>{t('settings.showFullPublicKeys')}</span>
+        <span className='flex items-center gap-2'>
+          <SwitchTrack checked={showFullPublicKeys} />
+          <SaveStatusChip />
+        </span>
+      </button>
     </Card>
   );
 }

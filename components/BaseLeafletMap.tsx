@@ -294,7 +294,10 @@ export function BaseLeafletMap({
             el.onclick = () => {
               const key = el.dataset.action;
               const live = nodeActionsRef.current?.(node) ?? [];
+              // Focus the marker first: a dialog the action opens captures the
+              // then-focused element as its opener and restores to it on close.
               closedByAction = true;
+              marker.getElement()?.focus();
               live.find((a) => a.key === key)?.onSelect(node);
               marker.closePopup();
             };
