@@ -278,7 +278,7 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
           checked={favoritesOnly}
           onChange={setFavoritesOnly}
           label={t('map.legend.favoritesOnly')}
-          className='border-t border-border px-2.5 py-2 whitespace-nowrap hover:text-accent'
+          className='focus-inset border-t border-border px-2.5 py-2 whitespace-nowrap hover:text-accent'
         />
       </MapLegend>
     </BaseLeafletMap>

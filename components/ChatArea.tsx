@@ -318,6 +318,13 @@ export function ChatArea() {
       // unread divider they come back to isn't already scrolled past.
       if (convoId && (arrivedHidden || !isConvoVisible(state, convoId))) {
         atBottomRef.current = false;
+        // Nothing scrolled while it was hidden and this effect won't re-run on
+        // the way back, so leave the bubble as the cue that there is something
+        // below the fold.
+        const list = messagesRef.current;
+        if (!last?.own && list && !isNearBottom(list)) {
+          setShowNewIndicator(true);
+        }
         return;
       }
       if (!last?.own && !atBottomRef.current) {
