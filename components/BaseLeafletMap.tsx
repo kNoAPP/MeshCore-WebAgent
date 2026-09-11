@@ -269,6 +269,9 @@ export function BaseLeafletMap({
           `<div class="meshcore-popup-title">${label}</div><div class="meshcore-popup-actions">${buttons}</div>`,
           { closeButton: true, minWidth: 140 },
         );
+        // An action navigates or opens a dialog, which owns focus from then
+        // on — and may unmount this marker or inert the map behind it.
+        let closedByAction = false;
         marker.on('popupopen', (e) => {
           const root = e.popup.getElement();
           // Leaflet exposes the popup as a dialog but never names it, so focus
@@ -286,6 +289,7 @@ export function BaseLeafletMap({
             el.onclick = () => {
               const key = el.dataset.action;
               const live = nodeActionsRef.current?.(node) ?? [];
+              closedByAction = true;
               live.find((a) => a.key === key)?.onSelect(node);
               marker.closePopup();
             };
@@ -295,8 +299,15 @@ export function BaseLeafletMap({
           // marker to reach these.
           items?.[0]?.focus();
         });
-        // Hand focus back to where it came from, rather than to the document.
-        marker.on('popupclose', () => marker.getElement()?.focus());
+        // Dismissed rather than acted on: hand focus back to where it came
+        // from, rather than to the document.
+        marker.on('popupclose', () => {
+          if (closedByAction) {
+            closedByAction = false;
+            return;
+          }
+          marker.getElement()?.focus();
+        });
       } else if (clickable && node.kind !== 'self') {
         marker.on('click', () => onNodeClickRef.current?.(node));
       }

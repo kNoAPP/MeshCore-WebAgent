@@ -853,11 +853,17 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         // not something to come back to.
         _unread: !visible && !msg.own && !msg.system,
       };
+      // The frame parser hands over a whole input chunk at once, so an
+      // off-screen frame can land in the same tick as an on-screen one. Only
+      // an on-screen arrival may displace another on-screen arrival, or the
+      // announcement for the one the user is looking at is lost.
+      const keepArrival =
+        enriched.own || (!visible && (state.lastArrival?.visible ?? false));
       return {
         msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },
         // An own send has nothing to announce and must not displace an inbound
         // arrival the announcer hasn't rendered yet.
-        lastArrival: enriched.own
+        lastArrival: keepArrival
           ? state.lastArrival
           : {
               convoId: id,
