@@ -271,6 +271,9 @@ export function BaseLeafletMap({
         );
         marker.on('popupopen', (e) => {
           const root = e.popup.getElement();
+          // Leaflet exposes the popup as a dialog but never names it, so focus
+          // landing on an action would lose which node it applies to.
+          root?.setAttribute('aria-label', name);
           // Leaflet hardcodes this control's label in English.
           root
             ?.querySelector('.leaflet-popup-close-button')

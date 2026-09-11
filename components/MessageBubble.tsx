@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Check, CheckCheck, Clock, type LucideIcon } from 'lucide-react';
 import type { Message } from '@/types/meshcore';
-import { formatTime } from '@/lib/i18n/format';
+import { fixed, formatTime } from '@/lib/i18n/format';
 import { CopyButton } from './CopyButton';
 
 interface Props {
@@ -129,7 +129,7 @@ function statusTick(
         label: t('message.deliveredLabel'),
         hint: msg.roundTripMs
           ? t('message.deliveredIn', {
-              seconds: (msg.roundTripMs / 1000).toFixed(1),
+              seconds: fixed(msg.roundTripMs / 1000, 1),
             })
           : t('message.delivered'),
         className: 'text-green',
