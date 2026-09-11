@@ -230,6 +230,18 @@ export interface Toast {
 export type ConnectErrorCode = 'connectionFailed' | 'radioNoResponse';
 
 /**
+ * A message that just landed, recorded by {@link MeshActions.addMessage}. Kept
+ * flat rather than as a pointer into `msgHistory` so a reader can't
+ * accidentally resolve it against a later, rebuilt list.
+ */
+export interface MessageArrival {
+  convoId: string;
+  msgId: string;
+  text: string;
+  own: boolean;
+  system: boolean;
+}
+/**
  * The radio auto-reconnect gave up on, kept past the session teardown so the
  * connect screen can say what was lost and offer a one-click retry.
  */
@@ -370,6 +382,13 @@ interface MeshState {
 
   // Conversations
   msgHistory: Record<string, Message[]>;
+  /**
+   * The last message {@link MeshActions.addMessage} appended — the one signal
+   * that a message *arrived now*, as opposed to `msgHistory` merely changing,
+   * which `restoreHistory` also does with messages the user read days ago.
+   * `null` until one arrives.
+   */
+  lastArrival: MessageArrival | null;
   activeConvo: ActiveConvo | null;
   /**
    * Id of a message the open conversation should scroll to and briefly
@@ -649,6 +668,7 @@ const initialState: MeshState = {
   advertCache: {},
   autoAddConfig: DEFAULT_AUTOADD_CONFIG,
   msgHistory: {},
+  lastArrival: null,
   activeConvo: null,
   scrollToMsgId: null,
   unreadMarkers: {},
@@ -782,7 +802,16 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         id: msg.id ?? crypto.randomUUID(),
         _unread: !isActive,
       };
-      return { msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] } };
+      return {
+        msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },
+        lastArrival: {
+          convoId: id,
+          msgId: enriched.id as string,
+          text: enriched.text,
+          own: enriched.own ?? false,
+          system: enriched.system ?? false,
+        },
+      };
     }),
 
   updateMessage: (id, msgId, patch) =>

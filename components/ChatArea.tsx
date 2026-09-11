@@ -563,6 +563,9 @@ export function ChatArea() {
       {/* Messages */}
       <div className='relative flex flex-1 flex-col overflow-hidden'>
         <div
+          role='log'
+          aria-live='off'
+          aria-label={t('chat.transcriptLabel')}
           className='flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
           ref={messagesRef}
           onScroll={handleMessagesScroll}

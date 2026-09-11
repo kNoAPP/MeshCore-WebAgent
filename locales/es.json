@@ -169,7 +169,12 @@
     "channels": "Sincronizando canales",
     "messages": "Sincronizando mensajes",
     "received": "{{count}} recibidos",
-    "progress": "{{current}} de {{total}}"
+    "progress": "{{current}} de {{total}}",
+    "label": "Progreso de la sincronización",
+    "valueText": "{{stage}} — {{percent}} %",
+    "stageDone": "Listo",
+    "stageActive": "En curso",
+    "stagePending": "Pendiente"
   },
   "stats": {
     "title": "📊 Estadísticas del dispositivo",
@@ -490,6 +495,7 @@
   "chat": {
     "empty": "Selecciona un canal o contacto para empezar a chatear",
     "noMessages": "Aún no hay mensajes",
+    "transcriptLabel": "Transcripción de la conversación",
     "lastUnread": "Último no leído",
     "you": "Tú",
     "noAck": "Sin confirmación",
