@@ -273,7 +273,8 @@ export function BaseLeafletMap({
       }
       marker.addTo(layer);
     }
-  }, [nodes, t, clickable, hasNodeActions]);
+    // `startView` recreates the map with empty layers, so it has to refill.
+  }, [nodes, t, clickable, hasNodeActions, startView]);
 
   // Rebuild link polylines when the edge set changes, guarded by a signature so
   // an unrelated node refresh doesn't churn the layer.
@@ -307,7 +308,8 @@ export function BaseLeafletMap({
       }
       line.addTo(layer);
     }
-  }, [edges]);
+    // `startView` recreates the map with empty layers, so it has to refill.
+  }, [edges, startView]);
 
   return (
     <div className='meshcore-map relative isolate flex-1'>
