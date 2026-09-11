@@ -497,6 +497,7 @@
     "empty": "Select a channel or contact to start chatting",
     "noMessages": "No messages yet",
     "transcriptLabel": "Conversation transcript",
+    "you": "You",
     "messageAnnouncement": "{{sender}}: {{message}}",
     "lastUnread": "Last unread",
     "noAck": "No acknowledgment",
@@ -813,6 +814,7 @@
     "self": "This node",
     "markerCap": "Showing {{shown}} of {{total}} nodes",
     "empty": "No node has advertised a location yet. Locations arrive with adverts, so this fills in as the mesh is heard.",
+    "emptyPeers": "No other node has advertised a location yet. Locations arrive with adverts, so this fills in as the mesh is heard.",
     "emptyFavorites": "None of your favorites has a location yet.",
     "popup": {
       "message": "Message",

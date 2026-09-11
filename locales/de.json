@@ -498,6 +498,7 @@
     "empty": "Wähle einen Kanal oder Kontakt, um zu chatten",
     "noMessages": "Noch keine Nachrichten",
     "transcriptLabel": "Gesprächsverlauf",
+    "you": "Du",
     "messageAnnouncement": "{{sender}}: {{message}}",
     "lastUnread": "Zuletzt ungelesen",
     "noAck": "Keine Bestätigung",
@@ -814,6 +815,7 @@
     "self": "Dieser Knoten",
     "markerCap": "{{shown}} von {{total}} Knoten werden angezeigt",
     "empty": "Noch hat kein Knoten einen Standort gesendet. Standorte kommen mit Adverts, das füllt sich also, sobald das Mesh gehört wird.",
+    "emptyPeers": "Noch hat kein anderer Knoten einen Standort gesendet. Standorte kommen mit Adverts, das füllt sich also, sobald das Mesh gehört wird.",
     "emptyFavorites": "Keiner deiner Favoriten hat bisher einen Standort.",
     "popup": {
       "message": "Nachricht",

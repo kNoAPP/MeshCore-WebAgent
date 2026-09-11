@@ -13,6 +13,7 @@ import type { MapEdge, MapNode } from '@/lib/map/nodes';
 import {
   MAP_EDGE_OPACITY,
   MAP_EDGE_WEIGHT,
+  MAP_MAX_ZOOM,
   TILE_ATTRIBUTION,
   TILE_URLS,
   type StartView,
@@ -73,6 +74,19 @@ export interface NodeAction {
   key: string;
   label: string;
   onSelect: (node: MapNode) => void;
+}
+
+/**
+ * Frames {@link map} on {@link view}. The `bounds` case fits every located
+ * node; `maxZoom` keeps a single node (or a tight cluster) from slamming all
+ * the way to street level.
+ */
+export function applyStartView(map: L.Map, view: StartView): void {
+  if ('bounds' in view) {
+    map.fitBounds(view.bounds, { padding: [40, 40], maxZoom: 13 });
+  } else {
+    map.setView(view.center, view.zoom);
+  }
 }
 
 /**
@@ -143,13 +157,7 @@ export function BaseLeafletMap({
 
     // Apply the opening viewport now, before the persist handler is wired, so
     // this programmatic move never reports a move for a user who hasn't panned.
-    // The `bounds` case frames every located node; `maxZoom` keeps a single
-    // node (or a tight cluster) from slamming all the way to street level.
-    if ('bounds' in startView) {
-      map.fitBounds(startView.bounds, { padding: [40, 40], maxZoom: 13 });
-    } else {
-      map.setView(startView.center, startView.zoom);
-    }
+    applyStartView(map, startView);
 
     // Edges sit under markers so a node's shape always reads on top of its
     // links.
@@ -168,7 +176,7 @@ export function BaseLeafletMap({
       {
         attribution: TILE_ATTRIBUTION,
         subdomains: 'abcd',
-        maxZoom: 20,
+        maxZoom: MAP_MAX_ZOOM,
         noWrap: true,
         detectRetina: true,
       },
@@ -230,11 +238,23 @@ export function BaseLeafletMap({
 
     layer.clearLayers();
     for (const node of nodes) {
-      const marker = L.marker([node.lat, node.lon], { icon: nodeIcon(node) });
-      const label =
-        node.kind === 'self' ? t('map.self') : escapeHtml(node.name);
-      marker.bindTooltip(label, { direction: 'top' });
       const actions = actionsFor(node);
+      const inert =
+        actions.length === 0 && !(clickable && node.kind !== 'self');
+      const name = node.kind === 'self' ? t('map.self') : node.name;
+      const marker = L.marker([node.lat, node.lon], {
+        icon: nodeIcon(node),
+        // A marker with neither a popup nor a click handler (location-pick
+        // mode) would otherwise swallow the click the map needs to place
+        // the pin, and would be a dead stop for the keyboard.
+        bubblingMouseEvents: inert,
+        keyboard: !inert,
+        // Leaflet puts this on the container, which is what names the button
+        // it makes of an interactive marker.
+        title: inert ? undefined : name,
+      });
+      const label = escapeHtml(name);
+      marker.bindTooltip(label, { direction: 'top' });
       if (actions.length > 0) {
         // A popup rather than a modal: the point of a spatial view is that the
         // map you clicked from stays on screen. The markup is built from the
@@ -249,26 +269,52 @@ export function BaseLeafletMap({
           `<div class="meshcore-popup-title">${label}</div><div class="meshcore-popup-actions">${buttons}</div>`,
           { closeButton: true, minWidth: 140 },
         );
+        // An action navigates or opens a dialog, which owns focus from then
+        // on — and may unmount this marker or inert the map behind it.
+        let closedByAction = false;
         marker.on('popupopen', (e) => {
           const root = e.popup.getElement();
-          root?.querySelectorAll<HTMLElement>('[data-action]').forEach((el) => {
+          // Leaflet exposes the popup as a dialog but never names it, so focus
+          // landing on an action would lose which node it applies to.
+          root?.setAttribute('aria-label', name);
+          // Leaflet hardcodes this control's label in English.
+          root
+            ?.querySelector('.leaflet-popup-close-button')
+            ?.setAttribute('aria-label', t('common.close'));
+          const items = root?.querySelectorAll<HTMLElement>('[data-action]');
+          items?.forEach((el) => {
             // Assigned, not added: Leaflet reuses the popup's elements, so an
             // `addEventListener` per open would stack up and fire one click
             // once per time the popup had been opened.
             el.onclick = () => {
               const key = el.dataset.action;
               const live = nodeActionsRef.current?.(node) ?? [];
+              closedByAction = true;
               live.find((a) => a.key === key)?.onSelect(node);
               marker.closePopup();
             };
           });
+          // Leaflet leaves focus on the marker, and the popup pane sits after
+          // the marker pane, so the keyboard would tab through every other
+          // marker to reach these.
+          items?.[0]?.focus();
+        });
+        // Dismissed rather than acted on: hand focus back to where it came
+        // from, rather than to the document.
+        marker.on('popupclose', () => {
+          if (closedByAction) {
+            closedByAction = false;
+            return;
+          }
+          marker.getElement()?.focus();
         });
       } else if (clickable && node.kind !== 'self') {
         marker.on('click', () => onNodeClickRef.current?.(node));
       }
       marker.addTo(layer);
     }
-  }, [nodes, t, clickable, hasNodeActions]);
+    // `startView` recreates the map with empty layers, so it has to refill.
+  }, [nodes, t, clickable, hasNodeActions, startView]);
 
   // Rebuild link polylines when the edge set changes, guarded by a signature so
   // an unrelated node refresh doesn't churn the layer.
@@ -302,7 +348,8 @@ export function BaseLeafletMap({
       }
       line.addTo(layer);
     }
-  }, [edges]);
+    // `startView` recreates the map with empty layers, so it has to refill.
+  }, [edges, startView]);
 
   return (
     <div className='meshcore-map relative isolate flex-1'>

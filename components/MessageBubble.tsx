@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Check, CheckCheck, Clock, type LucideIcon } from 'lucide-react';
 import type { Message } from '@/types/meshcore';
-import { formatTime } from '@/lib/i18n/format';
+import { fixed, formatTime } from '@/lib/i18n/format';
 import { CopyButton } from './CopyButton';
 
 interface Props {
@@ -129,7 +129,7 @@ function statusTick(
         label: t('message.deliveredLabel'),
         hint: msg.roundTripMs
           ? t('message.deliveredIn', {
-              seconds: (msg.roundTripMs / 1000).toFixed(1),
+              seconds: fixed(msg.roundTripMs / 1000, 1),
             })
           : t('message.delivered'),
         className: 'text-green',
@@ -180,7 +180,7 @@ export const MessageBubble = memo(function MessageBubble({
         }`}
       >
         <div
-          className={`max-w-[42rem] px-3 py-2 text-sm leading-snug whitespace-pre-wrap wrap-break-word ${
+          className={`max-w-[48rem] px-3 py-2 text-sm leading-snug whitespace-pre-wrap wrap-break-word ${
             msg.own
               ? 'rounded-[14px_4px_14px_14px] bg-accent-solid text-white'
               : mentioned
@@ -206,7 +206,7 @@ export const MessageBubble = memo(function MessageBubble({
         )}
         {metaParts(t, msg, time).map((part, i) => (
           <span key={i}>
-            {(i > 0 || tick) && ' · '}
+            {(i > 0 || tick || statusActions) && ' · '}
             {part}
           </span>
         ))}
