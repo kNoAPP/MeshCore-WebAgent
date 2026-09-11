@@ -22,6 +22,7 @@ import { AddChannelModal } from './AddChannelModal';
 import { AddContactModal } from './AddContactModal';
 import { CommandPalette } from './CommandPalette';
 import { AutomationRunner } from './AutomationRunner';
+import { MessageAnnouncer } from './MessageAnnouncer';
 import { SyncAnnouncer } from './SyncProgressView';
 import { Toast } from './Toast';
 
@@ -121,6 +122,7 @@ export function AppShell() {
       )}
       <Toast />
       <SyncAnnouncer />
+      <MessageAnnouncer />
     </div>
   );
 }
