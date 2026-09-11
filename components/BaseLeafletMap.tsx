@@ -206,6 +206,7 @@ export function BaseLeafletMap({
   // that only bumps `lastHeard`, or touches an off-map node, moves no marker
   // and must not churn the layer.
   const clickable = onNodeClick != null;
+  const hasNodeActions = nodeActions != null;
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
@@ -223,7 +224,7 @@ export function BaseLeafletMap({
       .join('|');
     // `t` (locale) drives the self tooltip and `clickable` gates click wiring,
     // so both belong in the signature that decides whether a rebuild is needed.
-    const fullSig = `${clickable ? 'click' : ''}|${t('map.self')}|${sig}`;
+    const fullSig = `${clickable ? 'click' : ''}|${hasNodeActions ? 'actions' : ''}|${t('map.self')}|${sig}`;
     if (fullSig === markerSigRef.current) return;
     markerSigRef.current = fullSig;
 
@@ -267,7 +268,7 @@ export function BaseLeafletMap({
       }
       marker.addTo(layer);
     }
-  }, [nodes, t, clickable]);
+  }, [nodes, t, clickable, hasNodeActions]);
 
   // Rebuild link polylines when the edge set changes, guarded by a signature so
   // an unrelated node refresh doesn't churn the layer.

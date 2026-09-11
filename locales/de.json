@@ -496,6 +496,7 @@
     "empty": "Wähle einen Kanal oder Kontakt, um zu chatten",
     "noMessages": "Noch keine Nachrichten",
     "transcriptLabel": "Gesprächsverlauf",
+    "messageAnnouncement": "{{sender}}: {{message}}",
     "lastUnread": "Zuletzt ungelesen",
     "you": "Du",
     "noAck": "Keine Bestätigung",
