@@ -80,8 +80,13 @@ export function AiSettingsBody() {
     if (!value || saving) return;
     const { ok } = await runSave(async () => {
       try {
-        await setApiKey(value, remember && canRemember);
-        return { ok: true };
+        const stored = await setApiKey(value, remember && canRemember);
+        // The key is in memory either way; a requested remembered save that
+        // didn't land is still a failure, because the field about to be
+        // cleared is the only copy the user could retry with.
+        return stored
+          ? { ok: true }
+          : { ok: false, error: t('settings.ai.rememberFailed') };
       } catch (err) {
         return { ok: false, error: (err as Error).message };
       }

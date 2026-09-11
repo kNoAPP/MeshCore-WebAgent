@@ -317,6 +317,7 @@
       "apiKeyLink": "Consigue una clave de API en {{provider}}",
       "remember": "Recordar en este dispositivo",
       "rememberHint": "Cifra la clave para esta radio para restaurarla en la próxima conexión. Requiere una radio conectada.",
+      "rememberFailed": "La clave está cargada, pero no se pudo guardar para la próxima vez",
       "save": "Guardar clave",
       "forget": "Olvidar clave",
       "statusNone": "Ninguna clave cargada",
@@ -954,6 +955,7 @@
     "yesterday": "Ayer"
   },
   "toast": {
+    "notConnected": "Sin conexión con una radio",
     "newMessageIn": "Nuevo mensaje en {{channel}}",
     "newMessageInFrom": "{{sender}} en {{channel}}",
     "newMessageFrom": "Nuevo mensaje de {{sender}}",

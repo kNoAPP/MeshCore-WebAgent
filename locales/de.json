@@ -317,6 +317,7 @@
       "apiKeyLink": "API-Schlüssel bei {{provider}} erstellen",
       "remember": "Auf diesem Gerät merken",
       "rememberHint": "Verschlüsselt den Schlüssel für dieses Funkgerät, damit er bei der nächsten Verbindung wiederhergestellt wird. Erfordert ein verbundenes Funkgerät.",
+      "rememberFailed": "Der Schlüssel ist geladen, konnte aber nicht für das nächste Mal gespeichert werden",
       "save": "Schlüssel speichern",
       "forget": "Schlüssel vergessen",
       "statusNone": "Kein Schlüssel geladen",
@@ -954,6 +955,7 @@
     "yesterday": "Gestern"
   },
   "toast": {
+    "notConnected": "Nicht mit einem Funkgerät verbunden",
     "newMessageIn": "Neue Nachricht in {{channel}}",
     "newMessageInFrom": "{{sender}} in {{channel}}",
     "newMessageFrom": "Neue Nachricht von {{sender}}",

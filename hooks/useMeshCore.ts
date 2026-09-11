@@ -126,15 +126,12 @@ export type RepeaterCliOutcome = 'ok' | 'timeout' | 'error';
  * The outcome of a write to the connected radio.
  *
  * @remarks
- * The reason travels with the result rather than going straight to a toast, so
- * a failure can live next to the field that failed for as long as it is wrong.
- * A three-second toast is gone by the time the user looks.
+ * A discriminated union, so a failure cannot be constructed without saying
+ * why. The reason travels with the result rather than going straight to a
+ * toast, so it can live next to the field that failed for as long as it is
+ * wrong — a three-second toast is gone by the time the user looks.
  */
-export interface WriteResult {
-  ok: boolean;
-  /** Localized failure reason; absent on success. */
-  error?: string;
-}
+export type WriteResult = { ok: true } | { ok: false; error: string };
 
 // LoRa round trips are spiky — give the radio's suggested timeout some slack
 const ACK_TIMEOUT_GRACE = 1.5;
@@ -1824,7 +1821,8 @@ export function useMeshCore() {
    */
   const setNodeName = useCallback(
     async (name: string): Promise<WriteResult> => {
-      if (!canTransmit(client)) return { ok: false };
+      if (!canTransmit(client))
+        return { ok: false, error: i18n.t('toast.notConnected') };
       try {
         await client.setNodeName(name);
         return { ok: true };
@@ -1851,7 +1849,8 @@ export function useMeshCore() {
    */
   const setLocation = useCallback(
     async (latDeg: number, lonDeg: number): Promise<WriteResult> => {
-      if (!canTransmit(client)) return { ok: false };
+      if (!canTransmit(client))
+        return { ok: false, error: i18n.t('toast.notConnected') };
       try {
         await client.setLocation(latDeg, lonDeg);
         return { ok: true };
@@ -1876,7 +1875,8 @@ export function useMeshCore() {
    */
   const setLocationPolicy = useCallback(
     async (policy: number): Promise<WriteResult> => {
-      if (!canTransmit(client)) return { ok: false };
+      if (!canTransmit(client))
+        return { ok: false, error: i18n.t('toast.notConnected') };
       try {
         await client.setLocationPolicy(policy);
         return { ok: true };
@@ -1913,7 +1913,8 @@ export function useMeshCore() {
    */
   const setLocationSource = useCallback(
     async (useGps: boolean): Promise<WriteResult> => {
-      if (!canTransmit(client)) return { ok: false };
+      if (!canTransmit(client))
+        return { ok: false, error: i18n.t('toast.notConnected') };
       try {
         const policy = client.selfInfo?.advLocPolicy;
         if (policy !== undefined && policy !== ADVERT_LOC_POLICY.NONE) {

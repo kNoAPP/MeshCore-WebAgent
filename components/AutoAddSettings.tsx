@@ -122,7 +122,14 @@ function AutoAddSettingsPanel() {
             min={0}
             max={MAX_HOPS_NO_LIMIT}
             value={cfg.maxHops}
-            onChange={(e) => patch({ maxHops: Number(e.target.value) })}
+            // Draft while dragging, write once on release: `onChange` fires per
+            // tick, and each write queues two radio commands behind everything
+            // else on the shared command chain.
+            onChange={(e) =>
+              setCfg({ ...cfg, maxHops: Number(e.target.value) })
+            }
+            onPointerUp={() => void run(() => applyAutoAddConfig(cfg))}
+            onBlur={() => void run(() => applyAutoAddConfig(cfg))}
             className='w-full accent-accent'
           />
           <p className='mt-1 text-xs text-text2'>{t('autoAdd.maxHopsHint')}</p>

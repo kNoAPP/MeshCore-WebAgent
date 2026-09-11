@@ -102,11 +102,14 @@ export function getStorageContext(): {
  * @param remember - when true, encrypt-at-rest with the connected radio's key
  * so it restores on the next connect to the same radio; a different radio can't
  * decrypt it. Ignored when no radio is connected.
+ * @returns whether a requested remembered save actually landed. Always true
+ * when `remember` is false, since there was nothing to persist — the in-memory
+ * key is set either way.
  */
 export async function setApiKey(
   value: string,
   remember: boolean,
-): Promise<void> {
+): Promise<boolean> {
   const mine = ++generation;
   apiKey = value;
   persisted = false;
@@ -114,7 +117,9 @@ export async function setApiKey(
   // Capture the context so the queued write targets this radio even if the
   // session is torn down (ctx nulled) before the op runs.
   const active = ctx;
-  if (!active) return;
+  // Nothing to persist without a radio, and `remember` is documented as
+  // ignored there, so that isn't a failure.
+  if (!active) return true;
 
   let landed = false;
   if (remember) {
@@ -130,9 +135,10 @@ export async function setApiKey(
   }
   // A wipe/forget/another setApiKey during the await supersedes this one; don't
   // report persistence state for a key that's no longer active.
-  if (generation !== mine) return;
+  if (generation !== mine) return true;
   persisted = landed;
   syncStatus();
+  return remember ? landed : true;
 }
 
 /**

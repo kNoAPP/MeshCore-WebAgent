@@ -392,7 +392,9 @@ function LocationCard() {
   const gpsEnabled = useMeshStore((s) => s.deviceInfo?.gpsEnabled ?? false);
   const { setLocation, setLocationPolicy, setLocationSource } = useMeshCore();
 
-  const fmtDeg = (v?: number) => (v ? String(v) : '');
+  // `undefined`, not falsy: 0 is the equator and the prime meridian, and a
+  // radio sitting on either has a real coordinate to show.
+  const fmtDeg = (v?: number) => (v === undefined ? '' : String(v));
   // The card does *not* remount on a store update, so the coordinate the radio
   // reports has to be reconciled at render time — the same known/draft pattern
   // `NodeNameRow` uses above. Without it, opening Settings before the

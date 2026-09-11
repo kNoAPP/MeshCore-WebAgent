@@ -316,6 +316,7 @@
       "apiKeyLink": "Get an API key from {{provider}}",
       "remember": "Remember on this device",
       "rememberHint": "Encrypts the key for this radio so it restores on the next connect. Requires a connected radio.",
+      "rememberFailed": "The key is loaded, but could not be saved for next time",
       "save": "Save key",
       "forget": "Forget key",
       "statusNone": "No key loaded",
@@ -953,6 +954,7 @@
     "yesterday": "Yesterday"
   },
   "toast": {
+    "notConnected": "Not connected to a radio",
     "newMessageIn": "New message in {{channel}}",
     "newMessageInFrom": "{{sender}} in {{channel}}",
     "newMessageFrom": "New message from {{sender}}",

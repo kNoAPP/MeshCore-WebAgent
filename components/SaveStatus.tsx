@@ -68,10 +68,7 @@ export function SaveStatusChip({
 }
 
 /** What a save resolved to: success, or the localized reason it didn't. */
-export interface SaveOutcome {
-  ok: boolean;
-  error?: string;
-}
+export type SaveOutcome = { ok: true } | { ok: false; error: string };
 
 /**
  * Tracks a field's save lifecycle for {@link SaveStatusChip}. `run` wraps an
@@ -85,6 +82,7 @@ export interface SaveOutcome {
  * that has already vanished.
  */
 export function useSaveStatus() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<SaveStatus | undefined>();
   const [errorText, setErrorText] = useState<string | undefined>();
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -102,8 +100,14 @@ export function useSaveStatus() {
       setStatus('saving');
       setErrorText(undefined);
       const result = await save();
+      // A bare boolean is still accepted for the local saves that have no
+      // radio reason to report; it falls back to the generic "Save failed".
       const outcome: SaveOutcome =
-        typeof result === 'boolean' ? { ok: result } : result;
+        typeof result !== 'boolean'
+          ? result
+          : result
+            ? { ok: true }
+            : { ok: false, error: t('common.saveFailed') };
       // A newer run started while this one was awaiting: it owns the status.
       if (gen.current !== mine) return outcome;
       setStatus(outcome.ok ? 'saved' : 'error');
@@ -115,7 +119,7 @@ export function useSaveStatus() {
       }
       return outcome;
     },
-    [],
+    [t],
   );
 
   return { status, errorText, run };
