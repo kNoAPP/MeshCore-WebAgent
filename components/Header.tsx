@@ -122,7 +122,11 @@ export function Header() {
         <Wordmark />
       </h1>
 
-      <span className='shrink-0 text-xs whitespace-nowrap text-(--text2)'>
+      <span
+        role='status'
+        aria-live='polite'
+        className='shrink-0 text-xs whitespace-nowrap text-(--text2)'
+      >
         {/* Each ConnectionStatus maps 1:1 to a header.* key. */}
         {t(`header.${status}`)}
       </span>
