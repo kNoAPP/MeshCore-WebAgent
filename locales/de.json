@@ -790,6 +790,7 @@
     "emptyFavorites": "Keiner deiner Favoriten hat bisher einen Standort.",
     "popup": {
       "message": "Nachricht",
+      "administer": "Administrieren",
       "manage": "Verwalten"
     },
     "pick": {

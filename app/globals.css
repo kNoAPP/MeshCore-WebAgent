@@ -39,8 +39,9 @@
   --color-scrim: var(--scrim);
 
   /* The one non-pill radius the UI actually uses for raised surfaces: cards,
-     popovers, dialogs. `rounded-md` stays the small-control radius. */
-  --radius-card: 10px;
+     popovers, dialogs. `rounded-md` stays the small-control radius. Declared
+     in `:root` below so plain CSS (the Leaflet popup) can share it. */
+  --radius-card: var(--card-radius);
 
   /* Stock `shadow-lg` is a pure-black shadow tuned for a light page; on
      `--bg: #0f1117` it does nothing. This is per-theme instead. */
@@ -129,6 +130,9 @@ label[for] {
  */
 :root,
 :root[data-theme='dark'] {
+  /* Theme-independent scale, declared once here so both `@theme` and hand-
+     written CSS read the same value. */
+  --card-radius: 10px;
   /* Tells the UA to draw its own chrome — select popups, checkbox and range
      controls, spin buttons, autofill, scrollbars, focus rings — in this
      theme's tone, which no `--token` can reach. */
@@ -371,7 +375,7 @@ html {
 }
 .meshcore-map .leaflet-popup-content-wrapper {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--card-radius);
 }
 .meshcore-map .leaflet-popup-content {
   margin: 10px 12px;

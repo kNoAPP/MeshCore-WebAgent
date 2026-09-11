@@ -160,12 +160,14 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     (node: MapNode): NodeAction[] => {
       const actions: NodeAction[] = [];
       if (node.kind === 'contact') {
+        // A repeater or room server opens its admin view, not a chat, so the
+        // action says so rather than promising a conversation.
+        const isAdminNode =
+          node.advType === ADV_TYPE_REPEATER || node.advType === ADV_TYPE_ROOM;
         actions.push({
-          key: 'message',
-          label: t('map.popup.message'),
+          key: 'open',
+          label: t(isAdminNode ? 'map.popup.administer' : 'map.popup.message'),
           onSelect: (n) => {
-            const isAdminNode =
-              n.advType === ADV_TYPE_REPEATER || n.advType === ADV_TYPE_ROOM;
             openConvo({
               kind: isAdminNode ? 'repeater' : 'direct',
               id: isAdminNode
@@ -211,7 +213,10 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
           </span>
         )}
       </div>
-      {plotted.length === 0 && !mapPicking && (
+      {/* `visible`, not `plotted`: this node's own marker is prepended to
+          `plotted` regardless of the filter, so a located self would hide the
+          empty state even with no peers left to show. */}
+      {visible.length === 0 && !mapPicking && (
         <div className='pointer-events-none absolute inset-0 z-1000 flex items-center justify-center p-6'>
           <p className='pointer-events-auto max-w-sm rounded-card border border-border bg-surface/95 px-4 py-3 text-center text-sm text-text2 backdrop-blur'>
             {t(favoritesOnly ? 'map.emptyFavorites' : 'map.empty')}
