@@ -8,6 +8,7 @@
     "loading": "Cargando…",
     "remove": "Eliminar",
     "refresh": "Actualizar",
+    "retry": "Reintentar",
     "load": "Cargar",
     "close": "Cerrar",
     "add": "Añadir",
@@ -27,7 +28,8 @@
   "units": {
     "dbm": "{{value}} dBm",
     "kb": "{{value}} KB",
-    "percent": "{{value}} %"
+    "percent": "{{value}} %",
+    "seconds": "s"
   },
   "header": {
     "connecting": "Conectando…",
@@ -635,6 +637,10 @@
       "requiresReboot": "Requiere reinicio",
       "edit": "Editar",
       "advanced": "Avanzado",
+      "intro": "Los valores se leen del nodo bajo demanda, un comando cada vez, para que esta pestaña no gaste el tiempo de aire de este repetidor sin que se lo pidas. Carga una tarjeta para ver sus ajustes actuales: un campo que no responda puede reintentarse por separado.",
+      "loadAll": "Cargar todo",
+      "noReply": "Sin respuesta",
+      "range": "({{min}}–{{max}})",
       "filterLabel": "Filtrar ajustes",
       "filterPlaceholder": "Filtrar ajustes…",
       "filterEmpty": "Ningún ajuste coincide con este filtro.",
@@ -649,65 +655,85 @@
         "dbm": "dBm",
         "hours": "h",
         "minutes": "min",
-        "percent": "%"
+        "percent": "%",
+        "seconds": "s"
       },
       "fields": {
         "name": {
-          "label": "Nombre"
+          "label": "Nombre",
+          "hint": "El nombre que este nodo anuncia a la malla."
         },
         "lat": {
-          "label": "Latitud"
+          "label": "Latitud",
+          "hint": "Latitud anunciada en grados decimales."
         },
         "lon": {
-          "label": "Longitud"
+          "label": "Longitud",
+          "hint": "Longitud anunciada en grados decimales."
         },
         "radio": {
-          "label": "Radio"
+          "label": "Radio",
+          "hint": "Frecuencia, ancho de banda, factor de ensanchado y tasa de codificación. Todo nodo que deba oír a este debe coincidir exactamente."
         },
         "tx": {
-          "label": "Potencia TX"
+          "label": "Potencia TX",
+          "hint": "Potencia de transmisión. Más potencia llega más lejos y gasta más batería; no ayuda si el otro extremo no puede responder."
         },
         "gps": {
-          "label": "Módulo GPS"
+          "label": "Módulo GPS",
+          "hint": "Enciende el receptor GPS integrado, en las placas que lo tienen."
         },
         "gpsAdvert": {
-          "label": "Ubicación anunciada"
+          "label": "Ubicación anunciada",
+          "hint": "Si los anuncios llevan la posición GPS en vivo, las coordenadas fijas de arriba, o ninguna posición."
         },
         "repeat": {
-          "label": "Repetir"
+          "label": "Repetir",
+          "hint": "Si este nodo reenvía paquetes de otros. Desactívalo para convertirlo en una hoja que solo habla por sí misma."
         },
         "floodAdvertInterval": {
-          "label": "Intervalo de advert flood"
+          "label": "Intervalo de advert flood",
+          "hint": "Con qué frecuencia este nodo inunda un anuncio por toda la malla. Las inundaciones llegan a todos y cuestan tiempo de aire a todos, así que más largo es más considerado."
         },
         "advertInterval": {
-          "label": "Intervalo de advert cero saltos"
+          "label": "Intervalo de advert cero saltos",
+          "hint": "Con qué frecuencia este nodo se anuncia solo a los vecinos directos. Barato, porque nunca se repite."
         },
         "floodMax": {
-          "label": "Máx. saltos flood"
+          "label": "Máx. saltos flood",
+          "hint": "Hasta dónde puede viajar una inundación desde este nodo antes de descartarse. 0 desactiva la inundación."
         },
         "txdelay": {
-          "label": "Retardo TX flood"
+          "label": "Retardo TX flood",
+          "hint": "Espera aleatoria antes de repetir una inundación, que evita que los vecinos que oyeron el mismo paquete transmitan a la vez."
         },
         "directTxdelay": {
-          "label": "Retardo TX directo"
+          "label": "Retardo TX directo",
+          "hint": "La misma espera para evitar colisiones, aplicada a paquetes con ruta conocida en lugar de a una inundación."
         },
         "dutycycle": {
-          "label": "Ciclo de trabajo"
+          "label": "Ciclo de trabajo",
+          "hint": "Proporción del tiempo en que este nodo puede transmitir. Algunas regiones lo limitan por ley."
         },
         "loopDetect": {
-          "label": "Detección de bucles"
+          "label": "Detección de bucles",
+          "hint": "Con qué rigor se suprimen los paquetes que ya pasaron por aquí. Más estricto ahorra tiempo de aire y arriesga descartar una retransmisión legítima."
         },
         "pathHashMode": {
-          "label": "Tamaño de hash de ruta de advert"
+          "label": "Tamaño de hash de ruta de advert",
+          "hint": "Bytes usados para identificar cada salto de una ruta. Más bytes hacen menos probables las colisiones entre nodos parecidos y agrandan un poco cada paquete."
         },
         "multiAcks": {
-          "label": "Multi-ACK"
+          "label": "Multi-ACK",
+          "hint": "Permite que varias confirmaciones viajen en un paquete en lugar de una cada una."
         },
         "cad": {
-          "label": "CAD por hardware"
+          "label": "CAD por hardware",
+          "hint": "Usa la detección de actividad de canal de la radio para esperar un canal libre antes de transmitir."
         },
         "radioFemRxgain": {
-          "label": "Ganancia RX del FEM"
+          "label": "Ganancia RX del FEM",
+          "hint": "Ganancia de recepción extra en placas con módulo frontal. Sube la sensibilidad y con ella el ruido de fondo."
         }
       },
       "options": {

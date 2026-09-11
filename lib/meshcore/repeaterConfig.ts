@@ -20,7 +20,8 @@ export type RepeaterSettingKind =
   'toggle' | 'number' | 'text' | 'select' | 'radio';
 
 /** Unit suffix after a numeric value (i18n key under `config.units`). */
-export type RepeaterSettingUnit = 'dbm' | 'hours' | 'minutes' | 'percent';
+export type RepeaterSettingUnit =
+  'dbm' | 'hours' | 'minutes' | 'percent' | 'seconds';
 
 /**
  * i18n-safe identifiers for every setting, so `t()` keys under
@@ -236,6 +237,7 @@ export const REPEATER_ADVANCED_SETTINGS: readonly RepeaterSetting[] = [
     max: 2,
     step: 0.1,
     integer: false,
+    unit: 'seconds',
   },
   {
     id: 'directTxdelay',
@@ -245,6 +247,7 @@ export const REPEATER_ADVANCED_SETTINGS: readonly RepeaterSetting[] = [
     max: 2,
     step: 0.1,
     integer: false,
+    unit: 'seconds',
   },
   {
     id: 'dutycycle',

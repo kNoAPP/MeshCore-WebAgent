@@ -8,6 +8,7 @@
     "loading": "Wird geladen…",
     "remove": "Entfernen",
     "refresh": "Aktualisieren",
+    "retry": "Erneut versuchen",
     "load": "Laden",
     "close": "Schließen",
     "add": "Hinzufügen",
@@ -27,7 +28,8 @@
   "units": {
     "dbm": "{{value}} dBm",
     "kb": "{{value}} KB",
-    "percent": "{{value}} %"
+    "percent": "{{value}} %",
+    "seconds": "s"
   },
   "header": {
     "connecting": "Verbinde…",
@@ -635,6 +637,10 @@
       "requiresReboot": "Neustart erforderlich",
       "edit": "Bearbeiten",
       "advanced": "Erweitert",
+      "intro": "Werte werden bei Bedarf einzeln vom Knoten gelesen, damit dieser Tab die Sendezeit dieses Repeaters nicht ungefragt verbraucht. Lade eine Karte, um ihre aktuellen Einstellungen zu sehen — ein Feld ohne Antwort kann einzeln erneut versucht werden.",
+      "loadAll": "Alles laden",
+      "noReply": "Keine Antwort",
+      "range": "({{min}}–{{max}})",
       "filterLabel": "Einstellungen filtern",
       "filterPlaceholder": "Einstellungen filtern…",
       "filterEmpty": "Keine Einstellungen entsprechen diesem Filter.",
@@ -649,65 +655,85 @@
         "dbm": "dBm",
         "hours": "Std.",
         "minutes": "Min.",
-        "percent": "%"
+        "percent": "%",
+        "seconds": "s"
       },
       "fields": {
         "name": {
-          "label": "Name"
+          "label": "Name",
+          "hint": "Der Name, den dieser Knoten im Mesh ankündigt."
         },
         "lat": {
-          "label": "Breitengrad"
+          "label": "Breitengrad",
+          "hint": "Angekündigte Breite in Dezimalgrad."
         },
         "lon": {
-          "label": "Längengrad"
+          "label": "Längengrad",
+          "hint": "Angekündigte Länge in Dezimalgrad."
         },
         "radio": {
-          "label": "Funk"
+          "label": "Funk",
+          "hint": "Frequenz, Bandbreite, Spreizfaktor und Coderate. Jeder Knoten, der diesen hören soll, muss exakt übereinstimmen."
         },
         "tx": {
-          "label": "Sendeleistung"
+          "label": "Sendeleistung",
+          "hint": "Sendeleistung. Mehr reicht weiter und kostet mehr Akku; es hilft nicht, wenn die Gegenstelle nicht antworten kann."
         },
         "gps": {
-          "label": "GPS-Modul"
+          "label": "GPS-Modul",
+          "hint": "Schaltet den eingebauten GPS-Empfänger ein, sofern vorhanden."
         },
         "gpsAdvert": {
-          "label": "Beworbener Standort"
+          "label": "Beworbener Standort",
+          "hint": "Ob Adverts den aktuellen GPS-Fix, die festen Koordinaten oben oder gar keinen Standort tragen."
         },
         "repeat": {
-          "label": "Weiterleiten"
+          "label": "Weiterleiten",
+          "hint": "Ob dieser Knoten Pakete anderer weiterleitet. Aus macht ihn zu einem Blatt, das nur für sich selbst spricht."
         },
         "floodAdvertInterval": {
-          "label": "Flood-Advert-Intervall"
+          "label": "Flood-Advert-Intervall",
+          "hint": "Wie oft dieser Knoten ein Advert durch das gesamte Mesh flutet. Floods erreichen alle und kosten alle Sendezeit — länger ist rücksichtsvoller."
         },
         "advertInterval": {
-          "label": "Zero-Hop-Advert-Intervall"
+          "label": "Zero-Hop-Advert-Intervall",
+          "hint": "Wie oft dieser Knoten nur direkte Nachbarn ankündigt. Günstig, weil es nie weitergeleitet wird."
         },
         "floodMax": {
-          "label": "Max. Flood-Hops"
+          "label": "Max. Flood-Hops",
+          "hint": "Wie weit ein Flood von diesem Knoten reisen darf, bevor er verworfen wird. 0 deaktiviert Flooding."
         },
         "txdelay": {
-          "label": "Flood-TX-Verzögerung"
+          "label": "Flood-TX-Verzögerung",
+          "hint": "Zufällige Wartezeit vor dem Weiterleiten eines Floods, damit Nachbarn mit demselben Paket nicht gleichzeitig senden."
         },
         "directTxdelay": {
-          "label": "Direkt-TX-Verzögerung"
+          "label": "Direkt-TX-Verzögerung",
+          "hint": "Dieselbe Kollisionsvermeidung, angewendet auf Pakete mit bekannter Route statt auf einen Flood."
         },
         "dutycycle": {
-          "label": "Duty Cycle"
+          "label": "Duty Cycle",
+          "hint": "Anteil der Zeit, in der dieser Knoten senden darf. Manche Regionen begrenzen das gesetzlich."
         },
         "loopDetect": {
-          "label": "Schleifenerkennung"
+          "label": "Schleifenerkennung",
+          "hint": "Wie streng bereits durchgelaufene Pakete unterdrückt werden. Strenger spart Sendezeit und riskiert, eine legitime Wiederholung zu verwerfen."
         },
         "pathHashMode": {
-          "label": "Advert-Pfad-Hash-Größe"
+          "label": "Advert-Pfad-Hash-Größe",
+          "hint": "Bytes zur Kennzeichnung jedes Hops in einem Pfad. Mehr Bytes machen Kollisionen zwischen ähnlichen Knoten unwahrscheinlicher und jedes Paket etwas größer."
         },
         "multiAcks": {
-          "label": "Multi-ACKs"
+          "label": "Multi-ACKs",
+          "hint": "Lässt mehrere Bestätigungen in einem Paket mitfahren statt je eine."
         },
         "cad": {
-          "label": "Hardware-CAD"
+          "label": "Hardware-CAD",
+          "hint": "Nutzt die Kanalaktivitätserkennung des Funkmoduls, um vor dem Senden auf einen freien Kanal zu warten."
         },
         "radioFemRxgain": {
-          "label": "FEM-RX-Verstärkung"
+          "label": "FEM-RX-Verstärkung",
+          "hint": "Zusätzliche Empfangsverstärkung auf Boards mit Frontend-Modul. Hebt Empfindlichkeit und Rauschgrenze zugleich."
         }
       },
       "options": {

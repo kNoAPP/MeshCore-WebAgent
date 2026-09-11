@@ -117,6 +117,10 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
   // or a board capability it lacks). Their rows are dropped from the UI and
   // from later reads instead of surfacing an error.
   const [unsupported, setUnsupported] = useState<Set<string>>(() => new Set());
+  // Fields that were asked for and never answered, after all read passes. The
+  // difference between this and "never loaded" is the whole diagnosis: an
+  // em-dash alone can't tell a user whether a value is unread or lost.
+  const [failed, setFailed] = useState<Set<string>>(() => new Set());
   // Whether the shared radio/TX editor modal is open.
   const [radioEditOpen, setRadioEditOpen] = useState(false);
   // Transient text filter over the field labels; not a preference, so it stays
@@ -261,6 +265,15 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           for (const s of settings) if (next.delete(s.id)) changed = true;
           return changed ? next : prev;
         });
+        // Whatever is still queued asked and got nothing: record it so the row
+        // can say "no reply" and offer a retry instead of an unexplained dash.
+        if (queue.length > 0) {
+          setFailed((prev) => {
+            const next = new Set(prev);
+            for (const s of queue) next.add(s.id);
+            return next;
+          });
+        }
       })();
     },
     [cacheValues, showToast, t],
@@ -275,6 +288,13 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       setPending((prev) => {
         const next = new Set(prev);
         for (const s of settings) next.add(s.id);
+        return next;
+      });
+      // A retry starts from a clean slate: these fields are being asked again.
+      setFailed((prev) => {
+        if (!settings.some((s) => prev.has(s.id))) return prev;
+        const next = new Set(prev);
+        for (const s of settings) next.delete(s.id);
         return next;
       });
       read(settings);
@@ -628,10 +648,12 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
     value: values[setting.id] ?? '',
     onDraft: (v: string) => setDrafts((prev) => ({ ...prev, [setting.id]: v })),
     onCommit: (v: string) => void commit(setting, v),
+    onRetry: () => refreshSection([setting]),
     draft: drafts[setting.id] ?? '',
     status: status[setting.id],
     errorText: errorMsg[setting.id],
     loading: pending.has(setting.id),
+    failed: failed.has(setting.id),
     nameBytes,
   });
 
@@ -688,9 +710,20 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
     void commit(gpsAdvertSetting, policy);
   };
 
+  // One gesture for the whole tab, since the load-on-demand model otherwise
+  // needs four separate clicks to answer "what is this node set to?".
+  const loadAll = () => {
+    const all = [
+      ...REPEATER_SETTING_GROUPS.flatMap((g) => [...g.settings]),
+      ...advancedSettings,
+      ...(gpsSupported === false ? [] : REPEATER_GPS_SETTINGS),
+    ].filter((s) => s.kind !== 'radio');
+    refreshSection(all);
+  };
+
   return (
     <>
-      <div className='mx-auto mb-4 w-full max-w-6xl'>
+      <div className='mx-auto mb-4 flex w-full max-w-6xl flex-wrap items-center gap-3'>
         <input
           type='search'
           value={fieldFilter}
@@ -699,6 +732,17 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           aria-label={t('repeaterAdmin.config.filterLabel')}
           className='w-full max-w-xs rounded-md border border-border-control bg-surface px-2.5 py-1.5 text-xs text-text outline-none focus:border-accent'
         />
+        <button
+          type='button'
+          onClick={loadAll}
+          disabled={pending.size > 0}
+          className='rounded-md border border-border-control px-2.5 py-1.5 text-xs font-medium text-text2 transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50'
+        >
+          {t('repeaterAdmin.config.loadAll')}
+        </button>
+        <p className='w-full text-xs text-text2'>
+          {t('repeaterAdmin.config.intro')}
+        </p>
       </div>
       <div className='mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 xl:grid-cols-2'>
         {REPEATER_SETTING_GROUPS.map((group) => {
@@ -839,9 +883,13 @@ interface RowProps {
   draft: string;
   onDraft: (value: string) => void;
   onCommit: (value: string) => void;
+  /** Re-reads just this field, after its read went unanswered. */
+  onRetry: () => void;
   status?: SaveStatus;
   errorText?: string;
   loading: boolean;
+  /** The read was attempted and the node never replied. */
+  failed: boolean;
   disabled?: boolean;
   nameBytes: number;
 }
@@ -854,15 +902,18 @@ function SettingRow({
   draft,
   onDraft,
   onCommit,
+  onRetry,
   status,
   errorText,
   loading,
+  failed,
   disabled,
   nameBytes,
 }: RowProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const label = t(`repeaterAdmin.config.fields.${setting.id}.label`);
+  const hint = t(`repeaterAdmin.config.fields.${setting.id}.hint`);
   const maxBytes = setting.kind === 'text' ? nameBytes : undefined;
   const valid = isValidValue(setting, draft, maxBytes);
   // A field is "loaded" once its value has been read; before that (or if a read
@@ -879,12 +930,33 @@ function SettingRow({
 
   return (
     <div className={ROW_CLASS}>
-      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
-        <span className='truncate text-text2'>{label}</span>
-        {setting.requiresReboot && <RebootPill />}
+      <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
+        <span className='flex min-w-0 items-center gap-1.5'>
+          <span className='truncate text-text2'>{label}</span>
+          {setting.requiresReboot && <RebootPill />}
+        </span>
+        {hint && (
+          <span className='text-[11px] leading-snug text-text2 opacity-80'>
+            {hint}
+            {setting.kind === 'number' && (
+              <>
+                {' '}
+                {t('repeaterAdmin.config.range', {
+                  min: fmtNum(setting.min, i18n.language),
+                  max: fmtNum(setting.max, i18n.language),
+                })}
+              </>
+            )}
+          </span>
+        )}
       </div>
       <div className='flex shrink-0 items-center gap-2'>
-        <FieldSlot loading={loading} loaded={loaded}>
+        <FieldSlot
+          loading={loading}
+          loaded={loaded}
+          failed={failed}
+          onRetry={onRetry}
+        >
           {setting.kind === 'toggle' && (
             <SwitchControl
               setting={setting}
@@ -894,9 +966,10 @@ function SettingRow({
             />
           )}
           {setting.kind === 'number' && (
-            <SliderField
+            <NumberEntry
               setting={setting}
               value={draft}
+              valid={valid}
               ariaLabel={label}
               onChange={onDraft}
               onCommitEdit={commitEdit}
@@ -932,13 +1005,35 @@ function UnloadedValue() {
   return <span className='text-text2'>—</span>;
 }
 
+// A read that was attempted and never answered, told apart from one that was
+// never attempted. Retrying one field costs one round trip, not a whole card.
+function FailedValue({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <span className='flex items-center gap-1.5 text-xs text-amber'>
+      {t('repeaterAdmin.config.noReply')}
+      <button
+        type='button'
+        onClick={onRetry}
+        className='font-semibold underline hover:opacity-80'
+      >
+        {t('common.retry')}
+      </button>
+    </span>
+  );
+}
+
 function FieldSlot({
   loading,
   loaded,
+  failed,
+  onRetry,
   children,
 }: {
   loading: boolean;
   loaded: boolean;
+  failed?: boolean;
+  onRetry?: () => void;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -949,7 +1044,13 @@ function FieldSlot({
       </span>
     );
   }
-  if (!loaded) return <UnloadedValue />;
+  if (!loaded) {
+    return failed && onRetry ? (
+      <FailedValue onRetry={onRetry} />
+    ) : (
+      <UnloadedValue />
+    );
+  }
   return <>{children}</>;
 }
 
@@ -1062,25 +1163,32 @@ function NumberField({
   );
 }
 
-// The change commits on release (pointer up / key up), so a drag doesn't fire a
-// `set` on every tick.
-function SliderField({
+/**
+ * A number setting: a coarse slider for dragging plus a typed field for the
+ * exact value.
+ *
+ * @remarks
+ * The slider alone made precision impractical — the flood advert interval is
+ * 166 steps across 160 pixels — and its `onKeyUp` commit turned one keyboard
+ * step into one `set`+`get` round trip over LoRa. The slider now commits only
+ * on pointer release; keyboard users take the typed field, which commits once
+ * on blur or Enter.
+ */
+function NumberEntry({
   setting,
   value,
+  valid,
   ariaLabel,
   onChange,
   onCommitEdit,
 }: {
   setting: NumberSetting;
   value: string;
+  valid: boolean;
   ariaLabel: string;
   onChange: (value: string) => void;
   onCommitEdit: () => void;
 }) {
-  const { t, i18n } = useTranslation();
-  const unit = setting.unit
-    ? t(`repeaterAdmin.config.units.${setting.unit}`)
-    : undefined;
   const n = Number(value);
   const slider = Number.isFinite(n) ? n : setting.min;
   return (
@@ -1094,13 +1202,18 @@ function SliderField({
         value={slider}
         onChange={(e) => onChange(e.target.value)}
         onPointerUp={onCommitEdit}
-        onKeyUp={onCommitEdit}
-        className='w-40 accent-accent'
+        className='hidden w-32 accent-accent sm:block'
       />
-      <span className='w-20 shrink-0 text-right text-xs text-text tabular-nums'>
-        {fmtNum(slider, i18n.language)}
-        {unit ? ` ${unit}` : ''}
-      </span>
+      <NumberField
+        setting={setting}
+        value={value}
+        valid={valid}
+        disabled={false}
+        ariaLabel={ariaLabel}
+        width='w-24'
+        onChange={onChange}
+        onCommitEdit={onCommitEdit}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@
     "loading": "Chargement…",
     "remove": "Supprimer",
     "refresh": "Actualiser",
+    "retry": "Réessayer",
     "load": "Charger",
     "close": "Fermer",
     "add": "Ajouter",
@@ -27,7 +28,8 @@
   "units": {
     "dbm": "{{value}} dBm",
     "kb": "{{value}} Ko",
-    "percent": "{{value}} %"
+    "percent": "{{value}} %",
+    "seconds": "s"
   },
   "header": {
     "connecting": "Connexion…",
@@ -635,6 +637,10 @@
       "requiresReboot": "Nécessite un redémarrage",
       "edit": "Modifier",
       "advanced": "Avancé",
+      "intro": "Les valeurs sont lues sur le nœud à la demande, une commande à la fois, pour que cet onglet ne consomme pas le temps d'antenne de ce répéteur sans qu'on le lui demande. Charge une carte pour voir ses réglages actuels : un champ resté sans réponse peut être réessayé seul.",
+      "loadAll": "Tout charger",
+      "noReply": "Aucune réponse",
+      "range": "({{min}}–{{max}})",
       "filterLabel": "Filtrer les paramètres",
       "filterPlaceholder": "Filtrer les paramètres…",
       "filterEmpty": "Aucun paramètre ne correspond à ce filtre.",
@@ -649,65 +655,85 @@
         "dbm": "dBm",
         "hours": "h",
         "minutes": "min",
-        "percent": "%"
+        "percent": "%",
+        "seconds": "s"
       },
       "fields": {
         "name": {
-          "label": "Nom"
+          "label": "Nom",
+          "hint": "Le nom que ce nœud annonce au réseau."
         },
         "lat": {
-          "label": "Latitude"
+          "label": "Latitude",
+          "hint": "Latitude annoncée en degrés décimaux."
         },
         "lon": {
-          "label": "Longitude"
+          "label": "Longitude",
+          "hint": "Longitude annoncée en degrés décimaux."
         },
         "radio": {
-          "label": "Radio"
+          "label": "Radio",
+          "hint": "Fréquence, bande passante, facteur d'étalement et taux de codage. Tout nœud censé entendre celui-ci doit les faire correspondre exactement."
         },
         "tx": {
-          "label": "Puissance TX"
+          "label": "Puissance TX",
+          "hint": "Puissance d'émission. Plus fort porte plus loin et consomme plus ; cela n'aide pas si l'autre bout ne peut pas répondre."
         },
         "gps": {
-          "label": "Module GPS"
+          "label": "Module GPS",
+          "hint": "Alimente le récepteur GPS intégré, sur les cartes qui en ont un."
         },
         "gpsAdvert": {
-          "label": "Position annoncée"
+          "label": "Position annoncée",
+          "hint": "Si les annonces portent la position GPS en direct, les coordonnées fixes ci-dessus, ou aucune position."
         },
         "repeat": {
-          "label": "Répéter"
+          "label": "Répéter",
+          "hint": "Si ce nœud relaie les paquets des autres. Désactive-le pour en faire une feuille qui ne parle que pour elle-même."
         },
         "floodAdvertInterval": {
-          "label": "Intervalle d’advert flood"
+          "label": "Intervalle d’advert flood",
+          "hint": "À quelle fréquence ce nœud inonde une annonce dans tout le réseau. Les inondations atteignent tout le monde et coûtent du temps d'antenne à tout le monde : plus long est plus courtois."
         },
         "advertInterval": {
-          "label": "Intervalle d’advert zéro saut"
+          "label": "Intervalle d’advert zéro saut",
+          "hint": "À quelle fréquence ce nœud s'annonce à ses seuls voisins directs. Peu coûteux, car jamais relayé."
         },
         "floodMax": {
-          "label": "Sauts flood max."
+          "label": "Sauts flood max.",
+          "hint": "Jusqu'où une inondation partie d'ici peut voyager avant d'être abandonnée. 0 désactive l'inondation."
         },
         "txdelay": {
-          "label": "Délai TX flood"
+          "label": "Délai TX flood",
+          "hint": "Attente aléatoire avant de relayer une inondation, qui évite que des voisins ayant entendu le même paquet émettent en même temps."
         },
         "directTxdelay": {
-          "label": "Délai TX direct"
+          "label": "Délai TX direct",
+          "hint": "La même attente anti-collision, appliquée aux paquets sur une route connue plutôt qu'à une inondation."
         },
         "dutycycle": {
-          "label": "Cycle de service"
+          "label": "Cycle de service",
+          "hint": "Part du temps pendant laquelle ce nœud a le droit d'émettre. Certaines régions la plafonnent par la loi."
         },
         "loopDetect": {
-          "label": "Détection de boucle"
+          "label": "Détection de boucle",
+          "hint": "Avec quelle sévérité les paquets déjà passés ici sont supprimés. Plus strict économise du temps d'antenne et risque d'abandonner une retransmission légitime."
         },
         "pathHashMode": {
-          "label": "Taille du hash de chemin d’advert"
+          "label": "Taille du hash de chemin d’advert",
+          "hint": "Octets utilisés pour identifier chaque saut d'un chemin. Plus d'octets rendent les collisions entre nœuds similaires moins probables et chaque paquet un peu plus gros."
         },
         "multiAcks": {
-          "label": "Multi-ACK"
+          "label": "Multi-ACK",
+          "hint": "Permet à plusieurs accusés de réception de voyager dans un seul paquet au lieu d'un chacun."
         },
         "cad": {
-          "label": "CAD matériel"
+          "label": "CAD matériel",
+          "hint": "Utilise la détection d'activité de canal de la radio pour attendre un canal libre avant d'émettre."
         },
         "radioFemRxgain": {
-          "label": "Gain RX du FEM"
+          "label": "Gain RX du FEM",
+          "hint": "Gain de réception supplémentaire sur les cartes avec module frontal. Augmente la sensibilité et le plancher de bruit avec elle."
         }
       },
       "options": {
