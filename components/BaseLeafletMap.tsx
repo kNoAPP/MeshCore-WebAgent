@@ -13,6 +13,7 @@ import type { MapEdge, MapNode } from '@/lib/map/nodes';
 import {
   MAP_EDGE_OPACITY,
   MAP_EDGE_WEIGHT,
+  MAP_MAX_ZOOM,
   TILE_ATTRIBUTION,
   TILE_URLS,
   type StartView,
@@ -175,7 +176,7 @@ export function BaseLeafletMap({
       {
         attribution: TILE_ATTRIBUTION,
         subdomains: 'abcd',
-        maxZoom: 20,
+        maxZoom: MAP_MAX_ZOOM,
         noWrap: true,
         detectRetina: true,
       },
