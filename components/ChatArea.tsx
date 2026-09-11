@@ -140,27 +140,30 @@ export function ChatArea() {
     [activeConvo, msgHistory],
   );
 
-  // Only a message that *just arrived* into a conversation the user is
+  // Only a message that *just arrived* into a conversation the user was
   // actually looking at is news. Deriving this from the tail of `msgHistory`
   // would also fire on `restoreHistory`, which can turn an empty conversation
   // into a populated one and would then announce week-old history as new; the
-  // store's arrival record is the signal that a message landed. A message that
-  // arrived while the tab was blurred or another view was up is the toast's
-  // job, not this region's — announcing it later would replay it out of
-  // context.
+  // store's arrival record is the signal that a message landed, and its
+  // `visible` flag says whether it was on screen at the time.
+  //
+  // `lastArrival` is the sole dependency on purpose. A conversation switch must
+  // not recompute this: the result would be rebuilt from the same record, and
+  // re-inserting identical text into the live region announces a message that
+  // arrived minutes ago all over again. Each arrival enters the region once,
+  // when it lands.
   const lastArrival = useMeshStore((s) => s.lastArrival);
   const announcement = useMemo(() => {
     if (
       !lastArrival ||
       !lastArrival.visible ||
-      lastArrival.convoId !== convoId ||
       lastArrival.own ||
       lastArrival.system
     ) {
       return { id: '', text: '' };
     }
     return { id: lastArrival.msgId, text: lastArrival.text };
-  }, [lastArrival, convoId]);
+  }, [lastArrival]);
 
   // The oldest message index the window has been opened back to — by scrolling
   // up, or by a jump — or -1 for just the newest page. An index rather than a

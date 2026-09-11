@@ -705,7 +705,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   ...initialState,
 
   setClient: (client) => set({ client }),
-  setStatus: (status) => set({ status }),
+  // Every transition that can uncover the open conversation runs the catch-up,
+  // or a message drained behind a reconnect overlay (or a dialog) stays unread
+  // with no divider until something unrelated happens to fire it.
+  setStatus: (status) => {
+    set({ status });
+    if (status === 'connected') catchUpVisibleConvo();
+  },
   setDeviceName: (deviceName) => set({ deviceName }),
   setSelfInfo: (selfInfo) => set({ selfInfo }),
   setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
@@ -938,7 +944,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   pushModal: () => set((s) => ({ openModals: s.openModals + 1 })),
   // Clamped at zero: a disconnect resets the count while dialogs are still
   // mounted, and their unmount then pops a counter that is already back to 0.
-  popModal: () => set((s) => ({ openModals: Math.max(0, s.openModals - 1) })),
+  popModal: () => {
+    set((s) => ({ openModals: Math.max(0, s.openModals - 1) }));
+    // The last dialog closing uncovers the conversation behind it.
+    if (get().openModals === 0) catchUpVisibleConvo();
+  },
   setAdvertising: (advertising) => set({ advertising }),
   openCommandPalette: () => set({ commandPaletteOpen: true }),
   closeCommandPalette: () => set({ commandPaletteOpen: false }),
@@ -1188,14 +1198,15 @@ export function openConvo(convo: ActiveConvo): void {
 
 /**
  * Whether conversation {@link id} is actually on screen: it is the open
- * conversation, the chat view is the one showing, this tab has focus, and no
- * reconnect overlay is covering the app. Messages arriving in a visible
- * conversation are read on arrival and raise no toast; everything else is
- * unread and worth announcing.
+ * conversation, the chat view is the one showing, this tab has focus, the link
+ * is live (a reconnect overlay covers and inerts the app), and no dialog is
+ * over it. Messages arriving in a visible conversation are read on arrival and
+ * raise no toast; everything else is unread and worth announcing.
  */
 export function isConvoVisible(state: MeshState, id: string): boolean {
   return (
     state.status === 'connected' &&
+    state.openModals === 0 &&
     state.activeConvo?.id === id &&
     state.view === 'chat' &&
     state.windowFocused
