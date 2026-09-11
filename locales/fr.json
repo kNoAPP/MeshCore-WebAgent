@@ -498,6 +498,7 @@
     "empty": "Sélectionne un canal ou un contact pour commencer à discuter",
     "noMessages": "Aucun message pour l'instant",
     "transcriptLabel": "Transcription de la conversation",
+    "messageAnnouncement": "{{sender}}: {{message}}",
     "lastUnread": "Dernier non lu",
     "noAck": "Aucun accusé de réception",
     "noAckTooltip": "Le message a pu malgré tout arriver — l'accusé de réception peut se perdre en route",

@@ -231,14 +231,31 @@ export function ChatArea() {
       visibleMessages.map((msg) => {
         if (msg.system || msg.own) return null;
         if (msg.kind === 'channel') {
-          return splitChannelMessage(msg.text).sender ?? '?';
+          return splitChannelMessage(msg.text).sender?.trim() || '?';
         }
         const contact = msg.pubkeyPrefix
           ? contacts[msg.pubkeyPrefix]
           : undefined;
-        return contact?.name ?? msg.pubkeyPrefix?.slice(0, 8) ?? '?';
+        return (
+          msg.senderName ||
+          contact?.name ||
+          msg.pubkeyPrefix?.slice(0, 8) ||
+          '?'
+        );
       }),
     [visibleMessages, contacts],
+  );
+  const senderKeys = useMemo(
+    () =>
+      visibleMessages.map((msg) => {
+        if (msg.system || msg.own) return null;
+        if (msg.kind === 'channel') {
+          const sender = splitChannelMessage(msg.text).sender?.trim();
+          return sender ? `channel:${sender}` : null;
+        }
+        return msg.pubkeyPrefix ? `direct:${msg.pubkeyPrefix}` : null;
+      }),
+    [visibleMessages],
   );
 
   // Whether each message needs its own sender header. A burst from one contact
@@ -251,12 +268,14 @@ export function ChatArea() {
         if (senderLabels[i] === null) return false;
         if (i === 0 || dayDividers[i] != null) return true;
         const prev = visibleMessages[i - 1];
-        if (senderLabels[i - 1] !== senderLabels[i]) return true;
+        if (!senderKeys[i] || senderKeys[i - 1] !== senderKeys[i]) return true;
         if (prev.own !== msg.own) return true;
         const gap = (msg.timestamp ?? 0) - (prev.timestamp ?? 0);
-        return !msg.timestamp || !prev.timestamp || gap > GROUP_WINDOW_SEC;
+        return (
+          !msg.timestamp || !prev.timestamp || gap < 0 || gap > GROUP_WINDOW_SEC
+        );
       }),
-    [visibleMessages, senderLabels, dayDividers],
+    [visibleMessages, senderLabels, senderKeys, dayDividers],
   );
 
   // Only built while a mention is in progress so the full-history scan stays
