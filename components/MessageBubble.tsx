@@ -206,7 +206,7 @@ export const MessageBubble = memo(function MessageBubble({
         )}
         {metaParts(t, msg, time).map((part, i) => (
           <span key={i}>
-            {i > 0 && ' · '}
+            {(i > 0 || tick) && ' · '}
             {part}
           </span>
         ))}

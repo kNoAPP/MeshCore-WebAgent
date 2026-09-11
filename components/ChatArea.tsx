@@ -233,12 +233,16 @@ export function ChatArea() {
         if (msg.kind === 'channel') {
           return splitChannelMessage(msg.text).sender?.trim() || '?';
         }
-        const contact = msg.pubkeyPrefix
-          ? contacts[msg.pubkeyPrefix]
+        const prefix = msg.pubkeyPrefix;
+        const contact = prefix
+          ? (contacts[prefix] ??
+            Object.values(contacts).find((entry) =>
+              entry.pubkeyPrefix.startsWith(prefix),
+            ))
           : undefined;
         return (
-          msg.senderName ||
           contact?.name ||
+          msg.senderName ||
           msg.pubkeyPrefix?.slice(0, 8) ||
           '?'
         );
@@ -369,11 +373,7 @@ export function ChatArea() {
       // Arrived while the conversation was off screen (other tab, other
       // window, other view): leave the scroll where the user left it, so the
       // unread divider they come back to isn't already scrolled past.
-      if (
-        !last?.own &&
-        convoId &&
-        !isConvoVisible(useMeshStore.getState(), convoId)
-      ) {
+      if (convoId && !isConvoVisible(useMeshStore.getState(), convoId)) {
         return;
       }
       if (!last?.own && !atBottomRef.current) {
