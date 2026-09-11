@@ -34,7 +34,7 @@ export function StatCard({
   loading?: boolean;
 }) {
   return (
-    <div className='rounded-lg bg-surface2 p-3.5'>
+    <div className='rounded-card bg-surface2 p-3.5'>
       <div className='mb-2.5 text-[11px] font-bold tracking-widest text-accent uppercase'>
         {title}
       </div>

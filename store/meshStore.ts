@@ -436,6 +436,12 @@ interface MeshState {
   aiPref: AiPref;
   /** Persisted viewport, or `null` until the user first pans/zooms the map. */
   mapPrefs: MapPrefs | null;
+  /**
+   * True once this radio's preferences blob has been read. The session reports
+   * `connected` before that read finishes, so a `null` preference means "not
+   * loaded yet" until this flips.
+   */
+  prefsHydrated: boolean;
   toast: Toast | null;
   /**
    * True once a newer build has been deployed while a session was live, so the
@@ -705,6 +711,7 @@ const initialState: MeshState = {
   showFullPublicKeys: false,
   aiPref: DEFAULT_AI_PREF,
   mapPrefs: null,
+  prefsHydrated: false,
   toast: null,
   updateAvailable: false,
   connectError: null,
@@ -822,6 +829,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         typeof p.showFullPublicKeys === 'boolean'
           ? p.showFullPublicKeys
           : false,
+      prefsHydrated: true,
     });
   },
 

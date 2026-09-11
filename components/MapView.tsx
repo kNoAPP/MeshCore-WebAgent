@@ -97,20 +97,26 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   );
   // Per-radio preferences and the advert cache both hydrate *after* the session
   // reports 'connected', so a map opened in that window (a `#/map` deep link,
-  // or switching straight to Map) has nothing to frame on. Re-frame the live
-  // map once the first real input lands — not by remounting it, which would
-  // drop a pin placed while picking — and only until the viewport settles on
-  // real data or the user's own pan.
+  // or switching straight to Map) frames on whatever the sync happened to have.
+  // Two one-shot upgrades of the live map — the first located data, then the
+  // radio's own saved viewport. Applied to the existing map rather than by
+  // remounting it, so a pin placed while picking survives.
   const savedPrefs = useMeshStore((s) => s.mapPrefs);
-  const viewportSettled = useRef(
-    savedPrefs != null || self != null || nodes.length > 0,
-  );
+  const prefsHydrated = useMeshStore((s) => s.prefsHydrated);
+  const framedOnData = useRef(self != null || nodes.length > 0);
+  const framedOnPrefs = useRef(false);
   useEffect(() => {
-    if (!map || viewportSettled.current || mapPicking) return;
-    if (!savedPrefs && !self && nodes.length === 0) return;
-    viewportSettled.current = true;
-    applyStartView(map, initialView(savedPrefs, self, nodes));
-  }, [map, savedPrefs, mapPicking, self, nodes]);
+    if (!map || mapPicking) return;
+    if (prefsHydrated && savedPrefs && !framedOnPrefs.current) {
+      framedOnPrefs.current = true;
+      framedOnData.current = true;
+      applyStartView(map, { center: savedPrefs.center, zoom: savedPrefs.zoom });
+      return;
+    }
+    if (framedOnData.current || (!self && nodes.length === 0)) return;
+    framedOnData.current = true;
+    applyStartView(map, initialView(null, self, nodes));
+  }, [map, savedPrefs, prefsHydrated, mapPicking, self, nodes]);
   // When on, only favorited contacts (plus this node) are plotted.
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
@@ -221,10 +227,9 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
       nodes={plotted}
       startView={startView}
       nodeActions={mapPicking ? undefined : nodeActions}
-      onMoveEnd={(center, zoom) => {
-        viewportSettled.current = true;
-        useMeshStore.getState().setMapPrefs({ center, zoom });
-      }}
+      onMoveEnd={(center, zoom) =>
+        useMeshStore.getState().setMapPrefs({ center, zoom })
+      }
       onMapReady={setMap}
     >
       <div className='pointer-events-none absolute inset-x-0 top-0 z-1000 flex flex-col items-start gap-2 p-3'>
