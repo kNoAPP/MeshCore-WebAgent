@@ -989,6 +989,7 @@ function SettingRow({
       </div>
       <div className='flex shrink-0 items-center gap-2'>
         <FieldSlot
+          label={label}
           loading={loading}
           loaded={loaded}
           failed={failed}
@@ -1044,7 +1045,13 @@ function UnloadedValue() {
 
 // A read that was attempted and never answered, told apart from one that was
 // never attempted. Retrying one field costs one round trip, not a whole card.
-function FailedValue({ onRetry }: { onRetry: () => void }) {
+function FailedValue({
+  label,
+  onRetry,
+}: {
+  label: string;
+  onRetry: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <span className='flex items-center gap-1.5 text-xs text-amber'>
@@ -1052,6 +1059,8 @@ function FailedValue({ onRetry }: { onRetry: () => void }) {
       <button
         type='button'
         onClick={onRetry}
+        // Several fields can fail at once, so "Retry" alone doesn't say which.
+        aria-label={t('repeaterAdmin.config.retryField', { field: label })}
         className='font-semibold underline hover:opacity-80'
       >
         {t('common.retry')}
@@ -1061,12 +1070,15 @@ function FailedValue({ onRetry }: { onRetry: () => void }) {
 }
 
 function FieldSlot({
+  label,
   loading,
   loaded,
   failed,
   onRetry,
   children,
 }: {
+  /** Names the retry button when the read failed. */
+  label: string;
   loading: boolean;
   loaded: boolean;
   failed?: boolean;
@@ -1081,7 +1093,7 @@ function FieldSlot({
       </span>
     );
   }
-  if (failed && onRetry) return <FailedValue onRetry={onRetry} />;
+  if (failed && onRetry) return <FailedValue label={label} onRetry={onRetry} />;
   if (!loaded) return <UnloadedValue />;
   return <>{children}</>;
 }
@@ -1381,6 +1393,7 @@ function LocationSourceRow({
             <div key={id} className='flex items-center gap-2 text-xs'>
               <span>{t(`repeaterAdmin.config.fields.${id}.label`)}</span>
               <FieldSlot
+                label={t(`repeaterAdmin.config.fields.${id}.label`)}
                 loading={pending.has(id)}
                 loaded={false}
                 failed={failed.has(id)}
@@ -1504,6 +1517,7 @@ function CoordField({
     <div className='flex items-center gap-1.5'>
       <span className='text-[11px] text-text2'>{label}</span>
       <FieldSlot
+        label={label}
         loading={loading}
         loaded={value !== ''}
         failed={failed}
@@ -1640,6 +1654,7 @@ function ValueRow({
     <div className={ROW_CLASS}>
       <span className='shrink-0 text-text2'>{label}</span>
       <FieldSlot
+        label={label}
         loading={loading}
         loaded={value != null}
         failed={failed}

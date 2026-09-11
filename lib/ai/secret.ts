@@ -91,8 +91,11 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
   // ahead of the restore that useMeshCore kicks off next, which checks the
   // flag before loading anything.
   if (clearOwed) {
+    const owedFor = ctx;
     void enqueue(() => clearSecret(pubkey, API_KEY_NAME)).then((ok) => {
-      clearOwed = !ok;
+      // A teardown or radio switch during the delete has already decided what
+      // is owed; re-owing here would target the next radio's remembered key.
+      if (ctx === owedFor) clearOwed = !ok;
     });
   }
 }

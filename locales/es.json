@@ -644,6 +644,7 @@
       "intro": "Los valores se leen del nodo bajo demanda, un comando cada vez, para que esta pestaña no gaste el tiempo de aire de este repetidor sin que se lo pidas. Carga una tarjeta para ver sus ajustes actuales: un campo que no responda puede reintentarse por separado.",
       "loadAll": "Cargar todo",
       "noReply": "Sin respuesta",
+      "retryField": "Reintentar {{field}}",
       "range": "({{min}}–{{max}})",
       "filterLabel": "Filtrar ajustes",
       "filterPlaceholder": "Filtrar ajustes…",
