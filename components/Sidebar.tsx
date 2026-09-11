@@ -400,7 +400,10 @@ export function Sidebar() {
 
   const clearFilters = () => {
     setQuery('');
-    setContactView({ ...contactView, filter: 'all' });
+    setContactView({
+      ...useMeshStore.getState().contactView,
+      filter: 'all',
+    });
   };
 
   return (
@@ -521,11 +524,22 @@ export function Sidebar() {
               sort={contactSort}
               pinFavorites={pinFavorites}
               onFilterChange={(filter) =>
-                setContactView({ ...contactView, filter })
+                setContactView({
+                  ...useMeshStore.getState().contactView,
+                  filter,
+                })
               }
-              onSortChange={(sort) => setContactView({ ...contactView, sort })}
+              onSortChange={(sort) =>
+                setContactView({
+                  ...useMeshStore.getState().contactView,
+                  sort,
+                })
+              }
               onPinFavoritesChange={(pinFavorites) =>
-                setContactView({ ...contactView, pinFavorites })
+                setContactView({
+                  ...useMeshStore.getState().contactView,
+                  pinFavorites,
+                })
               }
             />
             <button

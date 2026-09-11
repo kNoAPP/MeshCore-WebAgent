@@ -224,13 +224,14 @@ export function ChatArea() {
   );
 
   // Resolved sender label per mounted message: the channel prefix, the
-  // contact's name, or null for a system note and for own messages (which are
-  // already marked by their side, color and corner — a "You" header on top of
-  // that is pure repetition).
+  // contact's name, "You" for an own message, or null for a system note. Own
+  // runs are labelled for screen readers only — on screen their side, color and
+  // corner already say it.
   const senderLabels = useMemo(
     () =>
       visibleMessages.map((msg) => {
-        if (msg.system || msg.own) return null;
+        if (msg.system) return null;
+        if (msg.own) return t('chat.you');
         if (msg.kind === 'channel') {
           return splitChannelMessage(msg.text).sender?.trim() || '?';
         }
@@ -248,12 +249,13 @@ export function ChatArea() {
           '?'
         );
       }),
-    [visibleMessages, contacts],
+    [visibleMessages, contacts, t],
   );
   const senderKeys = useMemo(
     () =>
       visibleMessages.map((msg) => {
-        if (msg.system || msg.own) return null;
+        if (msg.system) return null;
+        if (msg.own) return 'own';
         if (msg.kind === 'channel') {
           const sender = splitChannelMessage(msg.text).sender?.trim();
           return sender ? `channel:${sender}` : null;
@@ -380,6 +382,16 @@ export function ChatArea() {
       // unread divider they come back to isn't already scrolled past.
       if (convoId && (arrivedHidden || !isConvoVisible(state, convoId))) {
         atBottomRef.current = false;
+        // Nothing scrolled while it was hidden and this effect won't re-run on
+        // the way back, so leave the bubble as the cue that there is something
+        // below the fold.
+        const list = messagesRef.current;
+        const below = list
+          ? list.scrollHeight - list.scrollTop > list.clientHeight
+          : false;
+        if (!last?.own && below) {
+          setShowNewIndicator(true);
+        }
         return;
       }
       if (!last?.own && !atBottomRef.current) {
@@ -680,19 +692,15 @@ export function ChatArea() {
                   className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
                   data-msg-id={msg.id}
                 >
-                  {!msg.system && (
+                  {!msg.system && showHeader[i] && (
                     <div
                       className={
-                        showHeader[i]
-                          ? 'px-1 text-[11px] text-text2'
-                          : 'sr-only'
+                        msg.own ? 'sr-only' : 'px-1 text-[11px] text-text2'
                       }
                     >
-                      {msg.own
-                        ? t('chat.you')
-                        : senderLabels[i] === '?'
-                          ? t('common.unknown')
-                          : senderLabels[i]}
+                      {senderLabels[i] === '?'
+                        ? t('common.unknown')
+                        : senderLabels[i]}
                     </div>
                   )}
                   <MessageBubble

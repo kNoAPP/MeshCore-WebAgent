@@ -20,7 +20,11 @@ export interface MarkerStyle {
    */
   color: string;
   /** `map.legend.*` translation key naming this category. */
-  labelKey: string;
+  labelKey:
+    | 'map.legend.companion'
+    | 'map.legend.repeater'
+    | 'map.legend.roomServer'
+    | 'map.legend.sensor';
 }
 
 /**

@@ -46,6 +46,7 @@ export function RouteChip({ contact }: { contact: Contact }) {
       <button
         onClick={() => setOpen((o) => !o)}
         title={t('routeChip.tooltip')}
+        aria-expanded={open}
         className='rounded-full border px-2 py-0.5 text-[11px] text-text2 transition-colors hover:text-text border-border bg-surface2'
       >
         {routeLabel(t, contact)}

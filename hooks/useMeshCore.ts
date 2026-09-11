@@ -743,9 +743,13 @@ export function useMeshCore() {
                 : undefined;
             const enriched: Message = { ...msg, senderName: undefined, path };
             // Read before addMessage, which is what makes it visible.
-            const visible = isConvoVisible(useMeshStore.getState(), id);
+            const state = useMeshStore.getState();
+            const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
-            if (!visible) {
+            // `c.init()` drains the radio's backlog while the connect screen is
+            // still up, where a "go to this conversation" toast leads nowhere.
+            // Those messages stay unread instead.
+            if (!visible && state.status === 'connected') {
               const chName =
                 c.channels[msg.channelIdx]?.name ||
                 i18n.t('common.channelName', { index: msg.channelIdx });
@@ -775,9 +779,10 @@ export function useMeshCore() {
             // so fall back to the prefix exactly as the sidebar does.
             const sender = contact?.name || msg.pubkeyPrefix.slice(0, 8);
             const enriched: Message = { ...msg, senderName: sender };
-            const visible = isConvoVisible(useMeshStore.getState(), id);
+            const state = useMeshStore.getState();
+            const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
-            if (!visible) {
+            if (!visible && state.status === 'connected') {
               showToast(i18n.t('toast.newMessageFrom', { sender }), '', {
                 kind: 'direct',
                 id,
