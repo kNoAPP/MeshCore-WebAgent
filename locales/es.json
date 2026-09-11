@@ -1013,6 +1013,7 @@
     "repeaterCliFailed": "Error al enviar el comando: {{error}}",
     "repeaterCliNoReply": "Comando enviado, pero el nodo no respondió a tiempo.",
     "repeaterConfigError": "El nodo rechazó el cambio: {{error}}",
+    "repeaterReadParseFailed": "Respuesta no reconocida al leer {{field}}",
     "repeaterNameTooLongForLocation": "Acorta el nombre del nodo a 24 bytes o menos antes de establecer una ubicación.",
     "repeaterLoadBeforeLocationEdit": "Carga el nombre y la ubicación del nodo antes de cambiar cualquiera de los dos.",
     "repeaterActionSent": "Comando enviado."

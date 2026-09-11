@@ -1013,6 +1013,7 @@
     "repeaterCliFailed": "Befehl konnte nicht gesendet werden: {{error}}",
     "repeaterCliNoReply": "Befehl gesendet, aber der Knoten hat nicht rechtzeitig geantwortet.",
     "repeaterConfigError": "Knoten hat die Änderung abgelehnt: {{error}}",
+    "repeaterReadParseFailed": "Unbekannte Antwort beim Lesen von {{field}}",
     "repeaterNameTooLongForLocation": "Kürzen Sie den Knotennamen auf höchstens 24 Bytes, bevor Sie einen Standort festlegen.",
     "repeaterLoadBeforeLocationEdit": "Laden Sie Name und Standort des Knotens, bevor Sie eines von beiden ändern.",
     "repeaterActionSent": "Befehl gesendet."
