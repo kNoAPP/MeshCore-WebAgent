@@ -141,31 +141,6 @@ export function ChatArea() {
     [activeConvo, msgHistory],
   );
 
-  // Only a message that *just arrived* into a conversation the user was
-  // actually looking at is news. Deriving this from the tail of `msgHistory`
-  // would also fire on `restoreHistory`, which can turn an empty conversation
-  // into a populated one and would then announce week-old history as new; the
-  // store's arrival record is the signal that a message landed, and its
-  // `visible` flag says whether it was on screen at the time.
-  //
-  // `lastArrival` is the sole dependency on purpose. A conversation switch must
-  // not recompute this: the result would be rebuilt from the same record, and
-  // re-inserting identical text into the live region announces a message that
-  // arrived minutes ago all over again. Each arrival enters the region once,
-  // when it lands.
-  const lastArrival = useMeshStore((s) => s.lastArrival);
-  const announcement = useMemo(() => {
-    if (
-      !lastArrival ||
-      !lastArrival.visible ||
-      lastArrival.own ||
-      lastArrival.system
-    ) {
-      return { id: '', text: '' };
-    }
-    return { id: lastArrival.msgId, text: lastArrival.text };
-  }, [lastArrival]);
-
   // The oldest message index the window has been opened back to — by scrolling
   // up, or by a jump — or -1 for just the newest page. An index rather than a
   // tail count because history only ever appends: an index survives an
@@ -586,12 +561,6 @@ export function ChatArea() {
 
       {/* Messages */}
       <div className='relative flex flex-1 flex-col overflow-hidden'>
-        <span className='sr-only' role='status' aria-live='polite'>
-          {/* Keyed by message id: two arrivals with identical text would
-              otherwise leave the text node untouched, and a live region only
-              announces what actually changed. */}
-          <span key={announcement.id}>{announcement.text}</span>
-        </span>
         <div
           role='log'
           aria-live='off'
