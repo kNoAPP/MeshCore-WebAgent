@@ -50,6 +50,16 @@ function initialView(
   return { center: DEFAULT_MAP_PREFS.center, zoom: DEFAULT_MAP_PREFS.zoom };
 }
 
+/** A map's current centre and zoom, for comparing one framing to another. */
+function viewOf(map: L.Map): [number, number, number] {
+  const c = map.getCenter();
+  return [c.lat, c.lng, map.getZoom()];
+}
+
+function sameView(a: [number, number, number], b: [number, number, number]) {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+}
+
 /**
  * Desktop map view: plots this node and every located contact/advert on a
  * single online raster basemap (CARTO Positron/Dark Matter, matching the app
@@ -105,29 +115,39 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   const prefsHydrated = useMeshStore((s) => s.prefsHydrated);
   const framedOnData = useRef(self != null || nodes.length > 0);
   const framedOnPrefs = useRef(false);
-  // The viewport we last put the map at, and whether the user has since moved
-  // it themselves. `moveend` fires for our own framing too, so the two are told
-  // apart by comparing against what we applied.
-  const appliedView = useRef<[number, number, number] | null>(null);
+  // Leaflet reports our own framing through `moveend` as well, so each one is
+  // announced here first and consumed by the next move it produces. A move with
+  // nothing announced is the user's, and stops both upgrades.
+  const framing = useRef(false);
   const userMoved = useRef(false);
-  const rememberView = useCallback((m: L.Map) => {
-    const c = m.getCenter();
-    appliedView.current = [c.lat, c.lng, m.getZoom()];
+  const frame = useCallback((m: L.Map, view: StartView) => {
+    const before = viewOf(m);
+    framing.current = true;
+    applyStartView(m, view);
+    // Already there: no move follows, so nothing would consume the flag.
+    if (sameView(before, viewOf(m))) framing.current = false;
   }, []);
   useEffect(() => {
-    if (!map || mapPicking || userMoved.current) return;
-    if (prefsHydrated && savedPrefs && !framedOnPrefs.current) {
+    if (!map || mapPicking) return;
+    if (prefsHydrated && !framedOnPrefs.current) {
       framedOnPrefs.current = true;
       framedOnData.current = true;
-      applyStartView(map, { center: savedPrefs.center, zoom: savedPrefs.zoom });
-      rememberView(map);
+      if (userMoved.current) {
+        // Restoring the blob just overwrote `mapPrefs`, and its debounced save
+        // is subscribed after that, so a pan made during the load would be
+        // lost. Put the live viewport back.
+        const [lat, lng, zoom] = viewOf(map);
+        useMeshStore.getState().setMapPrefs({ center: [lat, lng], zoom });
+      } else if (savedPrefs) {
+        frame(map, { center: savedPrefs.center, zoom: savedPrefs.zoom });
+      }
       return;
     }
-    if (framedOnData.current || (!self && nodes.length === 0)) return;
+    if (userMoved.current || framedOnData.current) return;
+    if (!self && nodes.length === 0) return;
     framedOnData.current = true;
-    applyStartView(map, initialView(null, self, nodes));
-    rememberView(map);
-  }, [map, savedPrefs, prefsHydrated, mapPicking, self, nodes, rememberView]);
+    frame(map, initialView(null, self, nodes));
+  }, [map, savedPrefs, prefsHydrated, mapPicking, self, nodes, frame]);
   // When on, only favorited contacts (plus this node) are plotted.
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
@@ -239,21 +259,11 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
       startView={startView}
       nodeActions={mapPicking ? undefined : nodeActions}
       onMoveEnd={(center, zoom) => {
-        const applied = appliedView.current;
-        if (
-          !applied ||
-          applied[0] !== center[0] ||
-          applied[1] !== center[1] ||
-          applied[2] !== zoom
-        ) {
-          userMoved.current = true;
-        }
+        if (framing.current) framing.current = false;
+        else userMoved.current = true;
         useMeshStore.getState().setMapPrefs({ center, zoom });
       }}
-      onMapReady={(m) => {
-        if (m) rememberView(m);
-        setMap(m);
-      }}
+      onMapReady={setMap}
     >
       <div className='pointer-events-none absolute inset-x-0 top-0 z-1000 flex flex-col items-start gap-2 p-3'>
         {capped && (

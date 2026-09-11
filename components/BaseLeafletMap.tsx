@@ -240,15 +240,19 @@ export function BaseLeafletMap({
       const actions = actionsFor(node);
       const inert =
         actions.length === 0 && !(clickable && node.kind !== 'self');
+      const name = node.kind === 'self' ? t('map.self') : node.name;
       const marker = L.marker([node.lat, node.lon], {
         icon: nodeIcon(node),
         // A marker with neither a popup nor a click handler (location-pick
         // mode) would otherwise swallow the click the map needs to place
-        // the pin.
+        // the pin, and would be a dead stop for the keyboard.
         bubblingMouseEvents: inert,
+        keyboard: !inert,
+        // Leaflet puts this on the container, which is what names the button
+        // it makes of an interactive marker.
+        title: inert ? undefined : name,
       });
-      const label =
-        node.kind === 'self' ? t('map.self') : escapeHtml(node.name);
+      const label = escapeHtml(name);
       marker.bindTooltip(label, { direction: 'top' });
       if (actions.length > 0) {
         // A popup rather than a modal: the point of a spatial view is that the
@@ -266,7 +270,12 @@ export function BaseLeafletMap({
         );
         marker.on('popupopen', (e) => {
           const root = e.popup.getElement();
-          root?.querySelectorAll<HTMLElement>('[data-action]').forEach((el) => {
+          // Leaflet hardcodes this control's label in English.
+          root
+            ?.querySelector('.leaflet-popup-close-button')
+            ?.setAttribute('aria-label', t('common.close'));
+          const items = root?.querySelectorAll<HTMLElement>('[data-action]');
+          items?.forEach((el) => {
             // Assigned, not added: Leaflet reuses the popup's elements, so an
             // `addEventListener` per open would stack up and fire one click
             // once per time the popup had been opened.
@@ -277,7 +286,13 @@ export function BaseLeafletMap({
               marker.closePopup();
             };
           });
+          // Leaflet leaves focus on the marker, and the popup pane sits after
+          // the marker pane, so the keyboard would tab through every other
+          // marker to reach these.
+          items?.[0]?.focus();
         });
+        // Hand focus back to where it came from, rather than to the document.
+        marker.on('popupclose', () => marker.getElement()?.focus());
       } else if (clickable && node.kind !== 'self') {
         marker.on('click', () => onNodeClickRef.current?.(node));
       }
