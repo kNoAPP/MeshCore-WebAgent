@@ -586,7 +586,14 @@ export function Sidebar() {
                   innerRef={active ? activeItemRef : undefined}
                   icon={
                     isFav ? (
-                      <Star size={16} className='fill-current' />
+                      <>
+                        <Star
+                          size={16}
+                          className='fill-current'
+                          aria-hidden='true'
+                        />
+                        <span className='sr-only'>{t('sidebar.favorite')}</span>
+                      </>
                     ) : (
                       (ADV_ICON[c.advType] ?? '👤')
                     )

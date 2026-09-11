@@ -40,7 +40,8 @@
     "settings": "⚙ Settings",
     "disconnect": "⏻ Disconnect",
     "language": "Language",
-    "advertise": "Advertise this node"
+    "advertise": "Advertise this node",
+    "storage": "Storage"
   },
   "theme": {
     "toggle": "Toggle light/dark theme"
@@ -809,6 +810,7 @@
     "autoAddSettings": "Auto-add settings",
     "addContact": "Add contact",
     "manage": "Manage",
+    "favorite": "Favorite",
     "dragResize": "Drag to resize",
     "dragWidth": "Drag to resize the sidebar",
     "searchContacts": "Search contacts",
