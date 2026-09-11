@@ -228,6 +228,17 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                   setGpsSupported(true);
                 }
                 parsed = normalizeReply(setting, reply);
+                if (parsed === null) {
+                  errored = true;
+                  showToast(
+                    t('toast.repeaterReadParseFailed', {
+                      field: t(
+                        `repeaterAdmin.config.fields.${setting.id}.label`,
+                      ),
+                    }),
+                    'error',
+                  );
+                }
               }
             } catch {
               if (!aliveRef.current) return;
@@ -245,7 +256,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                 return next;
               });
             } else {
-              // Timeout or an unreadable reply — retry on a later pass.
+              // No response — retry on a later pass.
               misses.push(setting);
             }
           }

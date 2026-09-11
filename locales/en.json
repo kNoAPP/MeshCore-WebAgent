@@ -1011,6 +1011,7 @@
     "repeaterCliFailed": "Failed to send command: {{error}}",
     "repeaterCliNoReply": "Command sent, but the node didn't reply in time.",
     "repeaterConfigError": "Node rejected the change: {{error}}",
+    "repeaterReadParseFailed": "Unrecognized response while reading {{field}}",
     "repeaterNameTooLongForLocation": "Shorten the node name to 24 bytes or fewer before setting a location.",
     "repeaterLoadBeforeLocationEdit": "Load the node name and location before changing either.",
     "repeaterActionSent": "Command sent."
