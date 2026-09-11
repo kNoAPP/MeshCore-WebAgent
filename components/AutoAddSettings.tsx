@@ -128,7 +128,7 @@ function AutoAddSettingsPanel() {
             onChange={(e) =>
               setCfg({ ...cfg, maxHops: Number(e.target.value) })
             }
-            onPointerUp={() => void run(() => applyAutoAddConfig(cfg))}
+            onPointerUp={(event) => event.currentTarget.blur()}
             onBlur={() => void run(() => applyAutoAddConfig(cfg))}
             className='w-full accent-accent'
           />

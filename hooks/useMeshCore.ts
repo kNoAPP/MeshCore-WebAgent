@@ -1816,8 +1816,8 @@ export function useMeshCore() {
    *
    * @returns whether the write succeeded and, when it didn't, the localized
    * reason — so the caller can keep its editor open (preserving the typed
-   * name) and show the reason where the field is, not in a toast that has
-   * already vanished.
+   * name) and show the reason where the field is. Failures also raise a toast
+   * so navigation away from the field cannot hide a late error.
    */
   const setNodeName = useCallback(
     async (name: string): Promise<WriteResult> => {
@@ -1827,15 +1827,14 @@ export function useMeshCore() {
         await client.setNodeName(name);
         return { ok: true };
       } catch (err) {
-        return {
-          ok: false,
-          error: i18n.t('toast.nodeNameSaveFailed', {
-            error: (err as Error).message,
-          }),
-        };
+        const error = i18n.t('toast.nodeNameSaveFailed', {
+          error: (err as Error).message,
+        });
+        showToast(error, 'error');
+        return { ok: false, error };
       }
     },
-    [client],
+    [client, showToast],
   );
 
   /**
@@ -1855,15 +1854,14 @@ export function useMeshCore() {
         await client.setLocation(latDeg, lonDeg);
         return { ok: true };
       } catch (err) {
-        return {
-          ok: false,
-          error: i18n.t('toast.locationSaveFailed', {
-            error: (err as Error).message,
-          }),
-        };
+        const error = i18n.t('toast.locationSaveFailed', {
+          error: (err as Error).message,
+        });
+        showToast(error, 'error');
+        return { ok: false, error };
       }
     },
-    [client],
+    [client, showToast],
   );
 
   /**
@@ -1881,15 +1879,14 @@ export function useMeshCore() {
         await client.setLocationPolicy(policy);
         return { ok: true };
       } catch (err) {
-        return {
-          ok: false,
-          error: i18n.t('toast.sharePositionSaveFailed', {
-            error: (err as Error).message,
-          }),
-        };
+        const error = i18n.t('toast.sharePositionSaveFailed', {
+          error: (err as Error).message,
+        });
+        showToast(error, 'error');
+        return { ok: false, error };
       }
     },
-    [client],
+    [client, showToast],
   );
 
   /**
@@ -1930,15 +1927,14 @@ export function useMeshCore() {
         await client.refreshSelfInfo().catch(() => {});
         return { ok: true };
       } catch (err) {
-        return {
-          ok: false,
-          error: i18n.t('toast.locationSourceSaveFailed', {
-            error: (err as Error).message,
-          }),
-        };
+        const error = i18n.t('toast.locationSourceSaveFailed', {
+          error: (err as Error).message,
+        });
+        showToast(error, 'error');
+        return { ok: false, error };
       }
     },
-    [client],
+    [client, showToast],
   );
 
   /**
@@ -2022,15 +2018,14 @@ export function useMeshCore() {
         setAutoAddConfig(cfg);
         return { ok: true };
       } catch (err) {
-        return {
-          ok: false,
-          error: i18n.t('toast.saveSettingsFailed', {
-            error: (err as Error).message,
-          }),
-        };
+        const error = i18n.t('toast.saveSettingsFailed', {
+          error: (err as Error).message,
+        });
+        showToast(error, 'error');
+        return { ok: false, error };
       }
     },
-    [client, setAutoAddConfig],
+    [client, setAutoAddConfig, showToast],
   );
 
   return {

@@ -1046,13 +1046,8 @@ function FieldSlot({
       </span>
     );
   }
-  if (!loaded) {
-    return failed && onRetry ? (
-      <FailedValue onRetry={onRetry} />
-    ) : (
-      <UnloadedValue />
-    );
-  }
+  if (failed && onRetry) return <FailedValue onRetry={onRetry} />;
+  if (!loaded) return <UnloadedValue />;
   return <>{children}</>;
 }
 
@@ -1172,9 +1167,9 @@ function NumberField({
  * @remarks
  * The slider alone made precision impractical — the flood advert interval is
  * 166 steps across 160 pixels — and its `onKeyUp` commit turned one keyboard
- * step into one `set`+`get` round trip over LoRa. The slider now commits only
- * on pointer release; keyboard users take the typed field, which commits once
- * on blur or Enter.
+ * step into one `set`+`get` round trip over LoRa. The slider commits on pointer
+ * release or blur after keyboard edits. The typed field commits on blur or
+ * Enter. The shared commit path deduplicates unchanged pending intents.
  */
 function NumberEntry({
   setting,

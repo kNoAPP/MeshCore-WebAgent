@@ -101,9 +101,14 @@ function matchesFilter(c: Contact, filter: ContactFilter): boolean {
 // retransmitted message can arrive after one with a newer timestamp.
 function lastMessageTime(
   msgHistory: Record<string, Message[]>,
-  prefix: string,
+  contact: Contact,
 ): number {
-  const msgs = msgHistory[directConvoId(prefix)];
+  const isAdminNode =
+    contact.advType === ADV_TYPE_REPEATER || contact.advType === ADV_TYPE_ROOM;
+  const id = isAdminNode
+    ? repeaterConvoId(contact.pubkeyPrefix)
+    : directConvoId(contact.pubkeyPrefix);
+  const msgs = msgHistory[id];
   if (!msgs?.length) return 0;
   let latest = 0;
   for (const m of msgs) {
@@ -205,7 +210,7 @@ export function Sidebar() {
       const available = aside.offsetHeight - dividerH;
       // Contacts keeps its own minimum: a maximized split must never leave the
       // lower section with nothing to render into.
-      const ceiling = Math.max(MIN_SECTION_PX, available - MIN_SECTION_PX);
+      const ceiling = Math.max(MIN_SECTION_PX, Math.floor(available / 2));
       const fit = Math.max(
         MIN_SECTION_PX,
         Math.min(measureChannelsFitHeight(), ceiling),
@@ -243,7 +248,7 @@ export function Sidebar() {
     if (contactSort !== 'latest') return EMPTY_LATEST_TIMES;
     const times = new Map<string, number>();
     for (const c of Object.values(contacts)) {
-      times.set(c.pubkeyPrefix, lastMessageTime(msgHistory, c.pubkeyPrefix));
+      times.set(c.pubkeyPrefix, lastMessageTime(msgHistory, c));
     }
     return times;
   }, [contacts, contactSort, msgHistory]);

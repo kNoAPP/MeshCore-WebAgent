@@ -499,6 +499,7 @@
     "empty": "Selecciona un canal o contacto para empezar a chatear",
     "noMessages": "Aún no hay mensajes",
     "transcriptLabel": "Transcripción de la conversación",
+    "messageAnnouncement": "{{sender}}: {{message}}",
     "lastUnread": "Último no leído",
     "noAck": "Sin confirmación",
     "noAckTooltip": "El mensaje aún puede haber llegado: la confirmación puede perderse en la ruta",

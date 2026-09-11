@@ -94,7 +94,7 @@ export function AiSettingsBody() {
     // Drop the plaintext from the field as soon as it's handed off — the store
     // status indicator reflects that a key is now loaded. A failed save keeps
     // it, so the user isn't made to paste the key again.
-    if (ok) setKeyInput('');
+    if (ok) setKeyInput((current) => (current.trim() === value ? '' : current));
   };
 
   const forget = async () => {

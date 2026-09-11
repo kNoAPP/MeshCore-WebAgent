@@ -164,7 +164,7 @@ function DiscardConfirm({
           </button>
           <button
             onClick={onDiscard}
-            className='rounded-md bg-red px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-hover'
+            className='rounded-md bg-red-solid px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-hover'
           >
             {t('common.discard')}
           </button>
