@@ -258,9 +258,11 @@ export function ChatArea() {
         if (msg.own) return 'own';
         if (msg.kind === 'channel') {
           const sender = splitChannelMessage(msg.text).sender?.trim();
-          return sender ? `channel:${sender}` : null;
+          // A stable key for an unnamed sender, so its turn still gets the
+          // `?` label rather than no header at all.
+          return sender ? `channel:${sender}` : 'channel:?';
         }
-        return msg.pubkeyPrefix ? `direct:${msg.pubkeyPrefix}` : null;
+        return `direct:${msg.pubkeyPrefix ?? '?'}`;
       }),
     [visibleMessages],
   );
