@@ -832,7 +832,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       const enriched: Message = {
         ...msg,
         id: msg.id ?? crypto.randomUUID(),
-        _unread: !visible,
+        // Only inbound traffic can be unread: an automation's own send lands
+        // in a conversation the user isn't looking at, and a system note is
+        // not something to come back to.
+        _unread: !visible && !msg.own && !msg.system,
       };
       return {
         msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },

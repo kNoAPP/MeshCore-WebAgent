@@ -88,9 +88,21 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     lon: number;
   } | null>(null);
   // Capture the opening viewport once, from the first render's state.
-  const [startView] = useState(() =>
+  const [startView, setStartView] = useState(() =>
     initialView(useMeshStore.getState().mapPrefs, self, nodes),
   );
+  // Per-radio preferences hydrate asynchronously *after* the session reports
+  // 'connected', so a map opened in that window (a `#/map` deep link, or
+  // switching straight to Map) captures the fallback view. Re-frame on the
+  // saved viewport when it lands — but never once the user has moved the map
+  // themselves, since their pan writes `mapPrefs` too.
+  const savedPrefs = useMeshStore((s) => s.mapPrefs);
+  const viewportSettled = useRef(savedPrefs != null);
+  useEffect(() => {
+    if (viewportSettled.current || !savedPrefs) return;
+    viewportSettled.current = true;
+    setStartView({ center: savedPrefs.center, zoom: savedPrefs.zoom });
+  }, [savedPrefs]);
   // When on, only favorited contacts (plus this node) are plotted.
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
@@ -201,9 +213,10 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
       nodes={plotted}
       startView={startView}
       nodeActions={mapPicking ? undefined : nodeActions}
-      onMoveEnd={(center, zoom) =>
-        useMeshStore.getState().setMapPrefs({ center, zoom })
-      }
+      onMoveEnd={(center, zoom) => {
+        viewportSettled.current = true;
+        useMeshStore.getState().setMapPrefs({ center, zoom });
+      }}
       onMapReady={setMap}
     >
       <div className='pointer-events-none absolute inset-x-0 top-0 z-1000 flex flex-col items-start gap-2 p-3'>
@@ -219,7 +232,13 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
       {visible.length === 0 && !mapPicking && (
         <div className='pointer-events-none absolute inset-0 z-1000 flex items-center justify-center p-6'>
           <p className='pointer-events-auto max-w-sm rounded-card border border-border bg-surface/95 px-4 py-3 text-center text-sm text-text2 backdrop-blur'>
-            {t(favoritesOnly ? 'map.emptyFavorites' : 'map.empty')}
+            {t(
+              favoritesOnly
+                ? 'map.emptyFavorites'
+                : self
+                  ? 'map.emptyPeers'
+                  : 'map.empty',
+            )}
           </p>
         </div>
       )}

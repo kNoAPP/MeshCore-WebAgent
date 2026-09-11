@@ -789,6 +789,7 @@
     "self": "Este nodo",
     "markerCap": "Mostrando {{shown}} de {{total}} nodos",
     "empty": "Ningún nodo ha anunciado todavía su ubicación. Las ubicaciones llegan con los anuncios, así que esto se irá llenando a medida que se escuche la malla.",
+    "emptyPeers": "Ningún otro nodo ha anunciado todavía su ubicación. Las ubicaciones llegan con los anuncios, así que esto se irá llenando a medida que se escuche la malla.",
     "emptyFavorites": "Ninguno de tus favoritos tiene ubicación todavía.",
     "popup": {
       "message": "Mensaje",

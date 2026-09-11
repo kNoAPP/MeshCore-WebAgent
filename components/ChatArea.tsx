@@ -592,8 +592,10 @@ export function ChatArea() {
               const contact = msg.pubkeyPrefix
                 ? contacts[msg.pubkeyPrefix]
                 : undefined;
+              // `||`, not `??`: a stored contact with an empty name would
+              // otherwise render no sender at all.
               senderLabel =
-                contact?.name ?? msg.pubkeyPrefix?.slice(0, 8) ?? '?';
+                contact?.name || msg.pubkeyPrefix?.slice(0, 8) || '?';
             }
 
             const mentioned =
