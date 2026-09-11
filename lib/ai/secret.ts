@@ -102,9 +102,8 @@ export function getStorageContext(): {
  * @param remember - when true, encrypt-at-rest with the connected radio's key
  * so it restores on the next connect to the same radio; a different radio can't
  * decrypt it. Fails without an active radio encryption context.
- * @returns whether a requested remembered save actually landed. Always true
- * when `remember` is false, since there was nothing to persist — the in-memory
- * key is set either way.
+ * @returns whether persistence or removal of a previous remembered copy
+ * succeeded without being superseded. The in-memory key is set either way.
  */
 export async function setApiKey(
   value: string,
@@ -129,11 +128,14 @@ export async function setApiKey(
   } else {
     // Drop any previously remembered copy so a stale key can't silently
     // resurface on the next connect to this radio.
-    await enqueue(() => clearSecret(active.pubkey, API_KEY_NAME));
+    const cleared = await enqueue(() =>
+      clearSecret(active.pubkey, API_KEY_NAME),
+    );
+    if (!cleared) return false;
   }
   // A wipe/forget/another setApiKey during the await supersedes this one; don't
   // report persistence state for a key that's no longer active.
-  if (generation !== mine) return true;
+  if (generation !== mine) return false;
   persisted = landed;
   syncStatus();
   return remember ? landed : true;
@@ -174,14 +176,17 @@ export async function loadPersistedApiKey(): Promise<boolean> {
 /**
  * Wipes the in-memory key and deletes any persisted copy for the connected
  * radio. Use for an explicit "forget key" action.
+ * @returns whether the persisted copy was removed, or no context was active.
  */
-export async function forgetApiKey(): Promise<void> {
+export async function forgetApiKey(): Promise<boolean> {
   generation++;
   apiKey = null;
   persisted = false;
   const active = ctx;
   syncStatus();
-  if (active) await enqueue(() => clearSecret(active.pubkey, API_KEY_NAME));
+  return active
+    ? enqueue(() => clearSecret(active.pubkey, API_KEY_NAME))
+    : true;
 }
 
 /**

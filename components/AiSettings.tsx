@@ -86,7 +86,14 @@ export function AiSettingsBody() {
         // cleared is the only copy the user could retry with.
         return stored
           ? { ok: true }
-          : { ok: false, error: t('settings.ai.rememberFailed') };
+          : {
+              ok: false,
+              error: t(
+                remember && canRemember
+                  ? 'settings.ai.rememberFailed'
+                  : 'settings.ai.removalFailed',
+              ),
+            };
       } catch (err) {
         return { ok: false, error: (err as Error).message };
       }
@@ -98,8 +105,13 @@ export function AiSettingsBody() {
   };
 
   const forget = async () => {
-    await forgetApiKey();
-    setKeyInput('');
+    const value = keyInput;
+    const { ok } = await runSave(async () =>
+      (await forgetApiKey())
+        ? { ok: true }
+        : { ok: false, error: t('settings.ai.removalFailed') },
+    );
+    if (ok) setKeyInput((current) => (current === value ? '' : current));
   };
 
   const statusKey =
