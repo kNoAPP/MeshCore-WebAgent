@@ -76,6 +76,19 @@ export interface NodeAction {
 }
 
 /**
+ * Frames {@link map} on {@link view}. The `bounds` case fits every located
+ * node; `maxZoom` keeps a single node (or a tight cluster) from slamming all
+ * the way to street level.
+ */
+export function applyStartView(map: L.Map, view: StartView): void {
+  if ('bounds' in view) {
+    map.fitBounds(view.bounds, { padding: [40, 40], maxZoom: 13 });
+  } else {
+    map.setView(view.center, view.zoom);
+  }
+}
+
+/**
  * The reusable interactive Leaflet map: an online raster basemap (CARTO
  * Positron/Dark Matter, matching the app theme) inside a single locked world,
  * plotting the caller's nodes and edges. Composed by the Map page and the
@@ -143,13 +156,7 @@ export function BaseLeafletMap({
 
     // Apply the opening viewport now, before the persist handler is wired, so
     // this programmatic move never reports a move for a user who hasn't panned.
-    // The `bounds` case frames every located node; `maxZoom` keeps a single
-    // node (or a tight cluster) from slamming all the way to street level.
-    if ('bounds' in startView) {
-      map.fitBounds(startView.bounds, { padding: [40, 40], maxZoom: 13 });
-    } else {
-      map.setView(startView.center, startView.zoom);
-    }
+    applyStartView(map, startView);
 
     // Edges sit under markers so a node's shape always reads on top of its
     // links.

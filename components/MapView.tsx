@@ -21,7 +21,11 @@ import {
   type MapPrefs,
   type StartView,
 } from '@/lib/map/config';
-import { BaseLeafletMap, type NodeAction } from './BaseLeafletMap';
+import {
+  BaseLeafletMap,
+  applyStartView,
+  type NodeAction,
+} from './BaseLeafletMap';
 import { MapLegend } from './MapLegend';
 import { Switch } from './Switch';
 
@@ -88,22 +92,25 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     lon: number;
   } | null>(null);
   // Capture the opening viewport once, from the first render's state.
-  const [startView, setStartView] = useState(() =>
+  const [startView] = useState(() =>
     initialView(useMeshStore.getState().mapPrefs, self, nodes),
   );
-  // Per-radio preferences hydrate asynchronously *after* the session reports
-  // 'connected', so a map opened in that window (a `#/map` deep link, or
-  // switching straight to Map) captures the fallback view. Re-frame on the
-  // saved viewport when it lands — but never once the user has moved the map
-  // themselves, since their pan writes `mapPrefs` too. Held off while picking
-  // a location: the re-frame remounts Leaflet, which would drop the placed pin.
+  // Per-radio preferences and the advert cache both hydrate *after* the session
+  // reports 'connected', so a map opened in that window (a `#/map` deep link,
+  // or switching straight to Map) has nothing to frame on. Re-frame the live
+  // map once the first real input lands — not by remounting it, which would
+  // drop a pin placed while picking — and only until the viewport settles on
+  // real data or the user's own pan.
   const savedPrefs = useMeshStore((s) => s.mapPrefs);
-  const viewportSettled = useRef(savedPrefs != null);
+  const viewportSettled = useRef(
+    savedPrefs != null || self != null || nodes.length > 0,
+  );
   useEffect(() => {
-    if (viewportSettled.current || !savedPrefs || mapPicking) return;
+    if (!map || viewportSettled.current || mapPicking) return;
+    if (!savedPrefs && !self && nodes.length === 0) return;
     viewportSettled.current = true;
-    setStartView({ center: savedPrefs.center, zoom: savedPrefs.zoom });
-  }, [savedPrefs, mapPicking]);
+    applyStartView(map, initialView(savedPrefs, self, nodes));
+  }, [map, savedPrefs, mapPicking, self, nodes]);
   // When on, only favorited contacts (plus this node) are plotted.
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 

@@ -322,7 +322,10 @@ export function ChatArea() {
         // the way back, so leave the bubble as the cue that there is something
         // below the fold.
         const list = messagesRef.current;
-        if (!last?.own && list && !isNearBottom(list)) {
+        const below = list
+          ? list.scrollHeight - list.scrollTop > list.clientHeight
+          : false;
+        if (!last?.own && below) {
           setShowNewIndicator(true);
         }
         return;
