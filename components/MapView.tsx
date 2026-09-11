@@ -105,18 +105,29 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   const prefsHydrated = useMeshStore((s) => s.prefsHydrated);
   const framedOnData = useRef(self != null || nodes.length > 0);
   const framedOnPrefs = useRef(false);
+  // The viewport we last put the map at, and whether the user has since moved
+  // it themselves. `moveend` fires for our own framing too, so the two are told
+  // apart by comparing against what we applied.
+  const appliedView = useRef<[number, number, number] | null>(null);
+  const userMoved = useRef(false);
+  const rememberView = useCallback((m: L.Map) => {
+    const c = m.getCenter();
+    appliedView.current = [c.lat, c.lng, m.getZoom()];
+  }, []);
   useEffect(() => {
-    if (!map || mapPicking) return;
+    if (!map || mapPicking || userMoved.current) return;
     if (prefsHydrated && savedPrefs && !framedOnPrefs.current) {
       framedOnPrefs.current = true;
       framedOnData.current = true;
       applyStartView(map, { center: savedPrefs.center, zoom: savedPrefs.zoom });
+      rememberView(map);
       return;
     }
     if (framedOnData.current || (!self && nodes.length === 0)) return;
     framedOnData.current = true;
     applyStartView(map, initialView(null, self, nodes));
-  }, [map, savedPrefs, prefsHydrated, mapPicking, self, nodes]);
+    rememberView(map);
+  }, [map, savedPrefs, prefsHydrated, mapPicking, self, nodes, rememberView]);
   // When on, only favorited contacts (plus this node) are plotted.
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
@@ -227,10 +238,22 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
       nodes={plotted}
       startView={startView}
       nodeActions={mapPicking ? undefined : nodeActions}
-      onMoveEnd={(center, zoom) =>
-        useMeshStore.getState().setMapPrefs({ center, zoom })
-      }
-      onMapReady={setMap}
+      onMoveEnd={(center, zoom) => {
+        const applied = appliedView.current;
+        if (
+          !applied ||
+          applied[0] !== center[0] ||
+          applied[1] !== center[1] ||
+          applied[2] !== zoom
+        ) {
+          userMoved.current = true;
+        }
+        useMeshStore.getState().setMapPrefs({ center, zoom });
+      }}
+      onMapReady={(m) => {
+        if (m) rememberView(m);
+        setMap(m);
+      }}
     >
       <div className='pointer-events-none absolute inset-x-0 top-0 z-1000 flex flex-col items-start gap-2 p-3'>
         {capped && (

@@ -237,16 +237,19 @@ export function BaseLeafletMap({
 
     layer.clearLayers();
     for (const node of nodes) {
+      const actions = actionsFor(node);
+      const inert =
+        actions.length === 0 && !(clickable && node.kind !== 'self');
       const marker = L.marker([node.lat, node.lon], {
         icon: nodeIcon(node),
-        // Without a popup or click handler (location-pick mode) a marker would
-        // otherwise swallow the click the map needs to place the pin.
-        bubblingMouseEvents: !clickable && !hasNodeActions,
+        // A marker with neither a popup nor a click handler (location-pick
+        // mode) would otherwise swallow the click the map needs to place
+        // the pin.
+        bubblingMouseEvents: inert,
       });
       const label =
         node.kind === 'self' ? t('map.self') : escapeHtml(node.name);
       marker.bindTooltip(label, { direction: 'top' });
-      const actions = actionsFor(node);
       if (actions.length > 0) {
         // A popup rather than a modal: the point of a spatial view is that the
         // map you clicked from stays on screen. The markup is built from the
