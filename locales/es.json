@@ -496,6 +496,7 @@
     "empty": "Selecciona un canal o contacto para empezar a chatear",
     "noMessages": "Aún no hay mensajes",
     "transcriptLabel": "Transcripción de la conversación",
+    "you": "Tú",
     "messageAnnouncement": "{{sender}}: {{message}}",
     "lastUnread": "Último no leído",
     "noAck": "Sin confirmación",

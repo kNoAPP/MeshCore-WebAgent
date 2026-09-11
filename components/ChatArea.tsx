@@ -122,6 +122,7 @@ export function ChatArea() {
   );
   const [mentionIndex, setMentionIndex] = useState(0);
   const [showNewIndicator, setShowNewIndicator] = useState(false);
+  const [seenUnreadMarker, setSeenUnreadMarker] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -269,7 +270,7 @@ export function ChatArea() {
   const showHeader = useMemo(
     () =>
       visibleMessages.map((msg, i) => {
-        if (senderLabels[i] === null) return false;
+        if (senderLabels[i] === null || !senderKeys[i]) return false;
         if (i === 0 || dayDividers[i] != null) return true;
         const prev = visibleMessages[i - 1];
         if (!senderKeys[i] || senderKeys[i - 1] !== senderKeys[i]) return true;
@@ -393,7 +394,7 @@ export function ChatArea() {
       behavior: switched || instantJump ? 'auto' : 'smooth',
     });
     atBottomRef.current = true;
-  }, [activeConvo?.id, messages.length]);
+  }, [activeConvo?.id, messages.length, unreadMarker]);
 
   // Scroll to and briefly flash a message targeted by the command palette, then
   // clear the one-shot request. The render pass above has already widened the
@@ -447,6 +448,7 @@ export function ChatArea() {
     atBottomRef.current = nearBottom;
     if (nearBottom) {
       setShowNewIndicator(false);
+      setSeenUnreadMarker(unreadMarker);
     } else if (openedStart === -1) {
       // Reading back through history: pin the window where it is. Left to
       // slide, the newest-N start would advance on every incoming message and
@@ -502,6 +504,7 @@ export function ChatArea() {
     bottomRef.current?.scrollIntoView({ behavior: 'auto' });
     atBottomRef.current = true;
     setShowNewIndicator(false);
+    setSeenUnreadMarker(unreadMarker);
   };
 
   const insertMention = (name: string) => {
@@ -677,9 +680,19 @@ export function ChatArea() {
                   className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
                   data-msg-id={msg.id}
                 >
-                  {showHeader[i] && (
-                    <div className='px-1 text-[11px] text-text2'>
-                      {senderLabels[i]}
+                  {!msg.system && (
+                    <div
+                      className={
+                        showHeader[i]
+                          ? 'px-1 text-[11px] text-text2'
+                          : 'sr-only'
+                      }
+                    >
+                      {msg.own
+                        ? t('chat.you')
+                        : senderLabels[i] === '?'
+                          ? t('common.unknown')
+                          : senderLabels[i]}
                     </div>
                   )}
                   <MessageBubble
@@ -724,7 +737,8 @@ export function ChatArea() {
           })}
           <div ref={bottomRef} />
         </div>
-        {showNewIndicator && (
+        {(showNewIndicator ||
+          (unreadMarker !== null && unreadMarker !== seenUnreadMarker)) && (
           <button
             type='button'
             onClick={jumpToBottom}
