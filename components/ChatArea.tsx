@@ -305,14 +305,19 @@ export function ChatArea() {
       // messages" bubble instead of yanking them down. Read the latest message
       // live to keep `messages` out of the deps (we key on its length, not
       // identity).
-      const live = convoId
-        ? (useMeshStore.getState().msgHistory[convoId] ?? [])
-        : [];
+      const state = useMeshStore.getState();
+      const live = convoId ? (state.msgHistory[convoId] ?? []) : [];
       const last = live[live.length - 1];
+      const arrival = state.lastArrival;
+      const arrivedHidden =
+        arrival?.convoId === convoId &&
+        arrival?.msgId === last?.id &&
+        !arrival?.visible;
       // Arrived while the conversation was off screen (other tab, other
       // window, other view): leave the scroll where the user left it, so the
       // unread divider they come back to isn't already scrolled past.
-      if (convoId && !isConvoVisible(useMeshStore.getState(), convoId)) {
+      if (convoId && (arrivedHidden || !isConvoVisible(state, convoId))) {
+        atBottomRef.current = false;
         return;
       }
       if (!last?.own && !atBottomRef.current) {
