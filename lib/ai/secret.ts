@@ -36,9 +36,31 @@ let generation = 0;
 let ioChain: Promise<unknown> = Promise.resolve();
 
 // A "don't remember this" save or an explicit Forget can be made before the
-// session binds its encryption context — the app reports `connected` first.
-// Neither can reach IndexedDB yet, so the deletion is owed until it can.
-let clearOwed = false;
+// session binds its encryption context — the app reports `connected` first — or
+// its delete can simply fail. Either way the removal is still owed.
+// `clearOwedPre` covers the pre-context window and belongs to the session that
+// opened it; `clearOwedFor` names the radio whose record a delete has yet to be
+// removed from, and outlives teardown so the next connect to that same radio
+// finishes the job.
+let clearOwedPre = false;
+let clearOwedFor: string | null = null;
+
+/** Whether the record for {@link pubkey} is one the user asked to be rid of. */
+function clearIsOwed(pubkey: string): boolean {
+  return clearOwedPre || clearOwedFor === pubkey;
+}
+
+/** Runs an owed delete for {@link pubkey}, keeping the debt if it fails. */
+async function settleOwedClear(pubkey: string): Promise<boolean> {
+  const ok = await enqueue(() => clearSecret(pubkey, API_KEY_NAME));
+  if (ok) {
+    clearOwedPre = false;
+    if (clearOwedFor === pubkey) clearOwedFor = null;
+  } else {
+    clearOwedFor = pubkey;
+  }
+  return ok;
+}
 
 function enqueue<T>(op: () => Promise<T>): Promise<T> {
   const run = ioChain.then(op, op);
@@ -85,17 +107,17 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
     syncStatus();
   }
   ctx = { pubkey, storageKey };
-  // Settle a deletion the user asked for before this existed, so a remembered
-  // copy they declined or forgot can't survive into the next session. The
-  // obligation stands until the delete actually lands — `enqueue` runs it
-  // ahead of the restore that useMeshCore kicks off next, which checks the
-  // flag before loading anything.
-  if (clearOwed) {
+  // Settle a deletion the user asked for but that never landed — before this
+  // context existed, or because its write failed — so a remembered copy they
+  // declined or forgot can't survive into this session. `enqueue` runs it ahead
+  // of the restore useMeshCore kicks off next, which checks the obligation
+  // before loading anything.
+  if (clearIsOwed(pubkey)) {
     const owedFor = ctx;
-    void enqueue(() => clearSecret(pubkey, API_KEY_NAME)).then((ok) => {
+    void settleOwedClear(pubkey).then(() => {
       // A teardown or radio switch during the delete has already decided what
-      // is owed; re-owing here would target the next radio's remembered key.
-      if (ctx === owedFor) clearOwed = !ok;
+      // is owed; anything set here would belong to the wrong radio.
+      if (ctx !== owedFor) clearOwedPre = false;
     });
   }
 }
@@ -138,7 +160,7 @@ export async function setApiKey(
     // Nothing can be written or deleted yet. Owe the deletion so a remembered
     // copy the user has just declined doesn't outlive this session, and report
     // the failure rather than claiming a removal that hasn't happened.
-    if (!remember) clearOwed = true;
+    if (!remember) clearOwedPre = true;
     return false;
   }
 
@@ -152,10 +174,7 @@ export async function setApiKey(
   } else {
     // Drop any previously remembered copy so a stale key can't silently
     // resurface on the next connect to this radio.
-    const cleared = await enqueue(() =>
-      clearSecret(active.pubkey, API_KEY_NAME),
-    );
-    if (!cleared) return false;
+    if (!(await settleOwedClear(active.pubkey))) return false;
   }
   // A wipe/forget/another setApiKey during the await supersedes this one; don't
   // report persistence state for a key that's no longer active.
@@ -186,7 +205,7 @@ export async function loadPersistedApiKey(): Promise<boolean> {
   // still owed means this record is one the user already asked to be rid of.
   if (
     value === null ||
-    clearOwed ||
+    clearIsOwed(active.pubkey) ||
     ctx !== active ||
     generation !== mine ||
     apiKey !== null
@@ -203,7 +222,8 @@ export async function loadPersistedApiKey(): Promise<boolean> {
  * Wipes the in-memory key and deletes any persisted copy for the connected
  * radio. Use for an explicit "forget key" action.
  * @returns whether the persisted copy was removed. False when no context is
- * bound yet — the deletion is owed until one is, and cannot be confirmed here.
+ * bound yet or the delete failed — the removal stays owed either way, and is
+ * retried on the next connect to that radio, so the key can't come back.
  */
 export async function forgetApiKey(): Promise<boolean> {
   generation++;
@@ -212,10 +232,10 @@ export async function forgetApiKey(): Promise<boolean> {
   const active = ctx;
   syncStatus();
   if (!active) {
-    clearOwed = true;
+    clearOwedPre = true;
     return false;
   }
-  return enqueue(() => clearSecret(active.pubkey, API_KEY_NAME));
+  return settleOwedClear(active.pubkey);
 }
 
 /**
@@ -228,9 +248,10 @@ export function wipeApiKey(): void {
   apiKey = null;
   persisted = false;
   ctx = null;
-  // An owed deletion belongs to the session that asked for it; carrying it
-  // forward would delete the next radio's remembered key instead.
-  clearOwed = false;
+  // The pre-context obligation belongs to the session that opened it; carrying
+  // it forward would delete the next radio's remembered key. A failed delete's
+  // obligation is radio-scoped, so that one survives on purpose.
+  clearOwedPre = false;
   syncStatus();
 }
 

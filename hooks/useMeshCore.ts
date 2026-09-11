@@ -1880,22 +1880,39 @@ export function useMeshCore() {
    * @returns whether the write succeeded, with the localized reason when it
    * didn't, so the caller can revert its selection.
    */
-  const setLocationPolicy = useCallback(
-    async (policy: number): Promise<WriteResult> => {
-      if (!canTransmit(client))
-        return { ok: false, error: i18n.t('toast.notConnected') };
-      try {
-        await client.setLocationPolicy(policy);
-        return { ok: true };
-      } catch (err) {
-        const error = i18n.t('toast.sharePositionSaveFailed', {
-          error: (err as Error).message,
-        });
-        showToast(error, 'error');
-        return { ok: false, error };
-      }
+  // Both location writes touch `advert_loc_policy`, and `setLocationSource`
+  // decides what to write from the *current* one — so they have to settle in
+  // order, or a stale read undoes the edit that preceded it.
+  const locationChain = useRef<Promise<void>>(Promise.resolve());
+  const serializeLocation = useCallback(
+    (op: () => Promise<WriteResult>): Promise<WriteResult> => {
+      const run = locationChain.current.then(op);
+      locationChain.current = run.then(
+        () => undefined,
+        () => undefined,
+      );
+      return run;
     },
-    [client, showToast],
+    [],
+  );
+
+  const setLocationPolicy = useCallback(
+    (policy: number): Promise<WriteResult> =>
+      serializeLocation(async () => {
+        if (!canTransmit(client))
+          return { ok: false, error: i18n.t('toast.notConnected') };
+        try {
+          await client.setLocationPolicy(policy);
+          return { ok: true };
+        } catch (err) {
+          const error = i18n.t('toast.sharePositionSaveFailed', {
+            error: (err as Error).message,
+          });
+          showToast(error, 'error');
+          return { ok: false, error };
+        }
+      }),
+    [client, showToast, serializeLocation],
   );
 
   /**
@@ -1918,32 +1935,33 @@ export function useMeshCore() {
    * when one didn't.
    */
   const setLocationSource = useCallback(
-    async (useGps: boolean): Promise<WriteResult> => {
-      if (!canTransmit(client))
-        return { ok: false, error: i18n.t('toast.notConnected') };
-      try {
-        const policy = client.selfInfo?.advLocPolicy;
-        if (policy !== undefined && policy !== ADVERT_LOC_POLICY.NONE) {
-          await client.setLocationPolicy(
-            useGps ? ADVERT_LOC_POLICY.SHARE : ADVERT_LOC_POLICY.PREFS,
-          );
+    (useGps: boolean): Promise<WriteResult> =>
+      serializeLocation(async () => {
+        if (!canTransmit(client))
+          return { ok: false, error: i18n.t('toast.notConnected') };
+        try {
+          const policy = client.selfInfo?.advLocPolicy;
+          if (policy !== undefined && policy !== ADVERT_LOC_POLICY.NONE) {
+            await client.setLocationPolicy(
+              useGps ? ADVERT_LOC_POLICY.SHARE : ADVERT_LOC_POLICY.PREFS,
+            );
+          }
+          await client.setGpsEnabled(useGps);
+          // Re-read SELF_INFO so the map's self marker reflects the source just
+          // picked: the newly-active advertised coordinate (a GPS module's live
+          // fix, or the stored fixed one) is only reported on a fresh read, not
+          // echoed from the write. Best-effort — the switch itself succeeded.
+          await client.refreshSelfInfo().catch(() => {});
+          return { ok: true };
+        } catch (err) {
+          const error = i18n.t('toast.locationSourceSaveFailed', {
+            error: (err as Error).message,
+          });
+          showToast(error, 'error');
+          return { ok: false, error };
         }
-        await client.setGpsEnabled(useGps);
-        // Re-read SELF_INFO so the map's self marker reflects the source just
-        // picked: the newly-active advertised coordinate (a GPS module's live
-        // fix, or the stored fixed one) is only reported on a fresh read, not
-        // echoed from the write. Best-effort — the switch itself succeeded.
-        await client.refreshSelfInfo().catch(() => {});
-        return { ok: true };
-      } catch (err) {
-        const error = i18n.t('toast.locationSourceSaveFailed', {
-          error: (err as Error).message,
-        });
-        showToast(error, 'error');
-        return { ok: false, error };
-      }
-    },
-    [client, showToast],
+      }),
+    [client, showToast, serializeLocation],
   );
 
   /**
