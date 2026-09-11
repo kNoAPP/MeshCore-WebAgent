@@ -174,7 +174,8 @@ export function AiSettingsBody() {
           {keyStatus !== 'none' && (
             <button
               onClick={() => void forget()}
-              className='rounded-md border border-border-control px-3 py-1.5 text-xs text-text2 hover:text-text'
+              disabled={saving}
+              className='rounded-md border border-border-control px-3 py-1.5 text-xs text-text2 hover:text-text disabled:cursor-not-allowed disabled:opacity-50'
             >
               {t('settings.ai.forget')}
             </button>

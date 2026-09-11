@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
@@ -32,6 +32,22 @@ function AutoAddSettingsPanel() {
   const { applyAutoAddConfig } = useMeshCore();
   const [cfg, setCfg] = useState<AutoAddConfig>(autoAddConfig);
   const { status, errorText, run } = useSaveStatus();
+  const submitted = useRef<AutoAddConfig | null>(autoAddConfig);
+  const submit = (next: AutoAddConfig) => {
+    const previous = submitted.current;
+    if (
+      previous &&
+      (Object.keys(next) as (keyof AutoAddConfig)[]).every(
+        (key) => next[key] === previous[key],
+      )
+    ) {
+      return;
+    }
+    submitted.current = next;
+    void run(() => applyAutoAddConfig(next)).then(({ ok }) => {
+      if (!ok && submitted.current === next) submitted.current = null;
+    });
+  };
 
   // Auto-commit, like every other settings surface: each control writes to the
   // radio as it changes and reports through the chip, rather than hiding the
@@ -39,7 +55,7 @@ function AutoAddSettingsPanel() {
   const patch = (p: Partial<AutoAddConfig>) => {
     const next = { ...cfg, ...p };
     setCfg(next);
-    void run(() => applyAutoAddConfig(next));
+    submit(next);
   };
   const selected = cfg.mode === 'selected';
 
@@ -129,7 +145,7 @@ function AutoAddSettingsPanel() {
               setCfg({ ...cfg, maxHops: Number(e.target.value) })
             }
             onPointerUp={(event) => event.currentTarget.blur()}
-            onBlur={() => void run(() => applyAutoAddConfig(cfg))}
+            onBlur={() => submit(cfg)}
             className='w-full accent-accent'
           />
           <p className='mt-1 text-xs text-text2'>{t('autoAdd.maxHopsHint')}</p>

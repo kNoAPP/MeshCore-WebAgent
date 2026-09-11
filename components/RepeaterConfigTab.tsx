@@ -831,11 +831,16 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                 <RadioSection
                   radioValue={values.radio ?? ''}
                   txValue={values.tx ?? ''}
-                  busy={sectionBusy(RADIO_FIELDS)}
                   loaded={sectionLoaded(RADIO_FIELDS)}
-                  failed={RADIO_FIELDS.some((s) => failed.has(s.id))}
+                  pending={pending}
+                  failed={failed}
                   onEdit={() => setRadioEditOpen(true)}
                   onRefresh={() => refreshSection(RADIO_FIELDS)}
+                  onRetry={(id) =>
+                    refreshSection(
+                      RADIO_FIELDS.filter((setting) => setting.id === id),
+                    )
+                  }
                 />
               )}
             </Fragment>
@@ -1144,7 +1149,7 @@ function NumberField({
         type='number'
         inputMode='decimal'
         aria-label={ariaLabel}
-        step={setting.integer ? 1 : 'any'}
+        step={setting.step}
         min={setting.min}
         max={setting.max}
         value={value}
@@ -1455,45 +1460,57 @@ function CoordField({
 function RadioSection({
   radioValue,
   txValue,
-  busy,
   loaded,
+  pending,
   failed,
   onEdit,
   onRefresh,
+  onRetry,
 }: {
   radioValue: string;
   txValue: string;
-  busy: boolean;
   loaded: boolean;
-  /** Neither field answered its read, so the rows offer a retry. */
-  failed: boolean;
+  pending: ReadonlySet<string>;
+  failed: ReadonlySet<string>;
   onEdit: () => void;
   onRefresh: () => void;
+  onRetry: (id: 'radio' | 'tx') => void;
 }) {
   const { t, i18n } = useTranslation();
   const num = (n: number) => fmtNum(n, i18n.language);
   const parsed = parseRadio(radioValue);
-  const ready = parsed != null && txValue !== '';
-  const rows: { label: string; value: string | null }[] = [
+  const busy = pending.has('radio') || pending.has('tx');
+  const ready =
+    parsed != null &&
+    txValue !== '' &&
+    !busy &&
+    !failed.has('radio') &&
+    !failed.has('tx');
+  const rows: { id: 'radio' | 'tx'; label: string; value: string | null }[] = [
     {
+      id: 'radio',
       label: t('settings.frequency'),
       value: parsed ? t('settings.mhz', { value: num(parsed.freq) }) : null,
     },
     {
+      id: 'radio',
       label: t('settings.bandwidth'),
       value: parsed ? t('settings.khz', { value: num(parsed.bw) }) : null,
     },
     {
+      id: 'radio',
       label: t('settings.spreadingFactor'),
       value: parsed ? num(parsed.sf) : null,
     },
     {
+      id: 'radio',
       label: t('settings.codingRate'),
       value: parsed
         ? t('settings.radioEdit.crLabel', { value: parsed.cr })
         : null,
     },
     {
+      id: 'tx',
       label: t('settings.txPower'),
       value:
         txValue !== '' ? t('units.dbm', { value: num(Number(txValue)) }) : null,
@@ -1522,9 +1539,9 @@ function RadioSection({
           key={row.label}
           label={row.label}
           value={row.value}
-          loading={busy}
-          failed={failed}
-          onRetry={onRefresh}
+          loading={pending.has(row.id)}
+          failed={failed.has(row.id)}
+          onRetry={() => onRetry(row.id)}
         />
       ))}
     </Card>

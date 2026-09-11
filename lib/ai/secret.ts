@@ -101,7 +101,7 @@ export function getStorageContext(): {
  * @param value - the plaintext key the user provided.
  * @param remember - when true, encrypt-at-rest with the connected radio's key
  * so it restores on the next connect to the same radio; a different radio can't
- * decrypt it. Ignored when no radio is connected.
+ * decrypt it. Fails without an active radio encryption context.
  * @returns whether a requested remembered save actually landed. Always true
  * when `remember` is false, since there was nothing to persist — the in-memory
  * key is set either way.
@@ -117,9 +117,7 @@ export async function setApiKey(
   // Capture the context so the queued write targets this radio even if the
   // session is torn down (ctx nulled) before the op runs.
   const active = ctx;
-  // Nothing to persist without a radio, and `remember` is documented as
-  // ignored there, so that isn't a failure.
-  if (!active) return true;
+  if (!active) return !remember;
 
   let landed = false;
   if (remember) {

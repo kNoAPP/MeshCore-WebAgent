@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   useMeshStore,
@@ -420,6 +420,7 @@ function LocationCard() {
       ? { known, lat: String(p.lat), lon: String(p.lon) }
       : { known, ...known };
   });
+  const [lastSaved, setLastSaved] = useState(edit.known);
   // A new device value supersedes an untouched draft; an edit in progress is
   // left alone.
   const pristine = edit.lat === edit.known.lat && edit.lon === edit.known.lon;
@@ -431,7 +432,10 @@ function LocationCard() {
           lon: pristine ? deviceCoords.lon : edit.lon,
         }
       : edit;
-  if (reconciled !== edit) setEdit(reconciled);
+  if (reconciled !== edit) {
+    setEdit(reconciled);
+    if (pristine) setLastSaved(deviceCoords);
+  }
   const latStr = reconciled.lat;
   const lonStr = reconciled.lon;
   const setLatStr = (lat: string) => setEdit((e) => ({ ...e, lat }));
@@ -453,15 +457,6 @@ function LocationCard() {
   } = useSaveStatus();
   const savingSource = sourceStatus === 'saving';
   const savingAdvertise = advertiseStatus === 'saving';
-  // Last coordinate successfully written to the radio, so a blur that changed
-  // nothing (or a re-blur of the same value) doesn't re-issue the write. Seeded
-  // from the device's stored coordinate — not any pending map pick — and only
-  // advanced on a confirmed save, so a failed write can be retried.
-  const lastSaved = useRef({
-    lat: fmtDeg(useMeshStore.getState().selfInfo?.advLat),
-    lon: fmtDeg(useMeshStore.getState().selfInfo?.advLon),
-  });
-
   // A coordinate handed back by the map picker is saved immediately on mount —
   // choosing a point on the map is itself the commit, so there's no Save step.
   useEffect(() => {
@@ -477,10 +472,10 @@ function LocationCard() {
     void runCoordSave(() => setLocation(pending.lat, pending.lon)).then(
       ({ ok }) => {
         if (ok) {
-          lastSaved.current = {
+          setLastSaved({
             lat: String(pending.lat),
             lon: String(pending.lon),
-          };
+          });
         }
       },
     );
@@ -527,11 +522,11 @@ function LocationCard() {
   // flagged red, for the user to fix.
   const commitCoords = async () => {
     if (!canSave) return;
-    if (latStr === lastSaved.current.lat && lonStr === lastSaved.current.lon) {
+    if (latStr === lastSaved.lat && lonStr === lastSaved.lon) {
       return;
     }
     const { ok } = await runCoordSave(() => setLocation(latNum, lonNum));
-    if (ok) lastSaved.current = { lat: latStr, lon: lonStr };
+    if (ok) setLastSaved({ lat: latStr, lon: lonStr });
   };
 
   // Flip the advert policy between off (`NONE`) and a location-bearing policy
