@@ -242,7 +242,7 @@ export function Header() {
 
 // The truncated device name doubles as the keyboard- and touch-reachable
 // disclosure for its full text plus the battery/storage detail, which the
-// inline readout drops on a narrow header. Mirrors MessageBubble's PathToken.
+// inline readout drops on a narrow header. Mirrors MessageBubble's HintToken.
 function DeviceName({ name, detail }: { name: string; detail: string }) {
   const tooltipId = useId();
   return (
