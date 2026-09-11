@@ -153,18 +153,19 @@ export function ChatArea() {
   // `msgHistory` would also fire on `restoreHistory`, which can turn an empty
   // conversation into a populated one and would then announce week-old history
   // as new; the store's arrival record is the signal that a message landed.
+  //
+  // `lastArrival` is the sole dependency on purpose. A conversation switch must
+  // not recompute this: the result would be rebuilt from the same record, and
+  // re-inserting identical text into the live region announces a message that
+  // arrived minutes ago all over again. Each arrival enters the region once,
+  // when it lands.
   const lastArrival = useMeshStore((s) => s.lastArrival);
   const announcement = useMemo(() => {
-    if (
-      !lastArrival ||
-      lastArrival.convoId !== convoId ||
-      lastArrival.own ||
-      lastArrival.system
-    ) {
+    if (!lastArrival || lastArrival.own || lastArrival.system) {
       return { id: '', text: '' };
     }
     return { id: lastArrival.msgId, text: lastArrival.text };
-  }, [lastArrival, convoId]);
+  }, [lastArrival]);
 
   // The oldest message index the window has been opened back to — by scrolling
   // up, or by a jump — or -1 for just the newest page. An index rather than a
