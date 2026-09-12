@@ -1466,19 +1466,19 @@ function LocationRow({
   const rowStatus = combineStatus(latProps.status, lonProps?.status);
   const rowError = latProps.errorText ?? lonProps?.errorText;
   return (
-    <div className={ROW_CLASS}>
-      <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
+    <div className={`${ROW_CLASS} flex-wrap gap-y-2`}>
+      {/* Widest row on the card: latitude, longitude and Set on map side by
+          side. Wraps to its own line rather than crushing the label into a
+          one-word column. */}
+      <div className='flex min-w-48 flex-1 flex-col gap-0.5'>
         <span className='truncate text-text2'>
           {t('repeaterAdmin.config.location')}
         </span>
         <span className='text-[11px] leading-snug text-text2 opacity-80'>
-          {t('repeaterAdmin.config.fields.lat.hint')}
-        </span>
-        <span className='text-[11px] leading-snug text-text2 opacity-80'>
-          {t('repeaterAdmin.config.fields.lon.hint')}
+          {t('repeaterAdmin.config.locationHint')}
         </span>
       </div>
-      <div className='flex shrink-0 flex-wrap items-center justify-end gap-2'>
+      <div className='ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2'>
         <CoordField {...latProps} />
         {lonProps && <CoordField {...lonProps} />}
         {!disabled && (
