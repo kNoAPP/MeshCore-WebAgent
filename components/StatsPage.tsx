@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { RefreshCw } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import type { StatsResult, BatteryInfo } from '@/types/meshcore';
 import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
@@ -305,7 +306,11 @@ export function StatsPage() {
                   aria-label={t('stats.resyncClock')}
                   className='leading-none text-text2 transition-colors hover:text-accent disabled:opacity-50'
                 >
-                  {resyncing ? '⟳' : '↻'}
+                  <RefreshCw
+                    size={14}
+                    className={resyncing ? 'animate-spin' : undefined}
+                    aria-hidden='true'
+                  />
                 </button>,
               ],
             ]

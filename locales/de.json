@@ -42,7 +42,8 @@
     "settings": "⚙ Einstellungen",
     "disconnect": "⏻ Trennen",
     "language": "Sprache",
-    "advertise": "Diesen Knoten ankündigen"
+    "advertise": "Diesen Knoten ankündigen",
+    "storage": "Speicher"
   },
   "theme": {
     "toggle": "Helles/dunkles Design umschalten"
@@ -843,6 +844,7 @@
     "autoAddSettings": "Auto-Hinzufügen-Einstellungen",
     "addContact": "Kontakt hinzufügen",
     "manage": "Verwalten",
+    "favorite": "Favorit",
     "dragResize": "Zum Ändern der Größe ziehen",
     "dragWidth": "Zum Ändern der Seitenleistenbreite ziehen",
     "searchContacts": "Kontakte suchen",
