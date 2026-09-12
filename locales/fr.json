@@ -644,7 +644,7 @@
       "advanced": "Avancé",
       "intro": "Les valeurs sont lues sur le nœud à la demande, une commande à la fois, pour que cet onglet ne consomme pas le temps d'antenne de ce répéteur sans qu'on le lui demande. Charge une carte pour voir ses réglages actuels : un champ resté sans réponse peut être réessayé seul.",
       "loadAll": "Tout charger",
-      "noReply": "Aucune réponse",
+      "readFailed": "Lecture impossible",
       "retryField": "Réessayer {{field}}",
       "range": "({{min}}–{{max}})",
       "filterLabel": "Filtrer les paramètres",

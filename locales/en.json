@@ -643,7 +643,7 @@
       "advanced": "Advanced",
       "intro": "Values are read from the node on demand, one command at a time, so the tab doesn't spend this repeater's airtime unless you ask it to. Load a card to see its current settings — a field that never answers can be retried on its own.",
       "loadAll": "Load all",
-      "noReply": "No reply",
+      "readFailed": "Couldn't read",
       "retryField": "Retry {{field}}",
       "range": "({{min}}–{{max}})",
       "filterLabel": "Filter settings",

@@ -644,7 +644,7 @@
       "advanced": "Erweitert",
       "intro": "Werte werden bei Bedarf einzeln vom Knoten gelesen, damit dieser Tab die Sendezeit dieses Repeaters nicht ungefragt verbraucht. Lade eine Karte, um ihre aktuellen Einstellungen zu sehen — ein Feld ohne Antwort kann einzeln erneut versucht werden.",
       "loadAll": "Alles laden",
-      "noReply": "Keine Antwort",
+      "readFailed": "Lesen fehlgeschlagen",
       "retryField": "{{field}} erneut laden",
       "range": "({{min}}–{{max}})",
       "filterLabel": "Einstellungen filtern",

@@ -230,6 +230,12 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                 parsed = normalizeReply(setting, reply);
                 if (parsed === null) {
                   errored = true;
+                  // The toast goes away; the row must not go back to looking
+                  // like a field nobody asked about. Record it so it keeps a
+                  // Retry, the same as a read that never answered.
+                  setFailed((prev) =>
+                    prev.has(setting.id) ? prev : new Set(prev).add(setting.id),
+                  );
                   showToast(
                     t('toast.repeaterReadParseFailed', {
                       field: t(
@@ -277,7 +283,8 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           return changed ? next : prev;
         });
         // Whatever is still queued asked and got nothing: record it so the row
-        // can say "no reply" and offer a retry instead of an unexplained dash.
+        // can say the read failed and offer a retry instead of an unexplained
+        // dash.
         if (queue.length > 0) {
           setFailed((prev) => {
             const next = new Set(prev);
@@ -1043,8 +1050,9 @@ function UnloadedValue() {
   return <span className='text-text2'>—</span>;
 }
 
-// A read that was attempted and never answered, told apart from one that was
-// never attempted. Retrying one field costs one round trip, not a whole card.
+// A read that was attempted and came back empty or unintelligible, told apart
+// from one that was never attempted. Retrying one field costs one round trip,
+// not a whole card.
 function FailedValue({
   label,
   onRetry,
@@ -1055,7 +1063,7 @@ function FailedValue({
   const { t } = useTranslation();
   return (
     <span className='flex items-center gap-1.5 text-xs text-amber'>
-      {t('repeaterAdmin.config.noReply')}
+      {t('repeaterAdmin.config.readFailed')}
       <button
         type='button'
         onClick={onRetry}
