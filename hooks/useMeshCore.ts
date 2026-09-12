@@ -999,7 +999,10 @@ export function useMeshCore() {
         // Announce success only after the hydrate survived: a drop during it
         // already flipped us back to 'reconnecting' (with its own "connection
         // lost" toast), so a stale "connected" toast here would just confuse.
-        if (sessionAlive()) {
+        // Messages drained during the handshake raise actionable conversation
+        // toasts; the slot is single, so keep those over a status message the
+        // user can't act on.
+        if (sessionAlive() && !useMeshStore.getState().toast?.convo) {
           showToast(
             i18n.t(isReconnect ? 'toast.reconnected' : 'toast.connected', {
               device: deviceName,
