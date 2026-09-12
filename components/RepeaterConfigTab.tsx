@@ -60,9 +60,26 @@ type CommitOutcome =
 // which nothing answered ends the read early.
 const READ_PASSES = 3;
 
-// Every control in a row's value column shares this, so their edges line up
-// down the card whatever kind of setting each row is.
-const FIELD_WIDTH = 'w-24';
+// The value column's overall width. Fixed so every row's control ends on the
+// same edge; what varies inside it is how much the slider gets.
+const ENTRY_WIDTH = 'w-52';
+
+// Characters the widest permitted value needs, so a box fits its own contents
+// rather than the widest field on the card.
+function valueChars(setting: NumberSetting): number {
+  const whole = Math.max(
+    String(Math.trunc(setting.min)).length,
+    String(Math.trunc(setting.max)).length,
+  );
+  if (setting.integer) return whole;
+  // Free-precision fields are coordinates, which `setLocation` rounds to six
+  // decimals; a stepped one can only ever show the step's own precision.
+  const decimals =
+    setting.step === 'any'
+      ? 6
+      : (String(setting.step).split('.')[1]?.length ?? 0);
+  return decimals > 0 ? whole + 1 + decimals : whole;
+}
 
 // Shown together in their own card, like the Settings page's Radio section,
 // rather than inside the Identity group they're cataloged in.
@@ -1100,13 +1117,14 @@ function RebootPill() {
 }
 
 function Field({
-  width,
+  width = '',
   invalid,
   disabled,
   suffix,
   children,
 }: {
-  width: string;
+  /** Omit to let the control size itself to its contents. */
+  width?: string;
   invalid?: boolean;
   disabled?: boolean;
   suffix?: React.ReactNode;
@@ -1155,7 +1173,6 @@ function NumberField({
   valid,
   disabled,
   ariaLabel,
-  width = 'w-28',
   onChange,
   onCommitEdit,
 }: {
@@ -1164,7 +1181,6 @@ function NumberField({
   valid: boolean;
   disabled: boolean;
   ariaLabel: string;
-  width?: string;
   onChange: (value: string) => void;
   onCommitEdit: () => void;
 }) {
@@ -1174,7 +1190,6 @@ function NumberField({
     : undefined;
   return (
     <Field
-      width={width}
       invalid={!valid && value.trim() !== ''}
       disabled={disabled}
       suffix={unit}
@@ -1193,12 +1208,12 @@ function NumberField({
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
-        // Right-aligned only when a unit follows, so the two read as one
-        // quantity. Alone, the value would sit against the far edge of a box
-        // sized for the widest field in the column.
-        className={`w-full min-w-0 bg-transparent px-2 py-1 text-xs text-text outline-none ${
-          unit ? 'text-right' : 'text-center'
-        }`}
+        // Sized to the widest value this setting allows. The slack covers the
+        // padding either side and `ch` under-measuring the UI font's digits.
+        style={{ width: `calc(${valueChars(setting)}ch + 1.75rem)` }}
+        // The slider steps this field, so Chrome's spinner is only stealing
+        // width the value needs.
+        className='min-w-0 bg-transparent px-2 py-1 text-right text-xs tabular-nums text-text outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
       />
     </Field>
   );
@@ -1233,7 +1248,7 @@ function NumberEntry({
   const n = Number(value);
   const slider = Number.isFinite(n) ? n : setting.min;
   return (
-    <div className='flex items-center gap-2'>
+    <div className={`flex items-center justify-end gap-2 ${ENTRY_WIDTH}`}>
       <input
         type='range'
         aria-label={ariaLabel}
@@ -1246,7 +1261,7 @@ function NumberEntry({
         // Arrow keys still move the thumb, so it needs a commit too — on blur,
         // not on key-up, which is what made one keyboard edit a round trip.
         onBlur={onCommitEdit}
-        className='hidden w-32 accent-accent sm:block'
+        className='hidden min-w-0 flex-1 accent-accent sm:block'
       />
       <NumberField
         setting={setting}
@@ -1254,7 +1269,6 @@ function NumberEntry({
         valid={valid}
         disabled={false}
         ariaLabel={ariaLabel}
-        width={FIELD_WIDTH}
         onChange={onChange}
         onCommitEdit={onCommitEdit}
       />
@@ -1279,9 +1293,6 @@ function SelectField({
       value={value}
       ariaLabel={ariaLabel}
       onChange={onSelect}
-      // Matches the number fields, or a content-sized dropdown leaves the
-      // value column with a ragged left edge.
-      className={FIELD_WIDTH}
       options={[
         // The radio reported a value outside the known set: show it so the
         // field isn't blank, but don't let it be picked again.
@@ -1527,7 +1538,6 @@ function CoordField({
           valid={valid}
           disabled={!!disabled}
           ariaLabel={label}
-          width='w-36'
           onChange={onDraft}
           onCommitEdit={commitEdit}
         />
