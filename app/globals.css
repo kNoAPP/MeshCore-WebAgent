@@ -365,45 +365,6 @@ html {
 .meshcore-map .leaflet-tooltip-top::before {
   border-top-color: var(--surface);
 }
-/* Node popup: the on-map alternative to a modal, themed like the rest of the
- * app rather than Leaflet's white default. */
-.meshcore-map .leaflet-popup-content-wrapper,
-.meshcore-map .leaflet-popup-tip {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--pop-shadow);
-}
-.meshcore-map .leaflet-popup-content-wrapper {
-  border: 1px solid var(--border);
-  border-radius: var(--card-radius);
-}
-.meshcore-map .leaflet-popup-content {
-  margin: 10px 12px;
-  font: inherit;
-}
-.meshcore-map .leaflet-container a.leaflet-popup-close-button {
-  color: var(--text2);
-}
-.meshcore-popup-title {
-  margin-bottom: 8px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.meshcore-popup-actions {
-  display: flex;
-  gap: 6px;
-}
-.meshcore-popup-action {
-  border: 1px solid var(--border-control);
-  border-radius: 6px;
-  padding: 3px 8px;
-  font-size: 11px;
-  color: var(--text2);
-}
-.meshcore-popup-action:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
 /* Repeater→neighbor link lines. The class beats Leaflet's default `stroke`
  * attribute (specificity 0), so the color follows the theme accent. */
 .meshcore-map .meshcore-edge {
