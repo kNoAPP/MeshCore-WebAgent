@@ -379,6 +379,15 @@ export function ChatArea() {
       if (el) {
         el.scrollIntoView({ behavior: 'auto', block: 'start' });
         atBottomRef.current = false;
+        // A short backlog puts the divider and the last message on screen at
+        // once, so that scroll moved little or nothing and no scroll event is
+        // coming to settle the boundary. The bubble would then point at
+        // messages the user is already looking at — mark them seen here.
+        const list = messagesRef.current;
+        if (list && isNearBottom(list)) {
+          atBottomRef.current = true;
+          setSeenUnreadMarker(marker ?? null);
+        }
         return;
       }
     } else {
@@ -394,11 +403,14 @@ export function ChatArea() {
       const last = live[live.length - 1];
       // Visibility as of the arrival itself, not as of this effect: focus can
       // return (freezing the unread divider) before the effect flushes.
-      const arrival = state.lastArrival;
+      const arrival = state.lastAppend;
       const arrivedHidden =
         arrival?.convoId === convoId &&
         arrival?.msgId === last?.id &&
         !arrival?.visible;
+      // Same rule the store uses for `_unread`: a system note is not a message
+      // the user missed, so it never earns the "new messages" bubble.
+      const unseen = !last?.own && !last?.system;
       // Arrived while the conversation was off screen (other tab, other
       // window, other view): leave the scroll where the user left it, so the
       // unread divider they come back to isn't already scrolled past.
@@ -411,12 +423,12 @@ export function ChatArea() {
         const below = list
           ? list.scrollHeight - list.scrollTop > list.clientHeight
           : false;
-        if (!last?.own && below) {
+        if (unseen && below) {
           setShowNewIndicator(true);
         }
         return;
       }
-      if (!last?.own && !atBottomRef.current) {
+      if (unseen && !atBottomRef.current) {
         setShowNewIndicator(true);
         return;
       }

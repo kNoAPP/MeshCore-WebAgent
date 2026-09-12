@@ -251,6 +251,18 @@ export interface MessageArrival {
   visible: boolean;
 }
 /**
+ * Where the newest message landed and whether that conversation was on screen
+ * at the time. Written for *every* append, including the user's own sends and
+ * arrivals that {@link MessageArrival} withholds, so a reader can always ask
+ * "was the latest message on screen when it arrived?" and get an answer about
+ * the latest message.
+ */
+export interface MessageAppend {
+  convoId: string;
+  msgId: string;
+  visible: boolean;
+}
+/**
  * The radio auto-reconnect gave up on, kept past the session teardown so the
  * connect screen can say what was lost and offer a one-click retry.
  */
@@ -400,6 +412,16 @@ interface MeshState {
    * arrives.
    */
   lastArrival: MessageArrival | null;
+  /**
+   * Where {@link MeshActions.addMessage} last appended, and whether that
+   * conversation was on screen at that moment. Unlike {@link lastArrival} this
+   * is written on every append, because withholding it to protect a pending
+   * announcement would also withhold the record {@link ChatArea} needs: focus
+   * can return between the append and its scroll effect, and without an
+   * arrival-time answer an off-screen arrival reads as an on-screen one and
+   * scrolls the user past the unread boundary. `null` until the first append.
+   */
+  lastAppend: MessageAppend | null;
   activeConvo: ActiveConvo | null;
   /**
    * Id of a message the open conversation should scroll to and briefly
@@ -702,6 +724,7 @@ const initialState: MeshState = {
   autoAddConfig: DEFAULT_AUTOADD_CONFIG,
   msgHistory: {},
   lastArrival: null,
+  lastAppend: null,
   activeConvo: null,
   scrollToMsgId: null,
   unreadMarkers: {},
@@ -825,20 +848,26 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     const p = (
       typeof raw === 'object' && raw !== null ? raw : {}
     ) as Partial<RadioPreferences>;
-    set({
+    set((state) => ({
       unitSystem: normalizeUnitSystem(p.unitSystem),
       contactView: normalizeContactView(p.contactView),
       autoAddConfig: normalizeAutoAddConfig(p.autoAddConfig),
       automationEnabled:
         typeof p.automationEnabled === 'boolean' ? p.automationEnabled : false,
-      mapPrefs: normalizeMapPrefs(p.mapPrefs),
+      // `mapPrefs` is null until the *user* moves the map, so a value already
+      // here is a pan made while this blob was still loading — newer intent
+      // than the stored viewport, and the one the debounced save is about to
+      // write back. It has to win at the source rather than in `MapView`,
+      // which may have unmounted before the read finished and so can't put it
+      // back itself.
+      mapPrefs: state.mapPrefs ?? normalizeMapPrefs(p.mapPrefs),
       aiPref: normalizeAiPref(p.aiPref),
       showFullPublicKeys:
         typeof p.showFullPublicKeys === 'boolean'
           ? p.showFullPublicKeys
           : false,
       prefsHydrated: true,
-    });
+    }));
   },
 
   addMessage: (id, msg) =>
@@ -861,6 +890,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         enriched.own || (!visible && (state.lastArrival?.visible ?? false));
       return {
         msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },
+        lastAppend: {
+          convoId: id,
+          msgId: enriched.id as string,
+          visible,
+        },
         // An own send has nothing to announce and must not displace an inbound
         // arrival the announcer hasn't rendered yet.
         lastArrival: keepArrival
