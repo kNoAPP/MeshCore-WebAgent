@@ -532,7 +532,10 @@ function LocationCard() {
   // Flip the advert policy between off (`NONE`) and a location-bearing policy
   // matching the current source, so peers get the right kind of coordinate.
   const toggleAdvertise = async () => {
-    if (!editable || savingAdvertise) return;
+    // Also blocked by an in-flight source change: the policy this queues is
+    // derived from the source, and the writes are serialized, so a stale one
+    // would land after and undo it.
+    if (!editable || savingAdvertise || savingSource) return;
     await runAdvertiseSave(() =>
       setLocationPolicy(
         advertising
@@ -548,7 +551,14 @@ function LocationCard() {
   // updates reactively via `onDeviceInfo` on success, so there's no local
   // choice to keep; a failed write leaves the radio (and the UI) untouched.
   const selectSource = async (nextUseGps: boolean) => {
-    if (!editable || savingSource || nextUseGps === usingGps) return;
+    if (
+      !editable ||
+      savingSource ||
+      savingAdvertise ||
+      nextUseGps === usingGps
+    ) {
+      return;
+    }
     await runSourceSave(() => setLocationSource(nextUseGps));
   };
 

@@ -37,39 +37,31 @@ let ioChain: Promise<unknown> = Promise.resolve();
 
 // A "don't remember this" save or an explicit Forget can be made before the
 // session binds its encryption context — the app reports `connected` first — or
-// its delete can simply fail. Either way the removal is still owed.
-//
-// The pre-context debt has no radio to name yet, so it is owned by the session
-// that opened it: `sessionSeq` advances on teardown, and a late completion from
-// an older session can't settle a newer session's debt. Once a radio is known,
-// the debt is keyed by its pubkey and deliberately outlives teardown, so the
-// next connect to that same radio finishes the job — one entry per radio, since
-// two radios can each be owed one.
-let sessionSeq = 0;
-let preOwedBy: number | null = null;
+// its delete can simply fail. Either way the removal is still owed, so it is
+// recorded against the radio it belongs to and retried on the next connect to
+// that radio. Keyed by pubkey rather than held as one flag: two radios can each
+// be owed one, and a debt must never be settled against the wrong record.
 const clearOwedFor = new Set<string>();
+
+/**
+ * The radio a deletion requested right now would belong to. Falls back to
+ * `selfInfo`, which the sync fills in before the encryption context is bound,
+ * so a request made in that window is still attributed correctly.
+ */
+function owingPubkey(): string | null {
+  return ctx?.pubkey ?? useMeshStore.getState().selfInfo?.pubkey ?? null;
+}
 
 /** Whether the record for {@link pubkey} is one the user asked to be rid of. */
 function clearIsOwed(pubkey: string): boolean {
-  return preOwedBy === sessionSeq || clearOwedFor.has(pubkey);
+  return clearOwedFor.has(pubkey);
 }
 
-/**
- * Runs an owed delete for {@link pubkey}, keeping the debt if it fails.
- * @param owner - the session that owed it, so a completion arriving after
- * teardown can't settle whatever the next session owes.
- */
-async function settleOwedClear(
-  pubkey: string,
-  owner: number,
-): Promise<boolean> {
+/** Runs an owed delete for {@link pubkey}, keeping the debt if it fails. */
+async function settleOwedClear(pubkey: string): Promise<boolean> {
   const ok = await enqueue(() => clearSecret(pubkey, API_KEY_NAME));
-  if (ok) {
-    if (preOwedBy === owner) preOwedBy = null;
-    clearOwedFor.delete(pubkey);
-  } else {
-    clearOwedFor.add(pubkey);
-  }
+  if (ok) clearOwedFor.delete(pubkey);
+  else clearOwedFor.add(pubkey);
   return ok;
 }
 
@@ -111,16 +103,11 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
   // answered by another device), that key must not carry over — drop it so it
   // can't be used for the wrong radio and so this radio's own remembered key
   // can load in its place.
-  if (ctx !== null && ctx.pubkey !== pubkey) {
-    if (apiKey !== null) {
-      generation++;
-      apiKey = null;
-      persisted = false;
-      syncStatus();
-    }
-    // A reconnect skips `wipeApiKey`, so the unattributed debt would otherwise
-    // follow the session onto a radio that never owed it.
-    preOwedBy = null;
+  if (ctx !== null && ctx.pubkey !== pubkey && apiKey !== null) {
+    generation++;
+    apiKey = null;
+    persisted = false;
+    syncStatus();
   }
   ctx = { pubkey, storageKey };
   // Settle a deletion the user asked for but that never landed — before this
@@ -129,7 +116,7 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
   // of the restore useMeshCore kicks off next, which checks the obligation
   // before loading anything.
   if (clearIsOwed(pubkey)) {
-    void settleOwedClear(pubkey, sessionSeq);
+    void settleOwedClear(pubkey);
   }
 }
 
@@ -161,7 +148,6 @@ export async function setApiKey(
   remember: boolean,
 ): Promise<boolean> {
   const mine = ++generation;
-  const owner = sessionSeq;
   apiKey = value;
   persisted = false;
   syncStatus();
@@ -169,10 +155,14 @@ export async function setApiKey(
   // session is torn down (ctx nulled) before the op runs.
   const active = ctx;
   if (!active) {
-    // Nothing can be written or deleted yet. Owe the deletion so a remembered
-    // copy the user has just declined doesn't outlive this session, and report
-    // the failure rather than claiming a removal that hasn't happened.
-    if (!remember) preOwedBy = owner;
+    // Nothing can be written or deleted yet. Owe the deletion against the radio
+    // being connected to, so a remembered copy the user has just declined is
+    // removed as soon as a context exists, and report the failure rather than
+    // claiming a removal that hasn't happened.
+    if (!remember) {
+      const owed = owingPubkey();
+      if (owed) clearOwedFor.add(owed);
+    }
     return false;
   }
 
@@ -186,7 +176,7 @@ export async function setApiKey(
   } else {
     // Drop any previously remembered copy so a stale key can't silently
     // resurface on the next connect to this radio.
-    if (!(await settleOwedClear(active.pubkey, owner))) return false;
+    if (!(await settleOwedClear(active.pubkey))) return false;
   }
   // A wipe/forget/another setApiKey during the await supersedes this one; don't
   // report persistence state for a key that's no longer active.
@@ -194,7 +184,6 @@ export async function setApiKey(
   if (remember && landed) {
     // The user has deliberately replaced the record an earlier failed removal
     // was owed on, so that debt is settled by the replacement.
-    if (preOwedBy === owner) preOwedBy = null;
     clearOwedFor.delete(active.pubkey);
   }
   persisted = landed;
@@ -245,16 +234,16 @@ export async function loadPersistedApiKey(): Promise<boolean> {
  */
 export async function forgetApiKey(): Promise<boolean> {
   generation++;
-  const owner = sessionSeq;
   apiKey = null;
   persisted = false;
   const active = ctx;
   syncStatus();
   if (!active) {
-    preOwedBy = owner;
+    const owed = owingPubkey();
+    if (owed) clearOwedFor.add(owed);
     return false;
   }
-  return settleOwedClear(active.pubkey, owner);
+  return settleOwedClear(active.pubkey);
 }
 
 /**
@@ -267,11 +256,6 @@ export function wipeApiKey(): void {
   apiKey = null;
   persisted = false;
   ctx = null;
-  // The pre-context debt belongs to the session that opened it; carrying it
-  // forward would delete the next radio's remembered key. A failed delete's
-  // debt is radio-scoped, so that one survives on purpose.
-  sessionSeq++;
-  preOwedBy = null;
   syncStatus();
 }
 

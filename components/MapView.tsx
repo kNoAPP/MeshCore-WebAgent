@@ -129,9 +129,14 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   }, []);
   useEffect(() => {
     if (!map || mapPicking) return;
-    // A reconnect clears the flag and re-runs the hydrate, so that session's
-    // saved viewport gets its own chance to apply.
-    if (!prefsHydrated) framedOnPrefs.current = false;
+    // A reconnect clears the flag and re-runs the hydrate. That may even be a
+    // different radio on a shared endpoint, so every piece of framing intent
+    // starts over — a move made after this reset still wins.
+    if (!prefsHydrated) {
+      framedOnPrefs.current = false;
+      framedOnData.current = false;
+      userMoved.current = false;
+    }
     if (prefsHydrated && !framedOnPrefs.current) {
       framedOnPrefs.current = true;
       if (userMoved.current) {
