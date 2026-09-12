@@ -782,7 +782,15 @@ export function useMeshCore() {
             // An empty contact name would leave "New message from " dangling,
             // so fall back to the prefix exactly as the sidebar does.
             const sender = contact?.name || prefix.slice(0, 8);
-            const enriched: Message = { ...msg, senderName: sender };
+            // Carry the contact's prefix on the message too: automation
+            // filters and direct-reply lookups match this field exactly, so a
+            // longer v3 prefix would skip a contact-scoped rule or fail a
+            // reply against a contact that is right there in the table.
+            const enriched: Message = {
+              ...msg,
+              pubkeyPrefix: prefix,
+              senderName: sender,
+            };
             const state = useMeshStore.getState();
             const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
