@@ -135,12 +135,10 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     if (prefsHydrated && !framedOnPrefs.current) {
       framedOnPrefs.current = true;
       if (userMoved.current) {
+        // Their pan is already the saved viewport — `restorePreferences` keeps
+        // a `mapPrefs` set while the blob was loading — so there is nothing
+        // left to upgrade to, and reframing would undo the move.
         framedOnData.current = true;
-        // Restoring the blob just overwrote `mapPrefs`, and its debounced save
-        // is subscribed after that, so a pan made during the load would be
-        // lost. Put the live viewport back.
-        const [lat, lng, zoom] = viewOf(map);
-        useMeshStore.getState().setMapPrefs({ center: [lat, lng], zoom });
         return;
       }
       if (savedPrefs) {

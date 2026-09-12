@@ -848,20 +848,26 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     const p = (
       typeof raw === 'object' && raw !== null ? raw : {}
     ) as Partial<RadioPreferences>;
-    set({
+    set((state) => ({
       unitSystem: normalizeUnitSystem(p.unitSystem),
       contactView: normalizeContactView(p.contactView),
       autoAddConfig: normalizeAutoAddConfig(p.autoAddConfig),
       automationEnabled:
         typeof p.automationEnabled === 'boolean' ? p.automationEnabled : false,
-      mapPrefs: normalizeMapPrefs(p.mapPrefs),
+      // `mapPrefs` is null until the *user* moves the map, so a value already
+      // here is a pan made while this blob was still loading — newer intent
+      // than the stored viewport, and the one the debounced save is about to
+      // write back. It has to win at the source rather than in `MapView`,
+      // which may have unmounted before the read finished and so can't put it
+      // back itself.
+      mapPrefs: state.mapPrefs ?? normalizeMapPrefs(p.mapPrefs),
       aiPref: normalizeAiPref(p.aiPref),
       showFullPublicKeys:
         typeof p.showFullPublicKeys === 'boolean'
           ? p.showFullPublicKeys
           : false,
       prefsHydrated: true,
-    });
+    }));
   },
 
   addMessage: (id, msg) =>
