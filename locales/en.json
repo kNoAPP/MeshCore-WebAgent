@@ -703,15 +703,15 @@
         },
         "floodMax": {
           "label": "Max flood hops",
-          "hint": "How far a flood from this node may travel before it is dropped. 0 disables flooding."
+          "hint": "How many hops a flood may already have taken and still be repeated by this node. 0 stops it forwarding floods at all."
         },
         "txdelay": {
-          "label": "Flood TX delay",
-          "hint": "Random wait before repeating a flood, which keeps neighbors that heard the same packet from transmitting over each other."
+          "label": "Flood TX delay factor",
+          "hint": "Scales the random wait before repeating a flood, which keeps neighbors that heard the same packet from transmitting over each other. Multiplied by the packet's airtime, so it isn't a fixed duration. 0 removes the wait."
         },
         "directTxdelay": {
-          "label": "Direct TX delay",
-          "hint": "The same collision-avoidance wait, applied to packets on a known route rather than a flood."
+          "label": "Direct TX delay factor",
+          "hint": "The same collision-avoidance factor, applied to packets on a known route rather than a flood. Lower, because fewer nodes compete to repeat them."
         },
         "dutycycle": {
           "label": "Duty cycle",
@@ -723,7 +723,7 @@
         },
         "pathHashMode": {
           "label": "Advert path hash size",
-          "hint": "Bytes used to identify each hop in a path. More bytes make collisions between similar nodes less likely and make every packet slightly larger."
+          "hint": "Bytes used to identify each hop in this node's own adverts. More bytes make collisions between similar nodes less likely and make those adverts slightly larger. Forwarding is unaffected."
         },
         "multiAcks": {
           "label": "Multi-acks",
