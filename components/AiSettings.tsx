@@ -9,6 +9,7 @@ import { useMeshStore } from '@/store/meshStore';
 import { setApiKey, forgetApiKey } from '@/lib/ai/secret';
 import { type AiPref } from '@/lib/ai/pref';
 import { Select } from './Select';
+import { SaveStatusChip, useSaveStatus } from './SaveStatus';
 import { Switch } from './Switch';
 import {
   getProvider,
@@ -51,7 +52,12 @@ export function AiSettingsBody() {
   const setAiPref = useMeshStore((s) => s.setAiPref);
   const [keyInput, setKeyInput] = useState('');
   const [remember, setRemember] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const {
+    status: saveStatus,
+    errorText: saveError,
+    run: runSave,
+  } = useSaveStatus();
+  const saving = saveStatus === 'saving';
 
   const provider = getProvider(pref.providerId);
   const canRemember = connected;
@@ -72,17 +78,40 @@ export function AiSettingsBody() {
   const save = async () => {
     const value = keyInput.trim();
     if (!value || saving) return;
-    setSaving(true);
-    await setApiKey(value, remember && canRemember);
-    setSaving(false);
+    const { ok } = await runSave(async () => {
+      try {
+        const stored = await setApiKey(value, remember && canRemember);
+        // The key is in memory either way; a requested remembered save that
+        // didn't land is still a failure, because the field about to be
+        // cleared is the only copy the user could retry with.
+        return stored
+          ? { ok: true }
+          : {
+              ok: false,
+              error: t(
+                remember && canRemember
+                  ? 'settings.ai.rememberFailed'
+                  : 'settings.ai.removalFailed',
+              ),
+            };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    });
     // Drop the plaintext from the field as soon as it's handed off — the store
-    // status indicator reflects that a key is now loaded.
-    setKeyInput('');
+    // status indicator reflects that a key is now loaded. A failed save keeps
+    // it, so the user isn't made to paste the key again.
+    if (ok) setKeyInput((current) => (current.trim() === value ? '' : current));
   };
 
   const forget = async () => {
-    await forgetApiKey();
-    setKeyInput('');
+    const value = keyInput;
+    const { ok } = await runSave(async () =>
+      (await forgetApiKey())
+        ? { ok: true }
+        : { ok: false, error: t('settings.ai.removalFailed') },
+    );
+    if (ok) setKeyInput((current) => (current === value ? '' : current));
   };
 
   const statusKey =
@@ -157,7 +186,8 @@ export function AiSettingsBody() {
           {keyStatus !== 'none' && (
             <button
               onClick={() => void forget()}
-              className='rounded-md border border-border-control px-3 py-1.5 text-xs text-text2 hover:text-text'
+              disabled={saving}
+              className='rounded-md border border-border-control px-3 py-1.5 text-xs text-text2 hover:text-text disabled:cursor-not-allowed disabled:opacity-50'
             >
               {t('settings.ai.forget')}
             </button>
@@ -169,6 +199,7 @@ export function AiSettingsBody() {
           >
             {t('settings.ai.save')}
           </button>
+          <SaveStatusChip status={saveStatus} errorText={saveError} />
         </div>
       </div>
 

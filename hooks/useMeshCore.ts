@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { MeshCoreClient } from '@/lib/meshcore/client';
 import { MeshConnectError, PickerDismissedError } from '@/lib/meshcore/errors';
 import {
@@ -121,6 +121,17 @@ class CliTimeoutError extends Error {
  *   the command. Already surfaced as a toast.
  */
 export type RepeaterCliOutcome = 'ok' | 'timeout' | 'error';
+
+/**
+ * The outcome of a write to the connected radio.
+ *
+ * @remarks
+ * A discriminated union, so a failure cannot be constructed without saying
+ * why. The reason travels with the result rather than going straight to a
+ * toast, so it can live next to the field that failed for as long as it is
+ * wrong — a three-second toast is gone by the time the user looks.
+ */
+export type WriteResult = { ok: true } | { ok: false; error: string };
 
 // LoRa round trips are spiky — give the radio's suggested timeout some slack
 const ACK_TIMEOUT_GRACE = 1.5;
@@ -1831,22 +1842,24 @@ export function useMeshCore() {
   /**
    * Renames the radio on the device; the store updates via `onSelfInfo`.
    *
-   * @returns whether the write succeeded, so the caller can keep its editor
-   * open (preserving the typed name) on failure.
+   * @returns whether the write succeeded and, when it didn't, the localized
+   * reason — so the caller can keep its editor open (preserving the typed
+   * name) and show the reason where the field is. Failures also raise a toast
+   * so navigation away from the field cannot hide a late error.
    */
   const setNodeName = useCallback(
-    async (name: string): Promise<boolean> => {
-      if (!canTransmit(client)) return false;
+    async (name: string): Promise<WriteResult> => {
+      if (!canTransmit(client))
+        return { ok: false, error: i18n.t('toast.notConnected') };
       try {
         await client.setNodeName(name);
-        showToast(i18n.t('toast.nodeNameSaved'), 'success');
-        return true;
+        return { ok: true };
       } catch (err) {
-        showToast(
-          i18n.t('toast.nodeNameSaveFailed', { error: (err as Error).message }),
-          'error',
-        );
-        return false;
+        const error = i18n.t('toast.nodeNameSaveFailed', {
+          error: (err as Error).message,
+        });
+        showToast(error, 'error');
+        return { ok: false, error };
       }
     },
     [client, showToast],
@@ -1858,22 +1871,22 @@ export function useMeshCore() {
    *
    * @param latDeg - latitude in decimal degrees.
    * @param lonDeg - longitude in decimal degrees.
-   * @returns whether the write succeeded, so the caller can keep its editor
-   * open (preserving the typed values) on failure.
+   * @returns whether the write succeeded, with the localized reason when it
+   * didn't.
    */
   const setLocation = useCallback(
-    async (latDeg: number, lonDeg: number): Promise<boolean> => {
-      if (!canTransmit(client)) return false;
+    async (latDeg: number, lonDeg: number): Promise<WriteResult> => {
+      if (!canTransmit(client))
+        return { ok: false, error: i18n.t('toast.notConnected') };
       try {
         await client.setLocation(latDeg, lonDeg);
-        showToast(i18n.t('toast.locationSaved'), 'success');
-        return true;
+        return { ok: true };
       } catch (err) {
-        showToast(
-          i18n.t('toast.locationSaveFailed', { error: (err as Error).message }),
-          'error',
-        );
-        return false;
+        const error = i18n.t('toast.locationSaveFailed', {
+          error: (err as Error).message,
+        });
+        showToast(error, 'error');
+        return { ok: false, error };
       }
     },
     [client, showToast],
@@ -1883,27 +1896,42 @@ export function useMeshCore() {
    * Sets where the radio's adverts take their location from — nothing, the
    * stored fixed coordinate, or the radio's own GPS module.
    *
-   * @returns whether the write succeeded, so the caller can revert its
-   * selection on failure.
+   * @returns whether the write succeeded, with the localized reason when it
+   * didn't, so the caller can revert its selection.
    */
-  const setLocationPolicy = useCallback(
-    async (policy: number): Promise<boolean> => {
-      if (!canTransmit(client)) return false;
-      try {
-        await client.setLocationPolicy(policy);
-        showToast(i18n.t('toast.sharePositionSaved'), 'success');
-        return true;
-      } catch (err) {
-        showToast(
-          i18n.t('toast.sharePositionSaveFailed', {
-            error: (err as Error).message,
-          }),
-          'error',
-        );
-        return false;
-      }
+  // Both location writes touch `advert_loc_policy`, and `setLocationSource`
+  // decides what to write from the *current* one — so they have to settle in
+  // order, or a stale read undoes the edit that preceded it.
+  const locationChain = useRef<Promise<void>>(Promise.resolve());
+  const serializeLocation = useCallback(
+    (op: () => Promise<WriteResult>): Promise<WriteResult> => {
+      const run = locationChain.current.then(op);
+      locationChain.current = run.then(
+        () => undefined,
+        () => undefined,
+      );
+      return run;
     },
-    [client, showToast],
+    [],
+  );
+
+  const setLocationPolicy = useCallback(
+    (policy: number): Promise<WriteResult> =>
+      serializeLocation(async () => {
+        if (!canTransmit(client))
+          return { ok: false, error: i18n.t('toast.notConnected') };
+        try {
+          await client.setLocationPolicy(policy);
+          return { ok: true };
+        } catch (err) {
+          const error = i18n.t('toast.sharePositionSaveFailed', {
+            error: (err as Error).message,
+          });
+          showToast(error, 'error');
+          return { ok: false, error };
+        }
+      }),
+    [client, showToast, serializeLocation],
   );
 
   /**
@@ -1922,37 +1950,49 @@ export function useMeshCore() {
    * touched keeps a rejected write from leaving the source and policy out of
    * sync.
    *
-   * @returns whether every needed write succeeded.
+   * @returns whether every needed write succeeded, with the localized reason
+   * when one didn't.
    */
   const setLocationSource = useCallback(
-    async (useGps: boolean): Promise<boolean> => {
-      if (!canTransmit(client)) return false;
-      try {
-        const policy = client.selfInfo?.advLocPolicy;
-        if (policy !== undefined && policy !== ADVERT_LOC_POLICY.NONE) {
-          await client.setLocationPolicy(
-            useGps ? ADVERT_LOC_POLICY.SHARE : ADVERT_LOC_POLICY.PREFS,
-          );
-        }
-        await client.setGpsEnabled(useGps);
-        // Re-read SELF_INFO so the map's self marker reflects the source just
-        // picked: the newly-active advertised coordinate (a GPS module's live
-        // fix, or the stored fixed one) is only reported on a fresh read, not
-        // echoed from the write. Best-effort — the switch itself succeeded.
-        await client.refreshSelfInfo().catch(() => {});
-        showToast(i18n.t('toast.locationSourceSaved'), 'success');
-        return true;
-      } catch (err) {
-        showToast(
-          i18n.t('toast.locationSourceSaveFailed', {
+    (useGps: boolean): Promise<WriteResult> =>
+      serializeLocation(async () => {
+        if (!canTransmit(client))
+          return { ok: false, error: i18n.t('toast.notConnected') };
+        try {
+          const policy = client.selfInfo?.advLocPolicy;
+          const realigned =
+            policy !== undefined && policy !== ADVERT_LOC_POLICY.NONE;
+          if (realigned) {
+            await client.setLocationPolicy(
+              useGps ? ADVERT_LOC_POLICY.SHARE : ADVERT_LOC_POLICY.PREFS,
+            );
+          }
+          try {
+            await client.setGpsEnabled(useGps);
+          } catch (err) {
+            // The policy already moved, and Settings reads the source back off
+            // it — so leaving it would report a source the module isn't using
+            // and make re-picking it look like a no-op.
+            if (realigned) {
+              await client.setLocationPolicy(policy).catch(() => {});
+            }
+            throw err;
+          }
+          // Re-read SELF_INFO so the map's self marker reflects the source just
+          // picked: the newly-active advertised coordinate (a GPS module's live
+          // fix, or the stored fixed one) is only reported on a fresh read, not
+          // echoed from the write. Best-effort — the switch itself succeeded.
+          await client.refreshSelfInfo().catch(() => {});
+          return { ok: true };
+        } catch (err) {
+          const error = i18n.t('toast.locationSourceSaveFailed', {
             error: (err as Error).message,
-          }),
-          'error',
-        );
-        return false;
-      }
-    },
-    [client, showToast],
+          });
+          showToast(error, 'error');
+          return { ok: false, error };
+        }
+      }),
+    [client, showToast, serializeLocation],
   );
 
   /**
@@ -2020,29 +2060,41 @@ export function useMeshCore() {
     }
   }, [client, showToast]);
 
+  // A save writes two commands, and the client's queue only serializes
+  // individual exchanges — so two overlapping saves could leave the radio with
+  // the mode from one edit and the per-type bitmask from the other.
+  const autoAddChain = useRef<Promise<void>>(Promise.resolve());
+
   /** Persists auto-add settings locally and writes them to the radio. */
   const applyAutoAddConfig = useCallback(
-    async (cfg: AutoAddConfig) => {
-      // Persist locally only after the radio write succeeds, so a failed write
-      // doesn't leave the app showing settings the radio never accepted. With
-      // no transmittable link (disconnected or mid-reconnect), just remember
-      // the preference locally.
-      if (!canTransmit(client)) {
-        setAutoAddConfig(cfg);
-        return;
-      }
-      try {
-        await client.setAutoAddPrefs(cfg);
-        setAutoAddConfig(cfg);
-        showToast(i18n.t('toast.settingsSaved'), 'success');
-      } catch (err) {
-        showToast(
-          i18n.t('toast.saveSettingsFailed', {
-            error: (err as Error).message,
-          }),
-          'error',
-        );
-      }
+    (cfg: AutoAddConfig): Promise<WriteResult> => {
+      const write = autoAddChain.current.then(
+        async (): Promise<WriteResult> => {
+          // Persist locally only after the radio write succeeds, so a failed
+          // write doesn't leave the app showing settings the radio never
+          // accepted. The panel is only reachable while connected, so a link
+          // that has dropped behind an earlier queued save is a failure, not
+          // an offline preference edit.
+          if (!canTransmit(client))
+            return { ok: false, error: i18n.t('toast.notConnected') };
+          try {
+            await client.setAutoAddPrefs(cfg);
+            setAutoAddConfig(cfg);
+            return { ok: true };
+          } catch (err) {
+            const error = i18n.t('toast.saveSettingsFailed', {
+              error: (err as Error).message,
+            });
+            showToast(error, 'error');
+            return { ok: false, error };
+          }
+        },
+      );
+      autoAddChain.current = write.then(
+        () => undefined,
+        () => undefined,
+      );
+      return write;
     },
     [client, setAutoAddConfig, showToast],
   );

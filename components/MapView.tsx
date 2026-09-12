@@ -110,6 +110,9 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   // nothing announced is the user's, and stops both upgrades.
   const framing = useRef(false);
   const userMoved = useRef(false);
+  // Previous hydration state, so the reset below fires on the transition
+  // rather than for as long as the flag is down.
+  const wasHydrated = useRef(prefsHydrated);
   const frame = useCallback((m: L.Map, view: StartView) => {
     const before = viewOf(m);
     framing.current = true;
@@ -119,9 +122,18 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   }, []);
   useEffect(() => {
     if (!map || mapPicking) return;
-    // A reconnect clears the flag and re-runs the hydrate, so that session's
-    // saved viewport gets its own chance to apply.
-    if (!prefsHydrated) framedOnPrefs.current = false;
+    // A reconnect clears the flag and re-runs the hydrate. That may even be a
+    // different radio on a shared endpoint, so every piece of framing intent
+    // starts over — a move made after this reset still wins. Only the moment
+    // the flag drops counts: a pan during the load re-runs this effect (it
+    // writes `mapPrefs`), and clearing `userMoved` again there would let the
+    // data frame below immediately overwrite the move.
+    if (wasHydrated.current && !prefsHydrated) {
+      framedOnPrefs.current = false;
+      framedOnData.current = false;
+      userMoved.current = false;
+    }
+    wasHydrated.current = prefsHydrated;
     if (prefsHydrated && !framedOnPrefs.current) {
       framedOnPrefs.current = true;
       if (userMoved.current) {

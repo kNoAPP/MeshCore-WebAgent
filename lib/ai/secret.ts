@@ -35,6 +35,36 @@ let generation = 0;
 // stale key on disk to resurface on the next connect.
 let ioChain: Promise<unknown> = Promise.resolve();
 
+// A "don't remember this" save or an explicit Forget can be made before the
+// session binds its encryption context — the app reports `connected` first — or
+// its delete can simply fail. Either way the removal is still owed, so it is
+// recorded against the radio it belongs to and retried on the next connect to
+// that radio. Keyed by pubkey rather than held as one flag: two radios can each
+// be owed one, and a debt must never be settled against the wrong record.
+const clearOwedFor = new Set<string>();
+
+/**
+ * The radio a deletion requested right now would belong to. Falls back to
+ * `selfInfo`, which the sync fills in before the encryption context is bound,
+ * so a request made in that window is still attributed correctly.
+ */
+function owingPubkey(): string | null {
+  return ctx?.pubkey ?? useMeshStore.getState().selfInfo?.pubkey ?? null;
+}
+
+/** Whether the record for {@link pubkey} is one the user asked to be rid of. */
+function clearIsOwed(pubkey: string): boolean {
+  return clearOwedFor.has(pubkey);
+}
+
+/** Runs an owed delete for {@link pubkey}, keeping the debt if it fails. */
+async function settleOwedClear(pubkey: string): Promise<boolean> {
+  const ok = await enqueue(() => clearSecret(pubkey, API_KEY_NAME));
+  if (ok) clearOwedFor.delete(pubkey);
+  else clearOwedFor.add(pubkey);
+  return ok;
+}
+
 function enqueue<T>(op: () => Promise<T>): Promise<T> {
   const run = ioChain.then(op, op);
   // Keep the chain alive whether the op resolved or rejected, and drop the
@@ -80,6 +110,14 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
     syncStatus();
   }
   ctx = { pubkey, storageKey };
+  // Settle a deletion the user asked for but that never landed — before this
+  // context existed, or because its write failed — so a remembered copy they
+  // declined or forgot can't survive into this session. `enqueue` runs it ahead
+  // of the restore useMeshCore kicks off next, which checks the obligation
+  // before loading anything.
+  if (clearIsOwed(pubkey)) {
+    void settleOwedClear(pubkey);
+  }
 }
 
 /**
@@ -101,12 +139,14 @@ export function getStorageContext(): {
  * @param value - the plaintext key the user provided.
  * @param remember - when true, encrypt-at-rest with the connected radio's key
  * so it restores on the next connect to the same radio; a different radio can't
- * decrypt it. Ignored when no radio is connected.
+ * decrypt it. Fails without an active radio encryption context.
+ * @returns whether persistence or removal of a previous remembered copy
+ * succeeded without being superseded. The in-memory key is set either way.
  */
 export async function setApiKey(
   value: string,
   remember: boolean,
-): Promise<void> {
+): Promise<boolean> {
   const mine = ++generation;
   apiKey = value;
   persisted = false;
@@ -114,7 +154,17 @@ export async function setApiKey(
   // Capture the context so the queued write targets this radio even if the
   // session is torn down (ctx nulled) before the op runs.
   const active = ctx;
-  if (!active) return;
+  if (!active) {
+    // Nothing can be written or deleted yet. Owe the deletion against the radio
+    // being connected to, so a remembered copy the user has just declined is
+    // removed as soon as a context exists, and report the failure rather than
+    // claiming a removal that hasn't happened.
+    if (!remember) {
+      const owed = owingPubkey();
+      if (owed) clearOwedFor.add(owed);
+    }
+    return false;
+  }
 
   let landed = false;
   if (remember) {
@@ -126,13 +176,19 @@ export async function setApiKey(
   } else {
     // Drop any previously remembered copy so a stale key can't silently
     // resurface on the next connect to this radio.
-    await enqueue(() => clearSecret(active.pubkey, API_KEY_NAME));
+    if (!(await settleOwedClear(active.pubkey))) return false;
   }
   // A wipe/forget/another setApiKey during the await supersedes this one; don't
   // report persistence state for a key that's no longer active.
-  if (generation !== mine) return;
+  if (generation !== mine) return false;
+  if (remember && landed) {
+    // The user has deliberately replaced the record an earlier failed removal
+    // was owed on, so that debt is settled by the replacement.
+    clearOwedFor.delete(active.pubkey);
+  }
   persisted = landed;
   syncStatus();
+  return remember ? landed : true;
 }
 
 /**
@@ -152,9 +208,11 @@ export async function loadPersistedApiKey(): Promise<boolean> {
   // (generation changed) — never resurrect a key onto a dead context or clobber
   // a newer value the user just chose. Also stand down if a key is already in
   // memory: a reconnect keeps the live key, and a key entered during the
-  // connect window must not be overwritten by the remembered one.
+  // connect window must not be overwritten by the remembered one. A deletion
+  // still owed means this record is one the user already asked to be rid of.
   if (
     value === null ||
+    clearIsOwed(active.pubkey) ||
     ctx !== active ||
     generation !== mine ||
     apiKey !== null
@@ -170,14 +228,22 @@ export async function loadPersistedApiKey(): Promise<boolean> {
 /**
  * Wipes the in-memory key and deletes any persisted copy for the connected
  * radio. Use for an explicit "forget key" action.
+ * @returns whether the persisted copy was removed. False when no context is
+ * bound yet or the delete failed — the removal stays owed either way, and is
+ * retried on the next connect to that radio, so the key can't come back.
  */
-export async function forgetApiKey(): Promise<void> {
+export async function forgetApiKey(): Promise<boolean> {
   generation++;
   apiKey = null;
   persisted = false;
   const active = ctx;
   syncStatus();
-  if (active) await enqueue(() => clearSecret(active.pubkey, API_KEY_NAME));
+  if (!active) {
+    const owed = owingPubkey();
+    if (owed) clearOwedFor.add(owed);
+    return false;
+  }
+  return settleOwedClear(active.pubkey);
 }
 
 /**

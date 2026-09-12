@@ -285,13 +285,19 @@ export async function loadSecret(
 }
 
 /**
- * Deletes a named secret for a radio from IndexedDB. Best-effort — any failure
- * is swallowed.
+ * Deletes a named secret for a radio from IndexedDB.
+ * @returns whether the deletion transaction completed successfully.
  */
-export async function clearSecret(pubkey: string, name: string): Promise<void> {
+export async function clearSecret(
+  pubkey: string,
+  name: string,
+): Promise<boolean> {
   try {
     await idbDelete(SECRETS_STORE, recordKey(pubkey, name));
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

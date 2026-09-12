@@ -3,11 +3,12 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
+import { SaveStatusChip, useSaveStatus } from './SaveStatus';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
 import type { AutoAddConfig } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
@@ -30,8 +31,32 @@ function AutoAddSettingsPanel() {
   const { setAutoAddOpen, autoAddConfig } = useMeshStore();
   const { applyAutoAddConfig } = useMeshCore();
   const [cfg, setCfg] = useState<AutoAddConfig>(autoAddConfig);
+  const { status, errorText, run } = useSaveStatus();
+  const submitted = useRef<AutoAddConfig | null>(autoAddConfig);
+  const submit = (next: AutoAddConfig) => {
+    const previous = submitted.current;
+    if (
+      previous &&
+      (Object.keys(next) as (keyof AutoAddConfig)[]).every(
+        (key) => next[key] === previous[key],
+      )
+    ) {
+      return;
+    }
+    submitted.current = next;
+    void run(() => applyAutoAddConfig(next)).then(({ ok }) => {
+      if (!ok && submitted.current === next) submitted.current = null;
+    });
+  };
 
-  const patch = (p: Partial<AutoAddConfig>) => setCfg({ ...cfg, ...p });
+  // Auto-commit, like every other settings surface: each control writes to the
+  // radio as it changes and reports through the chip, rather than hiding the
+  // write behind a Save button that a fifth of the app doesn't have.
+  const patch = (p: Partial<AutoAddConfig>) => {
+    const next = { ...cfg, ...p };
+    setCfg(next);
+    submit(next);
+  };
   const selected = cfg.mode === 'selected';
 
   return (
@@ -113,28 +138,27 @@ function AutoAddSettingsPanel() {
             min={0}
             max={MAX_HOPS_NO_LIMIT}
             value={cfg.maxHops}
-            onChange={(e) => patch({ maxHops: Number(e.target.value) })}
+            // Draft while dragging, write once on release: `onChange` fires per
+            // tick, and each write queues two radio commands behind everything
+            // else on the shared command chain.
+            onChange={(e) =>
+              setCfg({ ...cfg, maxHops: Number(e.target.value) })
+            }
+            onPointerUp={(event) => event.currentTarget.blur()}
+            onBlur={() => submit(cfg)}
             className='w-full accent-accent'
           />
           <p className='mt-1 text-xs text-text2'>{t('autoAdd.maxHopsHint')}</p>
         </label>
       </div>
 
-      <div className='mt-6 flex justify-end gap-2'>
+      <div className='mt-6 flex items-center justify-end gap-2'>
+        <SaveStatusChip status={status} errorText={errorText} />
         <button
           onClick={() => setAutoAddOpen(false)}
           className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
         >
-          {t('common.cancel')}
-        </button>
-        <button
-          onClick={() => {
-            applyAutoAddConfig(cfg);
-            setAutoAddOpen(false);
-          }}
-          className='rounded-md px-3 py-1.5 text-sm font-semibold text-white bg-accent-solid'
-        >
-          {t('common.save')}
+          {t('common.close')}
         </button>
       </div>
     </ModalShell>

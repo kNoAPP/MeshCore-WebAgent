@@ -180,7 +180,7 @@ export const MessageBubble = memo(function MessageBubble({
         }`}
       >
         <div
-          className={`max-w-[48rem] px-3 py-2 text-sm leading-snug whitespace-pre-wrap wrap-break-word ${
+          className={`max-w-[48rem] min-w-0 px-3 py-2 text-sm leading-snug whitespace-pre-wrap wrap-break-word ${
             msg.own
               ? 'rounded-[14px_4px_14px_14px] bg-accent-solid text-white'
               : mentioned

@@ -14,11 +14,12 @@ import { SyncDialog, SyncCard, DisconnectButton } from './SyncDialog';
 /**
  * Blocking overlay shown while the transport is dropped and auto-reconnecting.
  *
- * @remarks Covers the still-mounted Sidebar/ChatArea (which keep the last
- * synced chats visible underneath) so the user stays in context, and captures
- * all clicks so they can't start a racing connection or send into the dead
- * link. The only exit is an explicit Disconnect, which cancels the reconnect
- * loop.
+ * @remarks Covers the still-mounted Header/Sidebar/ChatArea (which keep the
+ * last synced chats visible underneath) so the user stays in context, and
+ * captures all clicks so they can't start a racing connection or send into the
+ * dead link. `AppShell` renders it as a sibling of the shell it inerts, so the
+ * modality boundary is real for pointer and keyboard alike. The only exit is
+ * an explicit Disconnect, which cancels the reconnect loop.
  */
 export function ReconnectingOverlay() {
   const { t } = useTranslation();
@@ -42,8 +43,8 @@ export function ReconnectingOverlay() {
   }, [resumeAt]);
   const seconds = Math.ceil(remainingMs / 1000);
 
-  // `AppShell` only inerts `main`, so without this the header stays reachable
-  // behind an overlay whose only legitimate exit is Disconnect.
+  // The shell behind this is inert, so focus can only be inside the dialog —
+  // but Tab still has to be kept from cycling out to the browser chrome.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef);
 

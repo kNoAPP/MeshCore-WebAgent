@@ -67,14 +67,24 @@ export function SaveStatusChip({
   );
 }
 
+/** What a save resolved to: success, or the localized reason it didn't. */
+export type SaveOutcome = { ok: true } | { ok: false; error: string };
+
 /**
  * Tracks a field's save lifecycle for {@link SaveStatusChip}. `run` wraps an
- * async save that resolves to a success boolean: it flips to `saving`, then to
- * `saved` (auto-clearing back to idle after a moment) or `error`, and returns
- * the boolean so the caller can react (e.g. close an editor on success).
+ * async save that resolves to a success boolean or a {@link SaveOutcome}: it
+ * flips to `saving`, then to `saved` (auto-clearing back to idle after a
+ * moment) or `error`, and returns the normalized outcome so the caller can
+ * react (e.g. close an editor on success).
+ *
+ * A failure keeps its reason in `errorText` and does not auto-clear: the field
+ * is still wrong, so the explanation stays with it rather than going to a toast
+ * that has already vanished.
  */
 export function useSaveStatus() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<SaveStatus | undefined>();
+  const [errorText, setErrorText] = useState<string | undefined>();
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // A monotonic id per `run` call. Only the latest invocation may touch status,
   // so a slower earlier save can't overwrite a newer one's spinner with its own
@@ -83,21 +93,34 @@ export function useSaveStatus() {
   const gen = useRef(0);
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const run = useCallback(async (save: () => Promise<boolean>) => {
-    const mine = ++gen.current;
-    clearTimeout(timer.current);
-    setStatus('saving');
-    const ok = await save();
-    // A newer run started while this one was awaiting: it now owns the status.
-    if (gen.current !== mine) return ok;
-    setStatus(ok ? 'saved' : 'error');
-    if (ok) {
-      timer.current = setTimeout(() => {
-        if (gen.current === mine) setStatus(undefined);
-      }, 2000);
-    }
-    return ok;
-  }, []);
+  const run = useCallback(
+    async (save: () => Promise<boolean | SaveOutcome>) => {
+      const mine = ++gen.current;
+      clearTimeout(timer.current);
+      setStatus('saving');
+      setErrorText(undefined);
+      const result = await save();
+      // A bare boolean is still accepted for the local saves that have no
+      // radio reason to report; it falls back to the generic "Save failed".
+      const outcome: SaveOutcome =
+        typeof result !== 'boolean'
+          ? result
+          : result
+            ? { ok: true }
+            : { ok: false, error: t('common.saveFailed') };
+      // A newer run started while this one was awaiting: it owns the status.
+      if (gen.current !== mine) return outcome;
+      setStatus(outcome.ok ? 'saved' : 'error');
+      setErrorText(outcome.ok ? undefined : outcome.error);
+      if (outcome.ok) {
+        timer.current = setTimeout(() => {
+          if (gen.current === mine) setStatus(undefined);
+        }, 2000);
+      }
+      return outcome;
+    },
+    [t],
+  );
 
-  return { status, run };
+  return { status, errorText, run };
 }

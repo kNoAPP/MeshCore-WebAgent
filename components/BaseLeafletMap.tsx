@@ -64,13 +64,18 @@ export interface BaseLeafletMapProps {
 /**
  * Frames {@link map} on {@link view}. The `bounds` case fits every located
  * node; `maxZoom` keeps a single node (or a tight cluster) from slamming all
- * the way to street level.
+ * the way to street level. Never animated: callers rely on the move landing
+ * before this returns, so they can tell their own framing from a user pan.
  */
 export function applyStartView(map: L.Map, view: StartView): void {
   if ('bounds' in view) {
-    map.fitBounds(view.bounds, { padding: [40, 40], maxZoom: 13 });
+    map.fitBounds(view.bounds, {
+      padding: [40, 40],
+      maxZoom: 13,
+      animate: false,
+    });
   } else {
-    map.setView(view.center, view.zoom);
+    map.setView(view.center, view.zoom, { animate: false });
   }
 }
 

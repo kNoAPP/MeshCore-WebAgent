@@ -23,6 +23,7 @@ export function Toast() {
   const dismissToast = useMeshStore((s) => s.dismissToast);
   const setView = useMeshStore((s) => s.setView);
   const openModals = useMeshStore((s) => s.openModals);
+  const reconnecting = useMeshStore((s) => s.status === 'reconnecting');
 
   const colors = {
     success: 'border-green text-green',
@@ -33,8 +34,12 @@ export function Toast() {
   const isError = toast?.variant === 'error';
   // The toast sits outside the subtree a dialog marks inert, so its action
   // would be a way out of the modal's focus boundary and into another
-  // conversation. Announce the message, but don't offer the jump.
-  const convo = openModals === 0 ? toast?.convo : undefined;
+  // conversation. The reconnect overlay is modal in the same way and doesn't
+  // count as an open modal, so it gets the same treatment: while the link is
+  // down, Disconnect is the only way out. Announce the message either way, but
+  // don't offer the jump.
+  const blocked = openModals > 0 || reconnecting;
+  const convo = blocked ? undefined : toast?.convo;
   // Withholding the jump must not also withhold the exit: neither an error nor
   // a conversation toast is on a timer, so both keep their dismiss button even
   // when the action is suppressed, or the card lingers with no way to clear it.
