@@ -792,11 +792,6 @@
     "empty": "No node has advertised a location yet. Locations arrive with adverts, so this fills in as the mesh is heard.",
     "emptyPeers": "No other node has advertised a location yet. Locations arrive with adverts, so this fills in as the mesh is heard.",
     "emptyFavorites": "None of your favorites has a location yet.",
-    "popup": {
-      "message": "Message",
-      "administer": "Administer",
-      "manage": "Manage"
-    },
     "pick": {
       "hint": "Click the map to set this radio's location.",
       "confirm": "Confirm location",

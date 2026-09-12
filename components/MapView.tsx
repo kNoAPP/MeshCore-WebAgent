@@ -6,13 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
-import {
-  useMeshStore,
-  openConvo,
-  directConvoId,
-  repeaterConvoId,
-} from '@/store/meshStore';
-import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
+import { useMeshStore } from '@/store/meshStore';
 import { collectMapNodes, selfMapNode, type MapNode } from '@/lib/map/nodes';
 import {
   DEFAULT_MAP_PREFS,
@@ -21,11 +15,7 @@ import {
   type MapPrefs,
   type StartView,
 } from '@/lib/map/config';
-import {
-  BaseLeafletMap,
-  applyStartView,
-  type NodeAction,
-} from './BaseLeafletMap';
+import { BaseLeafletMap, applyStartView } from './BaseLeafletMap';
 import { MapLegend } from './MapLegend';
 import { Switch } from './Switch';
 
@@ -222,54 +212,19 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     };
   }, [map, mapPicking]);
 
-  // Popup actions per node. Only a real contact can be messaged — an advert is
-  // a node the radio has heard but doesn't hold in its contact table — so that
-  // action is offered conditionally rather than shown as a dead button.
-  const nodeActions = useCallback(
-    (node: MapNode): NodeAction[] => {
-      const actions: NodeAction[] = [];
-      if (node.kind === 'contact') {
-        // A repeater or room server opens its admin view, not a chat, so the
-        // action says so rather than promising a conversation.
-        const isAdminNode =
-          node.advType === ADV_TYPE_REPEATER || node.advType === ADV_TYPE_ROOM;
-        actions.push({
-          key: 'open',
-          label: t(isAdminNode ? 'map.popup.administer' : 'map.popup.message'),
-          onSelect: (n) => {
-            openConvo({
-              kind: isAdminNode ? 'repeater' : 'direct',
-              id: isAdminNode
-                ? repeaterConvoId(n.pubkeyPrefix)
-                : directConvoId(n.pubkeyPrefix),
-              rawId: n.pubkeyPrefix,
-              label: n.name,
-            });
-            useMeshStore.getState().setView('chat');
-          },
-        });
-      }
-      actions.push({
-        key: 'manage',
-        label: t('map.popup.manage'),
-        onSelect: (n) => {
-          // The base map never offers actions on the self marker.
-          if (n.kind === 'self') return;
-          useMeshStore
-            .getState()
-            .setManagePanel({ kind: n.kind, id: n.pubkeyPrefix });
-        },
-      });
-      return actions;
-    },
-    [t],
-  );
+  const openManage = useCallback((node: MapNode) => {
+    // The base map never reports a click on the self marker.
+    if (node.kind === 'self') return;
+    useMeshStore
+      .getState()
+      .setManagePanel({ kind: node.kind, id: node.pubkeyPrefix });
+  }, []);
 
   return (
     <BaseLeafletMap
       nodes={plotted}
       startView={startView}
-      nodeActions={mapPicking ? undefined : nodeActions}
+      onNodeClick={mapPicking ? undefined : openManage}
       onMoveEnd={(center, zoom) => {
         // `mapPrefs` is null until the *user* moves the map, so our own
         // framing must not persist itself as a saved viewport.
