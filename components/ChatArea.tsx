@@ -392,6 +392,8 @@ export function ChatArea() {
       const state = useMeshStore.getState();
       const live = convoId ? (state.msgHistory[convoId] ?? []) : [];
       const last = live[live.length - 1];
+      // Visibility as of the arrival itself, not as of this effect: focus can
+      // return (freezing the unread divider) before the effect flushes.
       const arrival = state.lastArrival;
       const arrivedHidden =
         arrival?.convoId === convoId &&

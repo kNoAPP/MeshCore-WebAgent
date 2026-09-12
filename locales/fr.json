@@ -42,7 +42,8 @@
     "settings": "⚙ Paramètres",
     "disconnect": "⏻ Déconnecter",
     "language": "Langue",
-    "advertise": "Annoncer ce nœud"
+    "advertise": "Annoncer ce nœud",
+    "storage": "Stockage"
   },
   "theme": {
     "toggle": "Basculer le thème clair/sombre"
@@ -846,6 +847,7 @@
     "autoAddSettings": "Paramètres d'ajout automatique",
     "addContact": "Ajouter un contact",
     "manage": "Gérer",
+    "favorite": "Favori",
     "dragResize": "Glisser pour redimensionner",
     "dragWidth": "Glisser pour redimensionner la barre latérale",
     "searchContacts": "Rechercher des contacts",
