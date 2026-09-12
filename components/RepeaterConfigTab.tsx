@@ -60,6 +60,10 @@ type CommitOutcome =
 // which nothing answered ends the read early.
 const READ_PASSES = 3;
 
+// Every control in a row's value column shares this, so their edges line up
+// down the card whatever kind of setting each row is.
+const FIELD_WIDTH = 'w-24';
+
 // Shown together in their own card, like the Settings page's Radio section,
 // rather than inside the Identity group they're cataloged in.
 const RADIO_FIELDS: readonly RepeaterSetting[] = ALL_REPEATER_SETTINGS.filter(
@@ -1189,7 +1193,12 @@ function NumberField({
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
-        className='w-full min-w-0 bg-transparent px-2 py-1 text-right text-xs text-text outline-none'
+        // Right-aligned only when a unit follows, so the two read as one
+        // quantity. Alone, the value would sit against the far edge of a box
+        // sized for the widest field in the column.
+        className={`w-full min-w-0 bg-transparent px-2 py-1 text-xs text-text outline-none ${
+          unit ? 'text-right' : 'text-center'
+        }`}
       />
     </Field>
   );
@@ -1245,7 +1254,7 @@ function NumberEntry({
         valid={valid}
         disabled={false}
         ariaLabel={ariaLabel}
-        width='w-24'
+        width={FIELD_WIDTH}
         onChange={onChange}
         onCommitEdit={onCommitEdit}
       />
@@ -1270,6 +1279,9 @@ function SelectField({
       value={value}
       ariaLabel={ariaLabel}
       onChange={onSelect}
+      // Matches the number fields, or a content-sized dropdown leaves the
+      // value column with a ragged left edge.
+      className={FIELD_WIDTH}
       options={[
         // The radio reported a value outside the known set: show it so the
         // field isn't blank, but don't let it be picked again.
