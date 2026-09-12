@@ -897,6 +897,14 @@ export function useMeshCore() {
             loadAdvertCache(pubkey, key),
             loadPreferences(pubkey, key),
           ]);
+          // Those reads outlive their own session when the link drops or the
+          // user disconnects during them: the store has already been reset,
+          // and folding this radio's history and preferences back in would
+          // repopulate it — and mark it hydrated — for a radio that is gone,
+          // leaving the next session to frame from the previous one's saved
+          // viewport. Wiring persistence to it would be just as wrong, so the
+          // whole hydrate stops here and the teardown keeps the empty store.
+          if (!sessionAlive()) return false;
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);
           restoreAutomationRules(rules ?? []);
           // Fold this radio's saved preferences in before the auto-add hydrate

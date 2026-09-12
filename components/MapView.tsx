@@ -131,17 +131,25 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     if (!map || mapPicking) return;
     if (prefsHydrated && !framedOnPrefs.current) {
       framedOnPrefs.current = true;
-      framedOnData.current = true;
       if (userMoved.current) {
         // Restoring the blob just overwrote `mapPrefs`, and its debounced save
         // is subscribed after that, so a pan made during the load would be
         // lost. Put the live viewport back.
+        framedOnData.current = true;
         const [lat, lng, zoom] = viewOf(map);
         useMeshStore.getState().setMapPrefs({ center: [lat, lng], zoom });
-      } else if (savedPrefs) {
-        frame(map, { center: savedPrefs.center, zoom: savedPrefs.zoom });
+        return;
       }
-      return;
+      if (savedPrefs) {
+        framedOnData.current = true;
+        frame(map, { center: savedPrefs.center, zoom: savedPrefs.zoom });
+        return;
+      }
+      // This radio has no saved viewport, so nothing was framed and data is
+      // still worth framing on — including nodes that only arrive later, with
+      // the advert cache that restores after this. Fall through rather than
+      // latching, or the map would sit at the world view with the first
+      // located marker off screen.
     }
     if (userMoved.current || framedOnData.current) return;
     if (!self && nodes.length === 0) return;
