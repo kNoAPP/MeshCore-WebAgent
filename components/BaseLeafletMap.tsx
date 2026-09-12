@@ -42,15 +42,8 @@ export interface BaseLeafletMapProps {
   /**
    * Invoked when a non-self node's marker is clicked. When omitted, markers are
    * inert (the Map page passes `undefined` while in location-pick mode).
-   * Ignored for nodes {@link nodeActions} offers a popup for.
    */
   onNodeClick?: (node: MapNode) => void;
-  /**
-   * Actions offered in a node's on-map popup. Returning an empty list (or
-   * omitting this) falls back to {@link onNodeClick}. A popup keeps the map
-   * visible, which a modal over it does not.
-   */
-  nodeActions?: (node: MapNode) => NodeAction[];
   /** Invoked after each pan/zoom, for callers that persist the viewport. */
   onMoveEnd?: (center: [number, number], zoom: number) => void;
   /**
@@ -65,14 +58,6 @@ export interface BaseLeafletMapProps {
   scrollWheelZoom?: boolean;
   /** Overlays rendered above the map (banners, legend, cap notice). */
   children?: ReactNode;
-}
-
-/** One entry in a marker's popup. */
-export interface NodeAction {
-  /** Stable identifier, used to route the popup's click back here. */
-  key: string;
-  label: string;
-  onSelect: (node: MapNode) => void;
 }
 
 /**
@@ -99,7 +84,6 @@ export function BaseLeafletMap({
   edges,
   startView,
   onNodeClick,
-  nodeActions,
   onMoveEnd,
   onMapReady,
   scrollWheelZoom = true,
@@ -122,12 +106,10 @@ export function BaseLeafletMap({
   // would tear down and rebuild the whole map). `clickable` still feeds the
   // marker signature so wiring toggles when a handler is added/removed.
   const onNodeClickRef = useRef(onNodeClick);
-  const nodeActionsRef = useRef(nodeActions);
   const onMoveEndRef = useRef(onMoveEnd);
   const onMapReadyRef = useRef(onMapReady);
   useEffect(() => {
     onNodeClickRef.current = onNodeClick;
-    nodeActionsRef.current = nodeActions;
     onMoveEndRef.current = onMoveEnd;
     onMapReadyRef.current = onMapReady;
   });
@@ -213,93 +195,44 @@ export function BaseLeafletMap({
   // that only bumps `lastHeard`, or touches an off-map node, moves no marker
   // and must not churn the layer.
   const clickable = onNodeClick != null;
-  const hasNodeActions = nodeActions != null;
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
-    const actionsFor = (n: MapNode) =>
-      n.kind === 'self' ? [] : (nodeActionsRef.current?.(n) ?? []);
     const sig = nodes
       .map(
         (n) =>
-          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.name}:${actionsFor(
-            n,
-          )
-            .map((a) => `${a.key}=${a.label}`)
-            .join(',')}`,
+          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.name}`,
       )
       .join('|');
     // `t` (locale) drives the self tooltip and `clickable` gates click wiring,
     // so both belong in the signature that decides whether a rebuild is needed.
-    const fullSig = `${clickable ? 'click' : ''}|${hasNodeActions ? 'actions' : ''}|${t('map.self')}|${sig}`;
+    const fullSig = `${clickable ? 'click' : ''}|${t('map.self')}|${sig}`;
     if (fullSig === markerSigRef.current) return;
     markerSigRef.current = fullSig;
 
     layer.clearLayers();
     for (const node of nodes) {
-      const actions = actionsFor(node);
-      const inert =
-        actions.length === 0 && !(clickable && node.kind !== 'self');
+      const inert = !(clickable && node.kind !== 'self');
       const name = node.kind === 'self' ? t('map.self') : node.name;
       const marker = L.marker([node.lat, node.lon], {
         icon: nodeIcon(node),
-        // A marker with neither a popup nor a click handler (location-pick
-        // mode) would otherwise swallow the click the map needs to place
-        // the pin, and would be a dead stop for the keyboard.
+        // An inert marker (location-pick mode, or the self node) would
+        // otherwise swallow the click the map needs to place the pin, and
+        // would be a dead stop for the keyboard.
         bubblingMouseEvents: inert,
         keyboard: !inert,
         // Leaflet puts this on the container, which is what names the button
         // it makes of an interactive marker.
         title: inert ? undefined : name,
       });
-      const label = escapeHtml(name);
-      marker.bindTooltip(label, { direction: 'top' });
-      if (actions.length > 0) {
-        // A popup rather than a modal: the point of a spatial view is that the
-        // map you clicked from stays on screen. The markup is built from the
-        // escaped node name and our own action keys, never raw input.
-        const buttons = actions
-          .map(
-            (a) =>
-              `<button type="button" class="meshcore-popup-action" data-action="${escapeHtml(a.key)}">${escapeHtml(a.label)}</button>`,
-          )
-          .join('');
-        marker.bindPopup(
-          `<div class="meshcore-popup-title">${label}</div><div class="meshcore-popup-actions">${buttons}</div>`,
-          { closeButton: true, minWidth: 140 },
-        );
-        marker.on('popupopen', (e) => {
-          const root = e.popup.getElement();
-          // Leaflet hardcodes this control's label in English.
-          root
-            ?.querySelector('.leaflet-popup-close-button')
-            ?.setAttribute('aria-label', t('common.close'));
-          const items = root?.querySelectorAll<HTMLElement>('[data-action]');
-          items?.forEach((el) => {
-            // Assigned, not added: Leaflet reuses the popup's elements, so an
-            // `addEventListener` per open would stack up and fire one click
-            // once per time the popup had been opened.
-            el.onclick = () => {
-              const key = el.dataset.action;
-              const live = nodeActionsRef.current?.(node) ?? [];
-              live.find((a) => a.key === key)?.onSelect(node);
-              marker.closePopup();
-            };
-          });
-          // Leaflet leaves focus on the marker, and the popup pane sits after
-          // the marker pane, so the keyboard would tab through every other
-          // marker to reach these.
-          items?.[0]?.focus();
-        });
-        // Hand focus back to where it came from, rather than to the document.
-        marker.on('popupclose', () => marker.getElement()?.focus());
-      } else if (clickable && node.kind !== 'self') {
+      marker.bindTooltip(escapeHtml(name), { direction: 'top' });
+      if (!inert) {
         marker.on('click', () => onNodeClickRef.current?.(node));
       }
       marker.addTo(layer);
     }
     // `startView` recreates the map with empty layers, so it has to refill.
-  }, [nodes, t, clickable, hasNodeActions, startView]);
+  }, [nodes, t, clickable, startView]);
 
   // Rebuild link polylines when the edge set changes, guarded by a signature so
   // an unrelated node refresh doesn't churn the layer.
