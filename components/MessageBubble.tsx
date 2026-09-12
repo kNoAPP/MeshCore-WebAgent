@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Check, CheckCheck, Clock, type LucideIcon } from 'lucide-react';
 import type { Message } from '@/types/meshcore';
-import { formatTime } from '@/lib/i18n/format';
+import { fixed, formatTime } from '@/lib/i18n/format';
 import { CopyButton } from './CopyButton';
 
 interface Props {
@@ -94,29 +94,42 @@ function renderText(
 function statusTick(
   t: TFunction,
   msg: Message,
-): { Icon: LucideIcon; title: string; className?: string } | null {
+): { Icon: LucideIcon; label: string; hint: string; className: string } | null {
   if (!msg.own || !msg.status) return null;
   switch (msg.status) {
     case 'sending':
-      return { Icon: Clock, title: t('message.sending') };
+      return {
+        Icon: Clock,
+        label: t('message.sendingLabel'),
+        hint: t('message.sending'),
+        className: 'text-text2',
+      };
     case 'sent':
       return msg.kind === 'channel'
         ? {
             Icon: Check,
-            title: t('message.broadcastSent'),
+            label: t('message.sentLabel'),
+            hint: t('message.broadcastSent'),
+            className: 'text-text2',
           }
         : {
+            // A direct message can sit here for up to thirty seconds waiting
+            // on an acknowledgment that may never come, so say so in words
+            // rather than leaving a tick to be interpreted.
             Icon: Check,
-            title: msg.routeFlood
+            label: t('message.awaitingLabel'),
+            hint: msg.routeFlood
               ? t('message.sentFloodAwaiting')
               : t('message.sentAwaiting'),
+            className: 'text-text2',
           };
     case 'delivered':
       return {
         Icon: CheckCheck,
-        title: msg.roundTripMs
+        label: t('message.deliveredLabel'),
+        hint: msg.roundTripMs
           ? t('message.deliveredIn', {
-              seconds: (msg.roundTripMs / 1000).toFixed(1),
+              seconds: fixed(msg.roundTripMs / 1000, 1),
             })
           : t('message.delivered'),
         className: 'text-green',
@@ -167,7 +180,7 @@ export const MessageBubble = memo(function MessageBubble({
         }`}
       >
         <div
-          className={`max-w-[70%] px-3 py-2 text-sm leading-snug whitespace-pre-wrap wrap-break-word ${
+          className={`max-w-[48rem] px-3 py-2 text-sm leading-snug whitespace-pre-wrap wrap-break-word ${
             msg.own
               ? 'rounded-[14px_4px_14px_14px] bg-accent-solid text-white'
               : mentioned
@@ -185,17 +198,15 @@ export const MessageBubble = memo(function MessageBubble({
         {statusActions}
         {tick && (
           <span
-            title={tick.title}
-            aria-label={tick.title}
-            role='img'
-            className={`mr-1 inline-flex cursor-default align-middle ${tick.className ?? ''}`}
+            className={`mr-1 inline-flex items-center gap-1 ${tick.className}`}
           >
             <tick.Icon size={12} aria-hidden='true' />
+            <HintToken label={tick.label} title={tick.hint} />
           </span>
         )}
         {metaParts(t, msg, time).map((part, i) => (
           <span key={i}>
-            {i > 0 && ' · '}
+            {(i > 0 || tick || statusActions) && ' · '}
             {part}
           </span>
         ))}
@@ -227,7 +238,7 @@ function metaParts(
         ? t('message.path', { path: msg.path.join(' → ') })
         : undefined;
       parts.push(
-        <PathToken
+        <HintToken
           label={t('message.hops', { count: msg.pathLen })}
           title={title}
         />,
@@ -240,7 +251,7 @@ function metaParts(
       ? t('message.heardVia', { path: msg.heardVia.join(', ') })
       : undefined;
     parts.push(
-      <PathToken
+      <HintToken
         label={t('message.heardBy', { count: msg.heardByRepeaters })}
         title={title}
       />,
@@ -251,9 +262,12 @@ function metaParts(
   return parts;
 }
 
-// Focusable and linked via `aria-describedby`, so the path is announced by
-// screen readers and reachable without a mouse.
-function PathToken({
+/**
+ * A short label with an optional explanation. Focusable and linked via
+ * `aria-describedby`, so the detail is announced by screen readers and
+ * reachable without a mouse; without a `title` it is just the label.
+ */
+function HintToken({
   label,
   title,
 }: {

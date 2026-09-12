@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowDown, Send } from 'lucide-react';
 import { useMeshStore, isConvoVisible } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import type { Contact } from '@/types/meshcore';
 import {
   ADV_ICON,
   utf8ByteLength,
@@ -52,6 +53,24 @@ function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
 }
 
+// Either side can be the shorter prefix: a v3 frame can carry more of the key
+// than the contact table stores, so the match has to go both ways — the same
+// rule `MeshCoreClient.lookupContact` applies.
+function matchContact(
+  contacts: Record<string, Contact>,
+  prefix: string | undefined,
+): Contact | undefined {
+  if (!prefix) return undefined;
+  return (
+    contacts[prefix] ??
+    Object.values(contacts).find(
+      (entry) =>
+        entry.pubkeyPrefix.startsWith(prefix) ||
+        prefix.startsWith(entry.pubkeyPrefix),
+    )
+  );
+}
+
 // Null when the cursor isn't in a mention: whitespace follows the at-sign, the
 // mention is already bracketed and complete, or the `@` is mid-word (an email
 // local part like `bob@…` must not open the mention popover).
@@ -68,6 +87,11 @@ function getMentionQuery(value: string, cursor: number): string | null {
 
 const MENTION_LISTBOX_ID = 'mention-suggestions';
 const mentionOptionId = (index: number) => `mention-option-${index}`;
+
+// How far apart two messages from the same sender can be and still read as one
+// turn, in seconds. Beyond it the header repeats, because the reader has lost
+// the thread of who was speaking.
+const GROUP_WINDOW_SEC = 5 * 60;
 
 /**
  * The main conversation pane for the active channel or contact: header with
@@ -117,6 +141,7 @@ export function ChatArea() {
   );
   const [mentionIndex, setMentionIndex] = useState(0);
   const [showNewIndicator, setShowNewIndicator] = useState(false);
+  const [seenUnreadMarker, setSeenUnreadMarker] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -217,10 +242,69 @@ export function ChatArea() {
     [visibleMessages],
   );
 
-  // Mentionable names span both saved contacts and anyone seen posting in
-  // history, so channel participants who were never added as a contact can
-  // still be mentioned. Contacts come first (most relevant), then history
-  // senders, de-duplicated case-insensitively while keeping first-seen casing.
+  // Resolved sender label per mounted message: the channel prefix, the
+  // contact's name, "You" for an own message, or null for a system note. Own
+  // runs are labelled for screen readers only — on screen their side, color and
+  // corner already say it.
+  const senderLabels = useMemo(
+    () =>
+      visibleMessages.map((msg) => {
+        if (msg.system) return null;
+        if (msg.own) return t('chat.you');
+        if (msg.kind === 'channel') {
+          return splitChannelMessage(msg.text).sender?.trim() || '?';
+        }
+        const contact = matchContact(contacts, msg.pubkeyPrefix);
+        // Deliberately not `msg.senderName`: that is the name captured when
+        // the message arrived, so a removed or renamed contact would keep
+        // showing it while the sidebar and the grouping key had moved on.
+        return contact?.name || msg.pubkeyPrefix?.slice(0, 8) || '?';
+      }),
+    [visibleMessages, contacts, t],
+  );
+  const senderKeys = useMemo(
+    () =>
+      visibleMessages.map((msg) => {
+        if (msg.system) return null;
+        if (msg.own) return 'own';
+        if (msg.kind === 'channel') {
+          const sender = splitChannelMessage(msg.text).sender?.trim();
+          // A stable key for an unnamed sender, so its turn still gets the
+          // `?` label rather than no header at all.
+          return sender ? `channel:${sender}` : 'channel:?';
+        }
+        // The contact's own prefix, so a short and a long frame prefix for the
+        // same sender stay one turn.
+        const contact = matchContact(contacts, msg.pubkeyPrefix);
+        return `direct:${contact?.pubkeyPrefix ?? msg.pubkeyPrefix ?? '?'}`;
+      }),
+    [visibleMessages, contacts],
+  );
+
+  // Whether each message needs its own sender header. A burst from one contact
+  // is one conversational turn, so only the first message of a run carries the
+  // name: same sender, same side, no day divider between, and close enough in
+  // time to still be the same turn.
+  const showHeader = useMemo(
+    () =>
+      visibleMessages.map((msg, i) => {
+        if (senderLabels[i] === null || !senderKeys[i]) return false;
+        if (i === 0 || dayDividers[i] != null) return true;
+        const prev = visibleMessages[i - 1];
+        if (!senderKeys[i] || senderKeys[i - 1] !== senderKeys[i]) return true;
+        // The same pubkey can still resolve to a different name (a contact
+        // removed mid-conversation falls back to its prefix), and a changed
+        // name is worth showing.
+        if (senderLabels[i - 1] !== senderLabels[i]) return true;
+        if (prev.own !== msg.own) return true;
+        const gap = (msg.timestamp ?? 0) - (prev.timestamp ?? 0);
+        return (
+          !msg.timestamp || !prev.timestamp || gap < 0 || gap > GROUP_WINDOW_SEC
+        );
+      }),
+    [visibleMessages, senderLabels, senderKeys, dayDividers],
+  );
+
   // Only built while a mention is in progress so the full-history scan stays
   // out of the message-receive hot path.
   const mentionActive = mentionQuery !== null;
@@ -295,6 +379,15 @@ export function ChatArea() {
       if (el) {
         el.scrollIntoView({ behavior: 'auto', block: 'start' });
         atBottomRef.current = false;
+        // A short backlog puts the divider and the last message on screen at
+        // once, so that scroll moved little or nothing and no scroll event is
+        // coming to settle the boundary. The bubble would then point at
+        // messages the user is already looking at — mark them seen here.
+        const list = messagesRef.current;
+        if (list && isNearBottom(list)) {
+          atBottomRef.current = true;
+          setSeenUnreadMarker(marker ?? null);
+        }
         return;
       }
     } else {
@@ -310,11 +403,9 @@ export function ChatArea() {
       const last = live[live.length - 1];
       // Visibility as of the arrival itself, not as of this effect: focus can
       // return (freezing the unread divider) before the effect flushes.
-      const arrival = state.lastArrival;
+      const arrival = convoId ? state.lastAppends[convoId] : undefined;
       const arrivedHidden =
-        arrival?.convoId === convoId &&
-        arrival?.msgId === last?.id &&
-        !arrival?.visible;
+        arrival != null && arrival.msgId === last?.id && !arrival.visible;
       // Same rule the store uses for `_unread`: a system note is not a message
       // the user missed, so it never earns the "new messages" bubble.
       const unseen = !last?.own && !last?.system;
@@ -347,7 +438,7 @@ export function ChatArea() {
       behavior: switched || instantJump ? 'auto' : 'smooth',
     });
     atBottomRef.current = true;
-  }, [activeConvo?.id, messages.length]);
+  }, [activeConvo?.id, messages.length, unreadMarker]);
 
   // Scroll to and briefly flash a message targeted by the command palette, then
   // clear the one-shot request. The render pass above has already widened the
@@ -401,6 +492,7 @@ export function ChatArea() {
     atBottomRef.current = nearBottom;
     if (nearBottom) {
       setShowNewIndicator(false);
+      setSeenUnreadMarker(unreadMarker);
     } else if (openedStart === -1) {
       // Reading back through history: pin the window where it is. Left to
       // slide, the newest-N start would advance on every incoming message and
@@ -456,6 +548,7 @@ export function ChatArea() {
     bottomRef.current?.scrollIntoView({ behavior: 'auto' });
     atBottomRef.current = true;
     setShowNewIndicator(false);
+    setSeenUnreadMarker(unreadMarker);
   };
 
   const insertMention = (name: string) => {
@@ -581,7 +674,7 @@ export function ChatArea() {
           role='log'
           aria-live='off'
           aria-label={t('chat.transcriptLabel')}
-          className='flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
+          className='flex w-full flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
           ref={messagesRef}
           onScroll={handleMessagesScroll}
         >
@@ -594,24 +687,10 @@ export function ChatArea() {
               IntersectionObserver root intersection. */}
           <div ref={topSentinelRef} className='h-px shrink-0' />
           {visibleMessages.map((msg, i) => {
-            let senderLabel: string;
-            let bodyText = msg.text;
-
-            if (msg.own) {
-              senderLabel = t('chat.you');
-            } else if (msg.kind === 'channel') {
-              const { sender, body } = splitChannelMessage(msg.text);
-              senderLabel = sender ?? '?';
-              bodyText = body;
-            } else {
-              const contact = msg.pubkeyPrefix
-                ? contacts[msg.pubkeyPrefix]
-                : undefined;
-              // `||`, not `??`: a stored contact with an empty name would
-              // otherwise render no sender at all.
-              senderLabel =
-                contact?.name || msg.pubkeyPrefix?.slice(0, 8) || '?';
-            }
+            const bodyText =
+              !msg.own && msg.kind === 'channel'
+                ? splitChannelMessage(msg.text).body
+                : msg.text;
 
             const mentioned =
               !msg.own &&
@@ -646,9 +725,15 @@ export function ChatArea() {
                   className={`flex flex-col gap-0.5 ${msg.own ? 'items-end' : 'items-start'}`}
                   data-msg-id={msg.id}
                 >
-                  {!msg.system && (
-                    <div className='px-1 text-[11px] text-text2'>
-                      {senderLabel}
+                  {!msg.system && showHeader[i] && (
+                    <div
+                      className={
+                        msg.own ? 'sr-only' : 'px-1 text-[11px] text-text2'
+                      }
+                    >
+                      {senderLabels[i] === '?'
+                        ? t('common.unknown')
+                        : senderLabels[i]}
                     </div>
                   )}
                   <MessageBubble
@@ -693,7 +778,8 @@ export function ChatArea() {
           })}
           <div ref={bottomRef} />
         </div>
-        {showNewIndicator && (
+        {(showNewIndicator ||
+          (unreadMarker !== null && unreadMarker !== seenUnreadMarker)) && (
           <button
             type='button'
             onClick={jumpToBottom}
@@ -753,7 +839,7 @@ export function ChatArea() {
               </div>
             )}
           </div>
-          <div className='flex items-end gap-2 px-4 py-3'>
+          <div className='flex w-full items-end gap-2 px-4 py-3'>
             <textarea
               ref={textareaRef}
               value={text}

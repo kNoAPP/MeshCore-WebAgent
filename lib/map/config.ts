@@ -79,19 +79,37 @@ export const DEFAULT_MAP_PREFS: MapPrefs = {
   zoom: 2,
 };
 
+/**
+ * Zoom range the basemap can actually render. The floor the map enforces is
+ * higher and depends on the container size, but a restored viewport only has
+ * to land inside the tile layer's own range for Leaflet to clamp the rest.
+ */
+export const MAP_MIN_ZOOM = 0;
+export const MAP_MAX_ZOOM = 20;
+
 function finiteOr(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function clampedOr(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  return Math.min(max, Math.max(min, finiteOr(value, fallback)));
 }
 
 /**
  * Normalizes an arbitrary (persisted or corrupt) value into valid
  * {@link MapPrefs}, validating each field against {@link DEFAULT_MAP_PREFS}.
  * Any missing or non-finite value (a `NaN`, `Infinity`, or corrupted/tampered
- * entry) falls back to the default, so a broken record can never feed Leaflet a
- * `NaN` center/zoom. Returns `null` when nothing is stored (`null`/`undefined`)
- * so callers can tell a never-panned user — who should get smart initial
- * centering — apart from one whose saved viewport simply happens to equal the
- * default.
+ * entry) falls back to the default, and every number is clamped to the range
+ * Leaflet accepts, so a broken record can neither feed the map a `NaN` nor
+ * strand it at an unreachable zoom. Returns `null` when nothing is stored
+ * (`null`/`undefined`) so callers can tell a never-panned user — who should get
+ * smart initial centering — apart from one whose saved viewport simply happens
+ * to equal the default.
  */
 export function normalizeMapPrefs(raw: unknown): MapPrefs | null {
   if (raw == null || typeof raw !== 'object') return null;
@@ -100,10 +118,15 @@ export function normalizeMapPrefs(raw: unknown): MapPrefs | null {
     center:
       Array.isArray(parsed.center) && parsed.center.length === 2
         ? [
-            finiteOr(parsed.center[0], DEFAULT_MAP_PREFS.center[0]),
-            finiteOr(parsed.center[1], DEFAULT_MAP_PREFS.center[1]),
+            clampedOr(parsed.center[0], DEFAULT_MAP_PREFS.center[0], -90, 90),
+            clampedOr(parsed.center[1], DEFAULT_MAP_PREFS.center[1], -180, 180),
           ]
         : DEFAULT_MAP_PREFS.center,
-    zoom: finiteOr(parsed.zoom, DEFAULT_MAP_PREFS.zoom),
+    zoom: clampedOr(
+      parsed.zoom,
+      DEFAULT_MAP_PREFS.zoom,
+      MAP_MIN_ZOOM,
+      MAP_MAX_ZOOM,
+    ),
   };
 }

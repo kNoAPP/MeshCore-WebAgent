@@ -251,6 +251,17 @@ export interface MessageArrival {
   visible: boolean;
 }
 /**
+ * Whether the newest message in a conversation was on screen when it landed.
+ * Recorded for *every* append, including the user's own sends and arrivals
+ * that {@link MessageArrival} withholds, so a reader can always ask "was the
+ * latest message on screen when it arrived?" and get an answer about the
+ * latest message.
+ */
+export interface MessageAppend {
+  msgId: string;
+  visible: boolean;
+}
+/**
  * The radio auto-reconnect gave up on, kept past the session teardown so the
  * connect screen can say what was lost and offer a one-click retry.
  */
@@ -392,12 +403,26 @@ interface MeshState {
   // Conversations
   msgHistory: Record<string, Message[]>;
   /**
-   * The last message {@link MeshActions.addMessage} appended — the one signal
-   * that a message *arrived now*, as opposed to `msgHistory` merely changing,
-   * which `restoreHistory` also does with messages the user read days ago.
-   * `null` until one arrives.
+   * The last message {@link MeshActions.addMessage} appended that was not the
+   * user's own — the one signal that a message *arrived now*, as opposed to
+   * `msgHistory` merely changing, which `restoreHistory` also does with
+   * messages the user read days ago. An own send leaves this alone so it can't
+   * displace an arrival the announcer hasn't rendered yet. `null` until one
+   * arrives.
    */
   lastArrival: MessageArrival | null;
+  /**
+   * The newest append to each conversation, and whether that conversation was
+   * on screen at that moment. Unlike {@link lastArrival} this is written on
+   * every append, because withholding it to protect a pending announcement
+   * would also withhold the record {@link ChatArea} needs: focus can return
+   * between the append and its scroll effect, and without an arrival-time
+   * answer an off-screen arrival reads as an on-screen one and scrolls the
+   * user past the unread boundary. Keyed by conversation rather than a single
+   * slot, because the frame parser hands over a whole chunk at once and a
+   * second conversation's message must not erase the first's record.
+   */
+  lastAppends: Record<string, MessageAppend>;
   activeConvo: ActiveConvo | null;
   /**
    * Id of a message the open conversation should scroll to and briefly
@@ -700,6 +725,7 @@ const initialState: MeshState = {
   autoAddConfig: DEFAULT_AUTOADD_CONFIG,
   msgHistory: {},
   lastArrival: null,
+  lastAppends: {},
   activeConvo: null,
   scrollToMsgId: null,
   unreadMarkers: {},
@@ -753,7 +779,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   // or a message drained behind a reconnect overlay (or a dialog) stays unread
   // with no divider until something unrelated happens to fire it.
   setStatus: (status) => {
-    set({ status });
+    // A reconnect re-runs the hydrate, so the next blob has to be able to
+    // announce itself again to anything waiting on it.
+    set(
+      status === 'connecting' || status === 'reconnecting'
+        ? { status, prefsHydrated: false }
+        : { status },
+    );
     if (status === 'connected') catchUpVisibleConvo();
   },
   setDeviceName: (deviceName) => set({ deviceName }),
@@ -845,17 +877,31 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         // not something to come back to.
         _unread: !visible && !msg.own && !msg.system,
       };
+      // The frame parser hands over a whole input chunk at once, so an
+      // off-screen frame can land in the same tick as an on-screen one. Only
+      // an on-screen arrival may displace another on-screen arrival, or the
+      // announcement for the one the user is looking at is lost.
+      const keepArrival =
+        enriched.own || (!visible && (state.lastArrival?.visible ?? false));
       return {
         msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },
-        lastArrival: {
-          convoId: id,
-          msgId: enriched.id as string,
-          text: enriched.text,
-          senderName: enriched.senderName,
-          own: enriched.own ?? false,
-          system: enriched.system ?? false,
-          visible,
+        lastAppends: {
+          ...state.lastAppends,
+          [id]: { msgId: enriched.id as string, visible },
         },
+        // An own send has nothing to announce and must not displace an inbound
+        // arrival the announcer hasn't rendered yet.
+        lastArrival: keepArrival
+          ? state.lastArrival
+          : {
+              convoId: id,
+              msgId: enriched.id as string,
+              text: enriched.text,
+              senderName: enriched.senderName,
+              own: false,
+              system: enriched.system ?? false,
+              visible,
+            },
       };
     }),
 

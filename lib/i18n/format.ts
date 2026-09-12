@@ -111,7 +111,7 @@ export function formatDistanceBearing(
 
 /** Formats `value` with a fixed number of fraction digits in the active locale
  * (so the decimal separator follows the language, e.g. `4,16` in German). */
-function fixed(value: number, digits: number): string {
+export function fixed(value: number, digits: number): string {
   return value.toLocaleString(i18n.language, {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,

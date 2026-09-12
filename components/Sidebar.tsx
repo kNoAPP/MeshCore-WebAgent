@@ -819,7 +819,7 @@ function SidebarItem({
         disabled
           ? 'text-text2'
           : active
-            ? 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-accent'
+            ? 'bg-accent/10 text-accent'
             : 'text-text hover:bg-surface2'
       }`}
     >

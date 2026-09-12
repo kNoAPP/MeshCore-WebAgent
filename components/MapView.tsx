@@ -119,6 +119,9 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   }, []);
   useEffect(() => {
     if (!map || mapPicking) return;
+    // A reconnect clears the flag and re-runs the hydrate, so that session's
+    // saved viewport gets its own chance to apply.
+    if (!prefsHydrated) framedOnPrefs.current = false;
     if (prefsHydrated && !framedOnPrefs.current) {
       framedOnPrefs.current = true;
       if (userMoved.current) {
@@ -222,8 +225,13 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
       startView={startView}
       onNodeClick={mapPicking ? undefined : openManage}
       onMoveEnd={(center, zoom) => {
-        if (framing.current) framing.current = false;
-        else userMoved.current = true;
+        // `mapPrefs` is null until the *user* moves the map, so our own
+        // framing must not persist itself as a saved viewport.
+        if (framing.current) {
+          framing.current = false;
+          return;
+        }
+        userMoved.current = true;
         useMeshStore.getState().setMapPrefs({ center, zoom });
       }}
       onMapReady={setMap}
