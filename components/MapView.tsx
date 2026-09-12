@@ -125,7 +125,6 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     if (prefsHydrated && !framedOnPrefs.current) {
       framedOnPrefs.current = true;
       if (userMoved.current) {
-        framedOnData.current = true;
         // Restoring the blob just overwrote `mapPrefs`, and its debounced save
         // is subscribed after that, so a pan made during the load would be
         // lost. Put the live viewport back.
@@ -249,7 +248,7 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
           empty state even with no peers left to show. */}
       {visible.length === 0 && !mapPicking && (
         <div className='pointer-events-none absolute inset-0 z-1000 flex items-center justify-center p-6'>
-          <p className='max-w-sm rounded-card border border-border bg-surface/95 px-4 py-3 text-center text-sm text-text2 backdrop-blur'>
+          <p className='pointer-events-auto max-w-sm rounded-card border border-border bg-surface/95 px-4 py-3 text-center text-sm text-text2 backdrop-blur'>
             {t(
               favoritesOnly
                 ? 'map.emptyFavorites'

@@ -691,6 +691,7 @@ export function ChatArea() {
               !msg.own && msg.kind === 'channel'
                 ? splitChannelMessage(msg.text).body
                 : msg.text;
+
             const mentioned =
               !msg.own &&
               !msg.system &&
