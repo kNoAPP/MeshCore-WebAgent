@@ -1941,12 +1941,24 @@ export function useMeshCore() {
           return { ok: false, error: i18n.t('toast.notConnected') };
         try {
           const policy = client.selfInfo?.advLocPolicy;
-          if (policy !== undefined && policy !== ADVERT_LOC_POLICY.NONE) {
+          const realigned =
+            policy !== undefined && policy !== ADVERT_LOC_POLICY.NONE;
+          if (realigned) {
             await client.setLocationPolicy(
               useGps ? ADVERT_LOC_POLICY.SHARE : ADVERT_LOC_POLICY.PREFS,
             );
           }
-          await client.setGpsEnabled(useGps);
+          try {
+            await client.setGpsEnabled(useGps);
+          } catch (err) {
+            // The policy already moved, and Settings reads the source back off
+            // it — so leaving it would report a source the module isn't using
+            // and make re-picking it look like a no-op.
+            if (realigned) {
+              await client.setLocationPolicy(policy).catch(() => {});
+            }
+            throw err;
+          }
           // Re-read SELF_INFO so the map's self marker reflects the source just
           // picked: the newly-active advertised coordinate (a GPS module's live
           // fix, or the stored fixed one) is only reported on a fresh read, not
@@ -2041,12 +2053,11 @@ export function useMeshCore() {
         async (): Promise<WriteResult> => {
           // Persist locally only after the radio write succeeds, so a failed
           // write doesn't leave the app showing settings the radio never
-          // accepted. With no transmittable link (disconnected or
-          // mid-reconnect), just remember the preference locally.
-          if (!canTransmit(client)) {
-            setAutoAddConfig(cfg);
-            return { ok: true };
-          }
+          // accepted. The panel is only reachable while connected, so a link
+          // that has dropped behind an earlier queued save is a failure, not
+          // an offline preference edit.
+          if (!canTransmit(client))
+            return { ok: false, error: i18n.t('toast.notConnected') };
           try {
             await client.setAutoAddPrefs(cfg);
             setAutoAddConfig(cfg);

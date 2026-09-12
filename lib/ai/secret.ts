@@ -111,11 +111,16 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
   // answered by another device), that key must not carry over — drop it so it
   // can't be used for the wrong radio and so this radio's own remembered key
   // can load in its place.
-  if (ctx !== null && ctx.pubkey !== pubkey && apiKey !== null) {
-    generation++;
-    apiKey = null;
-    persisted = false;
-    syncStatus();
+  if (ctx !== null && ctx.pubkey !== pubkey) {
+    if (apiKey !== null) {
+      generation++;
+      apiKey = null;
+      persisted = false;
+      syncStatus();
+    }
+    // A reconnect skips `wipeApiKey`, so the unattributed debt would otherwise
+    // follow the session onto a radio that never owed it.
+    preOwedBy = null;
   }
   ctx = { pubkey, storageKey };
   // Settle a deletion the user asked for but that never landed — before this
