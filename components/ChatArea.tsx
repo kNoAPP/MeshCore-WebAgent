@@ -403,11 +403,9 @@ export function ChatArea() {
       const last = live[live.length - 1];
       // Visibility as of the arrival itself, not as of this effect: focus can
       // return (freezing the unread divider) before the effect flushes.
-      const arrival = state.lastAppend;
+      const arrival = convoId ? state.lastAppends[convoId] : undefined;
       const arrivedHidden =
-        arrival?.convoId === convoId &&
-        arrival?.msgId === last?.id &&
-        !arrival?.visible;
+        arrival != null && arrival.msgId === last?.id && !arrival.visible;
       // Same rule the store uses for `_unread`: a system note is not a message
       // the user missed, so it never earns the "new messages" bubble.
       const unseen = !last?.own && !last?.system;
