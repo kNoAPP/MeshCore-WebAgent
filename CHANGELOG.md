@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.25.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.24.0...v1.25.0) (2026-09-12)
+
+
+### Features
+
+* **chat:** cap the reading measure and group consecutive messages ([#277](https://github.com/kNoAPP/MeshCore-WebAgent/issues/277)) ([4edb658](https://github.com/kNoAPP/MeshCore-WebAgent/commit/4edb65889b1339e7f4bca63536711c235002a30e))
+* **map:** theme the markers and swap the modal for an on-map popup ([#276](https://github.com/kNoAPP/MeshCore-WebAgent/issues/276)) ([bfd1fbc](https://github.com/kNoAPP/MeshCore-WebAgent/commit/bfd1fbc0c8325c03baaea695a42f99b0f8e209fa))
+* **repeater:** tell a failed read from an unread one and type exact values ([#278](https://github.com/kNoAPP/MeshCore-WebAgent/issues/278)) ([77356d0](https://github.com/kNoAPP/MeshCore-WebAgent/commit/77356d076fcb5b180f9ba66a69b564ee32421b2a))
+* **sidebar:** add a contact filter, resizable persisted layout, and empty states ([#274](https://github.com/kNoAPP/MeshCore-WebAgent/issues/274)) ([4cec7c4](https://github.com/kNoAPP/MeshCore-WebAgent/commit/4cec7c4a6014d758af41eba2d05270075dcb0f82))
+
+
+### Bug Fixes
+
+* **a11y:** announce async status with live regions ([#272](https://github.com/kNoAPP/MeshCore-WebAgent/issues/272)) ([d8f0bcf](https://github.com/kNoAPP/MeshCore-WebAgent/commit/d8f0bcf1135632ab2ad387b2bb623e287a44cf05))
+* **chat:** scope unread and new-message toasts to what is on screen ([#273](https://github.com/kNoAPP/MeshCore-WebAgent/issues/273)) ([c39a785](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c39a785ca1847ce113f075e4e20384e162c48abc))
+* **settings:** give every write one save contract ([#279](https://github.com/kNoAPP/MeshCore-WebAgent/issues/279)) ([c8c6a3d](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c8c6a3dae6bf55687be62479e2bcf2eca8859968))
+
 ## [1.24.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.23.0...v1.24.0) (2026-09-10)
 
 
