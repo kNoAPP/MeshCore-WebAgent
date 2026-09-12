@@ -674,7 +674,7 @@ export function ChatArea() {
           role='log'
           aria-live='off'
           aria-label={t('chat.transcriptLabel')}
-          className='mx-auto flex w-full max-w-4xl flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
+          className='flex w-full flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
           ref={messagesRef}
           onScroll={handleMessagesScroll}
         >
@@ -838,7 +838,7 @@ export function ChatArea() {
               </div>
             )}
           </div>
-          <div className='mx-auto flex w-full max-w-4xl items-end gap-2 px-4 py-3'>
+          <div className='flex w-full items-end gap-2 px-4 py-3'>
             <textarea
               ref={textareaRef}
               value={text}
