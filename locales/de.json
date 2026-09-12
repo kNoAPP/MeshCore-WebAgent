@@ -707,15 +707,15 @@
         },
         "floodMax": {
           "label": "Max. Flood-Hops",
-          "hint": "Wie weit ein Flood von diesem Knoten reisen darf, bevor er verworfen wird. 0 deaktiviert Flooding."
+          "hint": "Wie viele Hops ein Flood bereits hinter sich haben darf, damit dieser Knoten ihn noch weiterleitet. 0 bedeutet, dass er Floods gar nicht weiterleitet."
         },
         "txdelay": {
-          "label": "Flood-TX-Verzögerung",
-          "hint": "Zufällige Wartezeit vor dem Weiterleiten eines Floods, damit Nachbarn mit demselben Paket nicht gleichzeitig senden."
+          "label": "Flood-TX-Verzögerungsfaktor",
+          "hint": "Skaliert die zufällige Wartezeit vor dem Weiterleiten eines Floods, damit Nachbarn mit demselben Paket nicht gleichzeitig senden. Wird mit der Sendezeit des Pakets multipliziert, ist also keine feste Dauer. 0 entfällt die Wartezeit."
         },
         "directTxdelay": {
-          "label": "Direkt-TX-Verzögerung",
-          "hint": "Dieselbe Kollisionsvermeidung, angewendet auf Pakete mit bekannter Route statt auf einen Flood."
+          "label": "Direkt-TX-Verzögerungsfaktor",
+          "hint": "Derselbe Kollisionsvermeidungsfaktor, angewendet auf Pakete mit bekannter Route statt auf einen Flood. Niedriger, weil weniger Knoten um die Weiterleitung konkurrieren."
         },
         "dutycycle": {
           "label": "Duty Cycle",
@@ -727,7 +727,7 @@
         },
         "pathHashMode": {
           "label": "Advert-Pfad-Hash-Größe",
-          "hint": "Bytes zur Kennzeichnung jedes Hops in einem Pfad. Mehr Bytes machen Kollisionen zwischen ähnlichen Knoten unwahrscheinlicher und jedes Paket etwas größer."
+          "hint": "Bytes zur Kennzeichnung jedes Hops in den eigenen Adverts dieses Knotens. Mehr Bytes machen Kollisionen zwischen ähnlichen Knoten unwahrscheinlicher und diese Adverts etwas größer. Auf die Weiterleitung hat das keinen Einfluss."
         },
         "multiAcks": {
           "label": "Multi-ACKs",

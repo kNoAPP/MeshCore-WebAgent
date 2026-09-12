@@ -707,15 +707,15 @@
         },
         "floodMax": {
           "label": "Máx. saltos flood",
-          "hint": "Hasta dónde puede viajar una inundación desde este nodo antes de descartarse. 0 desactiva la inundación."
+          "hint": "Cuántos saltos puede llevar ya una inundación para que este nodo aún la repita. 0 hace que no reenvíe inundaciones."
         },
         "txdelay": {
-          "label": "Retardo TX flood",
-          "hint": "Espera aleatoria antes de repetir una inundación, que evita que los vecinos que oyeron el mismo paquete transmitan a la vez."
+          "label": "Factor de retardo TX flood",
+          "hint": "Escala la espera aleatoria antes de repetir una inundación, que evita que los vecinos que oyeron el mismo paquete transmitan a la vez. Se multiplica por el tiempo en aire del paquete, así que no es una duración fija. 0 elimina la espera."
         },
         "directTxdelay": {
-          "label": "Retardo TX directo",
-          "hint": "La misma espera para evitar colisiones, aplicada a paquetes con ruta conocida en lugar de a una inundación."
+          "label": "Factor de retardo TX directo",
+          "hint": "El mismo factor para evitar colisiones, aplicado a paquetes con ruta conocida en lugar de a una inundación. Más bajo, porque compiten menos nodos por repetirlos."
         },
         "dutycycle": {
           "label": "Ciclo de trabajo",
@@ -727,7 +727,7 @@
         },
         "pathHashMode": {
           "label": "Tamaño de hash de ruta de advert",
-          "hint": "Bytes usados para identificar cada salto de una ruta. Más bytes hacen menos probables las colisiones entre nodos parecidos y agrandan un poco cada paquete."
+          "hint": "Bytes usados para identificar cada salto en los adverts propios de este nodo. Más bytes hacen menos probables las colisiones entre nodos parecidos y agrandan un poco esos adverts. No afecta al reenvío."
         },
         "multiAcks": {
           "label": "Multi-ACK",

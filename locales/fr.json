@@ -707,15 +707,15 @@
         },
         "floodMax": {
           "label": "Sauts flood max.",
-          "hint": "Jusqu'où une inondation partie d'ici peut voyager avant d'être abandonnée. 0 désactive l'inondation."
+          "hint": "Combien de sauts une inondation peut déjà avoir faits pour que ce nœud la relaie encore. 0 l'empêche de relayer les inondations."
         },
         "txdelay": {
-          "label": "Délai TX flood",
-          "hint": "Attente aléatoire avant de relayer une inondation, qui évite que des voisins ayant entendu le même paquet émettent en même temps."
+          "label": "Facteur de délai TX flood",
+          "hint": "Multiplie l'attente aléatoire avant de relayer une inondation, qui évite que des voisins ayant entendu le même paquet émettent en même temps. Appliqué au temps d'antenne du paquet, ce n'est donc pas une durée fixe. 0 supprime l'attente."
         },
         "directTxdelay": {
-          "label": "Délai TX direct",
-          "hint": "La même attente anti-collision, appliquée aux paquets sur une route connue plutôt qu'à une inondation."
+          "label": "Facteur de délai TX direct",
+          "hint": "Le même facteur anti-collision, appliqué aux paquets sur une route connue plutôt qu'à une inondation. Plus bas, car moins de nœuds se disputent leur relais."
         },
         "dutycycle": {
           "label": "Cycle de service",
@@ -727,7 +727,7 @@
         },
         "pathHashMode": {
           "label": "Taille du hash de chemin d’advert",
-          "hint": "Octets utilisés pour identifier chaque saut d'un chemin. Plus d'octets rendent les collisions entre nœuds similaires moins probables et chaque paquet un peu plus gros."
+          "hint": "Octets utilisés pour identifier chaque saut dans les adverts propres à ce nœud. Plus d'octets rendent les collisions entre nœuds similaires moins probables et ces adverts un peu plus gros. Le relais n'est pas affecté."
         },
         "multiAcks": {
           "label": "Multi-ACK",
