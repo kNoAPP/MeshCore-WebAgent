@@ -315,6 +315,9 @@ export function ChatArea() {
         arrival?.convoId === convoId &&
         arrival?.msgId === last?.id &&
         !arrival?.visible;
+      // Same rule the store uses for `_unread`: a system note is not a message
+      // the user missed, so it never earns the "new messages" bubble.
+      const unseen = !last?.own && !last?.system;
       // Arrived while the conversation was off screen (other tab, other
       // window, other view): leave the scroll where the user left it, so the
       // unread divider they come back to isn't already scrolled past.
@@ -327,12 +330,12 @@ export function ChatArea() {
         const below = list
           ? list.scrollHeight - list.scrollTop > list.clientHeight
           : false;
-        if (!last?.own && below) {
+        if (unseen && below) {
           setShowNewIndicator(true);
         }
         return;
       }
-      if (!last?.own && !atBottomRef.current) {
+      if (unseen && !atBottomRef.current) {
         setShowNewIndicator(true);
         return;
       }
