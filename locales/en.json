@@ -8,6 +8,7 @@
     "loading": "Loading…",
     "remove": "Remove",
     "refresh": "Refresh",
+    "retry": "Retry",
     "load": "Load",
     "close": "Close",
     "add": "Add",
@@ -638,6 +639,10 @@
       "requiresReboot": "Requires reboot",
       "edit": "Edit",
       "advanced": "Advanced",
+      "intro": "Values are read from the node on demand, one command at a time, so the tab doesn't spend this repeater's airtime unless you ask it to. Load a card to see its current settings — a field that never answers can be retried on its own.",
+      "loadAll": "Load all",
+      "noReply": "No reply",
+      "range": "({{min}}–{{max}})",
       "filterLabel": "Filter settings",
       "filterPlaceholder": "Filter settings…",
       "filterEmpty": "No settings match this filter.",
@@ -652,65 +657,85 @@
         "dbm": "dBm",
         "hours": "hours",
         "minutes": "min",
-        "percent": "%"
+        "percent": "%",
+        "seconds": "s"
       },
       "fields": {
         "name": {
-          "label": "Name"
+          "label": "Name",
+          "hint": "The name this node advertises to the mesh."
         },
         "lat": {
-          "label": "Latitude"
+          "label": "Latitude",
+          "hint": "Advertised latitude in decimal degrees."
         },
         "lon": {
-          "label": "Longitude"
+          "label": "Longitude",
+          "hint": "Advertised longitude in decimal degrees."
         },
         "radio": {
-          "label": "Radio"
+          "label": "Radio",
+          "hint": "Frequency, bandwidth, spreading factor and coding rate. Every node that should hear this one must match them exactly."
         },
         "tx": {
-          "label": "TX Power"
+          "label": "TX Power",
+          "hint": "Transmit power. Higher reaches further and costs more battery; it does not help if the other end can't reply."
         },
         "gps": {
-          "label": "GPS module"
+          "label": "GPS module",
+          "hint": "Powers the on-board GPS receiver, on boards that have one."
         },
         "gpsAdvert": {
-          "label": "Advertised location"
+          "label": "Advertised location",
+          "hint": "Whether adverts carry the live GPS fix, the fixed coordinates above, or no location at all."
         },
         "repeat": {
-          "label": "Repeat"
+          "label": "Repeat",
+          "hint": "Whether this node forwards other nodes' packets. Turn it off to make the node a leaf that only speaks for itself."
         },
         "floodAdvertInterval": {
-          "label": "Flood advert interval"
+          "label": "Flood advert interval",
+          "hint": "How often this node floods an advert across the whole mesh. Floods reach everyone and cost everyone airtime, so longer is kinder."
         },
         "advertInterval": {
-          "label": "Zero-hop advert interval"
+          "label": "Zero-hop advert interval",
+          "hint": "How often this node advertises to direct neighbors only. Cheap, because it is never repeated."
         },
         "floodMax": {
-          "label": "Max flood hops"
+          "label": "Max flood hops",
+          "hint": "How many hops a flood may already have taken and still be repeated by this node. 0 stops it forwarding floods at all."
         },
         "txdelay": {
-          "label": "Flood TX delay"
+          "label": "Flood TX delay factor",
+          "hint": "Scales the random wait before repeating a flood, which keeps neighbors that heard the same packet from transmitting over each other. Multiplied by the packet's airtime, so it isn't a fixed duration. 0 removes the wait."
         },
         "directTxdelay": {
-          "label": "Direct TX delay"
+          "label": "Direct TX delay factor",
+          "hint": "The same collision-avoidance factor, applied to packets on a known route rather than a flood. Lower, because fewer nodes compete to repeat them."
         },
         "dutycycle": {
-          "label": "Duty cycle"
+          "label": "Duty cycle",
+          "hint": "Share of the time this node is allowed to transmit. Some regions cap this by law."
         },
         "loopDetect": {
-          "label": "Loop detection"
+          "label": "Loop detection",
+          "hint": "How aggressively repeated packets that have already passed through here are suppressed. Stricter saves airtime and risks dropping a legitimate retransmission."
         },
         "pathHashMode": {
-          "label": "Advert path hash size"
+          "label": "Advert path hash size",
+          "hint": "Bytes used to identify each hop in this node's own adverts. More bytes make collisions between similar nodes less likely and make those adverts slightly larger. Forwarding is unaffected."
         },
         "multiAcks": {
-          "label": "Multi-acks"
+          "label": "Multi-acks",
+          "hint": "Lets several acknowledgments ride in one packet instead of one each."
         },
         "cad": {
-          "label": "Hardware CAD"
+          "label": "Hardware CAD",
+          "hint": "Uses the radio's channel-activity detection to wait for a quiet channel before transmitting."
         },
         "radioFemRxgain": {
-          "label": "FEM RX gain"
+          "label": "FEM RX gain",
+          "hint": "Extra receive gain on boards with a front-end module. Raises sensitivity and the noise floor with it."
         }
       },
       "options": {
@@ -986,6 +1011,7 @@
     "repeaterCliFailed": "Failed to send command: {{error}}",
     "repeaterCliNoReply": "Command sent, but the node didn't reply in time.",
     "repeaterConfigError": "Node rejected the change: {{error}}",
+    "repeaterReadParseFailed": "Unrecognized response while reading {{field}}",
     "repeaterNameTooLongForLocation": "Shorten the node name to 24 bytes or fewer before setting a location.",
     "repeaterLoadBeforeLocationEdit": "Load the node name and location before changing either.",
     "repeaterActionSent": "Command sent."

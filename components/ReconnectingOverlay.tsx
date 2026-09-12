@@ -47,6 +47,17 @@ export function ReconnectingOverlay() {
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef);
 
+  // The trap only sees keys bubbling out of the container, so it can't help
+  // once the focused control is unmounted — which is exactly what happens when
+  // an attempt starts and Retry gives way to the sync card. Take focus back to
+  // the dialog itself so the next Tab stays inside it.
+  const syncing = syncProgress !== null;
+  const waiting = progress?.waiting ?? false;
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (el && !el.contains(document.activeElement)) el.focus();
+  }, [syncing, waiting]);
+
   return (
     <div
       ref={dialogRef}

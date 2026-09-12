@@ -60,6 +60,27 @@ type CommitOutcome =
 // which nothing answered ends the read early.
 const READ_PASSES = 3;
 
+// The value column's overall width. Fixed so every row's control ends on the
+// same edge; what varies inside it is how much the slider gets.
+const ENTRY_WIDTH = 'w-52';
+
+// Characters the widest permitted value needs, so a box fits its own contents
+// rather than the widest field on the card.
+function valueChars(setting: NumberSetting): number {
+  const whole = Math.max(
+    String(Math.trunc(setting.min)).length,
+    String(Math.trunc(setting.max)).length,
+  );
+  if (setting.integer) return whole;
+  // Free-precision fields are coordinates, which `setLocation` rounds to six
+  // decimals; a stepped one can only ever show the step's own precision.
+  const decimals =
+    setting.step === 'any'
+      ? 6
+      : (String(setting.step).split('.')[1]?.length ?? 0);
+  return decimals > 0 ? whole + 1 + decimals : whole;
+}
+
 // Shown together in their own card, like the Settings page's Radio section,
 // rather than inside the Identity group they're cataloged in.
 const RADIO_FIELDS: readonly RepeaterSetting[] = ALL_REPEATER_SETTINGS.filter(
@@ -117,6 +138,10 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
   // or a board capability it lacks). Their rows are dropped from the UI and
   // from later reads instead of surfacing an error.
   const [unsupported, setUnsupported] = useState<Set<string>>(() => new Set());
+  // Fields that were asked for and never answered, after all read passes. The
+  // difference between this and "never loaded" is the whole diagnosis: an
+  // em-dash alone can't tell a user whether a value is unread or lost.
+  const [failed, setFailed] = useState<Set<string>>(() => new Set());
   // Whether the shared radio/TX editor modal is open.
   const [radioEditOpen, setRadioEditOpen] = useState(false);
   // Transient text filter over the field labels; not a preference, so it stays
@@ -224,6 +249,17 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                   setGpsSupported(true);
                 }
                 parsed = normalizeReply(setting, reply);
+                if (parsed === null) {
+                  errored = true;
+                  showToast(
+                    t('toast.repeaterReadParseFailed', {
+                      field: t(
+                        `repeaterAdmin.config.fields.${setting.id}.label`,
+                      ),
+                    }),
+                    'error',
+                  );
+                }
               }
             } catch {
               if (!aliveRef.current) return;
@@ -241,7 +277,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                 return next;
               });
             } else {
-              // Timeout or an unreadable reply — retry on a later pass.
+              // No response — retry on a later pass.
               misses.push(setting);
             }
           }
@@ -261,6 +297,15 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           for (const s of settings) if (next.delete(s.id)) changed = true;
           return changed ? next : prev;
         });
+        // Whatever is still queued asked and got nothing: record it so the row
+        // can say "no reply" and offer a retry instead of an unexplained dash.
+        if (queue.length > 0) {
+          setFailed((prev) => {
+            const next = new Set(prev);
+            for (const s of queue) next.add(s.id);
+            return next;
+          });
+        }
       })();
     },
     [cacheValues, showToast, t],
@@ -275,6 +320,13 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       setPending((prev) => {
         const next = new Set(prev);
         for (const s of settings) next.add(s.id);
+        return next;
+      });
+      // A retry starts from a clean slate: these fields are being asked again.
+      setFailed((prev) => {
+        if (!settings.some((s) => prev.has(s.id))) return prev;
+        const next = new Set(prev);
+        for (const s of settings) next.delete(s.id);
         return next;
       });
       read(settings);
@@ -628,10 +680,12 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
     value: values[setting.id] ?? '',
     onDraft: (v: string) => setDrafts((prev) => ({ ...prev, [setting.id]: v })),
     onCommit: (v: string) => void commit(setting, v),
+    onRetry: () => refreshSection([setting]),
     draft: drafts[setting.id] ?? '',
     status: status[setting.id],
     errorText: errorMsg[setting.id],
     loading: pending.has(setting.id),
+    failed: failed.has(setting.id),
     nameBytes,
   });
 
@@ -688,9 +742,21 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
     void commit(gpsAdvertSetting, policy);
   };
 
+  // One gesture for the whole tab, since the load-on-demand model otherwise
+  // needs four separate clicks to answer "what is this node set to?". The
+  // composite `radio` setting is included: the Radio card reads it too, and
+  // leaving it out would make "Load all" quietly skip the radio parameters.
+  const loadAll = () => {
+    refreshSection([
+      ...REPEATER_SETTING_GROUPS.flatMap((g) => [...g.settings]),
+      ...advancedSettings,
+      ...(gpsSupported === false ? [] : REPEATER_GPS_SETTINGS),
+    ]);
+  };
+
   return (
     <>
-      <div className='mx-auto mb-4 w-full max-w-6xl'>
+      <div className='mx-auto mb-4 flex w-full max-w-6xl flex-wrap items-center gap-3'>
         <input
           type='search'
           value={fieldFilter}
@@ -699,6 +765,17 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           aria-label={t('repeaterAdmin.config.filterLabel')}
           className='w-full max-w-xs rounded-md border border-border-control bg-surface px-2.5 py-1.5 text-xs text-text outline-none focus:border-accent'
         />
+        <button
+          type='button'
+          onClick={loadAll}
+          disabled={pending.size > 0}
+          className='rounded-md border border-border-control px-2.5 py-1.5 text-xs font-medium text-text2 transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50'
+        >
+          {t('repeaterAdmin.config.loadAll')}
+        </button>
+        <p className='w-full text-xs text-text2'>
+          {t('repeaterAdmin.config.intro')}
+        </p>
       </div>
       <div className='mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 xl:grid-cols-2'>
         {REPEATER_SETTING_GROUPS.map((group) => {
@@ -753,12 +830,31 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                       );
                       return (
                         <Fragment key='location'>
-                          {gpsSupported === true && (
+                          {(gpsSupported === true ||
+                            failed.has('gps') ||
+                            failed.has('gpsAdvert')) && (
                             <LocationSourceRow
                               policy={advertPolicy}
                               status={sourceStatus}
                               errorText={errorMsg.gps ?? errorMsg.gpsAdvert}
-                              disabled={sourceStatus === 'saving'}
+                              disabled={
+                                sourceStatus === 'saving' ||
+                                pending.has('gps') ||
+                                pending.has('gpsAdvert') ||
+                                failed.has('gps') ||
+                                failed.has('gpsAdvert') ||
+                                !values.gps ||
+                                !values.gpsAdvert
+                              }
+                              pending={pending}
+                              failed={failed}
+                              onRetry={(id) =>
+                                refreshSection(
+                                  REPEATER_GPS_SETTINGS.filter(
+                                    (setting) => setting.id === id,
+                                  ),
+                                )
+                              }
                               onSelect={selectPolicy}
                             />
                           )}
@@ -786,10 +882,16 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                 <RadioSection
                   radioValue={values.radio ?? ''}
                   txValue={values.tx ?? ''}
-                  busy={sectionBusy(RADIO_FIELDS)}
                   loaded={sectionLoaded(RADIO_FIELDS)}
+                  pending={pending}
+                  failed={failed}
                   onEdit={() => setRadioEditOpen(true)}
                   onRefresh={() => refreshSection(RADIO_FIELDS)}
+                  onRetry={(id) =>
+                    refreshSection(
+                      RADIO_FIELDS.filter((setting) => setting.id === id),
+                    )
+                  }
                 />
               )}
             </Fragment>
@@ -839,9 +941,13 @@ interface RowProps {
   draft: string;
   onDraft: (value: string) => void;
   onCommit: (value: string) => void;
+  /** Re-reads just this field, after its read went unanswered. */
+  onRetry: () => void;
   status?: SaveStatus;
   errorText?: string;
   loading: boolean;
+  /** The read was attempted and the node never replied. */
+  failed: boolean;
   disabled?: boolean;
   nameBytes: number;
 }
@@ -854,15 +960,18 @@ function SettingRow({
   draft,
   onDraft,
   onCommit,
+  onRetry,
   status,
   errorText,
   loading,
+  failed,
   disabled,
   nameBytes,
 }: RowProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const label = t(`repeaterAdmin.config.fields.${setting.id}.label`);
+  const hint = t(`repeaterAdmin.config.fields.${setting.id}.hint`);
   const maxBytes = setting.kind === 'text' ? nameBytes : undefined;
   const valid = isValidValue(setting, draft, maxBytes);
   // A field is "loaded" once its value has been read; before that (or if a read
@@ -879,12 +988,33 @@ function SettingRow({
 
   return (
     <div className={ROW_CLASS}>
-      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
-        <span className='truncate text-text2'>{label}</span>
-        {setting.requiresReboot && <RebootPill />}
+      <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
+        <span className='flex min-w-0 items-center gap-1.5'>
+          <span className='truncate text-text2'>{label}</span>
+          {setting.requiresReboot && <RebootPill />}
+        </span>
+        {hint && (
+          <span className='text-[11px] leading-snug text-text2 opacity-80'>
+            {hint}
+            {setting.kind === 'number' && (
+              <>
+                {' '}
+                {t('repeaterAdmin.config.range', {
+                  min: fmtNum(setting.min, i18n.language),
+                  max: fmtNum(setting.max, i18n.language),
+                })}
+              </>
+            )}
+          </span>
+        )}
       </div>
       <div className='flex shrink-0 items-center gap-2'>
-        <FieldSlot loading={loading} loaded={loaded}>
+        <FieldSlot
+          loading={loading}
+          loaded={loaded}
+          failed={failed}
+          onRetry={onRetry}
+        >
           {setting.kind === 'toggle' && (
             <SwitchControl
               setting={setting}
@@ -894,9 +1024,10 @@ function SettingRow({
             />
           )}
           {setting.kind === 'number' && (
-            <SliderField
+            <NumberEntry
               setting={setting}
               value={draft}
+              valid={valid}
               ariaLabel={label}
               onChange={onDraft}
               onCommitEdit={commitEdit}
@@ -932,13 +1063,35 @@ function UnloadedValue() {
   return <span className='text-text2'>—</span>;
 }
 
+// A read that was attempted and never answered, told apart from one that was
+// never attempted. Retrying one field costs one round trip, not a whole card.
+function FailedValue({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <span className='flex items-center gap-1.5 text-xs text-amber'>
+      {t('repeaterAdmin.config.noReply')}
+      <button
+        type='button'
+        onClick={onRetry}
+        className='font-semibold underline hover:opacity-80'
+      >
+        {t('common.retry')}
+      </button>
+    </span>
+  );
+}
+
 function FieldSlot({
   loading,
   loaded,
+  failed,
+  onRetry,
   children,
 }: {
   loading: boolean;
   loaded: boolean;
+  failed?: boolean;
+  onRetry?: () => void;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -949,6 +1102,7 @@ function FieldSlot({
       </span>
     );
   }
+  if (failed && onRetry) return <FailedValue onRetry={onRetry} />;
   if (!loaded) return <UnloadedValue />;
   return <>{children}</>;
 }
@@ -963,13 +1117,14 @@ function RebootPill() {
 }
 
 function Field({
-  width,
+  width = '',
   invalid,
   disabled,
   suffix,
   children,
 }: {
-  width: string;
+  /** Omit to let the control size itself to its contents. */
+  width?: string;
   invalid?: boolean;
   disabled?: boolean;
   suffix?: React.ReactNode;
@@ -1018,7 +1173,6 @@ function NumberField({
   valid,
   disabled,
   ariaLabel,
-  width = 'w-28',
   onChange,
   onCommitEdit,
 }: {
@@ -1027,7 +1181,6 @@ function NumberField({
   valid: boolean;
   disabled: boolean;
   ariaLabel: string;
-  width?: string;
   onChange: (value: string) => void;
   onCommitEdit: () => void;
 }) {
@@ -1037,7 +1190,6 @@ function NumberField({
     : undefined;
   return (
     <Field
-      width={width}
       invalid={!valid && value.trim() !== ''}
       disabled={disabled}
       suffix={unit}
@@ -1046,7 +1198,7 @@ function NumberField({
         type='number'
         inputMode='decimal'
         aria-label={ariaLabel}
-        step={setting.integer ? 1 : 'any'}
+        step={setting.step}
         min={setting.min}
         max={setting.max}
         value={value}
@@ -1056,35 +1208,47 @@ function NumberField({
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
-        className='w-full min-w-0 bg-transparent px-2 py-1 text-right text-xs text-text outline-none'
+        // Sized to the widest value this setting allows. The slack covers the
+        // padding either side and `ch` under-measuring the UI font's digits.
+        style={{ width: `calc(${valueChars(setting)}ch + 1.75rem)` }}
+        // The slider steps this field, so Chrome's spinner is only stealing
+        // width the value needs.
+        className='min-w-0 bg-transparent px-2 py-1 text-right text-xs tabular-nums text-text outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
       />
     </Field>
   );
 }
 
-// The change commits on release (pointer up / key up), so a drag doesn't fire a
-// `set` on every tick.
-function SliderField({
+/**
+ * A number setting: a coarse slider for dragging plus a typed field for the
+ * exact value.
+ *
+ * @remarks
+ * The slider alone made precision impractical — the flood advert interval is
+ * 166 steps across 160 pixels — and its `onKeyUp` commit turned one keyboard
+ * step into one `set`+`get` round trip over LoRa. The slider commits on pointer
+ * release or blur after keyboard edits. The typed field commits on blur or
+ * Enter. The shared commit path deduplicates unchanged pending intents.
+ */
+function NumberEntry({
   setting,
   value,
+  valid,
   ariaLabel,
   onChange,
   onCommitEdit,
 }: {
   setting: NumberSetting;
   value: string;
+  valid: boolean;
   ariaLabel: string;
   onChange: (value: string) => void;
   onCommitEdit: () => void;
 }) {
-  const { t, i18n } = useTranslation();
-  const unit = setting.unit
-    ? t(`repeaterAdmin.config.units.${setting.unit}`)
-    : undefined;
   const n = Number(value);
   const slider = Number.isFinite(n) ? n : setting.min;
   return (
-    <div className='flex items-center gap-2'>
+    <div className={`flex items-center justify-end gap-2 ${ENTRY_WIDTH}`}>
       <input
         type='range'
         aria-label={ariaLabel}
@@ -1094,13 +1258,20 @@ function SliderField({
         value={slider}
         onChange={(e) => onChange(e.target.value)}
         onPointerUp={onCommitEdit}
-        onKeyUp={onCommitEdit}
-        className='w-40 accent-accent'
+        // Arrow keys still move the thumb, so it needs a commit too — on blur,
+        // not on key-up, which is what made one keyboard edit a round trip.
+        onBlur={onCommitEdit}
+        className='hidden min-w-0 flex-1 accent-accent sm:block'
       />
-      <span className='w-20 shrink-0 text-right text-xs text-text tabular-nums'>
-        {fmtNum(slider, i18n.language)}
-        {unit ? ` ${unit}` : ''}
-      </span>
+      <NumberField
+        setting={setting}
+        value={value}
+        valid={valid}
+        disabled={false}
+        ariaLabel={ariaLabel}
+        onChange={onChange}
+        onCommitEdit={onCommitEdit}
+      />
     </div>
   );
 }
@@ -1195,12 +1366,18 @@ function LocationSourceRow({
   status,
   errorText,
   disabled,
+  pending,
+  failed,
+  onRetry,
   onSelect,
 }: {
   policy: string;
   status?: SaveStatus;
   errorText?: string;
   disabled: boolean;
+  pending: ReadonlySet<string>;
+  failed: ReadonlySet<string>;
+  onRetry: (id: 'gps' | 'gpsAdvert') => void;
   onSelect: (policy: (typeof GPS_ADVERT_OPTIONS)[number]) => void;
 }) {
   const { t } = useTranslation();
@@ -1210,12 +1387,33 @@ function LocationSourceRow({
   const tabStop = activeIdx === -1 ? 0 : activeIdx;
   return (
     <div className={ROW_CLASS}>
-      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
+      <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
         <span className='truncate text-text2'>
           {t('settings.locationSource')}
         </span>
+        <span className='text-[11px] leading-snug text-text2 opacity-80'>
+          {t('repeaterAdmin.config.fields.gps.hint')}
+        </span>
+        <span className='text-[11px] leading-snug text-text2 opacity-80'>
+          {t('repeaterAdmin.config.fields.gpsAdvert.hint')}
+        </span>
       </div>
-      <div className='flex shrink-0 items-center gap-2'>
+      <div className='flex shrink-0 flex-col items-end gap-2'>
+        {(['gps', 'gpsAdvert'] as const).map((id) =>
+          pending.has(id) || failed.has(id) ? (
+            <div key={id} className='flex items-center gap-2 text-xs'>
+              <span>{t(`repeaterAdmin.config.fields.${id}.label`)}</span>
+              <FieldSlot
+                loading={pending.has(id)}
+                loaded={false}
+                failed={failed.has(id)}
+                onRetry={() => onRetry(id)}
+              >
+                {null}
+              </FieldSlot>
+            </div>
+          ) : null,
+        )}
         <div
           role='radiogroup'
           aria-label={t('settings.locationSource')}
@@ -1262,35 +1460,37 @@ function LocationRow({
   lonProps?: RowProps;
 }) {
   const { t } = useTranslation();
-  const loading = latProps.loading || (lonProps?.loading ?? false);
-  const loaded = latProps.value !== '' || (lonProps?.value ?? '') !== '';
   const disabled = latProps.disabled ?? false;
   // One status for the whole row, since lat and lon commit as a pair: any write
   // in flight shows saving, any failure shows the error, else the saved tick.
   const rowStatus = combineStatus(latProps.status, lonProps?.status);
   const rowError = latProps.errorText ?? lonProps?.errorText;
   return (
-    <div className={ROW_CLASS}>
-      <div className='flex min-w-0 flex-1 items-center gap-1.5'>
+    <div className={`${ROW_CLASS} flex-wrap gap-y-2`}>
+      {/* Widest row on the card: latitude, longitude and Set on map side by
+          side. Wraps to its own line rather than crushing the label into a
+          one-word column. */}
+      <div className='flex min-w-48 flex-1 flex-col gap-0.5'>
         <span className='truncate text-text2'>
           {t('repeaterAdmin.config.location')}
         </span>
+        <span className='text-[11px] leading-snug text-text2 opacity-80'>
+          {t('repeaterAdmin.config.locationHint')}
+        </span>
       </div>
-      <div className='flex shrink-0 flex-wrap items-center justify-end gap-2'>
-        <FieldSlot loading={loading} loaded={loaded}>
-          <CoordField {...latProps} />
-          {lonProps && <CoordField {...lonProps} />}
-          {!disabled && (
-            <button
-              type='button'
-              onClick={() => useMeshStore.getState().startLocationPick('chat')}
-              className='shrink-0 rounded-md border border-border-control px-3 py-1 text-xs text-text2 hover:text-text'
-            >
-              {t('settings.setOnMap')}
-            </button>
-          )}
-          <SaveStatusChip status={rowStatus} errorText={rowError} />
-        </FieldSlot>
+      <div className='ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2'>
+        <CoordField {...latProps} />
+        {lonProps && <CoordField {...lonProps} />}
+        {!disabled && (
+          <button
+            type='button'
+            onClick={() => useMeshStore.getState().startLocationPick('chat')}
+            className='shrink-0 rounded-md border border-border-control px-3 py-1 text-xs text-text2 hover:text-text'
+          >
+            {t('settings.setOnMap')}
+          </button>
+        )}
+        <SaveStatusChip status={rowStatus} errorText={rowError} />
       </div>
     </div>
   );
@@ -1311,6 +1511,9 @@ function CoordField({
   onDraft,
   onCommit,
   disabled,
+  loading,
+  failed,
+  onRetry,
 }: RowProps) {
   const { t } = useTranslation();
   const label = t(`repeaterAdmin.config.fields.${setting.id}.label`);
@@ -1323,16 +1526,22 @@ function CoordField({
   return (
     <div className='flex items-center gap-1.5'>
       <span className='text-[11px] text-text2'>{label}</span>
-      <NumberField
-        setting={setting as NumberSetting}
-        value={draft}
-        valid={valid}
-        disabled={!!disabled}
-        ariaLabel={label}
-        width='w-36'
-        onChange={onDraft}
-        onCommitEdit={commitEdit}
-      />
+      <FieldSlot
+        loading={loading}
+        loaded={value !== ''}
+        failed={failed}
+        onRetry={onRetry}
+      >
+        <NumberField
+          setting={setting as NumberSetting}
+          value={draft}
+          valid={valid}
+          disabled={!!disabled}
+          ariaLabel={label}
+          onChange={onDraft}
+          onCommitEdit={commitEdit}
+        />
+      </FieldSlot>
     </div>
   );
 }
@@ -1342,42 +1551,57 @@ function CoordField({
 function RadioSection({
   radioValue,
   txValue,
-  busy,
   loaded,
+  pending,
+  failed,
   onEdit,
   onRefresh,
+  onRetry,
 }: {
   radioValue: string;
   txValue: string;
-  busy: boolean;
   loaded: boolean;
+  pending: ReadonlySet<string>;
+  failed: ReadonlySet<string>;
   onEdit: () => void;
   onRefresh: () => void;
+  onRetry: (id: 'radio' | 'tx') => void;
 }) {
   const { t, i18n } = useTranslation();
   const num = (n: number) => fmtNum(n, i18n.language);
   const parsed = parseRadio(radioValue);
-  const ready = parsed != null && txValue !== '';
-  const rows: { label: string; value: string | null }[] = [
+  const busy = pending.has('radio') || pending.has('tx');
+  const ready =
+    parsed != null &&
+    txValue !== '' &&
+    !busy &&
+    !failed.has('radio') &&
+    !failed.has('tx');
+  const rows: { id: 'radio' | 'tx'; label: string; value: string | null }[] = [
     {
+      id: 'radio',
       label: t('settings.frequency'),
       value: parsed ? t('settings.mhz', { value: num(parsed.freq) }) : null,
     },
     {
+      id: 'radio',
       label: t('settings.bandwidth'),
       value: parsed ? t('settings.khz', { value: num(parsed.bw) }) : null,
     },
     {
+      id: 'radio',
       label: t('settings.spreadingFactor'),
       value: parsed ? num(parsed.sf) : null,
     },
     {
+      id: 'radio',
       label: t('settings.codingRate'),
       value: parsed
         ? t('settings.radioEdit.crLabel', { value: parsed.cr })
         : null,
     },
     {
+      id: 'tx',
       label: t('settings.txPower'),
       value:
         txValue !== '' ? t('units.dbm', { value: num(Number(txValue)) }) : null,
@@ -1401,12 +1625,20 @@ function RadioSection({
         </div>
       }
     >
+      <p className='mb-1 text-[11px] leading-snug text-text2 opacity-80'>
+        {t('repeaterAdmin.config.fields.radio.hint')}
+      </p>
+      <p className='mb-2 text-[11px] leading-snug text-text2 opacity-80'>
+        {t('repeaterAdmin.config.fields.tx.hint')}
+      </p>
       {rows.map((row) => (
         <ValueRow
           key={row.label}
           label={row.label}
           value={row.value}
-          loading={busy}
+          loading={pending.has(row.id)}
+          failed={failed.has(row.id)}
+          onRetry={() => onRetry(row.id)}
         />
       ))}
     </Card>
@@ -1417,15 +1649,24 @@ function ValueRow({
   label,
   value,
   loading,
+  failed,
+  onRetry,
 }: {
   label: string;
   value: string | null;
   loading: boolean;
+  failed?: boolean;
+  onRetry?: () => void;
 }) {
   return (
     <div className={ROW_CLASS}>
       <span className='shrink-0 text-text2'>{label}</span>
-      <FieldSlot loading={loading} loaded={value != null}>
+      <FieldSlot
+        loading={loading}
+        loaded={value != null}
+        failed={failed}
+        onRetry={onRetry}
+      >
         <span className='font-semibold'>{value}</span>
       </FieldSlot>
     </div>

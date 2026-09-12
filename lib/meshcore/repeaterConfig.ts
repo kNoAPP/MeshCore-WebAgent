@@ -20,7 +20,8 @@ export type RepeaterSettingKind =
   'toggle' | 'number' | 'text' | 'select' | 'radio';
 
 /** Unit suffix after a numeric value (i18n key under `config.units`). */
-export type RepeaterSettingUnit = 'dbm' | 'hours' | 'minutes' | 'percent';
+export type RepeaterSettingUnit =
+  'dbm' | 'hours' | 'minutes' | 'percent' | 'seconds';
 
 /**
  * i18n-safe identifiers for every setting, so `t()` keys under
@@ -228,6 +229,9 @@ export const REPEATER_SETTING_GROUPS: readonly RepeaterSettingGroup[] = [
 
 /** Advanced routing settings, rendered as their own always-visible card. */
 export const REPEATER_ADVANCED_SETTINGS: readonly RepeaterSetting[] = [
+  // Both TX delays are dimensionless: the firmware multiplies a packet's
+  // estimated airtime by the factor and then picks a random delay inside that
+  // window, so the wait varies per packet and radio. No unit.
   {
     id: 'txdelay',
     key: 'txdelay',

@@ -8,6 +8,7 @@
     "loading": "Chargement…",
     "remove": "Supprimer",
     "refresh": "Actualiser",
+    "retry": "Réessayer",
     "load": "Charger",
     "close": "Fermer",
     "add": "Ajouter",
@@ -27,7 +28,8 @@
   "units": {
     "dbm": "{{value}} dBm",
     "kb": "{{value}} Ko",
-    "percent": "{{value}} %"
+    "percent": "{{value}} %",
+    "seconds": "s"
   },
   "header": {
     "connecting": "Connexion…",
@@ -638,6 +640,10 @@
       "requiresReboot": "Nécessite un redémarrage",
       "edit": "Modifier",
       "advanced": "Avancé",
+      "intro": "Les valeurs sont lues sur le nœud à la demande, une commande à la fois, pour que cet onglet ne consomme pas le temps d'antenne de ce répéteur sans qu'on le lui demande. Charge une carte pour voir ses réglages actuels : un champ resté sans réponse peut être réessayé seul.",
+      "loadAll": "Tout charger",
+      "noReply": "Aucune réponse",
+      "range": "({{min}}–{{max}})",
       "filterLabel": "Filtrer les paramètres",
       "filterPlaceholder": "Filtrer les paramètres…",
       "filterEmpty": "Aucun paramètre ne correspond à ce filtre.",
@@ -652,65 +658,85 @@
         "dbm": "dBm",
         "hours": "h",
         "minutes": "min",
-        "percent": "%"
+        "percent": "%",
+        "seconds": "s"
       },
       "fields": {
         "name": {
-          "label": "Nom"
+          "label": "Nom",
+          "hint": "Le nom que ce nœud annonce au réseau."
         },
         "lat": {
-          "label": "Latitude"
+          "label": "Latitude",
+          "hint": "Latitude annoncée en degrés décimaux."
         },
         "lon": {
-          "label": "Longitude"
+          "label": "Longitude",
+          "hint": "Longitude annoncée en degrés décimaux."
         },
         "radio": {
-          "label": "Radio"
+          "label": "Radio",
+          "hint": "Fréquence, bande passante, facteur d'étalement et taux de codage. Tout nœud censé entendre celui-ci doit les faire correspondre exactement."
         },
         "tx": {
-          "label": "Puissance TX"
+          "label": "Puissance TX",
+          "hint": "Puissance d'émission. Plus fort porte plus loin et consomme plus ; cela n'aide pas si l'autre bout ne peut pas répondre."
         },
         "gps": {
-          "label": "Module GPS"
+          "label": "Module GPS",
+          "hint": "Alimente le récepteur GPS intégré, sur les cartes qui en ont un."
         },
         "gpsAdvert": {
-          "label": "Position annoncée"
+          "label": "Position annoncée",
+          "hint": "Si les annonces portent la position GPS en direct, les coordonnées fixes ci-dessus, ou aucune position."
         },
         "repeat": {
-          "label": "Répéter"
+          "label": "Répéter",
+          "hint": "Si ce nœud relaie les paquets des autres. Désactive-le pour en faire une feuille qui ne parle que pour elle-même."
         },
         "floodAdvertInterval": {
-          "label": "Intervalle d’advert flood"
+          "label": "Intervalle d’advert flood",
+          "hint": "À quelle fréquence ce nœud inonde une annonce dans tout le réseau. Les inondations atteignent tout le monde et coûtent du temps d'antenne à tout le monde : plus long est plus courtois."
         },
         "advertInterval": {
-          "label": "Intervalle d’advert zéro saut"
+          "label": "Intervalle d’advert zéro saut",
+          "hint": "À quelle fréquence ce nœud s'annonce à ses seuls voisins directs. Peu coûteux, car jamais relayé."
         },
         "floodMax": {
-          "label": "Sauts flood max."
+          "label": "Sauts flood max.",
+          "hint": "Combien de sauts une inondation peut déjà avoir faits pour que ce nœud la relaie encore. 0 l'empêche de relayer les inondations."
         },
         "txdelay": {
-          "label": "Délai TX flood"
+          "label": "Facteur de délai TX flood",
+          "hint": "Multiplie l'attente aléatoire avant de relayer une inondation, qui évite que des voisins ayant entendu le même paquet émettent en même temps. Appliqué au temps d'antenne du paquet, ce n'est donc pas une durée fixe. 0 supprime l'attente."
         },
         "directTxdelay": {
-          "label": "Délai TX direct"
+          "label": "Facteur de délai TX direct",
+          "hint": "Le même facteur anti-collision, appliqué aux paquets sur une route connue plutôt qu'à une inondation. Plus bas, car moins de nœuds se disputent leur relais."
         },
         "dutycycle": {
-          "label": "Cycle de service"
+          "label": "Cycle de service",
+          "hint": "Part du temps pendant laquelle ce nœud a le droit d'émettre. Certaines régions la plafonnent par la loi."
         },
         "loopDetect": {
-          "label": "Détection de boucle"
+          "label": "Détection de boucle",
+          "hint": "Avec quelle sévérité les paquets déjà passés ici sont supprimés. Plus strict économise du temps d'antenne et risque d'abandonner une retransmission légitime."
         },
         "pathHashMode": {
-          "label": "Taille du hash de chemin d’advert"
+          "label": "Taille du hash de chemin d’advert",
+          "hint": "Octets utilisés pour identifier chaque saut dans les adverts propres à ce nœud. Plus d'octets rendent les collisions entre nœuds similaires moins probables et ces adverts un peu plus gros. Le relais n'est pas affecté."
         },
         "multiAcks": {
-          "label": "Multi-ACK"
+          "label": "Multi-ACK",
+          "hint": "Permet à plusieurs accusés de réception de voyager dans un seul paquet au lieu d'un chacun."
         },
         "cad": {
-          "label": "CAD matériel"
+          "label": "CAD matériel",
+          "hint": "Utilise la détection d'activité de canal de la radio pour attendre un canal libre avant d'émettre."
         },
         "radioFemRxgain": {
-          "label": "Gain RX du FEM"
+          "label": "Gain RX du FEM",
+          "hint": "Gain de réception supplémentaire sur les cartes avec module frontal. Augmente la sensibilité et le plancher de bruit avec elle."
         }
       },
       "options": {
@@ -986,6 +1012,7 @@
     "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}",
     "repeaterCliNoReply": "Commande envoyée, mais le nœud n’a pas répondu à temps.",
     "repeaterConfigError": "Le nœud a rejeté la modification : {{error}}",
+    "repeaterReadParseFailed": "Réponse non reconnue lors de la lecture de {{field}}",
     "repeaterNameTooLongForLocation": "Raccourcissez le nom du nœud à 24 octets ou moins avant de définir une position.",
     "repeaterLoadBeforeLocationEdit": "Chargez le nom et la position du nœud avant de modifier l’un ou l’autre.",
     "repeaterActionSent": "Commande envoyée."

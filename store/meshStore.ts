@@ -766,6 +766,13 @@ const initialState: MeshState = {
 
 let toastSeq = 0;
 
+// Whether the *user* has moved the map since the current session began
+// hydrating. `restorePreferences` may only carry a live `mapPrefs` over the
+// stored one when this is set: a reconnect doesn't reset the store and can
+// come back as a different radio on a shared endpoint, so an untouched value
+// is the previous radio's viewport and must not survive into this one's blob.
+let mapPrefsTouched = false;
+
 /**
  * The global Zustand store: connection state, mirrored mesh data, conversation
  * history, and UI flags. All mutations go through the actions defined here —
@@ -780,7 +787,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   // with no divider until something unrelated happens to fire it.
   setStatus: (status) => {
     // A reconnect re-runs the hydrate, so the next blob has to be able to
-    // announce itself again to anything waiting on it.
+    // announce itself again to anything waiting on it — and the viewport the
+    // last radio left behind stops counting as something to preserve.
+    if (status === 'connecting' || status === 'reconnecting') {
+      mapPrefsTouched = false;
+    }
     set(
       status === 'connecting' || status === 'reconnecting'
         ? { status, prefsHydrated: false }
@@ -827,7 +838,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({ locale });
   },
 
-  setMapPrefs: (mapPrefs) => set({ mapPrefs }),
+  setMapPrefs: (mapPrefs) => {
+    mapPrefsTouched = true;
+    set({ mapPrefs });
+  },
 
   setTheme: (theme) => {
     if (typeof window !== 'undefined') {
@@ -849,20 +863,29 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     const p = (
       typeof raw === 'object' && raw !== null ? raw : {}
     ) as Partial<RadioPreferences>;
-    set({
+    // A pan made while this blob was still loading is newer intent than the
+    // stored viewport, and is the value the debounced save is about to write
+    // back, so it wins. It has to win at the source rather than in `MapView`,
+    // which may have unmounted before the read finished and so can't put it
+    // back itself. Only *this* session's move counts: the store isn't reset
+    // between reconnects, and the radio that comes back may not be the one
+    // that left.
+    const keepMapPrefs = mapPrefsTouched;
+    mapPrefsTouched = false;
+    set((state) => ({
       unitSystem: normalizeUnitSystem(p.unitSystem),
       contactView: normalizeContactView(p.contactView),
       autoAddConfig: normalizeAutoAddConfig(p.autoAddConfig),
       automationEnabled:
         typeof p.automationEnabled === 'boolean' ? p.automationEnabled : false,
-      mapPrefs: normalizeMapPrefs(p.mapPrefs),
+      mapPrefs: keepMapPrefs ? state.mapPrefs : normalizeMapPrefs(p.mapPrefs),
       aiPref: normalizeAiPref(p.aiPref),
       showFullPublicKeys:
         typeof p.showFullPublicKeys === 'boolean'
           ? p.showFullPublicKeys
           : false,
       prefsHydrated: true,
-    });
+    }));
   },
 
   addMessage: (id, msg) =>
