@@ -29,7 +29,7 @@ export function Card({
   return (
     <section
       id={anchorId}
-      className={`rounded-lg bg-surface2 p-3.5 ${className ?? ''}`}
+      className={`rounded-card bg-surface2 p-3.5 ${className ?? ''}`}
     >
       <div className='mb-2.5 flex items-center justify-between gap-2'>
         <h3 className='text-[11px] font-bold tracking-widest text-accent uppercase'>

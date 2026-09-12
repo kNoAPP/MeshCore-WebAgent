@@ -315,14 +315,27 @@ export function ChatArea() {
         arrival?.convoId === convoId &&
         arrival?.msgId === last?.id &&
         !arrival?.visible;
+      // Same rule the store uses for `_unread`: a system note is not a message
+      // the user missed, so it never earns the "new messages" bubble.
+      const unseen = !last?.own && !last?.system;
       // Arrived while the conversation was off screen (other tab, other
       // window, other view): leave the scroll where the user left it, so the
       // unread divider they come back to isn't already scrolled past.
       if (convoId && (arrivedHidden || !isConvoVisible(state, convoId))) {
         atBottomRef.current = false;
+        // Nothing scrolled while it was hidden and this effect won't re-run on
+        // the way back, so leave the bubble as the cue that there is something
+        // below the fold.
+        const list = messagesRef.current;
+        const below = list
+          ? list.scrollHeight - list.scrollTop > list.clientHeight
+          : false;
+        if (unseen && below) {
+          setShowNewIndicator(true);
+        }
         return;
       }
-      if (!last?.own && !atBottomRef.current) {
+      if (unseen && !atBottomRef.current) {
         setShowNewIndicator(true);
         return;
       }
@@ -594,8 +607,10 @@ export function ChatArea() {
               const contact = msg.pubkeyPrefix
                 ? contacts[msg.pubkeyPrefix]
                 : undefined;
+              // `||`, not `??`: a stored contact with an empty name would
+              // otherwise render no sender at all.
               senderLabel =
-                contact?.name ?? msg.pubkeyPrefix?.slice(0, 8) ?? '?';
+                contact?.name || msg.pubkeyPrefix?.slice(0, 8) || '?';
             }
 
             const mentioned =

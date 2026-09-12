@@ -171,6 +171,17 @@ label[for] {
   /* Dialog scrim and raised-surface shadow, both theme-dependent. */
   --scrim: rgb(0 0 0 / 0.6);
   --pop-shadow: 0 8px 24px rgb(0 0 0 / 0.55);
+  /* Map markers. The four categories are the app's own tokens rather than a
+     second palette, so the legend key matches the colors used everywhere
+     else. Only the two rings and the drop-shadow need a per-theme value: they
+     exist to separate a marker from the basemap, which inverts with it. */
+  --map-user: var(--accent);
+  --map-repeater: var(--red);
+  --map-room: var(--green);
+  --map-sensor: var(--yellow);
+  --map-outline: #ffffff;
+  --map-favorite: #fbbf24;
+  --map-shadow: rgb(0 0 0 / 0.5);
 }
 
 :root[data-theme='light'] {
@@ -205,6 +216,11 @@ label[for] {
   --mention-own: #fde68a;
   --scrim: rgb(15 17 23 / 0.45);
   --pop-shadow: 0 8px 24px rgb(15 17 23 / 0.18);
+  /* Positron is near-white, so the contrast ring and the favorite ring both
+     have to darken or they vanish into the tiles. */
+  --map-outline: #1a1d27;
+  --map-favorite: #a16207;
+  --map-shadow: rgb(15 17 23 / 0.3);
 }
 
 html,
@@ -314,7 +330,7 @@ html {
   align-items: center;
   justify-content: center;
   line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 1px 2px var(--map-shadow));
 }
 .map-marker-self {
   box-sizing: border-box;

@@ -789,6 +789,9 @@
   "map": {
     "self": "Ce nœud",
     "markerCap": "Affichage de {{shown}} sur {{total}} nœuds",
+    "empty": "Aucun nœud n'a encore annoncé de position. Les positions arrivent avec les annonces : la carte se remplira à mesure que le réseau sera entendu.",
+    "emptyPeers": "Aucun autre nœud n'a encore annoncé de position. Les positions arrivent avec les annonces : la carte se remplira à mesure que le réseau sera entendu.",
+    "emptyFavorites": "Aucun de tes favoris n'a encore de position.",
     "pick": {
       "hint": "Cliquez sur la carte pour définir la position de cette radio.",
       "confirm": "Confirmer la position",

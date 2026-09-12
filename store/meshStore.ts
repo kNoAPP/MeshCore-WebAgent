@@ -436,6 +436,12 @@ interface MeshState {
   aiPref: AiPref;
   /** Persisted viewport, or `null` until the user first pans/zooms the map. */
   mapPrefs: MapPrefs | null;
+  /**
+   * True once this radio's preferences blob has been read. The session reports
+   * `connected` before that read finishes, so a `null` preference means "not
+   * loaded yet" until this flips.
+   */
+  prefsHydrated: boolean;
   toast: Toast | null;
   /**
    * True once a newer build has been deployed while a session was live, so the
@@ -705,6 +711,7 @@ const initialState: MeshState = {
   showFullPublicKeys: false,
   aiPref: DEFAULT_AI_PREF,
   mapPrefs: null,
+  prefsHydrated: false,
   toast: null,
   updateAvailable: false,
   connectError: null,
@@ -822,6 +829,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         typeof p.showFullPublicKeys === 'boolean'
           ? p.showFullPublicKeys
           : false,
+      prefsHydrated: true,
     });
   },
 
@@ -832,7 +840,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       const enriched: Message = {
         ...msg,
         id: msg.id ?? crypto.randomUUID(),
-        _unread: !visible,
+        // Only inbound traffic can be unread: an automation's own send lands
+        // in a conversation the user isn't looking at, and a system note is
+        // not something to come back to.
+        _unread: !visible && !msg.own && !msg.system,
       };
       return {
         msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },

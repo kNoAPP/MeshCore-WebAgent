@@ -43,7 +43,7 @@ export function ReconnectingOverlay() {
 
   return (
     <div
-      className='absolute inset-0 z-40 flex items-center justify-center p-4 backdrop-blur-sm bg-[color-mix(in_srgb,var(--bg)_60%,transparent)]'
+      className='absolute inset-0 z-40 flex items-center justify-center bg-scrim p-4 backdrop-blur-sm'
       role='alertdialog'
       aria-busy='true'
       aria-label={t('connect.reconnecting.title')}

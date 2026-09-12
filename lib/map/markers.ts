@@ -13,10 +13,18 @@ export type MapShape = 'circle' | 'square' | 'hexagon' | 'triangle';
  */
 export interface MarkerStyle {
   shape: MapShape;
-  /** Fixed hex fill, chosen to read on both the light and dark basemaps. */
+  /**
+   * CSS color for the fill — a `var(--map-*)` token, so the marker follows the
+   * theme the way the basemap does. Leaflet `divIcon` HTML lives in the
+   * document, so `var()` resolves normally.
+   */
   color: string;
   /** `map.legend.*` translation key naming this category. */
-  labelKey: string;
+  labelKey:
+    | 'map.legend.companion'
+    | 'map.legend.repeater'
+    | 'map.legend.roomServer'
+    | 'map.legend.sensor';
 }
 
 /**
@@ -25,20 +33,24 @@ export interface MarkerStyle {
  * yellow triangles — the same pairings the on-map legend spells out.
  */
 export const MARKER_STYLES = {
-  user: { shape: 'square', color: '#3b82f6', labelKey: 'map.legend.companion' },
+  user: {
+    shape: 'square',
+    color: 'var(--map-user)',
+    labelKey: 'map.legend.companion',
+  },
   repeater: {
     shape: 'circle',
-    color: '#ef4444',
+    color: 'var(--map-repeater)',
     labelKey: 'map.legend.repeater',
   },
   room: {
     shape: 'hexagon',
-    color: '#22c55e',
+    color: 'var(--map-room)',
     labelKey: 'map.legend.roomServer',
   },
   sensor: {
     shape: 'triangle',
-    color: '#eab308',
+    color: 'var(--map-sensor)',
     labelKey: 'map.legend.sensor',
   },
 } as const satisfies Record<ContactCategory, MarkerStyle>;
@@ -73,26 +85,27 @@ function shapeInner(shape: MapShape): string {
 
 /**
  * A self-contained `<svg>` string for a shape at the given pixel size. The
- * outline (white by default, gold for favorites) plus the marker's drop-shadow
- * keep every color visible on both the light and dark basemaps. The markup is
- * fully static (no user input), so it is safe to inject into a Leaflet
+ * outline (a contrast ring by default, gold for favorites) plus the marker's
+ * drop-shadow keep every color visible on both the light and dark basemaps;
+ * all three are `var(--map-*)` tokens that invert with the basemap. The markup
+ * is fully static (no user input), so it is safe to inject into a Leaflet
  * `divIcon` or a legend swatch.
  *
- * @param outline - stroke color; defaults to a white contrast ring.
+ * @param outline - stroke color; defaults to the theme's contrast ring.
  * @param outlineWidth - stroke width in viewBox units; defaults to `1.5`.
  */
 export function shapeSvg(
   shape: MapShape,
   color: string,
   size: number,
-  outline = '#ffffff',
+  outline = 'var(--map-outline)',
   outlineWidth = 1.5,
 ): string {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="${outline}" stroke-width="${outlineWidth}" stroke-linejoin="round" aria-hidden="true">${shapeInner(shape)}</svg>`;
 }
 
-/** Gold outline color marking a favorited contact's map marker. */
-export const FAVORITE_OUTLINE = '#fbbf24';
+/** Outline color marking a favorited contact's map marker. */
+export const FAVORITE_OUTLINE = 'var(--map-favorite)';
 
 /** Stroke width, in viewBox units, of a favorited marker's gold outline. */
 export const FAVORITE_OUTLINE_WIDTH = 3;

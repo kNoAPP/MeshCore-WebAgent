@@ -789,6 +789,9 @@
   "map": {
     "self": "Este nodo",
     "markerCap": "Mostrando {{shown}} de {{total}} nodos",
+    "empty": "Ningún nodo ha anunciado todavía su ubicación. Las ubicaciones llegan con los anuncios, así que esto se irá llenando a medida que se escuche la malla.",
+    "emptyPeers": "Ningún otro nodo ha anunciado todavía su ubicación. Las ubicaciones llegan con los anuncios, así que esto se irá llenando a medida que se escuche la malla.",
+    "emptyFavorites": "Ninguno de tus favoritos tiene ubicación todavía.",
     "pick": {
       "hint": "Haz clic en el mapa para establecer la ubicación de esta radio.",
       "confirm": "Confirmar ubicación",

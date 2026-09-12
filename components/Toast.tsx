@@ -22,6 +22,7 @@ export function Toast() {
   const toast = useMeshStore((s) => s.toast);
   const dismissToast = useMeshStore((s) => s.dismissToast);
   const setView = useMeshStore((s) => s.setView);
+  const openModals = useMeshStore((s) => s.openModals);
 
   const colors = {
     success: 'border-green text-green',
@@ -30,11 +31,17 @@ export function Toast() {
   };
 
   const isError = toast?.variant === 'error';
-  const convo = toast?.convo;
-  const interaction =
-    isError || convo
-      ? 'pointer-events-auto flex max-w-[90vw] items-start gap-2 text-left'
-      : 'pointer-events-none whitespace-nowrap';
+  // The toast sits outside the subtree a dialog marks inert, so its action
+  // would be a way out of the modal's focus boundary and into another
+  // conversation. Announce the message, but don't offer the jump.
+  const convo = openModals === 0 ? toast?.convo : undefined;
+  // Withholding the jump must not also withhold the exit: neither an error nor
+  // a conversation toast is on a timer, so both keep their dismiss button even
+  // when the action is suppressed, or the card lingers with no way to clear it.
+  const dismissible = isError || !!toast?.convo;
+  const interaction = dismissible
+    ? 'pointer-events-auto flex max-w-[90vw] items-start gap-2 text-left'
+    : 'pointer-events-none whitespace-nowrap';
   const shell = `rounded-lg border bg-surface2 px-4 py-2.5 text-sm shadow-pop ${interaction} ${toast ? colors[toast.variant] : ''}`;
 
   const openTarget = () => {
@@ -72,12 +79,12 @@ export function Toast() {
     ) : (
       <div key={toast.id} className={shell}>
         <span>{toast.text}</span>
-        {isError && (
+        {dismissible && (
           <button
             type='button'
             onClick={dismissToast}
             aria-label={t('toast.dismiss')}
-            className='-mr-1 shrink-0 rounded p-0.5 hover:bg-surface focus-visible:outline-2 focus-visible:outline-red'
+            className={`-mr-1 shrink-0 rounded p-0.5 hover:bg-surface focus-visible:outline-2 ${isError ? 'focus-visible:outline-red' : 'focus-visible:outline-accent'}`}
           >
             <X size={16} aria-hidden='true' />
           </button>

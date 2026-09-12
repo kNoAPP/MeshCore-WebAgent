@@ -743,9 +743,13 @@ export function useMeshCore() {
                 : undefined;
             const enriched: Message = { ...msg, senderName: undefined, path };
             // Read before addMessage, which is what makes it visible.
-            const visible = isConvoVisible(useMeshStore.getState(), id);
+            const state = useMeshStore.getState();
+            const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
-            if (!visible) {
+            // `c.init()` drains the radio's backlog while the connect screen is
+            // still up, where a "go to this conversation" toast leads nowhere.
+            // Those messages stay unread instead.
+            if (!visible && state.status === 'connected') {
               const chName =
                 c.channels[msg.channelIdx]?.name ||
                 i18n.t('common.channelName', { index: msg.channelIdx });
@@ -775,9 +779,10 @@ export function useMeshCore() {
             // so fall back to the prefix exactly as the sidebar does.
             const sender = contact?.name || msg.pubkeyPrefix.slice(0, 8);
             const enriched: Message = { ...msg, senderName: sender };
-            const visible = isConvoVisible(useMeshStore.getState(), id);
+            const state = useMeshStore.getState();
+            const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
-            if (!visible) {
+            if (!visible && state.status === 'connected') {
               showToast(i18n.t('toast.newMessageFrom', { sender }), '', {
                 kind: 'direct',
                 id,
@@ -892,6 +897,14 @@ export function useMeshCore() {
             loadAdvertCache(pubkey, key),
             loadPreferences(pubkey, key),
           ]);
+          // Those reads outlive their own session when the link drops or the
+          // user disconnects during them: the store has already been reset,
+          // and folding this radio's history and preferences back in would
+          // repopulate it — and mark it hydrated — for a radio that is gone,
+          // leaving the next session to frame from the previous one's saved
+          // viewport. Wiring persistence to it would be just as wrong, so the
+          // whole hydrate stops here and the teardown keeps the empty store.
+          if (!sessionAlive()) return false;
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);
           restoreAutomationRules(rules ?? []);
           // Fold this radio's saved preferences in before the auto-add hydrate

@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import { useMeshStore } from '@/store/meshStore';
@@ -15,14 +15,14 @@ import {
   type MapPrefs,
   type StartView,
 } from '@/lib/map/config';
-import { BaseLeafletMap } from './BaseLeafletMap';
+import { BaseLeafletMap, applyStartView } from './BaseLeafletMap';
 import { MapLegend } from './MapLegend';
 import { Switch } from './Switch';
 
 function pickIcon(): L.DivIcon {
   const size = MAP_MARKER_SIZE_PX;
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:var(--accent);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.5)"></div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:var(--accent);border:3px solid var(--map-outline);box-shadow:0 1px 4px var(--map-shadow)"></div>`,
     className: '',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
@@ -38,6 +38,16 @@ function initialView(
   if (self) return { center: [self.lat, self.lon], zoom: 11 };
   if (nodes.length > 0) return { bounds: nodes.map((n) => [n.lat, n.lon]) };
   return { center: DEFAULT_MAP_PREFS.center, zoom: DEFAULT_MAP_PREFS.zoom };
+}
+
+/** A map's current centre and zoom, for comparing one framing to another. */
+function viewOf(map: L.Map): [number, number, number] {
+  const c = map.getCenter();
+  return [c.lat, c.lng, map.getZoom()];
+}
+
+function sameView(a: [number, number, number], b: [number, number, number]) {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 }
 
 /**
@@ -85,6 +95,57 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   const [startView] = useState(() =>
     initialView(useMeshStore.getState().mapPrefs, self, nodes),
   );
+  // Per-radio preferences and the advert cache both hydrate *after* the session
+  // reports 'connected', so a map opened in that window (a `#/map` deep link,
+  // or switching straight to Map) frames on whatever the sync happened to have.
+  // Two one-shot upgrades of the live map — the first located data, then the
+  // radio's own saved viewport. Applied to the existing map rather than by
+  // remounting it, so a pin placed while picking survives.
+  const savedPrefs = useMeshStore((s) => s.mapPrefs);
+  const prefsHydrated = useMeshStore((s) => s.prefsHydrated);
+  const framedOnData = useRef(self != null || nodes.length > 0);
+  const framedOnPrefs = useRef(false);
+  // Leaflet reports our own framing through `moveend` as well, so each one is
+  // announced here first and consumed by the next move it produces. A move with
+  // nothing announced is the user's, and stops both upgrades.
+  const framing = useRef(false);
+  const userMoved = useRef(false);
+  const frame = useCallback((m: L.Map, view: StartView) => {
+    const before = viewOf(m);
+    framing.current = true;
+    applyStartView(m, view);
+    // Already there: no move follows, so nothing would consume the flag.
+    if (sameView(before, viewOf(m))) framing.current = false;
+  }, []);
+  useEffect(() => {
+    if (!map || mapPicking) return;
+    if (prefsHydrated && !framedOnPrefs.current) {
+      framedOnPrefs.current = true;
+      if (userMoved.current) {
+        // Restoring the blob just overwrote `mapPrefs`, and its debounced save
+        // is subscribed after that, so a pan made during the load would be
+        // lost. Put the live viewport back.
+        framedOnData.current = true;
+        const [lat, lng, zoom] = viewOf(map);
+        useMeshStore.getState().setMapPrefs({ center: [lat, lng], zoom });
+        return;
+      }
+      if (savedPrefs) {
+        framedOnData.current = true;
+        frame(map, { center: savedPrefs.center, zoom: savedPrefs.zoom });
+        return;
+      }
+      // This radio has no saved viewport, so nothing was framed and data is
+      // still worth framing on — including nodes that only arrive later, with
+      // the advert cache that restores after this. Fall through rather than
+      // latching, or the map would sit at the world view with the first
+      // located marker off screen.
+    }
+    if (userMoved.current || framedOnData.current) return;
+    if (!self && nodes.length === 0) return;
+    framedOnData.current = true;
+    frame(map, initialView(null, self, nodes));
+  }, [map, savedPrefs, prefsHydrated, mapPicking, self, nodes, frame]);
   // When on, only favorited contacts (plus this node) are plotted.
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
@@ -147,25 +208,24 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     };
   }, [map, mapPicking]);
 
+  const openManage = useCallback((node: MapNode) => {
+    // The base map never reports a click on the self marker.
+    if (node.kind === 'self') return;
+    useMeshStore
+      .getState()
+      .setManagePanel({ kind: node.kind, id: node.pubkeyPrefix });
+  }, []);
+
   return (
     <BaseLeafletMap
       nodes={plotted}
       startView={startView}
-      onNodeClick={
-        mapPicking
-          ? undefined
-          : (node) => {
-              // Self is never clickable; the base map only invokes this for
-              // contact/advert markers.
-              if (node.kind === 'self') return;
-              useMeshStore
-                .getState()
-                .setManagePanel({ kind: node.kind, id: node.pubkeyPrefix });
-            }
-      }
-      onMoveEnd={(center, zoom) =>
-        useMeshStore.getState().setMapPrefs({ center, zoom })
-      }
+      onNodeClick={mapPicking ? undefined : openManage}
+      onMoveEnd={(center, zoom) => {
+        if (framing.current) framing.current = false;
+        else userMoved.current = true;
+        useMeshStore.getState().setMapPrefs({ center, zoom });
+      }}
       onMapReady={setMap}
     >
       <div className='pointer-events-none absolute inset-x-0 top-0 z-1000 flex flex-col items-start gap-2 p-3'>
@@ -175,6 +235,22 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
           </span>
         )}
       </div>
+      {/* `visible`, not `plotted`: this node's own marker is prepended to
+          `plotted` regardless of the filter, so a located self would hide the
+          empty state even with no peers left to show. */}
+      {visible.length === 0 && !mapPicking && (
+        <div className='pointer-events-none absolute inset-0 z-1000 flex items-center justify-center p-6'>
+          <p className='pointer-events-auto max-w-sm rounded-card border border-border bg-surface/95 px-4 py-3 text-center text-sm text-text2 backdrop-blur'>
+            {t(
+              favoritesOnly
+                ? 'map.emptyFavorites'
+                : self
+                  ? 'map.emptyPeers'
+                  : 'map.empty',
+            )}
+          </p>
+        </div>
+      )}
       {mapPicking && (
         <div className='pointer-events-none absolute inset-x-0 bottom-6 z-1000 flex justify-center px-3'>
           <div className='pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-md border border-border bg-surface/95 px-3 py-2 text-sm text-text backdrop-blur'>
@@ -210,7 +286,7 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
           checked={favoritesOnly}
           onChange={setFavoritesOnly}
           label={t('map.legend.favoritesOnly')}
-          className='border-t border-border px-2.5 py-2 whitespace-nowrap hover:text-accent'
+          className='focus-inset border-t border-border px-2.5 py-2 whitespace-nowrap hover:text-accent'
         />
       </MapLegend>
     </BaseLeafletMap>
