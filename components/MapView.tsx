@@ -158,7 +158,11 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
         frame(map, { center: savedPrefs.center, zoom: savedPrefs.zoom });
         return;
       }
-      // This radio has no saved viewport, so data is still worth framing on.
+      // This radio has no saved viewport, so nothing was framed and data is
+      // still worth framing on — including nodes that only arrive later, with
+      // the advert cache that restores after this. Fall through rather than
+      // latching, or the map would sit at the world view with the first
+      // located marker off screen.
     }
     if (userMoved.current || framedOnData.current) return;
     if (!self && nodes.length === 0) return;
