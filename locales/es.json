@@ -40,7 +40,8 @@
     "settings": "⚙ Configuración",
     "disconnect": "⏻ Desconectar",
     "language": "Idioma",
-    "advertise": "Anunciar este nodo"
+    "advertise": "Anunciar este nodo",
+    "storage": "Almacenamiento"
   },
   "theme": {
     "toggle": "Cambiar tema claro/oscuro"
@@ -817,6 +818,7 @@
     "autoAddSettings": "Ajustes de auto-añadir",
     "addContact": "Añadir contacto",
     "manage": "Gestionar",
+    "favorite": "Favorito",
     "dragResize": "Arrastra para redimensionar",
     "dragWidth": "Arrastra para redimensionar la barra lateral",
     "searchContacts": "Buscar contactos",

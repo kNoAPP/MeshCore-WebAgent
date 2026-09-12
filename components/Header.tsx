@@ -201,6 +201,7 @@ export function Header() {
             <span className='hidden shrink-0 items-center gap-1 whitespace-nowrap text-xs text-text2 @6xl:inline-flex'>
               {formatVoltage(battery.voltage)}
               <HardDrive size={12} aria-hidden='true' />
+              <span className='sr-only'>{t('header.storage')}</span>
               {formatStorage(battery.usedKB, battery.totalKB)}
             </span>
           )}
