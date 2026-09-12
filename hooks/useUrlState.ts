@@ -199,9 +199,9 @@ export function useUrlState(): void {
 
     // Set while a route write is waiting on the microtask queue. One user
     // action often touches several store fields in a row — the command palette
-    // calls `setView('chat')` and then `openConvo(...)` — and the subscription
+    // calls `openConvo(...)` and then `setView('chat')` — and the subscription
     // runs once per `set`, so writing straight away would leave an
-    // intermediate entry (the old conversation on the new page) for Back to
+    // intermediate entry (the new conversation on the old page) for Back to
     // land on. Deferring collapses the turn into a single entry; a move made
     // in a later user event is a separate task and still gets its own.
     let writeQueued = false;
@@ -221,15 +221,18 @@ export function useUrlState(): void {
       applying = true;
       try {
         const store = useMeshStore.getState();
-        if (route.view === 'settings' && route.section) {
-          store.openSettingsSection(route.section);
-        } else {
-          store.setView(route.view);
-        }
+        // The conversation is selected before the view switch: `setView` runs
+        // the unread catch-up against whatever is active at the time, and that
+        // must be the route's target rather than the thread being left.
         if (route.view === 'chat') {
           const convo = route.convo ? resolveConvo(route.convo) : null;
           if (convo) openConvo(convo);
           else store.setActiveConvo(null);
+        }
+        if (route.view === 'settings' && route.section) {
+          store.openSettingsSection(route.section);
+        } else {
+          store.setView(route.view);
         }
         section = route.section;
       } finally {

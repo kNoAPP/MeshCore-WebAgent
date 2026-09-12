@@ -913,6 +913,7 @@
   },
   "toast": {
     "newMessageIn": "New message in {{channel}}",
+    "newMessageInFrom": "{{sender}} in {{channel}}",
     "newMessageFrom": "New message from {{sender}}",
     "connected": "Connected — {{device}}",
     "connectionFailed": "Connection failed",

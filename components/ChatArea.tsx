@@ -13,13 +13,14 @@ import {
   Fragment,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMeshStore } from '@/store/meshStore';
+import { useMeshStore, isConvoVisible } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import {
   ADV_ICON,
   utf8ByteLength,
   formatPubkey,
   isPublicChannelSecret,
+  splitChannelMessage,
 } from '@/lib/utils';
 import { formatDateDivider } from '@/lib/i18n/format';
 import { flashTarget } from '@/lib/ui/flash';
@@ -66,16 +67,6 @@ function getMentionQuery(value: string, cursor: number): string | null {
 
 const MENTION_LISTBOX_ID = 'mention-suggestions';
 const mentionOptionId = (index: number) => `mention-option-${index}`;
-
-// The firmware formats a channel message's text as `<sender>: <body>`.
-function splitChannelMessage(text: string): {
-  sender: string | null;
-  body: string;
-} {
-  const colonIdx = text.indexOf(': ');
-  if (colonIdx === -1) return { sender: null, body: text };
-  return { sender: text.slice(0, colonIdx), body: text.slice(colonIdx + 2) };
-}
 
 /**
  * The main conversation pane for the active channel or contact: header with
@@ -317,6 +308,20 @@ export function ChatArea() {
         ? (useMeshStore.getState().msgHistory[convoId] ?? [])
         : [];
       const last = live[live.length - 1];
+      // Visibility as of the arrival itself, not as of this effect: focus can
+      // return (freezing the unread divider) before the effect flushes.
+      const arrival = useMeshStore.getState().lastArrival;
+      const arrivedHidden =
+        !!arrival && arrival.msgId === last?.id && !arrival.visible;
+      // Arrived while the conversation was off screen (other tab, other
+      // window, other view): leave the scroll where the user left it, so the
+      // unread divider they come back to isn't already scrolled past.
+      if (
+        convoId &&
+        (arrivedHidden || !isConvoVisible(useMeshStore.getState(), convoId))
+      ) {
+        return;
+      }
       if (!last?.own && !atBottomRef.current) {
         setShowNewIndicator(true);
         return;

@@ -21,11 +21,20 @@ import { useMeshStore } from '@/store/meshStore';
  * second time. `lastArrival` is the memo's only dependency for the same
  * reason: navigation must not rebuild the value, because re-inserting
  * identical text is what a live region reports as new.
+ *
+ * Only an arrival that was on screen when it landed is announced — anything
+ * else is the toast's job, and repeating it here later would replay it out of
+ * context.
  */
 export function MessageAnnouncer() {
   const lastArrival = useMeshStore((s) => s.lastArrival);
   const announcement = useMemo(() => {
-    if (!lastArrival || lastArrival.own || lastArrival.system) {
+    if (
+      !lastArrival ||
+      !lastArrival.visible ||
+      lastArrival.own ||
+      lastArrival.system
+    ) {
       return { id: '', text: '' };
     }
     return { id: lastArrival.msgId, text: lastArrival.text };

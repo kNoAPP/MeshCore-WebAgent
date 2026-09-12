@@ -179,12 +179,14 @@ export interface RadioPreferences {
 
 /**
  * A transient notification banner. `id` lets a later toast supersede an earlier
- * auto-dismiss.
+ * auto-dismiss. `convo`, when set, makes the banner a button that opens that
+ * conversation.
  */
 export interface Toast {
   text: string;
   variant: 'success' | 'error' | '';
   id: number;
+  convo?: ActiveConvo;
 }
 
 /**
@@ -204,6 +206,12 @@ export interface MessageArrival {
   text: string;
   own: boolean;
   system: boolean;
+  /**
+   * Whether the conversation was on screen *when this landed* — captured here
+   * rather than re-derived later, so returning to a blurred tab can't replay
+   * an announcement for a message the toast already covered.
+   */
+  visible: boolean;
 }
 /**
  * The radio auto-reconnect gave up on, kept past the session teardown so the
@@ -418,6 +426,12 @@ interface MeshState {
   reconnectProgress: ReconnectProgress | null;
   view: AppView;
   /**
+   * Whether this browser tab currently has focus. A conversation only counts
+   * as being read when its tab is the one the user is looking at, so an
+   * alt-tabbed window keeps accumulating unread messages.
+   */
+  windowFocused: boolean;
+  /**
    * True while the map is in location-pick mode (opened from the Location card
    * in Settings). Drives the map's confirm/cancel banner and click-to-place
    * marker; cleared by any navigation.
@@ -530,7 +544,15 @@ interface MeshActions {
   setDraft: (id: string, text: string) => void;
   markRead: (id: string) => void;
   restoreHistory: (persisted: Record<string, Message[]>) => void;
-  showToast: (text: string, variant?: Toast['variant']) => void;
+  /**
+   * Raises a toast. Pass `convo` to make the banner open that conversation
+   * when clicked.
+   */
+  showToast: (
+    text: string,
+    variant?: Toast['variant'],
+    convo?: ActiveConvo,
+  ) => void;
   dismissToast: () => void;
   /** Raises (or dismisses) the "new version deployed" update banner. */
   setUpdateAvailable: (available: boolean) => void;
@@ -541,6 +563,8 @@ interface MeshActions {
   /** Reports (or clears, with `null`) the current reconnect-loop position. */
   setReconnectProgress: (progress: ReconnectProgress | null) => void;
   setView: (view: AppView) => void;
+  /** Records whether this browser tab has focus. */
+  setWindowFocused: (focused: boolean) => void;
   /** Opens the map to pick a location, returning to `returnTo` on confirm. */
   startLocationPick: (returnTo?: AppView) => void;
   /** Confirms the picked coordinate (degrees) and returns to the caller. */
@@ -650,6 +674,7 @@ const initialState: MeshState = {
   lastConnectFailure: null,
   reconnectProgress: null,
   view: 'chat',
+  windowFocused: true,
   mapPicking: false,
   pendingLocation: null,
   locationPickReturn: 'settings',
@@ -680,7 +705,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   ...initialState,
 
   setClient: (client) => set({ client }),
-  setStatus: (status) => set({ status }),
+  // Every transition that can uncover the open conversation runs the catch-up,
+  // or a message drained behind a reconnect overlay (or a dialog) stays unread
+  // with no divider until something unrelated happens to fire it.
+  setStatus: (status) => {
+    set({ status });
+    if (status === 'connected') catchUpVisibleConvo();
+  },
   setDeviceName: (deviceName) => set({ deviceName }),
   setSelfInfo: (selfInfo) => set({ selfInfo }),
   setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
@@ -760,11 +791,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   addMessage: (id, msg) =>
     set((state) => {
       const prev = state.msgHistory[id] ?? [];
-      const isActive = state.activeConvo?.id === id;
+      const visible = isConvoVisible(state, id);
       const enriched: Message = {
         ...msg,
         id: msg.id ?? crypto.randomUUID(),
-        _unread: !isActive,
+        _unread: !visible,
       };
       return {
         msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },
@@ -774,6 +805,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
           text: enriched.text,
           own: enriched.own ?? false,
           system: enriched.system ?? false,
+          visible,
         },
       };
     }),
@@ -867,10 +899,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       };
     }),
 
-  showToast: (text, variant = '') => {
+  showToast: (text, variant = '', convo) => {
     const id = ++toastSeq;
-    set({ toast: { text, variant, id } });
-    if (variant === 'error') return;
+    set({ toast: { text, variant, id, convo } });
+    // Errors and toasts that carry an action both wait to be dismissed: three
+    // seconds is not long enough to tab to a button that was only just
+    // inserted, and yanking it away can drop focus mid-reach.
+    if (variant === 'error' || convo) return;
     setTimeout(() => {
       if (get().toast?.id === id) set({ toast: null });
     }, 3000);
@@ -884,15 +919,24 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setReconnectProgress: (reconnectProgress) => set({ reconnectProgress }),
   // Any manual tab switch also aborts an in-progress location pick.
-  setView: (view) => set({ view, mapPicking: false, settingsSection: null }),
+  setView: (view) => {
+    set({ view, mapPicking: false, settingsSection: null });
+    catchUpVisibleConvo();
+  },
+  setWindowFocused: (windowFocused) => {
+    set({ windowFocused });
+    if (windowFocused) catchUpVisibleConvo();
+  },
   startLocationPick: (returnTo = 'settings') =>
     set({ mapPicking: true, view: 'map', locationPickReturn: returnTo }),
-  confirmLocationPick: (lat, lon) =>
+  confirmLocationPick: (lat, lon) => {
     set((s) => ({
       mapPicking: false,
       view: s.locationPickReturn,
       pendingLocation: { lat, lon },
-    })),
+    }));
+    catchUpVisibleConvo();
+  },
   cancelLocationPick: () => set({ mapPicking: false }),
   clearPendingLocation: () => set({ pendingLocation: null }),
   setManagePanel: (managePanel) => set({ managePanel }),
@@ -902,7 +946,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   pushModal: () => set((s) => ({ openModals: s.openModals + 1 })),
   // Clamped at zero: a disconnect resets the count while dialogs are still
   // mounted, and their unmount then pops a counter that is already back to 0.
-  popModal: () => set((s) => ({ openModals: Math.max(0, s.openModals - 1) })),
+  popModal: () => {
+    set((s) => ({ openModals: Math.max(0, s.openModals - 1) }));
+    // The last dialog closing uncovers the conversation behind it.
+    if (get().openModals === 0) catchUpVisibleConvo();
+  },
   setAdvertising: (advertising) => set({ advertising }),
   openCommandPalette: () => set({ commandPaletteOpen: true }),
   closeCommandPalette: () => set({ commandPaletteOpen: false }),
@@ -1074,7 +1122,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   reset: () =>
     set({
       ...initialState,
-      toast: get().toast,
+      // A plain notice about the session that just ended still reads on the
+      // connect screen, but one carrying a conversation does not: its target
+      // belongs to the radio that just went away, and clicking it in the next
+      // session would select the wrong thread.
+      toast: get().toast?.convo ? null : get().toast,
       // The deployed build doesn't change with the radio, so a pending update
       // outlives the session it was noticed in.
       updateAvailable: get().updateAvailable,
@@ -1089,6 +1141,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       // failed retry runs through. Cleared on a successful connect, and
       // explicitly by a deliberate Disconnect.
       lastConnectFailure: get().lastConnectFailure,
+      // A browser-window fact, not a session one: the tab is just as focused
+      // after a disconnect as it was before.
+      windowFocused: get().windowFocused,
       // Every other preference is per-radio (encrypted in IndexedDB) and
       // reloaded on the next connect, so it resets to defaults here.
     }),
@@ -1130,17 +1185,51 @@ export function isActiveStatus(status: ConnectionStatus): boolean {
   return status === 'connected' || status === 'reconnecting';
 }
 
-/** Opens a conversation and marks it read in one step. */
+/** Selects a conversation, marking it read only when it is visible. */
 export function openConvo(convo: ActiveConvo): void {
   const { setActiveConvo, markRead, setUnreadMarker, msgHistory } =
     useMeshStore.getState();
+  setActiveConvo(convo);
+  if (!isConvoVisible(useMeshStore.getState(), convo.id)) return;
   // Freeze the "last unread" divider at the first unread message before
   // markRead clears the flags, so the boundary the user left off at stays
   // visible for this viewing.
   const firstUnread = (msgHistory[convo.id] ?? []).find((m) => m._unread);
   setUnreadMarker(convo.id, firstUnread?.id ?? null);
-  setActiveConvo(convo);
   markRead(convo.id);
+  const state = useMeshStore.getState();
+  if (state.toast?.convo?.id === convo.id) state.dismissToast();
+}
+
+/**
+ * Whether conversation {@link id} is actually on screen: it is the open
+ * conversation, the chat view is the one showing, this tab has focus, the link
+ * is live (a reconnect overlay covers and inerts the app), and no dialog is
+ * over it. Messages arriving in a visible conversation are read on arrival and
+ * raise no toast; everything else is unread and worth announcing.
+ */
+export function isConvoVisible(state: MeshState, id: string): boolean {
+  return (
+    state.status === 'connected' &&
+    state.openModals === 0 &&
+    state.activeConvo?.id === id &&
+    state.view === 'chat' &&
+    state.windowFocused
+  );
+}
+
+/**
+ * Clears the unread backlog the open conversation built up while it was out of
+ * sight, freezing the divider at the boundary first. No-op when nothing is
+ * unread, so an existing divider survives an idle tab switch.
+ */
+function catchUpVisibleConvo(): void {
+  const state = useMeshStore.getState();
+  const convo = state.activeConvo;
+  if (!convo || !isConvoVisible(state, convo.id)) return;
+  if (state.toast?.convo?.id === convo.id) state.dismissToast();
+  if (unreadCount(state.msgHistory, convo.id) === 0) return;
+  openConvo(convo);
 }
 
 /** Builds the conversation id for a channel slot (e.g. `"channel:0"`). */

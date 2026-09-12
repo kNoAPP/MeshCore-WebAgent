@@ -29,6 +29,19 @@ export function randomSecret(): Uint8Array {
 
 const utf8 = new TextEncoder();
 
+/**
+ * Splits a channel message into its sender and body. The firmware formats the
+ * text as `<sender>: <body>`; `sender` is `null` when it doesn't.
+ */
+export function splitChannelMessage(text: string): {
+  sender: string | null;
+  body: string;
+} {
+  const colonIdx = text.indexOf(': ');
+  if (colonIdx === -1) return { sender: null, body: text };
+  return { sender: text.slice(0, colonIdx), body: text.slice(colonIdx + 2) };
+}
+
 /** UTF-8 byte length of a string — what the radio measures text against. */
 export function utf8ByteLength(text: string): number {
   return utf8.encode(text).length;

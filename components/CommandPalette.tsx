@@ -159,8 +159,11 @@ export function CommandPalette(): React.ReactElement {
       // the node can be viewed or added as a contact.
       setManagePanel({ kind: 'advert', id: action.prefix });
     } else {
-      setView('chat');
+      // Open first, then switch: `setView('chat')` catches the *then*-open
+      // conversation up on its unread backlog, and the one being left behind
+      // must not be it.
       openConvo(action.convo);
+      setView('chat');
       if (action.type === 'message') setScrollToMsgId(action.msgId);
     }
     closeCommandPalette();
