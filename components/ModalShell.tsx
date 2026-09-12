@@ -6,7 +6,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useMeshStore } from '@/store/meshStore';
 
@@ -63,8 +63,7 @@ export function ModalShell({
 
   return createPortal(
     <div
-      className='fixed inset-0 z-50 flex items-center justify-center p-6'
-      style={{ background: 'rgba(0,0,0,0.6)' }}
+      className='fixed inset-0 z-50 flex items-center justify-center bg-scrim p-6'
       onClick={(e) => {
         if (e.target === e.currentTarget) requestClose();
       }}
@@ -84,8 +83,7 @@ export function ModalShell({
         aria-modal='true'
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`relative flex max-h-full ${widthClass} max-w-full flex-col overflow-hidden rounded-[10px] border outline-none`}
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        className={`relative flex max-h-full ${widthClass} max-w-full flex-col overflow-hidden rounded-card border border-border bg-surface outline-none`}
       >
         <div className='min-h-0 overflow-y-auto p-7' inert={confirming}>
           <div className='mb-5 flex items-center justify-between gap-2'>
@@ -94,7 +92,7 @@ export function ModalShell({
                 <button
                   onClick={onBack}
                   aria-label={t('common.back')}
-                  className='shrink-0 text-(--text2) hover:text-(--text)'
+                  className='shrink-0 text-text2 hover:text-text'
                 >
                   <ArrowLeft size={18} />
                 </button>
@@ -106,9 +104,9 @@ export function ModalShell({
             <button
               onClick={onClose}
               aria-label={t('common.close')}
-              className='shrink-0 text-lg leading-none text-(--text2) hover:text-(--text)'
+              className='shrink-0 leading-none text-text2 hover:text-text'
             >
-              ✕
+              <X size={18} aria-hidden='true' />
             </button>
           </div>
           {children}
@@ -142,23 +140,16 @@ function DiscardConfirm({
   useFocusTrap(panelRef);
 
   return (
-    <div
-      className='absolute inset-0 flex items-center justify-center p-6'
-      style={{ background: 'rgba(0,0,0,0.6)' }}
-    >
+    <div className='absolute inset-0 flex items-center justify-center bg-scrim p-6'>
       <div
         ref={panelRef}
         role='alertdialog'
         aria-modal='true'
         aria-labelledby={messageId}
         tabIndex={-1}
-        className='w-full max-w-80 rounded-[10px] border p-5 outline-none'
-        style={{
-          background: 'var(--surface)',
-          borderColor: 'var(--border)',
-        }}
+        className='w-full max-w-80 rounded-card border border-border bg-surface p-5 outline-none'
       >
-        <p id={messageId} className='text-sm text-(--text2)'>
+        <p id={messageId} className='text-sm text-text2'>
           {t('common.discardChanges')}
         </p>
         <div className='mt-4 flex justify-end gap-2'>
@@ -167,13 +158,13 @@ function DiscardConfirm({
           <button
             onClick={onKeep}
             autoFocus
-            className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+            className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
           >
             {t('common.keepEditing')}
           </button>
           <button
             onClick={onDiscard}
-            className='rounded-md bg-(--red) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--red-hover)'
+            className='rounded-md bg-red-solid px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-hover'
           >
             {t('common.discard')}
           </button>

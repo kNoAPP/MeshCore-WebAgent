@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { RefreshCw } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import type { StatsResult, BatteryInfo } from '@/types/meshcore';
 import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
@@ -212,7 +213,7 @@ export function StatsPage() {
     return [
       fmtNum(value, i18n.language),
       parts.length > 0 ? (
-        <span className='text-(--text2)'>{parts.join(' · ')}</span>
+        <span className='text-text2'>{parts.join(' · ')}</span>
       ) : undefined,
     ];
   };
@@ -303,9 +304,13 @@ export function StatsPage() {
                   disabled={resyncing}
                   title={t('stats.resyncClock')}
                   aria-label={t('stats.resyncClock')}
-                  className='leading-none text-(--text2) transition-colors hover:text-(--accent) disabled:opacity-50'
+                  className='leading-none text-text2 transition-colors hover:text-accent disabled:opacity-50'
                 >
-                  {resyncing ? '⟳' : '↻'}
+                  <RefreshCw
+                    size={14}
+                    className={resyncing ? 'animate-spin' : undefined}
+                    aria-hidden='true'
+                  />
                 </button>,
               ],
             ]
@@ -413,7 +418,7 @@ export function StatsPage() {
           !stats?.core &&
           !stats?.radio &&
           !stats?.packets && (
-            <p className='mt-4 text-xs text-(--text2)'>
+            <p className='mt-4 text-xs text-text2'>
               {t('stats.allUnavailable')}
             </p>
           )}

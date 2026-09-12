@@ -75,7 +75,7 @@ export function RepeaterView() {
 
   if (!contact) {
     return (
-      <div className='flex flex-1 items-center justify-center text-sm text-(--text2)'>
+      <div className='flex flex-1 items-center justify-center text-sm text-text2'>
         {t('repeaterAdmin.contactUnavailable')}
       </div>
     );
@@ -183,10 +183,7 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
       {/* Header */}
-      <div
-        className='flex shrink-0 items-center gap-2.5 border-b px-4 py-3'
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
+      <div className='flex shrink-0 items-center gap-2.5 border-b px-4 py-3 bg-surface border-border'>
         <span className='text-lg'>📡</span>
         <span className='text-[15px] font-semibold'>
           {contact.name || contact.pubkeyPrefix.slice(0, 8)}
@@ -194,13 +191,13 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
         <RouteChip contact={contact} />
         {authed && <AccessChip access={login} />}
         <div className='ml-auto flex items-center gap-3'>
-          <span className='text-xs text-(--text2)'>
+          <span className='text-xs text-text2'>
             {formatPubkey(contact.pubkey, showFullPublicKeys)}
           </span>
           {authed && (
             <button
               onClick={logOut}
-              className='rounded-md border border-(--red) px-2.5 py-1 text-xs text-(--red) hover:bg-(--red-dim) hover:text-white'
+              className='rounded-md border border-red px-2.5 py-1 text-xs text-red hover:bg-red-dim hover:text-white'
             >
               {t('repeaterAdmin.dashboard.logout')}
             </button>
@@ -231,7 +228,7 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
       ) : (
         <div className='flex flex-1 flex-col items-center justify-center overflow-y-auto p-4'>
           {checking ? (
-            <p className='text-sm text-(--text2)'>
+            <p className='text-sm text-text2'>
               {t('repeaterAdmin.login.checking')}
             </p>
           ) : (
@@ -256,8 +253,8 @@ function AccessChip({ access }: { access: RepeaterAccess }) {
     <span
       className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
         access === 'admin'
-          ? 'bg-(--accent-solid) text-white'
-          : 'bg-(--surface2) text-(--text2)'
+          ? 'bg-accent-solid text-white'
+          : 'bg-surface2 text-text2'
       }`}
     >
       {access === 'admin'
@@ -286,7 +283,7 @@ function TabBar({
           onSelect(tabs[i]),
         )
       }
-      className='flex shrink-0 gap-1 overflow-x-auto border-b border-(--border) px-3'
+      className='flex shrink-0 gap-1 overflow-x-auto border-b border-border px-3'
     >
       {tabs.map((id) => (
         <button
@@ -299,8 +296,8 @@ function TabBar({
           onClick={() => onSelect(id)}
           className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm whitespace-nowrap ${
             active === id
-              ? 'border-(--accent) font-medium text-(--text)'
-              : 'border-transparent text-(--text2) hover:text-(--text)'
+              ? 'border-accent font-medium text-text'
+              : 'border-transparent text-text2 hover:text-text'
           }`}
         >
           {t(`repeaterAdmin.tabs.${id}`)}
@@ -340,9 +337,7 @@ function LoginGate({
         submit();
       }}
     >
-      <p className='text-sm text-(--text2)'>
-        {t('repeaterAdmin.login.prompt')}
-      </p>
+      <p className='text-sm text-text2'>{t('repeaterAdmin.login.prompt')}</p>
 
       <div
         role='radiogroup'
@@ -365,14 +360,14 @@ function LoginGate({
             disabled={pending}
             className={`rounded-md border px-3 py-2 text-left disabled:opacity-50 ${
               kind === k
-                ? 'border-(--accent) bg-(--surface2)'
-                : 'border-(--border-control) hover:bg-(--surface2)'
+                ? 'border-accent bg-surface2'
+                : 'border-border-control hover:bg-surface2'
             }`}
           >
-            <span className='block text-sm font-medium text-(--text)'>
+            <span className='block text-sm font-medium text-text'>
               {t(`repeaterAdmin.login.${k}`)}
             </span>
-            <span className='block text-xs text-(--text2)'>
+            <span className='block text-xs text-text2'>
               {t(`repeaterAdmin.login.${k}Hint`)}
             </span>
           </button>
@@ -380,10 +375,7 @@ function LoginGate({
       </div>
 
       <div>
-        <label
-          htmlFor={passwordId}
-          className='mb-1 block text-xs text-(--text2)'
-        >
+        <label htmlFor={passwordId} className='mb-1 block text-xs text-text2'>
           {t('repeaterAdmin.login.password')}
         </label>
         <div className='relative'>
@@ -396,7 +388,7 @@ function LoginGate({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder={t('repeaterAdmin.login.passwordPlaceholder')}
-            className='w-full rounded-md border border-(--border-control) bg-(--surface) py-1.5 pr-9 pl-2 text-sm text-(--text) outline-none focus:border-(--accent) disabled:opacity-50'
+            className='w-full rounded-md border border-border-control bg-surface py-1.5 pr-9 pl-2 text-sm text-text outline-none focus:border-accent disabled:opacity-50'
           />
           <button
             type='button'
@@ -412,29 +404,29 @@ function LoginGate({
                 ? 'repeaterAdmin.login.hidePassword'
                 : 'repeaterAdmin.login.showPassword',
             )}
-            className='absolute inset-y-0 right-0 flex items-center px-2 text-(--text2) hover:text-(--text) disabled:opacity-50'
+            className='absolute inset-y-0 right-0 flex items-center px-2 text-text2 hover:text-text disabled:opacity-50'
           >
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
       </div>
 
-      <label className='flex items-center gap-2 text-sm text-(--text)'>
+      <label className='flex items-center gap-2 text-sm text-text'>
         <input
           type='checkbox'
           disabled={pending}
           checked={remember}
           onChange={(e) => setRemember(e.target.checked)}
-          className='h-4 w-4 accent-(--accent) disabled:opacity-50'
+          className='h-4 w-4 accent-accent disabled:opacity-50'
         />
         <span>{t('repeaterAdmin.login.remember')}</span>
       </label>
 
-      <div className='flex justify-end border-t border-(--border) pt-4'>
+      <div className='flex justify-end border-t border-border pt-4'>
         <button
           type='submit'
           disabled={pending || (kind === 'admin' && password === '')}
-          className='rounded-md bg-(--accent-solid) px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
+          className='rounded-md bg-accent-solid px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
         >
           {pending
             ? t('repeaterAdmin.login.loggingIn')
@@ -618,7 +610,7 @@ function StatusDashboard({
             ))}
         </div>
       ) : (
-        <p className='text-sm text-(--text2)'>
+        <p className='text-sm text-text2'>
           {t('repeaterAdmin.dashboard.unavailable')}
         </p>
       )}
@@ -725,18 +717,18 @@ function NeighborsTab({ contact }: { contact: Contact }) {
             <RefreshButton
               onClick={() => void refresh()}
               busy={loading}
-              className='bg-(--surface)'
+              className='bg-surface'
             />
           }
         />
       ) : (
-        <div className='relative flex h-full w-full items-center justify-center overflow-hidden rounded-lg border border-(--border)'>
+        <div className='relative flex h-full w-full items-center justify-center overflow-hidden rounded-lg border border-border'>
           <RefreshButton
             onClick={() => void refresh()}
             busy={loading}
-            className='absolute top-2 right-2 z-10 bg-(--surface)'
+            className='absolute top-2 right-2 z-10 bg-surface'
           />
-          <p className='px-6 text-center text-sm text-(--text2)'>
+          <p className='px-6 text-center text-sm text-text2'>
             {errored
               ? t('repeaterAdmin.neighbors.error')
               : loading
@@ -756,7 +748,7 @@ function NeighborsTab({ contact }: { contact: Contact }) {
 // The console's "still waiting" glyph, shared by the in-line and standalone
 // placements.
 const PENDING_DOT_CLASS =
-  'ml-2 inline-block h-2.5 w-2.5 animate-spin rounded-full border border-(--text2) border-t-transparent align-middle';
+  'ml-2 inline-block h-2.5 w-2.5 animate-spin rounded-full border border-text2 border-t-transparent align-middle';
 
 // Admin-only: current repeater/room firmware answers remote `CLI_DATA` only
 // for an admin client, so a guest would get no reply.
@@ -795,13 +787,13 @@ function ConsoleTab({ contact }: { contact: Contact }) {
 
   return (
     <div className='flex h-full w-full flex-col gap-3'>
-      <div className='relative flex-1 overflow-hidden rounded-lg border border-(--border) bg-(--surface)'>
+      <div className='relative flex-1 overflow-hidden rounded-lg border border-border bg-surface'>
         <button
           onClick={() => clearCliLog(prefix)}
           disabled={lines.length === 0}
           aria-label={t('repeaterAdmin.console.clear')}
           title={t('repeaterAdmin.console.clear')}
-          className='absolute top-2 right-2 z-10 rounded-md border border-(--border-control) bg-(--surface) p-1.5 text-(--text2) hover:bg-(--surface2) hover:text-(--text) disabled:opacity-50 disabled:hover:bg-(--surface) disabled:hover:text-(--text2)'
+          className='absolute top-2 right-2 z-10 rounded-md border border-border-control bg-surface p-1.5 text-text2 hover:bg-surface2 hover:text-text disabled:opacity-50 disabled:hover:bg-surface disabled:hover:text-text2'
         >
           <Trash2 size={14} />
         </button>
@@ -813,17 +805,17 @@ function ConsoleTab({ contact }: { contact: Contact }) {
           className='h-full overflow-y-auto p-3 font-mono text-xs'
         >
           {lines.length === 0 && cliPending === 0 ? (
-            <p className='text-(--text2)'>{t('repeaterAdmin.console.empty')}</p>
+            <p className='text-text2'>{t('repeaterAdmin.console.empty')}</p>
           ) : (
             lines.map((line, i) => (
               <div
                 key={i}
                 className={
                   line.note
-                    ? 'wrap-break-word whitespace-pre-wrap text-(--text2) italic'
+                    ? 'wrap-break-word whitespace-pre-wrap text-text2 italic'
                     : line.own
-                      ? 'wrap-break-word whitespace-pre-wrap text-(--accent)'
-                      : 'wrap-break-word whitespace-pre-wrap text-(--text)'
+                      ? 'wrap-break-word whitespace-pre-wrap text-accent'
+                      : 'wrap-break-word whitespace-pre-wrap text-text'
                 }
               >
                 {line.own ? `> ${line.text}` : line.text}
@@ -837,7 +829,7 @@ function ConsoleTab({ contact }: { contact: Contact }) {
               the indicator on, so it falls back to a standalone row. Hidden
               from assistive tech, which gets the live-region status below. */}
           {cliPending > 0 && lastOwn === -1 && (
-            <div aria-hidden className='text-(--text2) italic'>
+            <div aria-hidden className='text-text2 italic'>
               {t('repeaterAdmin.console.waiting')}
               <span className={PENDING_DOT_CLASS} />
             </div>
@@ -863,12 +855,12 @@ function ConsoleTab({ contact }: { contact: Contact }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t('repeaterAdmin.console.placeholder')}
-          className='flex-1 rounded-md border border-(--border-control) bg-(--surface) px-2.5 py-1.5 font-mono text-sm text-(--text) outline-none focus:border-(--accent)'
+          className='flex-1 rounded-md border border-border-control bg-surface px-2.5 py-1.5 font-mono text-sm text-text outline-none focus:border-accent'
         />
         <button
           type='submit'
           disabled={input.trim() === ''}
-          className='rounded-md bg-(--accent-solid) px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
+          className='rounded-md bg-accent-solid px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
         >
           {t('repeaterAdmin.console.send')}
         </button>

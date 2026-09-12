@@ -78,16 +78,16 @@ export function VersionCheck() {
     <div
       role='status'
       aria-live='polite'
-      className='fixed bottom-5 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg border border-(--accent) bg-(--surface2) px-4 py-2.5 text-sm shadow-lg'
+      className='fixed bottom-5 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg border border-accent bg-surface2 px-4 py-2.5 text-sm shadow-pop'
     >
       <div className='min-w-0'>
         <p className='font-semibold'>{t('update.available')}</p>
-        <p className='text-xs text-(--text2)'>{t('update.hint')}</p>
+        <p className='text-xs text-text2'>{t('update.hint')}</p>
       </div>
       <button
         type='button'
         onClick={() => window.location.reload()}
-        className='flex shrink-0 items-center gap-1.5 rounded-md bg-(--accent-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover)'
+        className='flex shrink-0 items-center gap-1.5 rounded-md bg-accent-solid px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover'
       >
         <RotateCw size={14} aria-hidden='true' />
         {t('update.reload')}
@@ -96,7 +96,7 @@ export function VersionCheck() {
         type='button'
         onClick={() => setUpdateAvailable(false)}
         aria-label={t('update.dismiss')}
-        className='-mr-1 shrink-0 rounded p-0.5 text-(--text2) hover:bg-(--surface) hover:text-(--text)'
+        className='-mr-1 shrink-0 rounded p-0.5 text-text2 hover:bg-surface hover:text-text'
       >
         <X size={16} aria-hidden='true' />
       </button>

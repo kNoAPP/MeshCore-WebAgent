@@ -165,8 +165,7 @@ export function AddChannelModal() {
             },
           )
         }
-        className='mb-3 flex gap-1 rounded-md p-1'
-        style={{ background: 'var(--bg)' }}
+        className='mb-3 flex gap-1 rounded-md p-1 bg-bg'
       >
         {modes.map((m) => (
           <button
@@ -182,8 +181,8 @@ export function AddChannelModal() {
             }}
             className={`flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors ${
               mode === m.id
-                ? 'bg-(--accent-solid) text-white inset-ring-1 inset-ring-(--accent)'
-                : 'text-(--text2) hover:bg-(--surface2)'
+                ? 'bg-accent-solid text-white inset-ring-1 inset-ring-accent'
+                : 'text-text2 hover:bg-surface2'
             }`}
           >
             {t(m.labelKey)}
@@ -195,16 +194,16 @@ export function AddChannelModal() {
         role='tabpanel'
         aria-labelledby={`add-channel-tab-${mode}`}
       >
-        <p className='mb-4 text-xs text-(--text2)'>{hint}</p>
+        <p className='mb-4 text-xs text-text2'>{hint}</p>
 
         <div className='space-y-4'>
           {mode === 'joinHashtag' ? (
             <label className='block'>
-              <span className='mb-1 block text-xs text-(--text2)'>
+              <span className='mb-1 block text-xs text-text2'>
                 {t('addChannel.name')}
               </span>
-              <div className='flex items-center rounded-md border border-(--border) bg-(--bg) focus-within:border-(--accent)'>
-                <span className='pl-3 text-sm text-(--text2)'>#</span>
+              <div className='flex items-center rounded-md border border-border bg-bg focus-within:border-accent'>
+                <span className='pl-3 text-sm text-text2'>#</span>
                 <input
                   value={hashtag}
                   onChange={(e) =>
@@ -219,26 +218,25 @@ export function AddChannelModal() {
             </label>
           ) : mode === 'joinLink' || mode === 'joinPublic' ? null : (
             <label className='block'>
-              <span className='mb-1 block text-xs text-(--text2)'>
+              <span className='mb-1 block text-xs text-text2'>
                 {t('addChannel.name')}
               </span>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={32}
-                className='w-full rounded-md border bg-(--bg) px-3 py-2 text-sm outline-none focus:border-(--accent)'
-                style={{ borderColor: 'var(--border)' }}
+                className='w-full rounded-md border bg-bg px-3 py-2 text-sm outline-none focus:border-accent border-border'
               />
             </label>
           )}
 
           {mode === 'create' && (
             <label className='block'>
-              <span className='mb-1 flex items-center justify-between text-xs text-(--text2)'>
+              <span className='mb-1 flex items-center justify-between text-xs text-text2'>
                 {t('addChannel.secretGenerated')}
                 <button
                   onClick={() => setGenerated(toHex(randomSecret()))}
-                  className='text-(--accent) hover:underline'
+                  className='text-accent hover:underline'
                 >
                   {t('addChannel.regenerate')}
                 </button>
@@ -246,55 +244,52 @@ export function AddChannelModal() {
               <input
                 readOnly
                 value={generated}
-                className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs text-(--text2) outline-none'
-                style={{ borderColor: 'var(--border)' }}
+                className='w-full rounded-md border bg-bg px-3 py-2 font-mono text-xs text-text2 outline-none border-border'
               />
             </label>
           )}
 
           {mode === 'joinPrivate' && (
             <label className='block'>
-              <span className='mb-1 block text-xs text-(--text2)'>
+              <span className='mb-1 block text-xs text-text2'>
                 {t('addChannel.secretHex')}
               </span>
               <input
                 value={secretHex}
                 onChange={(e) => setSecretHex(e.target.value)}
-                className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
-                style={{ borderColor: 'var(--border)' }}
+                className='w-full rounded-md border bg-bg px-3 py-2 font-mono text-xs outline-none focus:border-accent border-border'
               />
             </label>
           )}
 
           {mode === 'joinLink' && (
             <label className='block'>
-              <span className='mb-1 block text-xs text-(--text2)'>
+              <span className='mb-1 block text-xs text-text2'>
                 {t('addChannel.link')}
               </span>
               <input
                 value={link}
                 onChange={(e) => setLink(e.target.value)}
                 placeholder={t('addChannel.linkPlaceholder')}
-                className='w-full rounded-md border bg-(--bg) px-3 py-2 font-mono text-xs outline-none focus:border-(--accent)'
-                style={{ borderColor: 'var(--border)' }}
+                className='w-full rounded-md border bg-bg px-3 py-2 font-mono text-xs outline-none focus:border-accent border-border'
               />
             </label>
           )}
 
-          {error && <p className='text-xs text-(--red)'>{error}</p>}
+          {error && <p className='text-xs text-red'>{error}</p>}
         </div>
       </div>
 
       <div className='mt-6 flex justify-end gap-2'>
         <button
           onClick={close}
-          className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+          className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
         >
           {t('common.cancel')}
         </button>
         <button
           onClick={mode === 'joinLink' ? useLink : submit}
-          className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-sm font-semibold text-white hover:bg-(--accent-hover)'
+          className='rounded-md bg-accent-solid px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover'
         >
           {mode === 'create'
             ? t('addChannel.create')

@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ModalShell } from './ModalShell';
+import { Select as SharedSelect } from './Select';
 import {
   RADIO_FREQ_MIN_MHZ,
   RADIO_FREQ_MAX_MHZ,
@@ -258,28 +259,20 @@ function RadioEditStep({
 
   return (
     <div className='space-y-4'>
-      <label className='block'>
-        <span className='mb-1 block text-xs text-(--text2)'>
-          {t('settings.radioEdit.preset')}
-        </span>
-        <select
-          value={presetIdx}
-          onChange={(e) => onPreset(Number(e.target.value))}
-          className='w-full rounded-md border border-(--border-control) bg-(--surface) px-2 py-1.5 text-sm text-(--text) outline-none focus:border-(--accent)'
-        >
-          <option value={-1}>{t('settings.radioEdit.presetCustom')}</option>
-          {RADIO_PRESETS.map((p, i) => (
-            <option key={p.title} value={i}>
-              {p.title}
-            </option>
-          ))}
-        </select>
-      </label>
+      <Select
+        label={t('settings.radioEdit.preset')}
+        value={presetIdx}
+        onChange={onPreset}
+        options={[
+          { value: -1, label: t('settings.radioEdit.presetCustom') },
+          ...RADIO_PRESETS.map((p, i) => ({ value: i, label: p.title })),
+        ]}
+      />
 
       <label className='block'>
-        <span className='mb-1 block text-xs text-(--text2)'>
+        <span className='mb-1 block text-xs text-text2'>
           {t('settings.frequency')}{' '}
-          <span className='text-(--text2)'>
+          <span className='text-text2'>
             ({num(RADIO_FREQ_MIN_MHZ)}–{num(RADIO_FREQ_MAX_MHZ)} MHz)
           </span>
         </span>
@@ -291,12 +284,12 @@ function RadioEditStep({
           max={RADIO_FREQ_MAX_MHZ}
           value={draft.freq}
           onChange={(e) => patch({ freq: e.target.value })}
-          className={`w-full rounded-md border bg-(--surface) px-2 py-1.5 text-sm text-(--text) outline-none focus:border-(--accent) ${
-            freqValid ? 'border-(--border-control)' : 'border-(--red)'
+          className={`w-full rounded-md border bg-surface px-2 py-1.5 text-sm text-text outline-none focus:border-accent ${
+            freqValid ? 'border-border-control' : 'border-red'
           }`}
         />
         {!freqValid && (
-          <span className='mt-1 block text-[11px] text-(--red)'>
+          <span className='mt-1 block text-[11px] text-red'>
             {t('settings.radioEdit.invalidFreq', {
               min: num(RADIO_FREQ_MIN_MHZ),
               max: num(RADIO_FREQ_MAX_MHZ),
@@ -337,7 +330,7 @@ function RadioEditStep({
       </div>
 
       <label className='block'>
-        <span className='mb-1 flex justify-between text-xs text-(--text2)'>
+        <span className='mb-1 flex justify-between text-xs text-text2'>
           <span>{t('settings.txPower')}</span>
           <span>{t('units.dbm', { value: num(draft.txPower) })}</span>
         </span>
@@ -348,9 +341,9 @@ function RadioEditStep({
           step={1}
           value={draft.txPower}
           onChange={(e) => patch({ txPower: Number(e.target.value) })}
-          className='w-full accent-(--accent)'
+          className='w-full accent-accent'
         />
-        <span className='mt-1 block text-[11px] text-(--text2)'>
+        <span className='mt-1 block text-[11px] text-text2'>
           {t('settings.radioEdit.maxTxHint', { value: num(fields.maxTxPower) })}
         </span>
       </label>
@@ -358,14 +351,14 @@ function RadioEditStep({
       <div className='flex justify-end gap-2'>
         <button
           onClick={onCancel}
-          className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+          className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
         >
           {t('common.cancel')}
         </button>
         <button
           onClick={onReview}
           disabled={!canReview}
-          className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
+          className='rounded-md bg-accent-solid px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
         >
           {t('settings.radioEdit.review')}
         </button>
@@ -388,12 +381,7 @@ function RadioConfirmStep({
   const { t } = useTranslation();
   return (
     <div className='space-y-4'>
-      <p
-        className='rounded-md border border-(--red) p-3 text-xs leading-relaxed text-(--text)'
-        style={{
-          background: 'color-mix(in srgb, var(--red) 10%, transparent)',
-        }}
-      >
+      <p className='rounded-md border border-red bg-red/10 p-3 text-xs leading-relaxed text-text'>
         {t('settings.radioEdit.warning')}
       </p>
       <div>
@@ -402,20 +390,17 @@ function RadioConfirmStep({
           return (
             <div
               key={r.label}
-              className='flex items-center justify-between gap-3 border-b py-1.5 text-xs last:border-0'
-              style={{ borderColor: 'var(--border)' }}
+              className='flex items-center justify-between gap-3 border-b py-1.5 text-xs last:border-0 border-border'
             >
-              <span className='shrink-0 text-(--text2)'>{r.label}</span>
+              <span className='shrink-0 text-text2'>{r.label}</span>
               <span className='flex min-w-0 items-center gap-1.5 text-right'>
-                <span className={changed ? 'text-(--text2) line-through' : ''}>
+                <span className={changed ? 'text-text2 line-through' : ''}>
                   {r.cur}
                 </span>
                 {changed && (
                   <>
-                    <span className='text-(--text2)'>→</span>
-                    <span className='font-semibold text-(--accent)'>
-                      {r.next}
-                    </span>
+                    <span className='text-text2'>→</span>
+                    <span className='font-semibold text-accent'>{r.next}</span>
                   </>
                 )}
               </span>
@@ -427,14 +412,14 @@ function RadioConfirmStep({
         <button
           onClick={onBack}
           disabled={saving}
-          className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2) disabled:opacity-50'
+          className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2 disabled:opacity-50'
         >
           {t('common.back')}
         </button>
         <button
           onClick={onApply}
           disabled={saving}
-          className='rounded-md bg-(--red-solid) px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
+          className='rounded-md bg-red-solid px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
         >
           {t('settings.radioEdit.apply')}
         </button>
@@ -455,19 +440,12 @@ function Select({
   options: { value: number; label: string }[];
 }) {
   return (
-    <label className='block'>
-      <span className='mb-1 block text-xs text-(--text2)'>{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className='w-full rounded-md border border-(--border-control) bg-(--surface) px-2 py-1.5 text-sm text-(--text) outline-none focus:border-(--accent)'
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <SharedSelect
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={options}
+      size='md'
+    />
   );
 }

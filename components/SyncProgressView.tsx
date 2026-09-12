@@ -49,7 +49,7 @@ export function SyncProgressView({ progress }: { progress: SyncProgress }) {
     <>
       <div className='mb-1.5 flex items-baseline justify-between gap-3'>
         <span className='text-sm'>{stageLabel}…</span>
-        <span className='text-xs text-(--text2)'>{percent}%</span>
+        <span className='text-xs text-text2'>{percent}%</span>
       </div>
       <div
         role='progressbar'
@@ -58,11 +58,10 @@ export function SyncProgressView({ progress }: { progress: SyncProgress }) {
         aria-valuemax={100}
         aria-valuenow={percent}
         aria-valuetext={t('sync.valueText', { stage: stageLabel, percent })}
-        className='h-2 w-full overflow-hidden rounded-full'
-        style={{ background: 'var(--border)' }}
+        className='h-2 w-full overflow-hidden rounded-full bg-border'
       >
         <div
-          className='h-full rounded-full bg-(--accent) transition-[width] duration-300'
+          className='h-full rounded-full bg-accent transition-[width] duration-300'
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -73,14 +72,9 @@ export function SyncProgressView({ progress }: { progress: SyncProgress }) {
           return (
             <li
               key={s}
-              className='flex items-center gap-2'
-              style={{
-                color: done
-                  ? 'var(--green)'
-                  : active
-                    ? 'var(--text)'
-                    : 'var(--text2)',
-              }}
+              className={`flex items-center gap-2 ${
+                done ? 'text-green' : active ? 'text-text' : 'text-text2'
+              }`}
             >
               <span className='w-3 text-center' aria-hidden='true'>
                 {done ? '✓' : active ? '●' : '○'}

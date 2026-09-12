@@ -20,17 +20,9 @@ export function DesktopOnly() {
 
   return (
     <div className='flex h-full flex-col items-center justify-center px-6'>
-      <div
-        className='w-full max-w-md rounded-[10px] border p-8 text-center'
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
-        <div
-          className='mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl'
-          style={{
-            background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
-          }}
-        >
-          <Monitor size={32} className='text-(--accent)' />
+      <div className='w-full max-w-md rounded-card border border-border bg-surface p-8 text-center'>
+        <div className='mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10'>
+          <Monitor size={32} className='text-accent' />
         </div>
 
         <p className='mb-2 text-sm font-semibold tracking-tight'>
@@ -38,21 +30,16 @@ export function DesktopOnly() {
         </p>
 
         <h1 className='mb-2 text-xl font-bold'>{t('desktopOnly.title')}</h1>
-        <p className='text-sm text-(--text2)'>{t('desktopOnly.body')}</p>
+        <p className='text-sm text-text2'>{t('desktopOnly.body')}</p>
 
-        <div
-          className='mt-6 border-t pt-6'
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <p className='mb-3 text-sm text-(--text2)'>
-            {t('desktopOnly.appCta')}
-          </p>
+        <div className='mt-6 border-t pt-6 border-border'>
+          <p className='mb-3 text-sm text-text2'>{t('desktopOnly.appCta')}</p>
           <a
             href={MESHCORE_APP_URL}
             target='_blank'
             rel='noreferrer noopener'
             className='inline-flex w-full items-center justify-center rounded-lg
-              bg-(--accent-solid) py-2.5 text-sm font-semibold text-white
+              bg-accent-solid py-2.5 text-sm font-semibold text-white
               transition-opacity hover:opacity-90'
           >
             {t('desktopOnly.appButton')}

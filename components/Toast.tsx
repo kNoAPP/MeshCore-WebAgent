@@ -24,9 +24,9 @@ export function Toast() {
   const setView = useMeshStore((s) => s.setView);
 
   const colors = {
-    success: 'border-(--green) text-(--green)',
-    error: 'border-(--red) text-(--red)',
-    '': 'border-(--border) text-(--text)',
+    success: 'border-green text-green',
+    error: 'border-red text-red',
+    '': 'border-border text-text',
   };
 
   const isError = toast?.variant === 'error';
@@ -35,7 +35,7 @@ export function Toast() {
     isError || convo
       ? 'pointer-events-auto flex max-w-[90vw] items-start gap-2 text-left'
       : 'pointer-events-none whitespace-nowrap';
-  const shell = `rounded-lg border bg-(--surface2) px-4 py-2.5 text-sm shadow-lg ${interaction} ${toast ? colors[toast.variant] : ''}`;
+  const shell = `rounded-lg border bg-surface2 px-4 py-2.5 text-sm shadow-pop ${interaction} ${toast ? colors[toast.variant] : ''}`;
 
   const openTarget = () => {
     if (!convo) return;
@@ -56,7 +56,7 @@ export function Toast() {
         <button
           type='button'
           onClick={openTarget}
-          className='min-w-0 text-left hover:underline focus-visible:outline-2 focus-visible:outline-(--accent)'
+          className='min-w-0 text-left hover:underline focus-visible:outline-2 focus-visible:outline-accent'
         >
           {toast.text}
         </button>
@@ -64,7 +64,7 @@ export function Toast() {
           type='button'
           onClick={dismissToast}
           aria-label={t('toast.dismiss')}
-          className='-mr-1 shrink-0 rounded p-0.5 hover:bg-(--surface) focus-visible:outline-2 focus-visible:outline-(--accent)'
+          className='-mr-1 shrink-0 rounded p-0.5 hover:bg-surface focus-visible:outline-2 focus-visible:outline-accent'
         >
           <X size={16} aria-hidden='true' />
         </button>
@@ -77,7 +77,7 @@ export function Toast() {
             type='button'
             onClick={dismissToast}
             aria-label={t('toast.dismiss')}
-            className='-mr-1 shrink-0 rounded p-0.5 hover:bg-(--surface) focus-visible:outline-2 focus-visible:outline-(--red)'
+            className='-mr-1 shrink-0 rounded p-0.5 hover:bg-surface focus-visible:outline-2 focus-visible:outline-red'
           >
             <X size={16} aria-hidden='true' />
           </button>

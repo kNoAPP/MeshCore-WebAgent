@@ -67,23 +67,23 @@ export function ShareCard({
       <div className='flex flex-col items-center gap-2'>
         <QrCode value={qrValue} size={180} />
         <span className='text-base font-bold'>{title}</span>
-        <span className='text-xs text-(--text2)'>{scanHint}</span>
+        <span className='text-xs text-text2'>{scanHint}</span>
       </div>
 
       <div className='mt-5'>
-        <span className='text-xs text-(--text2)'>{pubkeyLabel}</span>
-        <div className='mt-1 flex items-center gap-3 rounded-md bg-(--surface2) px-3 py-2'>
+        <span className='text-xs text-text2'>{pubkeyLabel}</span>
+        <div className='mt-1 flex items-center gap-3 rounded-md bg-surface2 px-3 py-2'>
           <span className='flex-1 font-mono text-xs break-all'>{pubkey}</span>
           <CopyButton value={pubkey} />
         </div>
       </div>
 
-      <div className='mt-6 border-t border-(--border) pt-4'>
+      <div className='mt-6 border-t border-border pt-4'>
         <div className='flex gap-2'>
           <button
             onClick={onAdvert}
             disabled={advertDisabled}
-            className='flex flex-1 items-center justify-center gap-2 rounded-md bg-(--accent-solid) px-3 py-2 text-sm font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent-solid)'
+            className='flex flex-1 items-center justify-center gap-2 rounded-md bg-accent-solid px-3 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-accent-solid'
           >
             <Radio size={16} />
             {advertLabel}
@@ -92,14 +92,14 @@ export function ShareCard({
             <button
               onClick={onFloodAdvert}
               disabled={floodDisabled}
-              className='flex flex-1 items-center justify-center gap-2 rounded-md border border-(--border-control) px-3 py-2 text-sm text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+              className='flex flex-1 items-center justify-center gap-2 rounded-md border border-border-control px-3 py-2 text-sm text-text2 hover:text-text disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text2'
             >
               <Radio size={16} />
               {floodLabel}
             </button>
           )}
         </div>
-        <p className='mt-2 text-center text-xs text-(--text2)'>{advertHint}</p>
+        <p className='mt-2 text-center text-xs text-text2'>{advertHint}</p>
       </div>
     </div>
   );

@@ -38,23 +38,23 @@ export function SaveStatusChip({
   return (
     <span className='inline-flex w-4 shrink-0 items-center justify-center'>
       {!status && (
-        <span aria-hidden className='h-1 w-1 rounded-full bg-(--border)' />
+        <span aria-hidden className='h-1 w-1 rounded-full bg-border' />
       )}
       {status === 'saving' && (
         <span
           aria-hidden
-          className='h-3 w-3 animate-spin rounded-full border border-(--text2) border-t-transparent'
+          className='h-3 w-3 animate-spin rounded-full border border-text2 border-t-transparent'
         />
       )}
       {status === 'saved' && (
-        <span aria-hidden className='text-xs text-(--green)'>
+        <span aria-hidden className='text-xs text-green'>
           ✓
         </span>
       )}
       {status === 'error' && (
         <span
           aria-hidden
-          className='cursor-help text-xs text-(--red)'
+          className='cursor-help text-xs text-red'
           title={errorText}
         >
           ⚠

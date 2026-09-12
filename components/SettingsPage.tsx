@@ -30,14 +30,12 @@ import { ModalShell } from './ModalShell';
 import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
 import { SaveStatusChip, useSaveStatus } from './SaveStatus';
+import { Select } from './Select';
+import { Switch, SwitchTrack } from './Switch';
 import { AiSettingsBody } from './AiSettings';
 import { AutomationSettingsBody } from './AutomationPanel';
-import { SUPPORTED_UNIT_SYSTEMS, type UnitSystem } from '@/lib/units/config';
-import {
-  SUPPORTED_LOCALES,
-  LOCALE_NAMES,
-  type SupportedLocale,
-} from '@/lib/i18n/config';
+import { SUPPORTED_UNIT_SYSTEMS } from '@/lib/units/config';
+import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 
 /**
  * Settings page: device identity, firmware, radio configuration, and this
@@ -130,7 +128,7 @@ export function SettingsPage() {
                   onClick={() => setRadioEditOpen(true)}
                   disabled={!canEditRadio}
                   title={t('settings.editRadio')}
-                  className='rounded-md border border-(--border-control) px-2.5 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+                  className='rounded-md border border-border-control px-2.5 py-1 text-xs text-text2 hover:text-text disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text2'
                 >
                   {t('settings.edit')}
                 </button>
@@ -190,7 +188,7 @@ export function SettingsPage() {
                 <button
                   onClick={() => setShareOpen(true)}
                   disabled={!selfInfo?.pubkey}
-                  className='rounded-md bg-(--accent-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--accent-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--accent-solid)'
+                  className='rounded-md bg-accent-solid px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-accent-solid'
                 >
                   {t('settings.shareNode')}
                 </button>
@@ -333,17 +331,14 @@ function NodeNameRow() {
   };
 
   return (
-    <div
-      className='flex items-center justify-between gap-3 border-b py-1.5 text-xs'
-      style={{ borderColor: 'var(--border)' }}
-    >
-      <span className='shrink-0 text-(--text2)'>{t('settings.nodeName')}</span>
+    <div className='flex items-center justify-between gap-3 border-b py-1.5 text-xs border-border'>
+      <span className='shrink-0 text-text2'>{t('settings.nodeName')}</span>
       <div className='flex min-w-0 flex-1 items-center justify-end gap-2'>
         <div
-          className={`field-group flex w-52 min-w-0 items-center overflow-hidden rounded-md border bg-(--surface) focus-within:border-(--accent) ${
+          className={`field-group flex w-52 min-w-0 items-center overflow-hidden rounded-md border bg-surface focus-within:border-accent ${
             !valid && draft.trim() !== ''
-              ? 'border-(--red)'
-              : 'border-(--border-control)'
+              ? 'border-red'
+              : 'border-border-control'
           } ${!editable ? 'opacity-60' : ''}`}
         >
           <input
@@ -356,11 +351,11 @@ function NodeNameRow() {
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.currentTarget.blur();
             }}
-            className='w-full min-w-0 bg-transparent px-2 py-1 text-xs text-(--text) outline-none'
+            className='w-full min-w-0 bg-transparent px-2 py-1 text-xs text-text outline-none'
           />
           <span
-            className={`border-l border-(--border-control) px-1.5 py-1 text-[11px] whitespace-nowrap ${
-              overLimit ? 'text-(--red)' : 'text-(--text2)'
+            className={`border-l border-border-control px-1.5 py-1 text-[11px] whitespace-nowrap ${
+              overLimit ? 'text-red' : 'text-text2'
             }`}
           >
             {byteCount}/{MAX_ADVERT_NAME_BYTES}
@@ -520,39 +515,26 @@ function LocationCard() {
       className='md:col-span-2'
       section='location'
     >
-      <p className='mb-3 text-xs text-(--text2)'>
-        {t('settings.locationHint')}
-      </p>
+      <p className='mb-3 text-xs text-text2'>{t('settings.locationHint')}</p>
       <button
         role='switch'
         aria-checked={advertising}
         disabled={!editable || savingAdvertise}
         onClick={() => void toggleAdvertise()}
-        className='flex w-full items-center justify-between gap-2 text-left text-xs text-(--text) disabled:cursor-not-allowed disabled:opacity-50'
+        className='flex w-full items-center justify-between gap-2 text-left text-xs text-text disabled:cursor-not-allowed disabled:opacity-50'
       >
         <span>{t('settings.advertiseLocation')}</span>
         <span className='flex items-center gap-2'>
-          <span
-            className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
-            style={{
-              background: advertising ? 'var(--accent)' : 'var(--border)',
-            }}
-          >
-            <span
-              className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
-                advertising ? 'left-3.5' : 'left-0.5'
-              }`}
-            />
-          </span>
+          <SwitchTrack checked={advertising} />
           <SaveStatusChip status={advertiseStatus} />
         </span>
       </button>
       {showSource && (
         <div className='mt-3'>
-          <div className='flex w-full items-start justify-between gap-2 text-xs text-(--text)'>
+          <div className='flex w-full items-start justify-between gap-2 text-xs text-text'>
             <div className='flex flex-col gap-1'>
               <span>{t('settings.locationSource')}</span>
-              <span className='text-(--text2)'>
+              <span className='text-text2'>
                 {t(
                   usingGps
                     ? 'settings.locationGpsHint'
@@ -572,7 +554,7 @@ function LocationCard() {
                     (i) => void selectSource(LOCATION_SOURCES[i].useGps),
                   )
                 }
-                className='inline-flex rounded-md border border-(--border-control) p-0.5'
+                className='inline-flex rounded-md border border-border-control p-0.5'
               >
                 {LOCATION_SOURCES.map(({ useGps, label }) => {
                   const active = usingGps === useGps;
@@ -586,8 +568,8 @@ function LocationCard() {
                       onClick={() => void selectSource(useGps)}
                       className={`rounded px-3 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                         active
-                          ? 'bg-(--accent-solid) font-semibold text-white inset-ring-1 inset-ring-(--accent)'
-                          : 'text-(--text2) hover:text-(--text)'
+                          ? 'bg-accent-solid font-semibold text-white inset-ring-1 inset-ring-accent'
+                          : 'text-text2 hover:text-text'
                       }`}
                     >
                       {t(label)}
@@ -602,7 +584,7 @@ function LocationCard() {
       )}
       <div className='mt-3 flex items-end gap-3'>
         <div className='flex flex-1 flex-col gap-1 text-xs'>
-          <label className='text-(--text)'>{t('settings.latitude')}</label>
+          <label className='text-text'>{t('settings.latitude')}</label>
           <input
             value={latStr}
             onChange={(e) => setLatStr(e.target.value)}
@@ -614,15 +596,15 @@ function LocationCard() {
             inputMode='decimal'
             placeholder='0.000000'
             aria-label={t('settings.latitude')}
-            className={`min-w-0 rounded-md border bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent) disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`min-w-0 rounded-md border bg-surface px-2 py-1 text-xs text-text outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 ${
               latStr.trim() !== '' && !latValid
-                ? 'border-(--red)'
-                : 'border-(--border-control)'
+                ? 'border-red'
+                : 'border-border-control'
             }`}
           />
         </div>
         <div className='flex flex-1 flex-col gap-1 text-xs'>
-          <label className='text-(--text)'>{t('settings.longitude')}</label>
+          <label className='text-text'>{t('settings.longitude')}</label>
           <input
             value={lonStr}
             onChange={(e) => setLonStr(e.target.value)}
@@ -634,10 +616,10 @@ function LocationCard() {
             inputMode='decimal'
             placeholder='0.000000'
             aria-label={t('settings.longitude')}
-            className={`min-w-0 rounded-md border bg-(--surface) px-2 py-1 text-xs text-(--text) outline-none focus:border-(--accent) disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`min-w-0 rounded-md border bg-surface px-2 py-1 text-xs text-text outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 ${
               lonStr.trim() !== '' && !lonValid
-                ? 'border-(--red)'
-                : 'border-(--border-control)'
+                ? 'border-red'
+                : 'border-border-control'
             }`}
           />
         </div>
@@ -645,7 +627,7 @@ function LocationCard() {
           <button
             onClick={() => useMeshStore.getState().startLocationPick()}
             disabled={usingGps}
-            className='rounded-md border border-(--border-control) px-3 py-1 text-xs text-(--text2) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-(--text2)'
+            className='rounded-md border border-border-control px-3 py-1 text-xs text-text2 hover:text-text disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text2'
           >
             {t('settings.setOnMap')}
           </button>
@@ -684,23 +666,23 @@ function RebootCard() {
       className='md:col-span-2 xl:col-span-3'
       section='danger'
     >
-      <p className='mb-3 text-xs text-(--text2)'>{t('settings.rebootHint')}</p>
+      <p className='mb-3 text-xs text-text2'>{t('settings.rebootHint')}</p>
       {confirming ? (
         <div className='flex items-center justify-between gap-3'>
-          <span className='text-xs text-(--text2)'>
+          <span className='text-xs text-text2'>
             {t('settings.rebootConfirm')}
           </span>
           <div className='flex shrink-0 gap-2'>
             <button
               onClick={() => setConfirming(false)}
-              className='rounded-md px-3 py-1.5 text-xs text-(--text) hover:bg-(--surface)'
+              className='rounded-md px-3 py-1.5 text-xs text-text hover:bg-surface'
             >
               {t('common.cancel')}
             </button>
             <button
               onClick={() => void reboot()}
               disabled={!connected || rebooting}
-              className='rounded-md bg-(--red-solid) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--red-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--red-solid)'
+              className='rounded-md bg-red-solid px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-red-solid'
             >
               {t('settings.rebootConfirmAction')}
             </button>
@@ -710,7 +692,7 @@ function RebootCard() {
         <button
           onClick={() => setConfirming(true)}
           disabled={!connected}
-          className='rounded-md bg-(--red-dim) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--red-dim-hover) disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-(--red-dim)'
+          className='rounded-md bg-red-dim px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-dim-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-red-dim'
         >
           {t('settings.reboot')}
         </button>
@@ -728,71 +710,46 @@ function DisplayCard() {
   const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
   const setShowFullPublicKeys = useMeshStore((s) => s.setShowFullPublicKeys);
 
-  const selectClass =
-    'cursor-pointer rounded-md border border-(--border-control) bg-(--surface) px-2 py-1 text-xs text-(--text) transition-colors hover:border-(--accent) focus:border-(--accent) focus:outline-none';
-
   return (
     <Card
       title={t('settings.section.display')}
       className='md:col-span-2 xl:col-span-1'
       section='display'
     >
-      <div
-        className='flex items-center justify-between gap-3 border-b py-1.5 text-xs'
-        style={{ borderColor: 'var(--border)' }}
-      >
-        <span className='shrink-0 text-(--text2)'>{t('header.language')}</span>
-        <select
+      <div className='flex items-center justify-between gap-3 border-b border-border py-1.5 text-xs'>
+        <span className='shrink-0 text-text2'>{t('header.language')}</span>
+        <Select
           value={locale}
-          onChange={(e) => setLocale(e.target.value as SupportedLocale)}
-          aria-label={t('header.language')}
-          className={selectClass}
-        >
-          {SUPPORTED_LOCALES.map((l) => (
-            <option key={l} value={l}>
-              {LOCALE_NAMES[l]}
-            </option>
-          ))}
-        </select>
+          onChange={setLocale}
+          ariaLabel={t('header.language')}
+          options={SUPPORTED_LOCALES.map((l) => ({
+            value: l,
+            label: LOCALE_NAMES[l],
+          }))}
+          className='cursor-pointer transition-colors hover:border-accent'
+        />
       </div>
       <div className='flex items-center justify-between gap-3 py-1.5 text-xs'>
-        <span className='shrink-0 text-(--text2)'>{t('settings.units')}</span>
-        <select
+        <span className='shrink-0 text-text2'>{t('settings.units')}</span>
+        <Select
           value={unitSystem}
-          onChange={(e) => setUnitSystem(e.target.value as UnitSystem)}
-          aria-label={t('settings.units')}
-          className={selectClass}
-        >
-          {SUPPORTED_UNIT_SYSTEMS.map((u) => (
-            <option key={u} value={u}>
-              {t(`settings.units_${u}`)}
-            </option>
-          ))}
-        </select>
+          onChange={setUnitSystem}
+          ariaLabel={t('settings.units')}
+          options={SUPPORTED_UNIT_SYSTEMS.map((u) => ({
+            value: u,
+            label: t(`settings.units_${u}`),
+          }))}
+          className='cursor-pointer transition-colors hover:border-accent'
+        />
       </div>
-      <button
-        role='switch'
-        aria-checked={showFullPublicKeys}
-        onClick={() => setShowFullPublicKeys(!showFullPublicKeys)}
-        className='flex w-full items-center justify-between gap-3 border-t py-1.5 text-left text-xs text-(--text)'
-        style={{ borderColor: 'var(--border)' }}
-      >
-        <span className='shrink-0 text-(--text2)'>
-          {t('settings.showFullPublicKeys')}
-        </span>
-        <span
-          className='relative h-4 w-7 shrink-0 rounded-full transition-colors'
-          style={{
-            background: showFullPublicKeys ? 'var(--accent)' : 'var(--border)',
-          }}
-        >
-          <span
-            className={`absolute top-0.5 h-3 w-3 rounded-full bg-(--bg) transition-all ${
-              showFullPublicKeys ? 'left-3.5' : 'left-0.5'
-            }`}
-          />
-        </span>
-      </button>
+      <Switch
+        checked={showFullPublicKeys}
+        onChange={setShowFullPublicKeys}
+        label={
+          <span className='text-text2'>{t('settings.showFullPublicKeys')}</span>
+        }
+        className='border-t border-border py-1.5'
+      />
     </Card>
   );
 }
@@ -828,7 +785,7 @@ function SectionRail() {
         <button
           key={section}
           onClick={() => openSection(section)}
-          className='rounded-md px-2.5 py-1.5 text-left text-xs text-(--text2) hover:bg-(--surface2) hover:text-(--text)'
+          className='rounded-md px-2.5 py-1.5 text-left text-xs text-text2 hover:bg-surface2 hover:text-text'
         >
           {t(`settings.section.${section}`)}
         </button>
@@ -849,11 +806,8 @@ function Row({
   copy?: string;
 }) {
   return (
-    <div
-      className='flex items-center justify-between gap-3 border-b py-1.5 text-xs last:border-0'
-      style={{ borderColor: 'var(--border)' }}
-    >
-      <span className='shrink-0 text-(--text2)'>{label}</span>
+    <div className='flex items-center justify-between gap-3 border-b py-1.5 text-xs last:border-0 border-border'>
+      <span className='shrink-0 text-text2'>{label}</span>
       <span className='flex min-w-0 items-center gap-1.5'>
         <span className={`font-semibold ${mono ? 'font-mono break-all' : ''}`}>
           {value}

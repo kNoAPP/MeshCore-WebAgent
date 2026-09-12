@@ -4,45 +4,7 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-
-function RefreshIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox='0 0 24 24'
-      className={`h-4 w-4 ${className ?? ''}`}
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      aria-hidden='true'
-    >
-      <path d='M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8' />
-      <path d='M21 3v5h-5' />
-      <path d='M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16' />
-      <path d='M3 21v-5h5' />
-    </svg>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg
-      viewBox='0 0 24 24'
-      className='h-4 w-4'
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      aria-hidden='true'
-    >
-      <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' />
-      <path d='M7 10l5 5 5-5' />
-      <path d='M12 15V3' />
-    </svg>
-  );
-}
+import { Download, RefreshCw } from 'lucide-react';
 
 /**
  * The app's single refresh control: a bordered icon button whose glyph spins
@@ -77,14 +39,14 @@ export function RefreshButton({
       aria-busy={busy}
       aria-label={label}
       title={label}
-      className={`inline-flex items-center justify-center rounded-md border border-(--border-control) p-1.5 text-(--text2) transition-colors hover:bg-(--surface2) hover:text-(--text) disabled:opacity-50 ${className ?? ''}`}
+      className={`inline-flex items-center justify-center rounded-md border border-border-control p-1.5 text-text2 transition-colors hover:bg-surface2 hover:text-text disabled:opacity-50 ${className ?? ''}`}
     >
       {busy ? (
-        <RefreshIcon className='animate-spin' />
+        <RefreshCw size={16} className='animate-spin' aria-hidden='true' />
       ) : download ? (
-        <DownloadIcon />
+        <Download size={16} aria-hidden='true' />
       ) : (
-        <RefreshIcon />
+        <RefreshCw size={16} aria-hidden='true' />
       )}
     </button>
   );

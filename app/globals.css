@@ -5,6 +5,50 @@
 @import 'tailwindcss';
 
 /*
+ * Registers the semantic tokens defined below with Tailwind, so they generate
+ * real utilities (`bg-surface`, `text-text2`, `border-border`) that carry
+ * variants and opacity modifiers — `hover:bg-surface2`, `bg-mention/10` —
+ * which the `bg-(--surface)` arbitrary-property escape hatch and inline
+ * `style` never could.
+ *
+ * `inline` is what makes theming work: the generated utilities reference
+ * `var(--surface)` rather than the value it happens to hold at build time, so
+ * swapping `data-theme` on <html> still re-skins everything.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface2);
+  --color-border: var(--border);
+  --color-border-control: var(--border-control);
+  --color-accent: var(--accent);
+  --color-accent-solid: var(--accent-solid);
+  --color-accent-hover: var(--accent-hover);
+  --color-text: var(--text);
+  --color-text2: var(--text2);
+  --color-green: var(--green);
+  --color-red: var(--red);
+  --color-red-solid: var(--red-solid);
+  --color-red-hover: var(--red-hover);
+  --color-red-dim: var(--red-dim);
+  --color-red-dim-hover: var(--red-dim-hover);
+  --color-yellow: var(--yellow);
+  --color-amber: var(--amber);
+  --color-mention: var(--mention);
+  --color-mention-own: var(--mention-own);
+  --color-scrim: var(--scrim);
+
+  /* The one non-pill radius the UI actually uses for raised surfaces: cards,
+     popovers, dialogs. `rounded-md` stays the small-control radius. Declared
+     in `:root` below so plain CSS (the Leaflet popup) can share it. */
+  --radius-card: var(--card-radius);
+
+  /* Stock `shadow-lg` is a pure-black shadow tuned for a light page; on
+     `--bg: #0f1117` it does nothing. This is per-theme instead. */
+  --shadow-pop: var(--pop-shadow);
+}
+
+/*
  * Tailwind v4's Preflight sets interactive controls to `cursor: default`,
  * unlike v3 which used `cursor: pointer`. Restore the pointer on enabled
  * buttons and role="button" elements so hovering a clickable control shows the
@@ -86,6 +130,9 @@ label[for] {
  */
 :root,
 :root[data-theme='dark'] {
+  /* Theme-independent scale, declared once here so both `@theme` and hand-
+     written CSS read the same value. */
+  --card-radius: 10px;
   /* Tells the UA to draw its own chrome — select popups, checkbox and range
      controls, spin buttons, autofill, scrollbars, focus rings — in this
      theme's tone, which no `--token` can reach. */
@@ -116,16 +163,14 @@ label[for] {
   --red-dim-hover: #ad5b5b;
   --yellow: #facc15;
   --amber: #f59e0b;
-}
-
-/*
- * Light mode's pale yellow self-mention tint leaves `text-yellow-300` unreadable,
- * so darken just the text (not the bubble) to the readable `--yellow` token here.
- * Own bubbles opt out (they carry the deep `--accent-solid` fill), and dark mode
- * keeps `text-yellow-300` throughout.
- */
-:root[data-theme='light'] .mention-self {
-  color: var(--yellow);
+  /* Self-mention highlight. `--mention` reads on the plain bubble surfaces;
+     `--mention-own` is the pale variant that has to survive the deep
+     `--accent-solid` fill of an own bubble. */
+  --mention: #facc15;
+  --mention-own: #fde68a;
+  /* Dialog scrim and raised-surface shadow, both theme-dependent. */
+  --scrim: rgb(0 0 0 / 0.6);
+  --pop-shadow: 0 8px 24px rgb(0 0 0 / 0.55);
 }
 
 :root[data-theme='light'] {
@@ -156,6 +201,10 @@ label[for] {
   --red-dim-hover: #9c3d3d;
   --yellow: #8a5e02;
   --amber: #9a5203;
+  --mention: #8a5e02;
+  --mention-own: #fde68a;
+  --scrim: rgb(15 17 23 / 0.45);
+  --pop-shadow: 0 8px 24px rgb(15 17 23 / 0.18);
 }
 
 html,

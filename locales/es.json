@@ -40,7 +40,8 @@
     "settings": "⚙ Configuración",
     "disconnect": "⏻ Desconectar",
     "language": "Idioma",
-    "advertise": "Anunciar este nodo"
+    "advertise": "Anunciar este nodo",
+    "storage": "Almacenamiento"
   },
   "theme": {
     "toggle": "Cambiar tema claro/oscuro"
@@ -496,6 +497,7 @@
     "empty": "Selecciona un canal o contacto para empezar a chatear",
     "noMessages": "Aún no hay mensajes",
     "transcriptLabel": "Transcripción de la conversación",
+    "messageAnnouncement": "{{sender}}: {{message}}",
     "lastUnread": "Último no leído",
     "you": "Tú",
     "noAck": "Sin confirmación",
@@ -808,6 +810,7 @@
     "autoAddSettings": "Ajustes de auto-añadir",
     "addContact": "Añadir contacto",
     "manage": "Gestionar",
+    "favorite": "Favorito",
     "dragResize": "Arrastra para redimensionar",
     "dragWidth": "Arrastra para redimensionar la barra lateral",
     "searchContacts": "Buscar contactos",

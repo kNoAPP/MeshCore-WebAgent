@@ -66,7 +66,7 @@ function AutoAddSettingsPanel() {
         </div>
 
         <div className={selected ? '' : 'pointer-events-none opacity-40'}>
-          <div className='mb-2 text-xs font-semibold tracking-wide text-(--text2) uppercase'>
+          <div className='mb-2 text-xs font-semibold tracking-wide text-text2 uppercase'>
             {t('autoAdd.typesHeading')}
           </div>
           <div className='grid grid-cols-2 gap-2'>
@@ -102,7 +102,7 @@ function AutoAddSettingsPanel() {
         <label className='block'>
           <div className='mb-1 flex justify-between text-sm'>
             <span>{t('autoAdd.maxHops')}</span>
-            <span className='text-(--text2)'>
+            <span className='text-text2'>
               {cfg.maxHops >= MAX_HOPS_NO_LIMIT
                 ? t('autoAdd.noLimit')
                 : cfg.maxHops}
@@ -114,18 +114,16 @@ function AutoAddSettingsPanel() {
             max={MAX_HOPS_NO_LIMIT}
             value={cfg.maxHops}
             onChange={(e) => patch({ maxHops: Number(e.target.value) })}
-            className='w-full accent-(--accent)'
+            className='w-full accent-accent'
           />
-          <p className='mt-1 text-xs text-(--text2)'>
-            {t('autoAdd.maxHopsHint')}
-          </p>
+          <p className='mt-1 text-xs text-text2'>{t('autoAdd.maxHopsHint')}</p>
         </label>
       </div>
 
       <div className='mt-6 flex justify-end gap-2'>
         <button
           onClick={() => setAutoAddOpen(false)}
-          className='rounded-md px-3 py-1.5 text-sm text-(--text) hover:bg-(--surface2)'
+          className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
         >
           {t('common.cancel')}
         </button>
@@ -134,8 +132,7 @@ function AutoAddSettingsPanel() {
             applyAutoAddConfig(cfg);
             setAutoAddOpen(false);
           }}
-          className='rounded-md px-3 py-1.5 text-sm font-semibold text-white'
-          style={{ background: 'var(--accent-solid)' }}
+          className='rounded-md px-3 py-1.5 text-sm font-semibold text-white bg-accent-solid'
         >
           {t('common.save')}
         </button>
@@ -161,17 +158,18 @@ function Radio({
       aria-checked={checked}
       tabIndex={checked ? 0 : -1}
       onClick={onChange}
-      className='flex w-full items-start gap-3 rounded-md px-2 py-2 text-left hover:bg-(--surface2)'
+      className='flex w-full items-start gap-3 rounded-md px-2 py-2 text-left hover:bg-surface2'
     >
       <span
-        className='mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border'
-        style={{ borderColor: checked ? 'var(--accent)' : 'var(--border)' }}
+        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+          checked ? 'border-accent' : 'border-border'
+        }`}
       >
-        {checked && <span className='h-2 w-2 rounded-full bg-(--accent)' />}
+        {checked && <span className='h-2 w-2 rounded-full bg-accent' />}
       </span>
       <span>
         <span className='block text-sm'>{label}</span>
-        <span className='block text-xs text-(--text2)'>{hint}</span>
+        <span className='block text-xs text-text2'>{hint}</span>
       </span>
     </button>
   );
@@ -192,7 +190,7 @@ function Check({
         type='checkbox'
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className='h-4 w-4 accent-(--accent)'
+        className='h-4 w-4 accent-accent'
       />
       <span>{label}</span>
     </label>

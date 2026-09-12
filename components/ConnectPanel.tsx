@@ -4,7 +4,7 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Bluetooth, PlugZap, Usb, Wifi } from 'lucide-react';
+import { AlertTriangle, Bluetooth, PlugZap, Usb, Wifi } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { getGrantedPorts } from '@/lib/meshcore/transports';
@@ -163,12 +163,9 @@ export function ConnectPanel() {
   return (
     <div className='relative flex flex-1 items-center justify-center'>
       {' '}
-      <div
-        className='w-105 max-w-[95vw] rounded-[10px] border p-8'
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
+      <div className='w-105 max-w-[95vw] rounded-card border p-8 bg-surface border-border'>
         <h2 className='mb-1 text-xl font-bold'>{t('connect.title')}</h2>
-        <p className='mb-5 text-sm text-(--text2)'> {t('connect.subtitle')} </p>
+        <p className='mb-5 text-sm text-text2'> {t('connect.subtitle')} </p>
 
         {lastFailure && (
           <ReconnectFailedCard
@@ -187,8 +184,7 @@ export function ConnectPanel() {
               changeTab(TABS[i]),
             )
           }
-          className='mb-5 flex overflow-hidden rounded-lg border'
-          style={{ borderColor: 'var(--border)' }}
+          className='mb-5 flex overflow-hidden rounded-lg border border-border'
         >
           {TABS.map((tb, i) => {
             const Icon = tb === 'usb' ? Usb : tb === 'ble' ? Bluetooth : Wifi;
@@ -203,9 +199,8 @@ export function ConnectPanel() {
                 onClick={() => changeTab(tb)}
                 disabled={busy}
                 className={`focus-inset flex flex-1 items-center justify-center gap-1.5 py-2 text-[13px] font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50
-                ${i > 0 ? 'border-l' : ''}
-                ${tab === tb ? 'bg-(--accent-solid) text-white inset-ring-1 inset-ring-(--accent)' : 'text-(--text2) hover:text-(--text)'}`}
-                style={i > 0 ? { borderColor: 'var(--border)' } : {}}
+                ${i > 0 ? 'border-l border-border' : ''}
+                ${tab === tb ? 'bg-accent-solid text-white inset-ring-1 inset-ring-accent' : 'text-text2 hover:text-text'}`}
               >
                 <Icon size={15} aria-hidden='true' />
                 {tb === 'usb'
@@ -296,7 +291,7 @@ export function ConnectPanel() {
                 <div className='mt-1.5'>{t('connect.wifi.infoExtra')}</div>
               </InfoBox>
               <label className='flex flex-col gap-1'>
-                <span className='text-xs text-(--text2)'>
+                <span className='text-xs text-text2'>
                   {t('connect.websocketUrl')}
                 </span>
                 <input
@@ -339,17 +334,13 @@ function ReconnectFailedCard({
   return (
     <div
       role='status'
-      className='mb-5 rounded-lg border p-3.5'
-      style={{
-        background: 'color-mix(in srgb, var(--red) 8%, transparent)',
-        borderColor: 'color-mix(in srgb, var(--red) 30%, transparent)',
-      }}
+      className='mb-5 rounded-lg border border-red/30 bg-red/8 p-3.5'
     >
       <div className='mb-1.5 flex items-center gap-1.5 text-sm font-semibold'>
-        <PlugZap size={16} aria-hidden='true' className='text-(--red)' />
+        <PlugZap size={16} aria-hidden='true' className='text-red' />
         {t('connect.failed.title')}
       </div>
-      <p className='mb-3 text-xs text-(--text2)'>
+      <p className='mb-3 text-xs text-text2'>
         {t('connect.failed.body', { device })}
       </p>
       <PrimaryButton disabled={busy} onClick={onReconnect}>
@@ -364,7 +355,7 @@ function ReconnectFailedCard({
 function ConnectFooter() {
   const { t } = useTranslation();
   return (
-    <footer className='absolute right-4 bottom-4 flex flex-col items-end gap-0.5 text-right text-[11px] text-(--text2)'>
+    <footer className='absolute right-4 bottom-4 flex flex-col items-end gap-0.5 text-right text-[11px] text-text2'>
       <span>{t('connect.footer.createdBy')}</span>
       <span>{t('connect.footer.license')}</span>
       <span>
@@ -372,7 +363,7 @@ function ConnectFooter() {
           href='https://github.com/kNoAPP/MeshCore-WebAgent'
           target='_blank'
           rel='noreferrer'
-          className='text-(--accent) hover:underline'
+          className='text-accent hover:underline'
         >
           {t('connect.footer.contribute')}
         </a>{' '}
@@ -384,13 +375,7 @@ function ConnectFooter() {
 
 function InfoBox({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className='rounded-lg px-3 py-2.5 text-xs text-(--text2)'
-      style={{
-        background: 'rgba(79,142,247,0.08)',
-        border: '1px solid rgba(79,142,247,0.2)',
-      }}
-    >
+    <div className='rounded-lg border border-accent/20 bg-accent/8 px-3 py-2.5 text-xs text-text2'>
       {' '}
       {children}{' '}
     </div>
@@ -399,15 +384,9 @@ function InfoBox({ children }: { children: React.ReactNode }) {
 
 function WarningBox({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className='rounded-lg px-3 py-2.5 text-xs'
-      style={{
-        background: 'rgba(250,204,21,0.08)',
-        border: '1px solid rgba(250,204,21,0.3)',
-        color: 'var(--yellow)',
-      }}
-    >
-      ⚠️ {children}
+    <div className='flex items-start gap-1.5 rounded-lg border border-yellow/30 bg-yellow/8 px-3 py-2.5 text-xs text-yellow'>
+      <AlertTriangle size={14} className='mt-px shrink-0' aria-hidden='true' />
+      <span>{children}</span>
     </div>
   );
 }
@@ -419,7 +398,7 @@ function PrimaryButton({
   return (
     <button
       {...props}
-      className='w-full rounded-lg bg-(--accent-solid) py-2.5 text-sm font-semibold
+      className='w-full rounded-lg bg-accent-solid py-2.5 text-sm font-semibold
 text-white transition-opacity hover:opacity-90
 disabled:cursor-not-allowed disabled:opacity-45'
     >
@@ -436,10 +415,9 @@ function SecondaryButton({
   return (
     <button
       {...props}
-      style={{ borderColor: 'var(--border)' }}
-      className='w-full rounded-lg border py-2.5 text-sm font-medium text-(--text2)
-transition-colors hover:text-(--text) disabled:cursor-not-allowed
-disabled:opacity-45'
+      className='w-full rounded-lg border py-2.5 text-sm font-medium text-text2
+transition-colors hover:text-text disabled:cursor-not-allowed
+disabled:opacity-45 border-border'
     >
       {' '}
       {children}{' '}

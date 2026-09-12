@@ -40,7 +40,8 @@
     "settings": "⚙ Paramètres",
     "disconnect": "⏻ Déconnecter",
     "language": "Langue",
-    "advertise": "Annoncer ce nœud"
+    "advertise": "Annoncer ce nœud",
+    "storage": "Stockage"
   },
   "theme": {
     "toggle": "Basculer le thème clair/sombre"
@@ -496,6 +497,7 @@
     "empty": "Sélectionne un canal ou un contact pour commencer à discuter",
     "noMessages": "Aucun message pour l'instant",
     "transcriptLabel": "Transcription de la conversation",
+    "messageAnnouncement": "{{sender}}: {{message}}",
     "lastUnread": "Dernier non lu",
     "you": "Toi",
     "noAck": "Aucun accusé de réception",
@@ -808,6 +810,7 @@
     "autoAddSettings": "Paramètres d'ajout automatique",
     "addContact": "Ajouter un contact",
     "manage": "Gérer",
+    "favorite": "Favori",
     "dragResize": "Glisser pour redimensionner",
     "dragWidth": "Glisser pour redimensionner la barre latérale",
     "searchContacts": "Rechercher des contacts",

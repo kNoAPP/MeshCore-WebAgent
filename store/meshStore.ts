@@ -240,6 +240,7 @@ export interface MessageArrival {
   convoId: string;
   msgId: string;
   text: string;
+  senderName?: string;
   own: boolean;
   system: boolean;
   /**
@@ -839,6 +840,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
           convoId: id,
           msgId: enriched.id as string,
           text: enriched.text,
+          senderName: enriched.senderName,
           own: enriched.own ?? false,
           system: enriched.system ?? false,
           visible,
