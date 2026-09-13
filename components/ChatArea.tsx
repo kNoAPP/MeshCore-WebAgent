@@ -722,7 +722,12 @@ export function ChatArea() {
           role='log'
           aria-live='off'
           aria-label={t('chat.transcriptLabel')}
-          className='flex w-full flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
+          // `relative` is load-bearing: `sr-only` is `position: absolute`, so
+          // without a containing block here the transcript's visually-hidden
+          // labels resolve against the wrapper, escape this scroller, and make
+          // the wrapper itself scrollable. `scrollIntoView` then scrolls the
+          // wrapper — which has no scrollbar — and the transcript is gone.
+          className='relative flex w-full flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-4'
           ref={messagesRef}
           onScroll={handleMessagesScroll}
         >
