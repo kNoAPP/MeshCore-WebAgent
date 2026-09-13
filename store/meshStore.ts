@@ -992,7 +992,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
           .map((m) => ({
             ...m,
             id: m.id ?? crypto.randomUUID(),
-            status: m.status === 'sending' ? ('failed' as const) : m.status,
+            status: inFlightOnRestore(m) ? ('failed' as const) : m.status,
             _unread: false,
           }))
           .filter((m) => {
@@ -1266,6 +1266,17 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       // reloaded on the next connect, so it resets to defaults here.
     }),
 }));
+
+// A restored message whose delivery was still open when the tab went away. ACK
+// tracking and the retry cycle are module state in `useMeshCore` and do not
+// survive a reload, so nothing will ever settle these — a direct message left
+// awaiting an ACK would otherwise sit at 'sent' forever. Channel sends settle
+// at 'sent' by design (no receipts), so only a direct one is downgraded.
+function inFlightOnRestore(msg: Message): boolean {
+  return (
+    msg.status === 'sending' || (msg.kind === 'direct' && msg.status === 'sent')
+  );
+}
 
 /** Counts unread messages in one conversation. */
 export function unreadCount(

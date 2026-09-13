@@ -22,8 +22,8 @@ interface Props {
   /** Whether this radio is at-mentioned in the message (tints the bubble). */
   mentioned: boolean;
   /**
-   * Optional controls (e.g. retry) rendered in the status line under the
-   * bubble.
+   * Optional delivery detail rendered in the status line under the bubble —
+   * the current retry attempt, or the exhausted state and its restart control.
    */
   statusActions?: React.ReactNode;
 }
@@ -135,8 +135,7 @@ function statusTick(
         className: 'text-green',
       };
     case 'failed':
-      // The "! No acknowledgment" row rendered below the bubble covers this
-      // state
+      // The "! Not delivered" row rendered below the bubble covers this state
       return null;
   }
 }
@@ -267,7 +266,7 @@ function metaParts(
  * `aria-describedby`, so the detail is announced by screen readers and
  * reachable without a mouse; without a `title` it is just the label.
  */
-function HintToken({
+export function HintToken({
   label,
   title,
 }: {
