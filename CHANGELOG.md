@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.26.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.25.0...v1.26.0) (2026-09-13)
+
+
+### Features
+
+* **chat:** retry direct messages automatically with shared route recovery ([#282](https://github.com/kNoAPP/MeshCore-WebAgent/issues/282)) ([3aa0bd7](https://github.com/kNoAPP/MeshCore-WebAgent/commit/3aa0bd77b3a683034aed5c1af02f2b066bee0045))
+
 ## [1.25.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.24.0...v1.25.0) (2026-09-12)
 
 
