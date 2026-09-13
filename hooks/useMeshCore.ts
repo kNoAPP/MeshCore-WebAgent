@@ -201,10 +201,11 @@ const EXPIRED_ACK_LIMIT = 50;
 // teardown all drop the entry, and an attempt already awaiting the radio checks
 // it is still registered before touching the message again.
 const deliveryCycles = new Map<string, DeliveryCycle>();
-// Consecutive delivery failures per contact (by pubkey prefix), scoped to that
-// contact's current path. Shared across its in-flight messages so a broken
-// route is detected once and reset once, not once per message.
-const contactFailures = new Map<string, number>();
+// Consecutive delivery failures per contact (by pubkey prefix), tagged with the
+// route they were counted against so a timeout from a superseded path can never
+// condemn the one now in place. Shared across the contact's in-flight messages
+// so a broken route is detected once and reset once, not once per message.
+const contactFailures = new Map<string, { route: string; count: number }>();
 // The path reset in flight for a contact, if any. A failure that arrives while
 // one is running joins it instead of queuing a second RESET_PATH for the same
 // route — `client.contacts` only shows the cleared path once the radio answers.
@@ -763,17 +764,13 @@ async function applyRoutePolicy(
   if (!contact) return;
   // The count condemns one specific stored route. A contact on flood has
   // nothing to reset, and a failure that went out over a route the radio has
-  // since replaced says nothing about the one now in place — either way the
-  // new state starts from a clean slate.
-  if (
-    contact.outPathLen === NO_PATH ||
-    routeSignature(contact) !== attemptRoute
-  ) {
-    contactFailures.delete(contactKey);
-    return;
-  }
-  const failures = (contactFailures.get(contactKey) ?? 0) + 1;
-  contactFailures.set(contactKey, failures);
+  // since replaced says nothing about the one now in place — neither may touch
+  // the current route's tally.
+  const route = routeSignature(contact);
+  if (contact.outPathLen === NO_PATH || route !== attemptRoute) return;
+  const recorded = contactFailures.get(contactKey);
+  const failures = recorded?.route === route ? recorded.count + 1 : 1;
+  contactFailures.set(contactKey, { route, count: failures });
   if (failures < PATH_RESET_FAILURES) return;
   // Only a reset the radio confirmed clears the count; one that failed leaves
   // it at the threshold, so the next failure tries again rather than stranding
@@ -781,7 +778,7 @@ async function applyRoutePolicy(
   const reset = client
     .resetPath(contact)
     .then(() => {
-      contactFailures.set(contactKey, 0);
+      contactFailures.delete(contactKey);
     })
     .catch(() => {})
     .finally(() => {
