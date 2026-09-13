@@ -76,6 +76,9 @@ import type { AutomationRule } from '@/types/automation';
 interface PendingAck {
   convoId: string;
   msgId: string;
+  // Recipient's pubkey prefix, carried here so an ACK that outlives its
+  // delivery cycle can still clear the contact's failure counter.
+  contactKey: string;
   timer: ReturnType<typeof setTimeout>;
 }
 
@@ -199,6 +202,10 @@ const deliveryCycles = new Map<string, DeliveryCycle>();
 // contact's current path. Shared across its in-flight messages so a broken
 // route is detected once and reset once, not once per message.
 const contactFailures = new Map<string, number>();
+// The path reset in flight for a contact, if any. A failure that arrives while
+// one is running joins it instead of queuing a second RESET_PATH for the same
+// route — `client.contacts` only shows the cleared path once the radio answers.
+const pathResets = new Map<string, Promise<void>>();
 // The resolver awaiting a CLI reply from each repeater, keyed by pubkeyPrefix.
 //
 // MeshCore gives remote-admin CLI replies no correlation id of any kind: the
@@ -380,6 +387,7 @@ function clearPendingAcks(): void {
   pendingAcks.clear();
   deliveryCycles.clear();
   contactFailures.clear();
+  pathResets.clear();
 }
 
 // Rejects and drops every outstanding CLI request. Called on session teardown
@@ -555,8 +563,9 @@ function rememberExpiredAck(
   ackCode: number,
   convoId: string,
   msgId: string,
+  contactKey: string,
 ): void {
-  expiredAcks.set(ackCode, { convoId, msgId });
+  expiredAcks.set(ackCode, { convoId, msgId, contactKey });
   if (expiredAcks.size > EXPIRED_ACK_LIMIT) {
     expiredAcks.delete(expiredAcks.keys().next().value!);
   }
@@ -567,29 +576,27 @@ function handleAck(ackCode: number, roundTripMs: number): void {
   if (pending) {
     pendingAcks.delete(ackCode);
     clearTimeout(pending.timer);
-    markDelivered(pending.convoId, pending.msgId, roundTripMs);
+    markDelivered(pending, roundTripMs);
     return;
   }
   // Late ACK — the timeout already marked the message 'failed'; upgrade it
   const expired = expiredAcks.get(ackCode);
   if (!expired) return; // unknown or duplicate ACK
   expiredAcks.delete(ackCode);
-  markDelivered(expired.convoId, expired.msgId, roundTripMs);
+  markDelivered(expired, roundTripMs);
 }
 
 // An ACK settles the whole message, not just the attempt it answers: a late one
-// can land while a later attempt is already in flight, so the cycle is retired
-// before the status is written. The contact's path evidently works, so its
-// shared failure counter goes back to zero.
+// can land while a later attempt is in flight, or after the budget ran out, so
+// the cycle is retired before the status is written. The contact's path
+// evidently works either way, so its shared failure counter goes back to zero.
 function markDelivered(
-  convoId: string,
-  msgId: string,
+  ack: Omit<PendingAck, 'timer'>,
   roundTripMs: number,
 ): void {
-  const cycle = deliveryCycles.get(msgId);
-  if (cycle) contactFailures.delete(cycle.contactKey);
-  endDeliveryCycle(msgId);
-  useMeshStore.getState().updateMessage(convoId, msgId, {
+  contactFailures.delete(ack.contactKey);
+  endDeliveryCycle(ack.msgId);
+  useMeshStore.getState().updateMessage(ack.convoId, ack.msgId, {
     status: 'delivered',
     roundTripMs,
   });
@@ -692,13 +699,16 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
   cycle.ackKey = ackKey;
   const timer = setTimeout(() => {
     pendingAcks.delete(ackKey);
-    if (ackKey >= 0) rememberExpiredAck(ackKey, cycle.convo.id, cycle.msgId);
+    if (ackKey >= 0) {
+      rememberExpiredAck(ackKey, cycle.convo.id, cycle.msgId, cycle.contactKey);
+    }
     cycle.ackKey = null;
     void handleDeliveryFailure(cycle);
   }, timeoutMs);
   pendingAcks.set(ackKey, {
     convoId: cycle.convo.id,
     msgId: cycle.msgId,
+    contactKey: cycle.contactKey,
     timer,
   });
 }
@@ -723,23 +733,41 @@ async function handleDeliveryFailure(cycle: DeliveryCycle): Promise<void> {
 // flight to the contact then floods on its next attempt. A contact already on
 // flood has nothing to reset.
 async function applyRoutePolicy(contactKey: string): Promise<void> {
-  const failures = (contactFailures.get(contactKey) ?? 0) + 1;
-  contactFailures.set(contactKey, failures);
-  if (failures < PATH_RESET_FAILURES) return;
+  // A reset already running covers this failure too — it is the same broken
+  // route — so wait for it rather than counting or resetting a second time.
+  const running = pathResets.get(contactKey);
+  if (running) {
+    await running;
+    return;
+  }
   const client = useMeshStore.getState().client;
   if (!canTransmit(client)) return;
   const contact = client.contacts[contactKey];
-  if (!contact || contact.outPathLen === NO_PATH) return;
-  // Zeroed before the await, not after: a second message timing out while the
-  // reset is in flight must not fire a redundant one for the same route.
-  contactFailures.set(contactKey, 0);
-  try {
-    await client.resetPath(contact);
-  } catch {
-    // Keep retrying on the existing path and re-arm the reset for the next
-    // failure rather than stranding the cycle here.
-    contactFailures.set(contactKey, PATH_RESET_FAILURES);
+  if (!contact) return;
+  // The count condemns a stored route, so it only accrues while there is one:
+  // a contact on flood has nothing to reset, and a route it learns later starts
+  // from a clean slate rather than inheriting the outage that preceded it.
+  if (contact.outPathLen === NO_PATH) {
+    contactFailures.delete(contactKey);
+    return;
   }
+  const failures = (contactFailures.get(contactKey) ?? 0) + 1;
+  contactFailures.set(contactKey, failures);
+  if (failures < PATH_RESET_FAILURES) return;
+  // Only a reset the radio confirmed clears the count; one that failed leaves
+  // it at the threshold, so the next failure tries again rather than stranding
+  // the cycle here.
+  const reset = client
+    .resetPath(contact)
+    .then(() => {
+      contactFailures.set(contactKey, 0);
+    })
+    .catch(() => {})
+    .finally(() => {
+      pathResets.delete(contactKey);
+    });
+  pathResets.set(contactKey, reset);
+  await reset;
 }
 
 // Retires a cycle with the message left at 'failed' — the UI's "Not delivered"
