@@ -27,7 +27,7 @@ import {
 } from '@/lib/utils';
 import { formatDateDivider } from '@/lib/i18n/format';
 import { flashTarget } from '@/lib/ui/flash';
-import { MessageBubble } from './MessageBubble';
+import { MessageBubble, HintToken } from './MessageBubble';
 import { RouteChip } from './RouteChip';
 import {
   ADV_TYPE_REPEATER,
@@ -105,9 +105,12 @@ function deliveryDetail(
   if (msg.status === 'failed') {
     return (
       <span className='mr-1.5 inline-flex items-center gap-1.5 text-amber'>
-        <span title={t('chat.notDeliveredTooltip')}>
-          {t('chat.notDelivered')}
-        </span>
+        {/* The qualification carries real meaning — the message may well have
+            arrived — so it has to reach a screen reader, not just a `title`. */}
+        <HintToken
+          label={t('chat.notDelivered')}
+          title={t('chat.notDeliveredTooltip')}
+        />
         <span>·</span>
         <button
           onClick={onRetry}

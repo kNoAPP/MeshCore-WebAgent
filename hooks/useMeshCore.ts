@@ -762,12 +762,17 @@ async function applyRoutePolicy(
   if (!canTransmit(client)) return;
   const contact = client.contacts[contactKey];
   if (!contact) return;
-  // The count condemns one specific stored route. A contact on flood has
-  // nothing to reset, and a failure that went out over a route the radio has
-  // since replaced says nothing about the one now in place — neither may touch
-  // the current route's tally.
+  // The count condemns one specific stored route. While the contact floods
+  // there is none to condemn, and any tally left over from the route it dropped
+  // must not survive to greet a relearned one with a head start.
+  if (contact.outPathLen === NO_PATH) {
+    contactFailures.delete(contactKey);
+    return;
+  }
+  // A failure that went out over a route the radio has since replaced says
+  // nothing about the one now in place, and must not touch its tally.
   const route = routeSignature(contact);
-  if (contact.outPathLen === NO_PATH || route !== attemptRoute) return;
+  if (route !== attemptRoute) return;
   const recorded = contactFailures.get(contactKey);
   const failures = recorded?.route === route ? recorded.count + 1 : 1;
   contactFailures.set(contactKey, { route, count: failures });

@@ -266,7 +266,7 @@ function metaParts(
  * `aria-describedby`, so the detail is announced by screen readers and
  * reachable without a mouse; without a `title` it is just the label.
  */
-function HintToken({
+export function HintToken({
   label,
   title,
 }: {
