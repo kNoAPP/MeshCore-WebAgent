@@ -128,7 +128,11 @@ function deliveryDetail(
     return undefined;
   }
   return (
-    <span className='mr-1.5 text-amber'>
+    // Its own polite region: the transcript is aria-live='off', so a counter
+    // ticking from 2 to 5 would otherwise be silent. Scoped to this message so
+    // retry progress never travels through MessageAnnouncer, which carries
+    // arrivals only.
+    <span role='status' className='mr-1.5 text-amber'>
       {t('chat.attemptOf', {
         n: (msg.attempt ?? 0) + 1,
         total: MAX_DELIVERY_ATTEMPTS,

@@ -93,6 +93,9 @@ interface DeliveryCycle {
   // Zero-based index of the attempt in flight; also the protocol's attempt
   // byte, which lets the radio vary its routing on a resend.
   attempt: number;
+  // Route the in-flight attempt went out over, so its failure is counted
+  // against that route rather than one the radio has learned since.
+  attemptRoute: string;
   // ACK key of the attempt in flight, or null between attempts.
   ackKey: number | null;
 }
@@ -376,15 +379,17 @@ function connectErrorCode(err: unknown): ConnectErrorCode {
   return 'connectionFailed';
 }
 
-function clearPendingAcks(): void {
-  const { updateMessage } = useMeshStore.getState();
-  for (const p of pendingAcks.values()) {
-    clearTimeout(p.timer);
-    // No retry may fire against a dead client, so whatever was still waiting on
-    // an ACK settles here rather than coming back stuck at 'sent'.
-    updateMessage(p.convoId, p.msgId, { status: 'failed' });
-  }
+function clearDeliveryState(): void {
+  for (const p of pendingAcks.values()) clearTimeout(p.timer);
   pendingAcks.clear();
+  // Cycles, not pending ACKs, are the full set of messages still in play: one
+  // awaiting `sendDirectMessage` or a path reset has no ACK registered yet, and
+  // its continuation bails once the cycle is gone. Settle them all here, or the
+  // bubble stays at 'sending' for the rest of the session.
+  const { updateMessage } = useMeshStore.getState();
+  for (const cycle of deliveryCycles.values()) {
+    updateMessage(cycle.convo.id, cycle.msgId, { status: 'failed' });
+  }
   deliveryCycles.clear();
   contactFailures.clear();
   pathResets.clear();
@@ -440,7 +445,7 @@ function enqueueCli<T>(prefix: string, op: () => Promise<T>): Promise<T> {
 // never reaches disconnect(), so stale timers and the previous radio's save
 // subscription must not survive into the next connection
 function clearSessionState(): void {
-  clearPendingAcks();
+  clearDeliveryState();
   expiredAcks.clear();
   closeEchoWindow();
   clearCliWaiters();
@@ -630,6 +635,7 @@ function startDeliveryCycle(
     text,
     contactKey: String(convo.rawId),
     attempt: 0,
+    attemptRoute: '',
     ackKey: null,
   };
   deliveryCycles.set(msgId, cycle);
@@ -662,6 +668,7 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
     status: 'sending',
     attempt: cycle.attempt,
   });
+  cycle.attemptRoute = routeSignature(contact);
   let receipt: SendReceipt | null;
   try {
     receipt = await client.sendDirectMessage(
@@ -718,7 +725,7 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
 // goes out and that attempt floods.
 async function handleDeliveryFailure(cycle: DeliveryCycle): Promise<void> {
   if (deliveryCycles.get(cycle.msgId) !== cycle) return;
-  await applyRoutePolicy(cycle.contactKey);
+  await applyRoutePolicy(cycle.contactKey, cycle.attemptRoute);
   if (deliveryCycles.get(cycle.msgId) !== cycle) return;
   if (cycle.attempt + 1 >= MAX_DELIVERY_ATTEMPTS) {
     settleUndelivered(cycle);
@@ -728,11 +735,21 @@ async function handleDeliveryFailure(cycle: DeliveryCycle): Promise<void> {
   await runDeliveryAttempt(cycle);
 }
 
+// Identifies the route the radio currently holds for a contact, so a failure
+// can be attributed to the exact path the attempt went out over.
+function routeSignature(contact: Contact): string {
+  return contact.outPathLen === NO_PATH
+    ? 'flood'
+    : `${contact.outPathLen}:${toHex(contact.path)}`;
+}
+
 // Counts one consecutive failure against a contact's current path and, once the
 // count trips, discards that path with a single RESET_PATH — every message in
-// flight to the contact then floods on its next attempt. A contact already on
-// flood has nothing to reset.
-async function applyRoutePolicy(contactKey: string): Promise<void> {
+// flight to the contact then floods on its next attempt.
+async function applyRoutePolicy(
+  contactKey: string,
+  attemptRoute: string,
+): Promise<void> {
   // A reset already running covers this failure too — it is the same broken
   // route — so wait for it rather than counting or resetting a second time.
   const running = pathResets.get(contactKey);
@@ -744,10 +761,14 @@ async function applyRoutePolicy(contactKey: string): Promise<void> {
   if (!canTransmit(client)) return;
   const contact = client.contacts[contactKey];
   if (!contact) return;
-  // The count condemns a stored route, so it only accrues while there is one:
-  // a contact on flood has nothing to reset, and a route it learns later starts
-  // from a clean slate rather than inheriting the outage that preceded it.
-  if (contact.outPathLen === NO_PATH) {
+  // The count condemns one specific stored route. A contact on flood has
+  // nothing to reset, and a failure that went out over a route the radio has
+  // since replaced says nothing about the one now in place — either way the
+  // new state starts from a clean slate.
+  if (
+    contact.outPathLen === NO_PATH ||
+    routeSignature(contact) !== attemptRoute
+  ) {
     contactFailures.delete(contactKey);
     return;
   }
