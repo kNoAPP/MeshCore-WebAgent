@@ -11,6 +11,7 @@ import {
   channelConvoId,
   directConvoId,
   repeaterConvoId,
+  roomConvoId,
 } from '@/store/meshStore';
 import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import type { ActiveConvo } from '@/types/meshcore';
@@ -102,6 +103,11 @@ export function useCommandSearch(query: string): CommandGroup[] {
         const label = contact?.name || rawId.slice(0, 8);
         return { kind: 'direct', id: convoId, rawId, label };
       }
+      if (kind === 'room') {
+        const contact = contacts[rawId];
+        const label = contact?.name || rawId.slice(0, 8);
+        return { kind: 'room', id: convoId, rawId, label };
+      }
       return null;
     };
     const records = buildMessageRecords(
@@ -115,18 +121,26 @@ export function useCommandSearch(query: string): CommandGroup[] {
 
   const contactFuse = useMemo(() => {
     const records = buildContactRecords(contacts, (prefix, label) => {
-      // Repeaters and room servers open the main-window admin view, not a chat.
+      // Repeaters open the main-window admin view and rooms their post feed,
+      // not a chat.
       const advType = contacts[prefix]?.advType;
-      const isAdminNode =
-        advType === ADV_TYPE_REPEATER || advType === ADV_TYPE_ROOM;
-      return isAdminNode
-        ? {
-            kind: 'repeater',
-            id: repeaterConvoId(prefix),
-            rawId: prefix,
-            label,
-          }
-        : { kind: 'direct', id: directConvoId(prefix), rawId: prefix, label };
+      if (advType === ADV_TYPE_REPEATER) {
+        return {
+          kind: 'repeater',
+          id: repeaterConvoId(prefix),
+          rawId: prefix,
+          label,
+        };
+      }
+      if (advType === ADV_TYPE_ROOM) {
+        return { kind: 'room', id: roomConvoId(prefix), rawId: prefix, label };
+      }
+      return {
+        kind: 'direct',
+        id: directConvoId(prefix),
+        rawId: prefix,
+        label,
+      };
     });
     return new Fuse<ContactRecord>(records, CONTACT_FUSE_OPTIONS);
   }, [contacts]);

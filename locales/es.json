@@ -559,9 +559,11 @@
     "contactUnavailable": "Este nodo ya no está disponible.",
     "access": {
       "admin": "Administrador",
+      "readWrite": "Miembro",
       "guest": "Invitado"
     },
     "tabs": {
+      "posts": "Publicaciones",
       "status": "Estado",
       "config": "Configuración",
       "neighbors": "Vecinos",
@@ -776,6 +778,19 @@
       }
     }
   },
+  "room": {
+    "noPosts": "Aún no hay publicaciones",
+    "placeholder": "Escribe una publicación… (Enter para enviar, Mayús+Enter para nueva línea)",
+    "readOnly": "Tienes acceso de solo lectura a esta sala, así que no puedes publicar.",
+    "announcement": "{{name}} · anuncio",
+    "login": {
+      "prompt": "Inicia sesión en esta sala para leer y publicar.",
+      "admin": "Administrador",
+      "adminHint": "Contraseña de administrador: publicar y administrar en remoto",
+      "guest": "Miembro",
+      "guestHint": "Contraseña de la sala: leer y publicar, o déjala vacía para solo leer"
+    }
+  },
   "route": {
     "noRouteFloods": "Sin ruta — flood",
     "directHops": "Directo (0 saltos)",
@@ -960,6 +975,7 @@
     "newMessageIn": "Nuevo mensaje en {{channel}}",
     "newMessageInFrom": "{{sender}} en {{channel}}",
     "newMessageFrom": "Nuevo mensaje de {{sender}}",
+    "newPostIn": "Nueva publicación en {{room}}",
     "connected": "Conectado — {{device}}",
     "connectionFailed": "Conexión fallida",
     "radioNoResponse": "La radio no respondió — intenta reconectar",

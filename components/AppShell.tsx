@@ -95,7 +95,8 @@ export function AppShell() {
               ) : (
                 <>
                   <Sidebar />
-                  {activeConvo?.kind === 'repeater' ? (
+                  {activeConvo?.kind === 'repeater' ||
+                  activeConvo?.kind === 'room' ? (
                     <RepeaterView />
                   ) : (
                     <ChatArea />

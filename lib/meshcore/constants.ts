@@ -388,6 +388,15 @@ export const FAVORITE_FLAG = 0x01;
  * `helpers/ClientACL.h`.
  */
 export const PERM_ACL_ROLE_MASK = 0x03;
+/**
+ * Lowest ACL role: read-only. A room server grants it when the login password
+ * matched nothing and `allow.read.only` is set, and silently drops (no ACK,
+ * no post) any message such a client sends.
+ *
+ * @see the `PERM_ACL_GUEST` branches in `onAnonDataRecv` / `onPeerDataRecv` of
+ * the firmware's `examples/simple_room_server/MyMesh.cpp`.
+ */
+export const PERM_ACL_GUEST = 0x00;
 /** ACL role value granting full remote administration. */
 export const PERM_ACL_ADMIN = 0x03;
 

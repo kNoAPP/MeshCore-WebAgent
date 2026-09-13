@@ -295,6 +295,17 @@ export interface ReconnectProgress {
  */
 export type AdminLoginState = 'loggedOut' | 'pending' | RepeaterAccess;
 
+/**
+ * Whether a session reached an accepted, server-granted login — any of the
+ * {@link RepeaterAccess} levels, as opposed to the handshake or logged-out
+ * states.
+ */
+export function isAuthedLogin(
+  login: AdminLoginState | undefined,
+): login is RepeaterAccess {
+  return login != null && login !== 'loggedOut' && login !== 'pending';
+}
+
 /** One line of a repeater CLI transcript. */
 export interface CliLine {
   /** `true` for a command we sent, `false` for the repeater's reply. */
@@ -1148,7 +1159,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // after log-out (session gone) or before login completes, drop it rather
     // than resurrecting a logged-out session with stale status that would then
     // leak into the next login. Return before `set` so no listeners are woken.
-    if (session?.login !== 'admin' && session?.login !== 'guest') return;
+    if (!isAuthedLogin(session?.login)) return;
     set({
       adminSessions: {
         ...adminSessions,
@@ -1162,7 +1173,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // Neighbors belong to a live, authenticated session. Drop a late reply
     // that lands after log-out or before login completes, matching
     // setRepeaterStatus, so it can't resurrect a logged-out session.
-    if (session?.login !== 'admin' && session?.login !== 'guest') return;
+    if (!isAuthedLogin(session?.login)) return;
     set({
       adminSessions: {
         ...adminSessions,
@@ -1381,4 +1392,13 @@ export function directConvoId(prefix: string): string {
  */
 export function repeaterConvoId(prefix: string): string {
   return convoId('repeater', prefix);
+}
+
+/**
+ * Builds the conversation id for a room server's post feed (by pubkey prefix).
+ * Separate from {@link repeaterConvoId} so the posts never share a transcript
+ * with the room's remote-admin CLI.
+ */
+export function roomConvoId(prefix: string): string {
+  return convoId('room', prefix);
 }
