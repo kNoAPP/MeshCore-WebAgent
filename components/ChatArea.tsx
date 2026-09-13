@@ -13,10 +13,11 @@ import {
   Fragment,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { ArrowDown, Send } from 'lucide-react';
 import { useMeshStore, isConvoVisible } from '@/store/meshStore';
-import { useMeshCore } from '@/hooks/useMeshCore';
-import type { Contact } from '@/types/meshcore';
+import { useMeshCore, MAX_DELIVERY_ATTEMPTS } from '@/hooks/useMeshCore';
+import type { Contact, Message } from '@/types/meshcore';
 import {
   ADV_ICON,
   utf8ByteLength,
@@ -29,7 +30,6 @@ import { flashTarget } from '@/lib/ui/flash';
 import { MessageBubble } from './MessageBubble';
 import { RouteChip } from './RouteChip';
 import {
-  NO_PATH,
   ADV_TYPE_REPEATER,
   FAVORITE_FLAG,
   MAX_MSG_BYTES,
@@ -93,10 +93,54 @@ const mentionOptionId = (index: number) => `mention-option-${index}`;
 // the thread of who was speaking.
 const GROUP_WINDOW_SEC = 5 * 60;
 
+// The status line under an own bubble. Retries are automatic, so a message
+// still in its cycle reports which attempt it is on and offers nothing to
+// click; only an exhausted one does, and it starts a whole fresh cycle.
+function deliveryDetail(
+  t: TFunction,
+  msg: Message,
+  onRetry: () => void,
+): React.ReactNode {
+  if (!msg.own) return undefined;
+  if (msg.status === 'failed') {
+    return (
+      <span className='mr-1.5 inline-flex items-center gap-1.5 text-amber'>
+        <span title={t('chat.notDeliveredTooltip')}>
+          {t('chat.notDelivered')}
+        </span>
+        <span>·</span>
+        <button
+          onClick={onRetry}
+          className='font-semibold underline hover:opacity-80'
+        >
+          {t('chat.tryAgain')}
+        </button>
+      </span>
+    );
+  }
+  // Silent on the first attempt: a counter on every outgoing message would be
+  // noise, and until one times out there is nothing to report.
+  if (
+    msg.kind !== 'direct' ||
+    (msg.attempt ?? 0) < 1 ||
+    (msg.status !== 'sending' && msg.status !== 'sent')
+  ) {
+    return undefined;
+  }
+  return (
+    <span className='mr-1.5 text-amber'>
+      {t('chat.attemptOf', {
+        n: (msg.attempt ?? 0) + 1,
+        total: MAX_DELIVERY_ATTEMPTS,
+      })}
+    </span>
+  );
+}
+
 /**
  * The main conversation pane for the active channel or contact: header with
  * route info, the scrolling message list, and the composer with at-mention
- * autocomplete, retry actions, and a repeater-can't-message guard.
+ * autocomplete, delivery status, and a repeater-can't-message guard.
  */
 export function ChatArea() {
   const activeConvo = useMeshStore((s) => s.activeConvo);
@@ -741,36 +785,9 @@ export function ChatArea() {
                     text={bodyText}
                     deviceName={deviceName}
                     mentioned={mentioned}
-                    statusActions={
-                      msg.own && msg.status === 'failed' ? (
-                        <span className='mr-1.5 inline-flex items-center gap-1.5 text-amber'>
-                          <span title={t('chat.noAckTooltip')}>
-                            {t('chat.noAck')}
-                          </span>
-                          <span>·</span>
-                          <button
-                            onClick={() => retryMessage(msg, activeConvo)}
-                            className='font-semibold underline hover:opacity-80'
-                          >
-                            {t('chat.retry')}
-                          </button>
-                          {msg.kind === 'direct' &&
-                            (msg.attempt ?? 0) >= 1 &&
-                            directContact &&
-                            directContact.outPathLen !== NO_PATH && (
-                              <button
-                                onClick={() =>
-                                  retryMessage(msg, activeConvo, true)
-                                }
-                                title={t('chat.resetRouteRetryTooltip')}
-                                className='font-semibold underline hover:opacity-80'
-                              >
-                                {t('chat.resetRouteRetry')}
-                              </button>
-                            )}
-                        </span>
-                      ) : undefined
-                    }
+                    statusActions={deliveryDetail(t, msg, () =>
+                      retryMessage(msg, activeConvo),
+                    )}
                   />
                 </div>
               </Fragment>

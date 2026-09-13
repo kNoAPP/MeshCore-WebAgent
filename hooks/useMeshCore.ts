@@ -45,6 +45,7 @@ import {
   ADVERT_LOC_POLICY,
   MAX_CHANNEL_SLOTS,
   MAX_MSG_BYTES,
+  NO_PATH,
 } from '@/lib/meshcore/constants';
 import { splitPathHashes } from '@/lib/meshcore/parsers';
 import { saveRepeaterCred } from '@/lib/meshcore/adminCreds';
@@ -66,6 +67,7 @@ import type {
   Message,
   RawRxPacket,
   RepeaterAccess,
+  SendReceipt,
   ITransport,
   TransportKind,
 } from '@/types/meshcore';
@@ -75,6 +77,21 @@ interface PendingAck {
   convoId: string;
   msgId: string;
   timer: ReturnType<typeof setTimeout>;
+}
+
+// One own direct message's automatic delivery cycle. `text` and `contactKey`
+// are held rather than a Contact snapshot so every attempt re-reads the route
+// the radio currently holds for that contact.
+interface DeliveryCycle {
+  convo: ActiveConvo;
+  msgId: string;
+  text: string;
+  contactKey: string;
+  // Zero-based index of the attempt in flight; also the protocol's attempt
+  // byte, which lets the radio vary its routing on a resend.
+  attempt: number;
+  // ACK key of the attempt in flight, or null between attempts.
+  ackKey: number | null;
 }
 // Counts repeater rebroadcasts of our last channel TX heard in the RX log.
 // payloadKey locks onto the first group-text echo after sending; rebroadcasts
@@ -137,6 +154,17 @@ export type WriteResult = { ok: true } | { ok: false; error: string };
 const ACK_TIMEOUT_GRACE = 1.5;
 const MIN_ACK_TIMEOUT_MS = 5000;
 const DEFAULT_ACK_TIMEOUT_MS = 30000;
+/**
+ * Delivery attempts a direct message gets — the initial send plus automatic
+ * retries. Each retry fires as soon as the previous attempt's ACK timeout
+ * expires; the radio's suggested timeout is the only pacing.
+ */
+export const MAX_DELIVERY_ATTEMPTS = 5;
+// Consecutive delivery failures to one contact — shared by every message in
+// flight to it — before its stored route is discarded so sends fall back to
+// flood. One lost ACK is not enough: throwing away a working path forces a slow
+// rediscovery for everyone.
+const PATH_RESET_FAILURES = 2;
 const ECHO_WINDOW_MS = 15000;
 const SAVE_DEBOUNCE_MS = 1000;
 // Raw RX-log packets are buffered briefly so an inbound channel message can be
@@ -162,6 +190,15 @@ const pendingAcks = new Map<number, PendingAck>();
 // message from 'failed' to 'delivered' instead of being dropped
 const expiredAcks = new Map<number, Omit<PendingAck, 'timer'>>();
 const EXPIRED_ACK_LIMIT = 50;
+// Own direct messages mid-retry-cycle, keyed by message id. Membership is what
+// authorizes an attempt: delivery, exhaustion, an unreachable contact, and
+// teardown all drop the entry, and an attempt already awaiting the radio checks
+// it is still registered before touching the message again.
+const deliveryCycles = new Map<string, DeliveryCycle>();
+// Consecutive delivery failures per contact (by pubkey prefix), scoped to that
+// contact's current path. Shared across its in-flight messages so a broken
+// route is detected once and reset once, not once per message.
+const contactFailures = new Map<string, number>();
 // The resolver awaiting a CLI reply from each repeater, keyed by pubkeyPrefix.
 //
 // MeshCore gives remote-admin CLI replies no correlation id of any kind: the
@@ -333,8 +370,16 @@ function connectErrorCode(err: unknown): ConnectErrorCode {
 }
 
 function clearPendingAcks(): void {
-  for (const p of pendingAcks.values()) clearTimeout(p.timer);
+  const { updateMessage } = useMeshStore.getState();
+  for (const p of pendingAcks.values()) {
+    clearTimeout(p.timer);
+    // No retry may fire against a dead client, so whatever was still waiting on
+    // an ACK settles here rather than coming back stuck at 'sent'.
+    updateMessage(p.convoId, p.msgId, { status: 'failed' });
+  }
   pendingAcks.clear();
+  deliveryCycles.clear();
+  contactFailures.clear();
 }
 
 // Rejects and drops every outstanding CLI request. Called on session teardown
@@ -522,19 +567,188 @@ function handleAck(ackCode: number, roundTripMs: number): void {
   if (pending) {
     pendingAcks.delete(ackCode);
     clearTimeout(pending.timer);
-    useMeshStore.getState().updateMessage(pending.convoId, pending.msgId, {
-      status: 'delivered',
-      roundTripMs,
-    });
+    markDelivered(pending.convoId, pending.msgId, roundTripMs);
     return;
   }
   // Late ACK — the timeout already marked the message 'failed'; upgrade it
   const expired = expiredAcks.get(ackCode);
   if (!expired) return; // unknown or duplicate ACK
   expiredAcks.delete(ackCode);
-  useMeshStore.getState().updateMessage(expired.convoId, expired.msgId, {
+  markDelivered(expired.convoId, expired.msgId, roundTripMs);
+}
+
+// An ACK settles the whole message, not just the attempt it answers: a late one
+// can land while a later attempt is already in flight, so the cycle is retired
+// before the status is written. The contact's path evidently works, so its
+// shared failure counter goes back to zero.
+function markDelivered(
+  convoId: string,
+  msgId: string,
+  roundTripMs: number,
+): void {
+  const cycle = deliveryCycles.get(msgId);
+  if (cycle) contactFailures.delete(cycle.contactKey);
+  endDeliveryCycle(msgId);
+  useMeshStore.getState().updateMessage(convoId, msgId, {
     status: 'delivered',
     roundTripMs,
+  });
+}
+
+// Cancels a message's remaining attempts and disarms the in-flight attempt's
+// ACK timeout, so nothing fires for a message that is already settled.
+function endDeliveryCycle(msgId: string): void {
+  const cycle = deliveryCycles.get(msgId);
+  if (!cycle) return;
+  deliveryCycles.delete(msgId);
+  if (cycle.ackKey === null) return;
+  const pending = pendingAcks.get(cycle.ackKey);
+  if (!pending) return;
+  clearTimeout(pending.timer);
+  pendingAcks.delete(cycle.ackKey);
+}
+
+// Begins (or restarts, for a manual "try again") the automatic delivery cycle
+// for an own direct message. Resolves once the first attempt has been handed to
+// the radio; any retries run on from the ACK timeout it arms.
+function startDeliveryCycle(
+  convo: ActiveConvo,
+  msgId: string,
+  text: string,
+): Promise<void> {
+  endDeliveryCycle(msgId);
+  const cycle: DeliveryCycle = {
+    convo,
+    msgId,
+    text,
+    contactKey: String(convo.rawId),
+    attempt: 0,
+    ackKey: null,
+  };
+  deliveryCycles.set(msgId, cycle);
+  return runDeliveryAttempt(cycle);
+}
+
+// Sends one attempt and arms its ACK timeout. The contact is re-read from the
+// client every time, so a path the radio learned since the last attempt (via
+// PUSH_PATH_UPDATED) is used instead of a snapshot taken when the message was
+// composed.
+async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
+  const store = useMeshStore.getState();
+  const client = store.client;
+  if (!canTransmit(client)) {
+    settleUndelivered(cycle);
+    return;
+  }
+  const contact = client.contacts[cycle.contactKey];
+  // A contact deleted (or re-read as a repeater) mid-cycle can never be
+  // reached; abandon the cycle rather than looping on the same toast.
+  if (!contact || contact.advType === ADV_TYPE_REPEATER) {
+    settleUndelivered(cycle);
+    store.showToast(
+      i18n.t(contact ? 'toast.repeaterCantMessage' : 'toast.contactNotFound'),
+      'error',
+    );
+    return;
+  }
+  store.updateMessage(cycle.convo.id, cycle.msgId, {
+    status: 'sending',
+    attempt: cycle.attempt,
+  });
+  let receipt: SendReceipt | null;
+  try {
+    receipt = await client.sendDirectMessage(
+      contact,
+      cycle.text,
+      cycle.attempt,
+    );
+  } catch (err) {
+    if (deliveryCycles.get(cycle.msgId) !== cycle) return;
+    store.showToast(
+      i18n.t('toast.sendFailed', { error: (err as Error).message }),
+      'error',
+    );
+    // A refused send is a failed attempt like any other — it counts toward the
+    // contact's route policy and spends one of the message's tries.
+    void handleDeliveryFailure(cycle);
+    return;
+  }
+  // A late ACK (or a teardown) retired the cycle while the send was in flight;
+  // the message is already settled, so don't reopen it.
+  if (deliveryCycles.get(cycle.msgId) !== cycle) return;
+  store.updateMessage(cycle.convo.id, cycle.msgId, {
+    status: 'sent',
+    routeFlood: receipt?.routeFlood,
+  });
+  // Without a receipt (OK-only reply) no ACK can ever match — a synthetic
+  // negative key still gives the attempt a timeout so the cycle can't stall
+  const ackKey = receipt ? receipt.expectedAck : --syntheticAckSeq;
+  const timeoutMs = receipt
+    ? Math.max(
+        MIN_ACK_TIMEOUT_MS,
+        receipt.suggestedTimeoutMs * ACK_TIMEOUT_GRACE,
+      )
+    : DEFAULT_ACK_TIMEOUT_MS;
+  cycle.ackKey = ackKey;
+  const timer = setTimeout(() => {
+    pendingAcks.delete(ackKey);
+    if (ackKey >= 0) rememberExpiredAck(ackKey, cycle.convo.id, cycle.msgId);
+    cycle.ackKey = null;
+    void handleDeliveryFailure(cycle);
+  }, timeoutMs);
+  pendingAcks.set(ackKey, {
+    convoId: cycle.convo.id,
+    msgId: cycle.msgId,
+    timer,
+  });
+}
+
+// One attempt went unacknowledged or was refused. The contact's route policy
+// runs first, so a reset it triggers is already in effect when the next attempt
+// goes out and that attempt floods.
+async function handleDeliveryFailure(cycle: DeliveryCycle): Promise<void> {
+  if (deliveryCycles.get(cycle.msgId) !== cycle) return;
+  await applyRoutePolicy(cycle.contactKey);
+  if (deliveryCycles.get(cycle.msgId) !== cycle) return;
+  if (cycle.attempt + 1 >= MAX_DELIVERY_ATTEMPTS) {
+    settleUndelivered(cycle);
+    return;
+  }
+  cycle.attempt++;
+  await runDeliveryAttempt(cycle);
+}
+
+// Counts one consecutive failure against a contact's current path and, once the
+// count trips, discards that path with a single RESET_PATH — every message in
+// flight to the contact then floods on its next attempt. A contact already on
+// flood has nothing to reset.
+async function applyRoutePolicy(contactKey: string): Promise<void> {
+  const failures = (contactFailures.get(contactKey) ?? 0) + 1;
+  contactFailures.set(contactKey, failures);
+  if (failures < PATH_RESET_FAILURES) return;
+  const client = useMeshStore.getState().client;
+  if (!canTransmit(client)) return;
+  const contact = client.contacts[contactKey];
+  if (!contact || contact.outPathLen === NO_PATH) return;
+  // Zeroed before the await, not after: a second message timing out while the
+  // reset is in flight must not fire a redundant one for the same route.
+  contactFailures.set(contactKey, 0);
+  try {
+    await client.resetPath(contact);
+  } catch {
+    // Keep retrying on the existing path and re-arm the reset for the next
+    // failure rather than stranding the cycle here.
+    contactFailures.set(contactKey, PATH_RESET_FAILURES);
+  }
+}
+
+// Retires a cycle with the message left at 'failed' — the UI's "Not delivered"
+// state, whose one action starts a fresh cycle.
+function settleUndelivered(cycle: DeliveryCycle): void {
+  endDeliveryCycle(cycle.msgId);
+  useMeshStore.getState().updateMessage(cycle.convo.id, cycle.msgId, {
+    status: 'failed',
+    attempt: cycle.attempt,
   });
 }
 
@@ -1154,25 +1368,18 @@ export function useMeshCore() {
     showToast(i18n.t('toast.disconnected'));
   }, [showToast, setLastConnectFailure]);
 
-  // Core send routine for an existing message bubble: transmits to a channel or
-  // contact, then tracks delivery — opens a repeater-echo window for channels,
-  // or registers an ack timeout for direct messages (with a synthetic key when
-  // the radio gives no receipt, so the bubble can't hang at 'sent' forever).
+  // Core send routine for an existing message bubble: broadcasts to a channel
+  // and opens a repeater-echo window, or hands a direct message to the
+  // automatic delivery cycle that owns its retries and ACK tracking.
   const transmit = useCallback(
-    async (
-      convo: ActiveConvo,
-      msgId: string,
-      text: string,
-      attempt: number,
-      resetRoute = false,
-    ) => {
+    async (convo: ActiveConvo, msgId: string, text: string) => {
       // The single gate every send funnels through: never transmit into a link
       // that isn't fully connected (defense in depth behind the overlay's
       // `inert`).
       if (!canTransmit(client)) return;
-      updateMessage(convo.id, msgId, { status: 'sending', attempt });
-      try {
-        if (convo.kind === 'channel') {
+      if (convo.kind === 'channel') {
+        updateMessage(convo.id, msgId, { status: 'sending' });
+        try {
           const idx = Number(convo.rawId);
           // The slot may have been removed since this conversation was opened
           // (history keeps it reachable), and its secret is now zeroed.
@@ -1184,58 +1391,18 @@ export function useMeshCore() {
           await client.sendChannelMessage(idx, text);
           updateMessage(convo.id, msgId, { status: 'sent' });
           openEchoWindow(convo.id, msgId);
-          return;
-        }
-        const contact = client.contacts[convo.rawId as string];
-        if (!contact) {
+        } catch (err) {
           updateMessage(convo.id, msgId, { status: 'failed' });
-          showToast(i18n.t('toast.contactNotFound'), 'error');
-          return;
+          showToast(
+            i18n.t('toast.sendFailed', { error: (err as Error).message }),
+            'error',
+          );
         }
-        if (contact.advType === ADV_TYPE_REPEATER) {
-          updateMessage(convo.id, msgId, { status: 'failed' });
-          showToast(i18n.t('toast.repeaterCantMessage'), 'error');
-          return;
-        }
-        if (resetRoute) {
-          try {
-            await client.resetPath(contact);
-          } catch {}
-        }
-        const receipt = await client.sendDirectMessage(contact, text, attempt);
-        updateMessage(convo.id, msgId, {
-          status: 'sent',
-          routeFlood: receipt?.routeFlood,
-        });
-        // Without a receipt (OK-only reply) no ACK can ever match — a
-        // synthetic negative key still gives the message a timeout so it
-        // can't sit at 'sent' forever
-        const ackKey = receipt ? receipt.expectedAck : --syntheticAckSeq;
-        const timeoutMs = receipt
-          ? Math.max(
-              MIN_ACK_TIMEOUT_MS,
-              receipt.suggestedTimeoutMs * ACK_TIMEOUT_GRACE,
-            )
-          : DEFAULT_ACK_TIMEOUT_MS;
-        const timer = setTimeout(() => {
-          pendingAcks.delete(ackKey);
-          if (ackKey >= 0) rememberExpiredAck(ackKey, convo.id, msgId);
-          const current = useMeshStore
-            .getState()
-            .msgHistory[convo.id]?.find((m) => m.id === msgId);
-          // A late ACK from an earlier attempt may have already delivered it
-          if (current?.status !== 'delivered') {
-            updateMessage(convo.id, msgId, { status: 'failed' });
-          }
-        }, timeoutMs);
-        pendingAcks.set(ackKey, { convoId: convo.id, msgId, timer });
-      } catch (err) {
-        updateMessage(convo.id, msgId, { status: 'failed' });
-        showToast(
-          i18n.t('toast.sendFailed', { error: (err as Error).message }),
-          'error',
-        );
+        return;
       }
+      // Repeater conversations are remote-admin consoles, not chats.
+      if (convo.kind !== 'direct') return;
+      await startDeliveryCycle(convo, msgId, text);
     },
     [client, updateMessage, showToast],
   );
@@ -1262,19 +1429,22 @@ export function useMeshCore() {
         timestamp: Math.floor(Date.now() / 1000),
         status: 'sending',
       });
-      await transmit(activeConvo, msgId, trimmed, 0);
+      await transmit(activeConvo, msgId, trimmed);
     },
     [client, addMessage, transmit],
   );
 
   /**
-   * Re-sends a failed message, bumping its attempt counter.
+   * Restarts delivery of a message that gave up, from a fresh attempt budget.
    *
-   * @param resetRoute - if true, clears the contact's route first so the resend
-   * floods.
+   * @remarks
+   * The only manual retry left: a direct message exhausts
+   * {@link MAX_DELIVERY_ATTEMPTS} automatic attempts before the UI offers this,
+   * and the route policy is handled by the cycle itself rather than by the
+   * user.
    */
   const retryMessage = useCallback(
-    async (msg: Message, convo: ActiveConvo | null, resetRoute = false) => {
+    async (msg: Message, convo: ActiveConvo | null) => {
       if (
         !canTransmit(client) ||
         !convo ||
@@ -1283,13 +1453,7 @@ export function useMeshCore() {
       ) {
         return;
       }
-      await transmit(
-        convo,
-        msg.id,
-        msg.text,
-        (msg.attempt ?? 0) + 1,
-        resetRoute,
-      );
+      await transmit(convo, msg.id, msg.text);
     },
     [client, transmit],
   );
