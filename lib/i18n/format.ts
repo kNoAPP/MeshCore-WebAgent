@@ -42,16 +42,16 @@ function formatDate(timestamp: number): string {
 // clock, and MeshCore nodes routinely run without a synchronized RTC.
 const CLOCK_SKEW_TOLERANCE_SECS = 60;
 
-/** Ages past this are rendered as an absolute date instead of a day count. */
-const ABSOLUTE_DATE_AFTER_DAYS = 30;
+/** Ages at or past this are rendered as an absolute date, not a day count. */
+const ABSOLUTE_DATE_AFTER_SECS = 30 * 86400;
 
 /**
  * Formats a Unix epoch-seconds timestamp as a relative age (`just now`,
  * `5m ago`, `2h ago`, `3d ago`). A timestamp more than a minute in the future
  * is a skewed sender clock, not a fresh sighting, so it reads as a clock-skew
- * notice carrying the absolute timestamp instead of `just now`; an age past 30
- * days likewise falls back to an absolute locale date rather than an unbounded
- * day count.
+ * notice carrying the absolute timestamp instead of `just now`; an age of 30
+ * days or more likewise falls back to an absolute locale date rather than an
+ * unbounded day count.
  */
 export function formatRelative(timestamp: number): string {
   const secs = Math.floor(Date.now() / 1000) - timestamp;
@@ -62,9 +62,8 @@ export function formatRelative(timestamp: number): string {
     return i18n.t('relative.minutes', { count: Math.floor(secs / 60) });
   if (secs < 86400)
     return i18n.t('relative.hours', { count: Math.floor(secs / 3600) });
-  const days = Math.floor(secs / 86400);
-  if (days > ABSOLUTE_DATE_AFTER_DAYS) return formatDate(timestamp);
-  return i18n.t('relative.days', { count: days });
+  if (secs >= ABSOLUTE_DATE_AFTER_SECS) return formatDate(timestamp);
+  return i18n.t('relative.days', { count: Math.floor(secs / 86400) });
 }
 
 /**
