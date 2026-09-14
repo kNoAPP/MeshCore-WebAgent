@@ -425,10 +425,12 @@ export function ChatArea() {
         if (msg.own || msg.system) continue;
         if (msg.kind === 'channel') {
           add(splitChannelMessage(msg.text).sender ?? undefined);
-        } else if (msg.senderName !== msg.pubkeyPrefix?.slice(0, 8)) {
+        } else {
           // Skip the hex-prefix fallback used for unsaved senders — it's an
-          // identifier, not a mentionable name.
-          add(msg.senderName);
+          // identifier, not a mentionable name. A room post falls back to its
+          // author's prefix, not to the room's.
+          const identifier = msg.authorPrefix ?? msg.pubkeyPrefix?.slice(0, 8);
+          if (msg.senderName !== identifier) add(msg.senderName);
         }
       }
     }

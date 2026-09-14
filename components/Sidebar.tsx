@@ -111,7 +111,13 @@ function lastMessageTime(
   msgHistory: Record<string, Message[]>,
   contact: Contact,
 ): number {
-  const msgs = msgHistory[directConvoId(contact.pubkeyPrefix)];
+  // A room's activity is its post feed, which is keyed separately from chats.
+  const msgs =
+    msgHistory[
+      contact.advType === ADV_TYPE_ROOM
+        ? roomConvoId(contact.pubkeyPrefix)
+        : directConvoId(contact.pubkeyPrefix)
+    ];
   if (!msgs?.length) return 0;
   let latest = 0;
   for (const m of msgs) {
