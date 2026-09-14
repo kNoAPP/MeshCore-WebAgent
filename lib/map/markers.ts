@@ -89,9 +89,6 @@ const OUTLINE_WIDTH = 1.5;
 /** Stroke width of the gold band that marks a favorite. */
 const FAVORITE_BAND_WIDTH = 3.5;
 
-/** Color of the band marking a favorited contact's map marker. */
-const FAVORITE_BAND_COLOR = 'var(--map-favorite)';
-
 /**
  * Stroke width of the neutral halo drawn outside the gold band, so a favorite
  * still reads against both basemaps.
@@ -139,7 +136,7 @@ export function shapeSvg(
   // survives as a band.
   const bands = favorite
     ? `<g fill="none" stroke="var(--map-outline)" stroke-width="${FAVORITE_HALO_WIDTH}">${inner}</g>` +
-      `<g fill="none" stroke="${FAVORITE_BAND_COLOR}" stroke-width="${FAVORITE_BAND_WIDTH}">${inner}</g>`
+      `<g fill="none" stroke="var(--map-favorite)" stroke-width="${FAVORITE_BAND_WIDTH}">${inner}</g>`
     : '';
   return `<svg width="${size}" height="${size}" viewBox="${origin} ${origin} ${extent} ${extent}" fill="${color}" stroke="var(--map-outline)" stroke-width="${OUTLINE_WIDTH}" stroke-linejoin="round" aria-hidden="true">${bands}${inner}</svg>`;
 }
