@@ -247,7 +247,7 @@ export function AddContactModal() {
                             <div className='truncate text-sm'>
                               {a.name || a.pubkeyPrefix.slice(0, 8)}
                             </div>
-                            <div className='text-xs text-text2'>
+                            <div className='text-xs break-all text-text2'>
                               {t(
                                 ADV_LABEL_KEY[
                                   a.advType as keyof typeof ADV_LABEL_KEY
