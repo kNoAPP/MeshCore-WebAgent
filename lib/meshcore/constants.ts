@@ -390,10 +390,13 @@ export const FAVORITE_FLAG = 0x01;
 export const PERM_ACL_ROLE_MASK = 0x03;
 /**
  * ACL role granting read/write: a room server assigns it to a login that gave
- * the room (guest) password, and it is the lowest role allowed to post. The
- * two roles below it (`PERM_ACL_GUEST`, `PERM_ACL_READ_ONLY`) are read-only.
+ * the room (guest) password. This client treats it as the lowest role allowed
+ * to post, so the two roles the firmware declares read-only
+ * (`PERM_ACL_GUEST`, `PERM_ACL_READ_ONLY`) get no composer — a policy read off
+ * the role names, not off the server's own check, which today drops a post
+ * only for `PERM_ACL_GUEST`.
  *
- * @see `onAnonDataRecv` in the firmware's
+ * @see `onAnonDataRecv` / `onPeerDataRecv` in the firmware's
  * `examples/simple_room_server/MyMesh.cpp`.
  */
 export const PERM_ACL_READ_WRITE = 0x02;

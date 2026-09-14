@@ -19,6 +19,7 @@ import {
   selectPreferences,
   isConvoVisible,
   isAuthedLogin,
+  canPostToRoom,
   type ConnectErrorCode,
 } from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
@@ -69,7 +70,7 @@ import type {
   RadioParams,
   Message,
   RawRxPacket,
-  RepeaterAccess,
+  LoginKind,
   SendReceipt,
   ITransport,
   TransportKind,
@@ -1532,6 +1533,16 @@ export function useMeshCore() {
       ) {
         return;
       }
+      // The session may have been downgraded (or logged out) since the post
+      // failed, and a read-only member's retry would be dropped by the room.
+      if (
+        convo.kind === 'room' &&
+        !canPostToRoom(
+          useMeshStore.getState().adminSessions[String(convo.rawId)]?.login,
+        )
+      ) {
+        return;
+      }
       await transmit(convo, msg.id, msg.text);
     },
     [client, transmit],
@@ -1597,7 +1608,7 @@ export function useMeshCore() {
     async (
       contact: Contact,
       password: string,
-      kind: RepeaterAccess,
+      kind: LoginKind,
       remember: boolean,
     ) => {
       if (!canTransmit(client)) return;

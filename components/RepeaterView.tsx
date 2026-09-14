@@ -36,7 +36,12 @@ import { RouteChip } from './RouteChip';
 import { StatCard } from './StatCard';
 import { RefreshButton } from './RefreshButton';
 import { RepeaterConfigTab } from './RepeaterConfigTab';
-import type { Contact, RepeaterAccess, RepeaterStatus } from '@/types/meshcore';
+import type {
+  Contact,
+  LoginKind,
+  RepeaterAccess,
+  RepeaterStatus,
+} from '@/types/meshcore';
 
 // Leaflet and the neighbors map are loaded only when a located repeater with
 // locatable neighbors opens the tab, keeping the initial bundle lean. `ssr:
@@ -340,13 +345,13 @@ function LoginGate({
 }: {
   pending: boolean;
   isRoom: boolean;
-  onSubmit: (password: string, kind: RepeaterAccess, remember: boolean) => void;
+  onSubmit: (password: string, kind: LoginKind, remember: boolean) => void;
 }) {
   const { t } = useTranslation();
   const passwordId = useId();
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [kind, setKind] = useState<'admin' | 'guest'>('admin');
+  const [kind, setKind] = useState<LoginKind>('admin');
   const [remember, setRemember] = useState(false);
   const scope = isRoom ? 'room.login' : 'repeaterAdmin.login';
 

@@ -279,11 +279,17 @@ export interface RepeaterStatus {
  * Access level a repeater/room server grants a login, decoded from the ACL role
  * bits of the `PUSH_LOGIN_SUCCESS` permissions byte. The server — not the
  * client — decides this from the password it accepted, so it is authoritative.
- * `guest` covers both roles below read/write (`PERM_ACL_GUEST` and
- * `PERM_ACL_READ_ONLY`): a room server accepts nothing such a client sends,
- * where `readWrite` (the room password) may post.
+ * `guest` covers both roles the firmware declares read-only (`PERM_ACL_GUEST`
+ * and `PERM_ACL_READ_ONLY`); only `readWrite` (the room password) and `admin`
+ * are treated as able to post.
  */
 export type RepeaterAccess = 'admin' | 'readWrite' | 'guest';
+
+/**
+ * Which password a repeater/room login is attempting. Only these two are
+ * offered: `readWrite` is a role a room grants, never one the user asks for.
+ */
+export type LoginKind = Extract<RepeaterAccess, 'admin' | 'guest'>;
 
 /** The conversation currently open in the UI. */
 export interface ActiveConvo {

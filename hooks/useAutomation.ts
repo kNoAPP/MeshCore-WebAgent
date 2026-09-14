@@ -9,6 +9,7 @@ import {
   channelConvoId,
   directConvoId,
   roomConvoId,
+  canPostToRoom,
 } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { subscribe, emit } from '@/lib/ai/eventBus';
@@ -58,8 +59,7 @@ export function useAutomation(): void {
           // A room's traffic is its post feed, and it drops a post from a
           // read-only (or logged-out) client without an ack — which would
           // otherwise surface as a silent delivery failure.
-          const login = state.adminSessions[prefix]?.login;
-          if (login !== 'admin' && login !== 'readWrite') {
+          if (!canPostToRoom(state.adminSessions[prefix]?.login)) {
             throw new Error(`No post access to room ${prefix}`);
           }
           await actionsRef.current.sendMessage(text, {

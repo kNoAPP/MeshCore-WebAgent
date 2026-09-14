@@ -15,7 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { ArrowDown, Send } from 'lucide-react';
-import { useMeshStore, isConvoVisible } from '@/store/meshStore';
+import { useMeshStore, isConvoVisible, canPostToRoom } from '@/store/meshStore';
 import { useMeshCore, MAX_DELIVERY_ATTEMPTS } from '@/hooks/useMeshCore';
 import type { Contact, Message } from '@/types/meshcore';
 import {
@@ -96,9 +96,12 @@ const GROUP_WINDOW_SEC = 5 * 60;
 // The status line under an own bubble. Retries are automatic, so a message
 // still in its cycle reports which attempt it is on and offers nothing to
 // click; only an exhausted one does, and it starts a whole fresh cycle.
+// `canRetry` is false for a room the session may no longer post to, where a
+// retry would be dropped by the server.
 function deliveryDetail(
   t: TFunction,
   msg: Message,
+  canRetry: boolean,
   onRetry: () => void,
 ): React.ReactNode {
   if (!msg.own) return undefined;
@@ -111,13 +114,17 @@ function deliveryDetail(
           label={t('chat.notDelivered')}
           title={t('chat.notDeliveredTooltip')}
         />
-        <span>·</span>
-        <button
-          onClick={onRetry}
-          className='font-semibold underline hover:opacity-80'
-        >
-          {t('chat.tryAgain')}
-        </button>
+        {canRetry && (
+          <>
+            <span>·</span>
+            <button
+              onClick={onRetry}
+              className='font-semibold underline hover:opacity-80'
+            >
+              {t('chat.tryAgain')}
+            </button>
+          </>
+        )}
       </span>
     );
   }
@@ -171,8 +178,7 @@ export function ChatArea() {
   );
   // A read-only member's post is silently dropped by the room (no ACK, no
   // post), so the composer is gated on the role rather than on the send.
-  const canPost =
-    roomAccess === null || roomAccess === 'admin' || roomAccess === 'readWrite';
+  const canPost = roomPrefix === null || canPostToRoom(roomAccess);
   const { sendMessage, retryMessage } = useMeshCore();
   const { t } = useTranslation();
   const convoId = activeConvo?.id ?? null;
@@ -856,7 +862,7 @@ export function ChatArea() {
                     text={bodyText}
                     deviceName={deviceName}
                     mentioned={mentioned}
-                    statusActions={deliveryDetail(t, msg, () =>
+                    statusActions={deliveryDetail(t, msg, canPost, () =>
                       retryMessage(msg, activeConvo),
                     )}
                   />

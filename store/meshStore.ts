@@ -306,6 +306,17 @@ export function isAuthedLogin(
   return login != null && login !== 'loggedOut' && login !== 'pending';
 }
 
+/**
+ * Whether a room session's granted role may publish posts. Read-only roles
+ * have their post dropped by the server without an ack, so every path that can
+ * put a post on the air — composer, retry, automation — gates on this.
+ */
+export function canPostToRoom(
+  login: AdminLoginState | null | undefined,
+): boolean {
+  return login === 'admin' || login === 'readWrite';
+}
+
 /** One line of a repeater CLI transcript. */
 export interface CliLine {
   /** `true` for a command we sent, `false` for the repeater's reply. */
