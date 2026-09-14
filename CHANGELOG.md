@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.27.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.26.0...v1.27.0) (2026-09-14)
+
+
+### Features
+
+* **room:** support room server posts (read and publish) ([#285](https://github.com/kNoAPP/MeshCore-WebAgent/issues/285)) ([008d626](https://github.com/kNoAPP/MeshCore-WebAgent/commit/008d626033bdb12b3c47d2a3499486f4f383b19d))
+
+
+### Bug Fixes
+
+* **room:** land a room feed on its unread boundary, not the newest post ([#287](https://github.com/kNoAPP/MeshCore-WebAgent/issues/287)) ([8dc47de](https://github.com/kNoAPP/MeshCore-WebAgent/commit/8dc47dec98f715a1c33292ae8917c40234bd4d15))
+
 ## [1.26.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.25.0...v1.26.0) (2026-09-13)
 
 
