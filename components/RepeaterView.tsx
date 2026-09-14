@@ -21,9 +21,8 @@ import { parseNeighborsReply, type Neighbor } from '@/lib/meshcore/repeaterCli';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
 import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import {
-  identifyNeighbor,
-  locateNeighborNode,
   repeaterAnchorNode,
+  resolveNeighbor,
   type NeighborIdentity,
 } from '@/lib/map/nodes';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
@@ -691,25 +690,24 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   const setRepeaterNeighbors = useMeshStore((s) => s.setRepeaterNeighbors);
 
   // Resolve every row once: the identity the list names it by, and whether it
-  // also has a fix the map can anchor. Both lookups scan the advert cache,
-  // which refreshes on every heard advert, so they are done in one pass here
-  // and shared rather than repeated per consumer.
+  // also has a fix the map can anchor. The lookup scans the advert cache,
+  // which refreshes on every heard advert, so it runs once per row here and is
+  // shared rather than repeated per consumer.
   const rows = useMemo(() => {
     const anchor = repeaterAnchorNode(contact);
     return (neighbors ?? []).map((neighbor) => {
-      const located = locateNeighborNode(
+      const { identity, node } = resolveNeighbor(
         neighbor.prefix,
         contacts,
         advertCache,
       );
       return {
         neighbor,
-        node: identifyNeighbor(neighbor.prefix, contacts, advertCache),
+        node: identity,
         // Mirror `buildNeighborMap`: without an anchor nothing is drawn, and a
         // neighbor resolving back to the anchor is a self-edge it drops — so
         // neither may be counted as shown.
-        mappable:
-          anchor !== null && located !== null && located.key !== anchor.key,
+        mappable: anchor !== null && node !== null && node.key !== anchor.key,
       };
     });
   }, [contact, neighbors, contacts, advertCache]);
@@ -846,7 +844,10 @@ function NeighborsList({ rows }: { rows: NeighborRow[] }) {
   const { addDiscoveredContact } = useMeshCore();
 
   return (
-    <table className='w-full text-sm'>
+    <table
+      className='w-full text-sm'
+      aria-label={t('repeaterAdmin.neighbors.listLabel')}
+    >
       <thead>
         <tr className='text-left text-xs text-text2'>
           <th scope='col' className='py-1 font-medium'>
