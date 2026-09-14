@@ -631,6 +631,7 @@
       "colNode": "Node",
       "colSnr": "SNR",
       "colLastHeard": "Last heard",
+      "addNode": "Add {{name}} as a contact",
       "noLocation": "Neighbors were heard, but none could be placed on the map — they have no known location.",
       "noAnchor": "This repeater has no advertised location, so its neighbors can't be shown on the map."
     },

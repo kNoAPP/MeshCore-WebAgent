@@ -632,6 +632,7 @@
       "colNode": "Knoten",
       "colSnr": "SNR",
       "colLastHeard": "Zuletzt gehört",
+      "addNode": "{{name}} als Kontakt hinzufügen",
       "noLocation": "Nachbarn wurden gehört, aber keiner konnte auf der Karte platziert werden — kein bekannter Standort.",
       "noAnchor": "Dieser Repeater hat keinen angekündigten Standort, daher können seine Nachbarn nicht auf der Karte angezeigt werden."
     },

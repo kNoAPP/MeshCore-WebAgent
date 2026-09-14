@@ -23,6 +23,7 @@ import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import {
   identifyNeighbor,
   locateNeighborNode,
+  repeaterAnchorNode,
   type NeighborIdentity,
 } from '@/lib/map/nodes';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
@@ -693,24 +694,30 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   // also has a fix the map can anchor. Both lookups scan the advert cache,
   // which refreshes on every heard advert, so they are done in one pass here
   // and shared rather than repeated per consumer.
-  const rows = useMemo(
-    () =>
-      (neighbors ?? []).map((neighbor) => ({
+  const rows = useMemo(() => {
+    const anchor = repeaterAnchorNode(contact);
+    return (neighbors ?? []).map((neighbor) => {
+      const located = locateNeighborNode(
+        neighbor.prefix,
+        contacts,
+        advertCache,
+      );
+      return {
         neighbor,
         node: identifyNeighbor(neighbor.prefix, contacts, advertCache),
+        // Mirror `buildNeighborMap`: without an anchor nothing is drawn, and a
+        // neighbor resolving back to the anchor is a self-edge it drops — so
+        // neither may be counted as shown.
         mappable:
-          locateNeighborNode(neighbor.prefix, contacts, advertCache) !== null,
-      })),
-    [neighbors, contacts, advertCache],
-  );
+          anchor !== null && located !== null && located.key !== anchor.key,
+      };
+    });
+  }, [contact, neighbors, contacts, advertCache]);
 
   // The map renders only when the repeater itself is located and at least one
   // neighbor resolves to a saved contact/advert with a fix; otherwise there is
   // nothing to anchor or draw, so the tab shows an explanatory placeholder.
-  const mappableCount =
-    contact.advLat && contact.advLon
-      ? rows.filter((r) => r.mappable).length
-      : 0;
+  const mappableCount = rows.filter((r) => r.mappable).length;
   const total = rows.length;
 
   const [loading, setLoading] = useState(false);
@@ -898,6 +905,9 @@ function NeighborsList({ rows }: { rows: NeighborRow[] }) {
                   <button
                     disabled={!connected}
                     onClick={() => void addDiscoveredContact(addable)}
+                    aria-label={t('repeaterAdmin.neighbors.addNode', {
+                      name: node?.name ?? neighbor.prefix,
+                    })}
                     className='rounded-md px-2 py-0.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 bg-accent-solid'
                   >
                     {t('discover.add')}
