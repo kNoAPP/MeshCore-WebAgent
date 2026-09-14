@@ -26,15 +26,21 @@ export interface MapNode {
 
 /**
  * A link drawn between two located nodes, with an optional label rendered as a
- * permanent tooltip at the line's midpoint (e.g. a repeater→neighbor edge
- * labeled with its link SNR). Endpoints are decimal degrees.
+ * permanent tooltip along the line (e.g. a repeater→neighbor edge labeled with
+ * its link SNR). Endpoints are decimal degrees.
  */
 export interface MapEdge {
   /** Stable key, distinct across the plotted edge set. */
   key: string;
   from: [number, number];
   to: [number, number];
-  /** Midpoint label, already localized/formatted by the caller. */
+  /**
+   * Label text, already localized/formatted by the caller. Where it lands is
+   * decided per zoom by `lib/map/edgeLabel.ts`: the midpoint when that is
+   * clear, otherwise further along the edge, and nowhere at all at a zoom where
+   * the edges have collapsed into each other — so a caller must not assume the
+   * label is drawn, or drawn at the midpoint.
+   */
   label?: string;
 }
 

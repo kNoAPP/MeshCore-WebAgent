@@ -370,8 +370,9 @@ html {
 .meshcore-map .meshcore-edge {
   stroke: var(--accent);
 }
-/* SNR labels pinned at each link's midpoint: compact and non-interactive so
- * they never intercept a marker click. */
+/* SNR labels pinned along each link, at whichever point on it clears the
+ * labels already placed: compact and non-interactive so they never intercept a
+ * marker click. */
 .meshcore-map .meshcore-edge-label {
   padding: 1px 5px;
   font-size: 11px;
