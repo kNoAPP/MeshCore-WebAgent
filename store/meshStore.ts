@@ -447,6 +447,13 @@ interface MeshState {
   lastAppends: Record<string, MessageAppend>;
   activeConvo: ActiveConvo | null;
   /**
+   * Bumped on every selection, including re-selecting the conversation already
+   * open. The repeater/room view is keyed by node and so does not remount on a
+   * repeat selection; this is how it notices one and returns to its default
+   * tab.
+   */
+  convoOpenSeq: number;
+  /**
    * Id of a message the open conversation should scroll to and briefly
    * highlight, set when navigating from the command palette. One-shot: cleared
    * by {@link ChatArea} once consumed.
@@ -757,6 +764,7 @@ const initialState: MeshState = {
   lastArrival: null,
   lastAppends: {},
   activeConvo: null,
+  convoOpenSeq: 0,
   scrollToMsgId: null,
   unreadMarkers: {},
   drafts: {},
@@ -971,7 +979,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       };
     }),
 
-  setActiveConvo: (activeConvo) => set({ activeConvo }),
+  setActiveConvo: (activeConvo) =>
+    set((s) => ({ activeConvo, convoOpenSeq: s.convoOpenSeq + 1 })),
 
   setScrollToMsgId: (scrollToMsgId) => set({ scrollToMsgId }),
 

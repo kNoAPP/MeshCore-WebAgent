@@ -287,6 +287,9 @@ export function parseContactMsg(d: Uint8Array): Omit<Message, 'kind'> | null {
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   const txtType = d[8];
   const signed = txtType === TXT_TYPE.SIGNED;
+  // A signed frame owes four more bytes than the header minimum; a truncated
+  // one would otherwise yield a short author prefix rather than be rejected.
+  if (signed && d.length < 17) return null;
   return {
     pubkeyPrefix: hexBytes(d, 1, 7),
     authorPrefix: signed ? hexBytes(d, 13, 17) : undefined,
@@ -305,6 +308,7 @@ export function parseContactMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   const txtType = d[11];
   const signed = txtType === TXT_TYPE.SIGNED;
+  if (signed && d.length < 20) return null;
   return {
     snr: new Int8Array([d[1]])[0] / 4,
     pubkeyPrefix: hexBytes(d, 4, 10),

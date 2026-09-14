@@ -122,21 +122,36 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
     if (isAdmin) list.push('console');
     return list;
   }, [isAdmin, isRepeater, isRoom]);
-  const [tab, setTab] = useState<RepeaterTab>(() => {
-    // Returning from the map picker (Set on map in the Config tab) reopens on
-    // Config so the just-picked coordinate lands where the user left off.
+  // Where a fresh selection of this node lands. Returning from the map picker
+  // (Set on map in the Config tab) reopens on Config so the just-picked
+  // coordinate arrives where the user left off.
+  const defaultTab = (): RepeaterTab => {
     const s = useMeshStore.getState();
     return s.pendingLocation && s.locationPickReturn === 'chat'
       ? 'config'
       : isRoom
         ? 'posts'
         : 'status';
-  });
-  // The selected tab clamped to what this session may see. `tab` persists a
+  };
+  // Selecting this node again — from its toast, its sidebar row or the command
+  // palette — must return to the default tab, or the post that was pointed at
+  // stays hidden behind Status. The view is keyed by node, so re-opening the
+  // one already on screen does not remount it; `convoOpenSeq` is what makes
+  // that navigation visible here.
+  const convoOpenSeq = useMeshStore((s) => s.convoOpenSeq);
+  const [selection, setSelection] = useState(() => ({
+    seq: convoOpenSeq,
+    tab: defaultTab(),
+  }));
+  if (selection.seq !== convoOpenSeq) {
+    setSelection({ seq: convoOpenSeq, tab: defaultTab() });
+  }
+  const setTab = (tab: RepeaterTab) => setSelection({ seq: convoOpenSeq, tab });
+  // The selected tab clamped to what this session may see. It persists a
   // logout/re-login (the view stays mounted), so an admin who was on
   // Neighbors/Console and logs back in as a guest must not keep rendering a
   // now-hidden panel — fall back to the first tab this session may see.
-  const activeTab = tabs.includes(tab) ? tab : tabs[0];
+  const activeTab = tabs.includes(selection.tab) ? selection.tab : tabs[0];
   // True only during the initial credential probe (from a clean logged-out
   // state), so we show a brief spinner instead of flashing the login form
   // before auto-login runs. A `pending` login shows the disabled gate instead.
