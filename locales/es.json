@@ -788,7 +788,7 @@
       "admin": "Administrador",
       "adminHint": "Contraseña de administrador: publicar y administrar en remoto",
       "guest": "Miembro",
-      "guestHint": "Contraseña de la sala: leer y publicar, o déjala vacía para solo leer"
+      "guestHint": "Contraseña de la sala, o en blanco: la sala decide el acceso que concede"
     }
   },
   "route": {

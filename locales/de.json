@@ -788,7 +788,7 @@
       "admin": "Admin",
       "adminHint": "Admin-Passwort — Veröffentlichen und Fernverwaltung",
       "guest": "Mitglied",
-      "guestHint": "Raumpasswort — lesen und veröffentlichen, oder leer lassen für Nur-Lesen"
+      "guestHint": "Raumpasswort oder leer — der Raum entscheidet über den gewährten Zugriff"
     }
   },
   "route": {

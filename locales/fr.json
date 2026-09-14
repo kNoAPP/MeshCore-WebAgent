@@ -788,7 +788,7 @@
       "admin": "Admin",
       "adminHint": "Mot de passe admin — publication et administration à distance",
       "guest": "Membre",
-      "guestHint": "Mot de passe du salon — lire et publier, ou laisser vide pour lire seulement"
+      "guestHint": "Mot de passe du salon, ou vide — le salon décide de l’accès accordé"
     }
   },
   "route": {

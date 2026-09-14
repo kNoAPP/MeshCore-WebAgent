@@ -787,7 +787,7 @@
       "admin": "Admin",
       "adminHint": "Admin password — posting plus remote admin",
       "guest": "Member",
-      "guestHint": "Room password — read and post, or leave blank to read only"
+      "guestHint": "Room password, or blank — the room decides the access it grants"
     }
   },
   "route": {
