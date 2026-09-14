@@ -613,6 +613,7 @@
     "rxAirtime": "Tiempo en el aire RX",
     "txDutyCycle": "Ciclo de trabajo TX",
     "rxDutyCycle": "Ciclo de trabajo RX",
+    "overDutyCycle": "por encima del límite configurado de {{limit}}",
     "received": "Recibidos",
     "sent": "Enviados",
     "floodTx": "Flood TX",

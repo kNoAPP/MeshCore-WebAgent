@@ -612,6 +612,7 @@
     "rxAirtime": "RX Airtime",
     "txDutyCycle": "TX Duty Cycle",
     "rxDutyCycle": "RX Duty Cycle",
+    "overDutyCycle": "over the configured {{limit}} limit",
     "received": "Received",
     "sent": "Sent",
     "floodTx": "Flood TX",

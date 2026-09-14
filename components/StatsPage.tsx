@@ -379,6 +379,7 @@ export function StatsPage() {
         t('stats.floodRx'),
         t('stats.directTx'),
         t('stats.directRx'),
+        t('stats.rxErrors'),
         t('stats.rxErrorRate'),
       ],
       rows: stats?.packets

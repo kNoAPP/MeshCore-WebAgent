@@ -613,6 +613,7 @@
     "rxAirtime": "Temps d’antenne RX",
     "txDutyCycle": "Rapport cyclique TX",
     "rxDutyCycle": "Rapport cyclique RX",
+    "overDutyCycle": "au-dessus de la limite configurée de {{limit}}",
     "received": "Reçus",
     "sent": "Envoyés",
     "floodTx": "Flood TX",

@@ -566,14 +566,18 @@ function StatusDashboard({
     uptimeSecs: number | undefined,
     limitPercent?: number,
   ): React.ReactNode => {
-    const over =
+    // The limit itself when it has been exceeded, so the flag and the text that
+    // explains it are driven by one value.
+    const exceeded =
       airSecs != null &&
       uptimeSecs != null &&
       uptimeSecs > 0 &&
       limitPercent != null &&
-      (airSecs / uptimeSecs) * 100 > limitPercent;
+      (airSecs / uptimeSecs) * 100 > limitPercent
+        ? limitPercent
+        : null;
     return (
-      <span className={over ? 'text-red' : undefined}>
+      <span className={exceeded !== null ? 'text-red' : undefined}>
         <HintToken
           label={formatRatePercent(airSecs, uptimeSecs)}
           title={
@@ -582,6 +586,16 @@ function StatusDashboard({
               : undefined
           }
         />
+        {/* The red is a reinforcement, not the message: the state has to
+            survive a reader who cannot perceive it. */}
+        {exceeded !== null && (
+          <span className='sr-only'>
+            {' '}
+            {t('repeaterAdmin.overDutyCycle', {
+              limit: formatPercent(exceeded),
+            })}
+          </span>
+        )}
       </span>
     );
   };
@@ -738,7 +752,7 @@ function StatusDashboard({
           {cards
             .filter((c) => c.rows && c.rows.length > 0)
             .map(({ title: cardTitle, rows, meter }) => (
-              <div key={cardTitle} className='min-w-72 flex-1'>
+              <div key={cardTitle} className='min-w-full flex-1 sm:min-w-72'>
                 <StatCard title={cardTitle} rows={rows ?? []} meter={meter} />
               </div>
             ))}

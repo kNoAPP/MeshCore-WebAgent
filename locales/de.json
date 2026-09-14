@@ -613,6 +613,7 @@
     "rxAirtime": "RX-Sendezeit",
     "txDutyCycle": "TX-Sendeanteil",
     "rxDutyCycle": "RX-Sendeanteil",
+    "overDutyCycle": "über dem eingestellten Grenzwert von {{limit}}",
     "received": "Empfangen",
     "sent": "Gesendet",
     "floodTx": "Flood TX",
