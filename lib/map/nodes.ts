@@ -160,17 +160,37 @@ function neighborPrefixMatches(
   return key.startsWith(lower) || kp.startsWith(lower) || lower.startsWith(kp);
 }
 
-// Four bytes are not enough to be unique. If two known nodes share the prefix,
-// the repeater has not told us which of them it heard, and naming (or adding)
-// either would be a guess — so an ambiguous prefix resolves to nothing.
-function uniqueMatch<T>(items: T[], matches: (item: T) => boolean): T | null {
-  let found: T | null = null;
-  for (const item of items) {
-    if (!matches(item)) continue;
-    if (found !== null) return null;
-    found = item;
+/** The one node a neighbor prefix names, seen from each store that knows it. */
+interface NeighborMatch {
+  contact: Contact | null;
+  advert: Advert | null;
+}
+
+// Four bytes are not enough to be unique, so both stores are searched together
+// and the candidates deduplicated by full public key: the same node commonly
+// appears as both a saved contact and a cached advert, but two *different*
+// keys sharing the prefix means the repeater has not told us which one it
+// heard. Naming, plotting or adding either would be a guess, so an ambiguous
+// prefix resolves to nothing.
+function matchNeighbor(
+  prefix: string,
+  contacts: Record<string, Contact>,
+  adverts: Record<string, Advert>,
+): NeighborMatch | null {
+  const keys = new Set<string>();
+  let contact: Contact | null = null;
+  let advert: Advert | null = null;
+  for (const c of Object.values(contacts)) {
+    if (!neighborPrefixMatches(prefix, c.pubkey, c.pubkeyPrefix)) continue;
+    keys.add(c.pubkey.toLowerCase());
+    contact ??= c;
   }
-  return found;
+  for (const a of Object.values(adverts)) {
+    if (!neighborPrefixMatches(prefix, a.pubkey, a.pubkeyPrefix)) continue;
+    keys.add(a.pubkey.toLowerCase());
+    advert ??= a;
+  }
+  return keys.size === 1 ? { contact, advert } : null;
 }
 
 /**
@@ -192,18 +212,18 @@ export interface NeighborIdentity {
  * Resolves a neighbor's public-key prefix (from a `neighbors` reply) to the
  * node it names, ignoring whether that node has a GPS fix. Returns `null` for a
  * prefix this browser has never heard an advert from — all the repeater told us
- * about it is the 4 bytes — and for one that matches more than one known node,
- * since picking either would be a guess. See {@link neighborPrefixMatches} for
- * the prefix rule.
+ * about it is the 4 bytes — and for one that matches two different public keys
+ * across contacts and the advert cache, since picking either would be a guess.
+ * See {@link matchNeighbor} for the matching rule.
  */
 export function identifyNeighbor(
   prefix: string,
   contacts: Record<string, Contact>,
   adverts: Record<string, Advert>,
 ): NeighborIdentity | null {
-  const contact = uniqueMatch(Object.values(contacts), (c) =>
-    neighborPrefixMatches(prefix, c.pubkey, c.pubkeyPrefix),
-  );
+  const match = matchNeighbor(prefix, contacts, adverts);
+  if (!match) return null;
+  const { contact, advert } = match;
   if (contact) {
     return {
       pubkeyPrefix: contact.pubkeyPrefix,
@@ -214,9 +234,6 @@ export function identifyNeighbor(
       pubkey: contact.pubkey,
     };
   }
-  const advert = uniqueMatch(Object.values(adverts), (a) =>
-    neighborPrefixMatches(prefix, a.pubkey, a.pubkeyPrefix),
-  );
   if (advert) {
     return {
       pubkeyPrefix: advert.pubkeyPrefix,
@@ -232,33 +249,25 @@ export function identifyNeighbor(
 
 /**
  * Resolves a neighbor's public-key prefix (from a `neighbors` reply) to a
- * located map node, matching saved contacts first — a contact opens its manage
- * panel — then the advert cache. A matched contact prefers its own fix but
- * falls back to a cached advert fix for the *same* node, matched by the
- * contact's full public key (not the shorter neighbor prefix) so a 4-byte
- * prefix collision can't lend another node's coordinates; it stays a `contact`
- * node either way. Returns `null` when no corresponding node has a GPS fix, or
- * when the prefix matches more than one known node, so the caller keeps that
- * neighbor off the map rather than plotting a guess. See
- * {@link neighborPrefixMatches} for the prefix rule.
+ * located map node. A saved contact wins over the advert cache — a contact
+ * opens its manage panel — and an unlocated contact falls back to the cached
+ * advert's fix, which {@link matchNeighbor} guarantees belongs to that same
+ * node; it stays a `contact` node either way. Returns `null` when the resolved
+ * node has no GPS fix, and when the prefix is ambiguous, so the caller keeps
+ * that neighbor off the map rather than plotting a guess.
  */
 export function locateNeighborNode(
   prefix: string,
   contacts: Record<string, Contact>,
   adverts: Record<string, Advert>,
 ): MapNode | null {
-  const contact = uniqueMatch(Object.values(contacts), (c) =>
-    neighborPrefixMatches(prefix, c.pubkey, c.pubkeyPrefix),
-  );
+  const match = matchNeighbor(prefix, contacts, adverts);
+  if (!match) return null;
+  const { contact, advert } = match;
   if (contact) {
-    // Back up an unlocated contact only with an advert for the exact same node
-    // (full-key match), never one merely sharing the 4-byte neighbor prefix.
-    const cached = Object.values(adverts).find(
-      (a) => a.pubkey.toLowerCase() === contact.pubkey.toLowerCase(),
-    );
     const coords =
       contactCoords(contact.advLat, contact.advLon) ??
-      (cached ? contactCoords(cached.advLat, cached.advLon) : null);
+      (advert ? contactCoords(advert.advLat, advert.advLon) : null);
     if (!coords) return null;
     return {
       key: contact.pubkeyPrefix,
@@ -272,11 +281,6 @@ export function locateNeighborNode(
     };
   }
 
-  // No saved contact: locate via the advert cache, matched by the neighbor
-  // prefix.
-  const advert = uniqueMatch(Object.values(adverts), (a) =>
-    neighborPrefixMatches(prefix, a.pubkey, a.pubkeyPrefix),
-  );
   if (advert) {
     const coords = contactCoords(advert.advLat, advert.advLon);
     if (!coords) return null;
