@@ -25,7 +25,11 @@ import {
   formatLatLon,
   formatPubkey,
 } from '@/lib/utils';
-import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
+import {
+  formatDateTime,
+  formatDistanceBearing,
+  formatRelative,
+} from '@/lib/i18n/format';
 import {
   ADV_TYPE_REPEATER,
   FAVORITE_FLAG,
@@ -144,6 +148,7 @@ function ManagePanelView() {
           <DetailRow
             label={t('manage.lastAdvert')}
             value={formatRelative(advert.lastHeard)}
+            title={formatDateTime(advert.lastHeard)}
           />
           {location && (
             <DetailRow label={t('manage.location')} value={location} />
@@ -231,6 +236,11 @@ function ManagePanelView() {
                 contact.lastAdvert
                   ? formatRelative(contact.lastAdvert)
                   : t('common.unknown')
+              }
+              title={
+                contact.lastAdvert
+                  ? formatDateTime(contact.lastAdvert)
+                  : undefined
               }
             />
             {location && (
@@ -455,18 +465,23 @@ function routeLabel(t: TFunction, contact: Contact): string {
 function DetailRow({
   label,
   value,
+  title,
   mono,
   copy,
 }: {
   label: string;
   value: string;
+  title?: string;
   mono?: boolean;
   copy?: string;
 }) {
   return (
     <div className='flex items-center gap-3 text-sm'>
       <span className='w-24 shrink-0 text-text2'>{label}</span>
-      <span className={`flex-1 break-all ${mono ? 'font-mono text-xs' : ''}`}>
+      <span
+        title={title}
+        className={`flex-1 break-all ${mono ? 'font-mono text-xs' : ''}`}
+      >
         {value}
       </span>
       {copy && <CopyButton value={copy} />}

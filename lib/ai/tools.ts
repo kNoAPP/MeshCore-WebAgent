@@ -12,6 +12,7 @@
 
 import { useMeshStore } from '@/store/meshStore';
 import i18n from '@/lib/i18n';
+import { sortByHeardAge } from '@/lib/i18n/format';
 import type { ToolSchema } from '@/lib/ai/provider';
 import { FAVORITE_FLAG, MAX_MSG_BYTES } from '@/lib/meshcore/constants';
 import { utf8ByteLength } from '@/lib/utils';
@@ -405,16 +406,14 @@ export async function callTool(
         name: ch.name,
       }));
     case 'read_adverts': {
-      const rows = Object.values(state.adverts)
-        // Most recently heard first so a cap keeps the freshest nodes, not an
-        // arbitrary insertion-order (roughly first-heard) prefix.
-        .sort((a, b) => b.lastHeard - a.lastHeard)
-        .map((a) => ({
-          name: a.name,
-          pubkeyPrefix: a.pubkeyPrefix,
-          advType: a.advType,
-          lastHeard: a.lastHeard,
-        }));
+      // Most recently heard first so a cap keeps the freshest nodes, not an
+      // arbitrary insertion-order (roughly first-heard) prefix.
+      const rows = sortByHeardAge(Object.values(state.adverts)).map((a) => ({
+        name: a.name,
+        pubkeyPrefix: a.pubkeyPrefix,
+        advType: a.advType,
+        lastHeard: a.lastHeard,
+      }));
       return capRows(rows, READ_TABLE_CAP);
     }
     case 'read_messages': {

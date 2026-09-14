@@ -23,7 +23,12 @@ import {
   ADV_TYPE_ROOM,
   ADV_TYPE_SENSOR,
 } from '@/lib/meshcore/constants';
-import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
+import {
+  formatDateTime,
+  formatDistanceBearing,
+  formatRelative,
+  sortByHeardAge,
+} from '@/lib/i18n/format';
 
 type Mode = 'discover' | 'paste' | 'manual';
 
@@ -130,18 +135,19 @@ export function AddContactModal() {
 
   const hint = t(MODES.find((m) => m.id === mode)!.hintKey);
   // Discovered nodes come from the browser advert cache (persisted across
-  // sessions), narrowed by the search box and ordered by most recently heard so
-  // the freshest nodes surface first.
+  // sessions), narrowed by the search box and ordered freshest first. The
+  // ordering runs on the offset from now rather than the raw advert timestamp,
+  // so a node whose clock runs ahead cannot hold the top of the list forever.
   const cachedAdverts = Object.values(advertCache);
   const discoverTerm = discoverQuery.trim().toLowerCase();
-  const heard = cachedAdverts
-    .filter(
+  const heard = sortByHeardAge(
+    cachedAdverts.filter(
       (a) =>
         !discoverTerm ||
         a.name.toLowerCase().includes(discoverTerm) ||
         a.pubkeyPrefix.toLowerCase().includes(discoverTerm),
-    )
-    .sort((a, b) => b.lastHeard - a.lastHeard);
+    ),
+  );
 
   return (
     <ModalShell
@@ -251,8 +257,11 @@ export function AddContactModal() {
                                   a.advType as keyof typeof ADV_LABEL_KEY
                                 ] ?? 'discover.node',
                               )}{' '}
-                              · {formatRelative(a.lastHeard)} ·{' '}
-                              {formatPubkey(a.pubkey, showFullPublicKeys)}
+                              ·{' '}
+                              <span title={formatDateTime(a.lastHeard)}>
+                                {formatRelative(a.lastHeard)}
+                              </span>{' '}
+                              · {formatPubkey(a.pubkey, showFullPublicKeys)}
                             </div>
                             {location && (
                               <div className='truncate text-xs text-text2'>

@@ -964,6 +964,7 @@
   },
   "relative": {
     "justNow": "à l'instant",
+    "clockAhead": "horloge en avance",
     "minutes": "il y a {{count}}m",
     "hours": "il y a {{count}}h",
     "days": "il y a {{count}}j",
