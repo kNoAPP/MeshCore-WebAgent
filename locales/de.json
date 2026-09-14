@@ -627,7 +627,7 @@
       "error": "Nachbarn konnten nicht geladen werden. Bitte aktualisieren.",
       "loading": "Nachbarn werden geladen…",
       "listLabel": "Nachbarn",
-      "mapCoverage_one": "{{shown}} von {{count}} Nachbarn auf der Karte angezeigt",
+      "mapCoverage_one": "{{shown}} von {{count}} Nachbar auf der Karte angezeigt",
       "mapCoverage_other": "{{shown}} von {{count}} Nachbarn auf der Karte angezeigt",
       "colNode": "Knoten",
       "colSnr": "SNR",

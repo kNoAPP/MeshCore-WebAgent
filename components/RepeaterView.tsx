@@ -20,7 +20,11 @@ import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { parseNeighborsReply, type Neighbor } from '@/lib/meshcore/repeaterCli';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
 import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
-import { identifyNeighbor, locateNeighborNode } from '@/lib/map/nodes';
+import {
+  identifyNeighbor,
+  locateNeighborNode,
+  type NeighborIdentity,
+} from '@/lib/map/nodes';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
   formatAirtime,
@@ -685,16 +689,29 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   const neighbors = useMeshStore((s) => s.adminSessions[prefix]?.neighbors);
   const setRepeaterNeighbors = useMeshStore((s) => s.setRepeaterNeighbors);
 
+  // Resolve every row once: the identity the list names it by, and whether it
+  // also has a fix the map can anchor. Both lookups scan the advert cache,
+  // which refreshes on every heard advert, so they are done in one pass here
+  // and shared rather than repeated per consumer.
+  const rows = useMemo(
+    () =>
+      (neighbors ?? []).map((neighbor) => ({
+        neighbor,
+        node: identifyNeighbor(neighbor.prefix, contacts, advertCache),
+        mappable:
+          locateNeighborNode(neighbor.prefix, contacts, advertCache) !== null,
+      })),
+    [neighbors, contacts, advertCache],
+  );
+
   // The map renders only when the repeater itself is located and at least one
   // neighbor resolves to a saved contact/advert with a fix; otherwise there is
   // nothing to anchor or draw, so the tab shows an explanatory placeholder.
-  const mappableCount = useMemo(() => {
-    if (!contact.advLat || !contact.advLon) return 0;
-    return (neighbors ?? []).filter((n) =>
-      locateNeighborNode(n.prefix, contacts, advertCache),
-    ).length;
-  }, [contact.advLat, contact.advLon, neighbors, contacts, advertCache]);
-  const total = neighbors?.length ?? 0;
+  const mappableCount =
+    contact.advLat && contact.advLon
+      ? rows.filter((r) => r.mappable).length
+      : 0;
+  const total = rows.length;
 
   const [loading, setLoading] = useState(false);
   // Set when a read fails (timeout/disconnect). Distinct from a settled empty
@@ -794,9 +811,16 @@ function NeighborsTab({ contact }: { contact: Contact }) {
           </p>
         </div>
       )}
-      {total > 0 && <NeighborsList neighbors={neighbors ?? []} />}
+      {total > 0 && <NeighborsList rows={rows} />}
     </div>
   );
+}
+
+/** One `neighbors` row, already resolved against contacts and the advert
+ * cache by {@link NeighborsTab}. */
+interface NeighborRow {
+  neighbor: Neighbor;
+  node: NeighborIdentity | null;
 }
 
 /**
@@ -807,22 +831,12 @@ function NeighborsTab({ contact }: { contact: Contact }) {
  * this browser has never heard an advert from carries no public key, so there
  * is nothing to add — it shows as the bare 4 bytes the repeater reported.
  */
-function NeighborsList({ neighbors }: { neighbors: Neighbor[] }) {
+function NeighborsList({ rows }: { rows: NeighborRow[] }) {
   const { t } = useTranslation();
-  const contacts = useMeshStore((s) => s.contacts);
   const advertCache = useMeshStore((s) => s.advertCache);
   const setManagePanel = useMeshStore((s) => s.setManagePanel);
   const connected = useMeshStore((s) => s.status === 'connected');
   const { addDiscoveredContact } = useMeshCore();
-
-  const rows = useMemo(
-    () =>
-      neighbors.map((n) => ({
-        neighbor: n,
-        node: identifyNeighbor(n.prefix, contacts, advertCache),
-      })),
-    [neighbors, contacts, advertCache],
-  );
 
   return (
     <table className='w-full text-sm'>
@@ -841,7 +855,7 @@ function NeighborsList({ neighbors }: { neighbors: Neighbor[] }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map(({ neighbor, node }) => {
+        {rows.map(({ neighbor, node }, index) => {
           // Only a node known solely from the advert cache can be added: a
           // saved contact already exists, and an unresolved prefix carries no
           // public key to add.
@@ -850,7 +864,12 @@ function NeighborsList({ neighbors }: { neighbors: Neighbor[] }) {
               ? advertCache[node.pubkeyPrefix]
               : undefined;
           return (
-            <tr key={neighbor.prefix} className='border-t border-border'>
+            // A 4-byte prefix is not unique on its own, so the reply position
+            // discriminates two rows that happen to share one.
+            <tr
+              key={`${neighbor.prefix}:${index}`}
+              className='border-t border-border'
+            >
               <td className='py-1.5'>
                 {node ? (
                   <button
