@@ -83,29 +83,63 @@ function shapeInner(shape: MapShape): string {
   }
 }
 
+/** Stroke width, in viewBox units, of the contrast ring around every glyph. */
+const OUTLINE_WIDTH = 1.5;
+
+/** Stroke width of the gold band that marks a favorite. */
+const FAVORITE_BAND_WIDTH = 3.5;
+
+/** Color of the band marking a favorited contact's map marker. */
+const FAVORITE_BAND_COLOR = 'var(--map-favorite)';
+
+/**
+ * Stroke width of the neutral halo drawn outside the gold band, so a favorite
+ * still reads against both basemaps.
+ */
+const FAVORITE_HALO_WIDTH = 5.5;
+
+/** viewBox units of margin the favorite bands need on every side. */
+const FAVORITE_MARGIN = 4;
+
+/** Base viewBox extent every glyph is drawn in. */
+const VIEW_EXTENT = 24;
+
+/**
+ * Rendered box size, in pixels, that keeps a favorite glyph's core shape the
+ * same size as a plain glyph drawn at `size` — the favorite variant spends part
+ * of its box on the bands, so the box has to grow by the same proportion.
+ */
+export function favoriteSizePx(size: number): number {
+  return (size * (VIEW_EXTENT + 2 * FAVORITE_MARGIN)) / VIEW_EXTENT;
+}
+
 /**
  * A self-contained `<svg>` string for a shape at the given pixel size. The
- * outline (a contrast ring by default, gold for favorites) plus the marker's
- * drop-shadow keep every color visible on both the light and dark basemaps;
- * all three are `var(--map-*)` tokens that invert with the basemap. The markup
- * is fully static (no user input), so it is safe to inject into a Leaflet
- * `divIcon` or a legend swatch.
+ * contrast ring plus the marker's drop-shadow keep every color visible on both
+ * the light and dark basemaps; both are `var(--map-*)` tokens that invert with
+ * the basemap. The markup is fully static (no user input), so it is safe to
+ * inject into a Leaflet `divIcon` or a legend swatch.
  *
- * @param outline - stroke color; defaults to the theme's contrast ring.
- * @param outlineWidth - stroke width in viewBox units; defaults to `1.5`.
+ * @param favorite - wraps the glyph in a gold band with the neutral contrast
+ * ring on both sides of it, so the amber never abuts the fill and cannot shift
+ * how the category color reads. The bands are drawn in the box's margin, so
+ * pass {@link favoriteSizePx} for `size` to keep the core shape unchanged.
  */
 export function shapeSvg(
   shape: MapShape,
   color: string,
   size: number,
-  outline = 'var(--map-outline)',
-  outlineWidth = 1.5,
+  favorite = false,
 ): string {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="${outline}" stroke-width="${outlineWidth}" stroke-linejoin="round" aria-hidden="true">${shapeInner(shape)}</svg>`;
+  const inner = shapeInner(shape);
+  const extent = VIEW_EXTENT + (favorite ? 2 * FAVORITE_MARGIN : 0);
+  const origin = favorite ? -FAVORITE_MARGIN : 0;
+  // Painted outermost-first — halo, gold band, then the glyph itself — so each
+  // layer covers the middle of the one beneath it and only its outer edge
+  // survives as a band.
+  const bands = favorite
+    ? `<g fill="none" stroke="var(--map-outline)" stroke-width="${FAVORITE_HALO_WIDTH}">${inner}</g>` +
+      `<g fill="none" stroke="${FAVORITE_BAND_COLOR}" stroke-width="${FAVORITE_BAND_WIDTH}">${inner}</g>`
+    : '';
+  return `<svg width="${size}" height="${size}" viewBox="${origin} ${origin} ${extent} ${extent}" fill="${color}" stroke="var(--map-outline)" stroke-width="${OUTLINE_WIDTH}" stroke-linejoin="round" aria-hidden="true">${bands}${inner}</svg>`;
 }
-
-/** Outline color marking a favorited contact's map marker. */
-export const FAVORITE_OUTLINE = 'var(--map-favorite)';
-
-/** Stroke width, in viewBox units, of a favorited marker's gold outline. */
-export const FAVORITE_OUTLINE_WIDTH = 3;

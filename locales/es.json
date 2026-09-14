@@ -846,6 +846,7 @@
       "repeater": "Repetidor",
       "roomServer": "Servidor de sala",
       "sensor": "Sensor",
+      "favorite": "Favorito (cualquier tipo)",
       "favoritesOnly": "Solo favoritos"
     }
   },

@@ -53,6 +53,18 @@ export function MapLegend({ children }: { children?: ReactNode }) {
                 </li>
               );
             })}
+            <li className='flex items-center gap-2 text-xs whitespace-nowrap'>
+              {/* Drawn without a fill: the band is an overlay on whichever
+                  category shape the favorited node already has. */}
+              <span
+                className='flex h-3.5 w-3.5 shrink-0 items-center justify-center'
+                aria-hidden='true'
+                dangerouslySetInnerHTML={{
+                  __html: shapeSvg('circle', 'none', 14, true),
+                }}
+              />
+              {t('map.legend.favorite')}
+            </li>
           </ul>
           {children}
         </>
