@@ -176,9 +176,15 @@ export function ChatArea() {
   const roomAccess = useMeshStore((s) =>
     roomPrefix ? (s.adminSessions[roomPrefix]?.login ?? 'loggedOut') : null,
   );
-  // Set by the pane that renders the feed, one effect pass after this one
-  // mounts; the landing scroll waits for it.
-  const visibleRoomFeed = useMeshStore((s) => s.visibleRoomFeed);
+  // A room reports its feed visible from `RepeaterView`, a parent of this
+  // transcript, and React runs child effects first — so the unread boundary
+  // that effect freezes does not exist yet when the landing scroll below first
+  // runs. Gate it on the report, as a boolean that is constant for everything
+  // else: the raw id would change when a room is torn down and retrigger the
+  // landing of whatever conversation replaced it.
+  const roomFeedReady = useMeshStore(
+    (s) => activeConvo?.kind !== 'room' || s.visibleRoomFeed === activeConvo.id,
+  );
   // A read-only member's post is silently dropped by the room (no ACK, no
   // post), so the composer is gated on the role rather than on the send.
   const canPost = roomPrefix === null || canPostToRoom(roomAccess);
@@ -460,11 +466,7 @@ export function ChatArea() {
   // wrongly animate the rest.
   useEffect(() => {
     const convoId = activeConvo?.id ?? null;
-    // A room's feed reports its visibility from a parent effect, and React
-    // runs child effects first — so on mount the unread boundary that effect
-    // is about to freeze does not exist yet. Landing now would scroll past it;
-    // the dependency below brings us back once it has.
-    if (activeConvo?.kind === 'room' && visibleRoomFeed !== convoId) return;
+    if (!roomFeedReady) return;
     const switched = prevConvoId.current !== convoId;
     prevConvoId.current = convoId;
     // Whether this run should jump to the bottom instantly rather than animate
@@ -547,13 +549,7 @@ export function ChatArea() {
       behavior: switched || instantJump ? 'auto' : 'smooth',
     });
     atBottomRef.current = true;
-  }, [
-    activeConvo?.id,
-    activeConvo?.kind,
-    visibleRoomFeed,
-    messages.length,
-    unreadMarker,
-  ]);
+  }, [activeConvo?.id, roomFeedReady, messages.length, unreadMarker]);
 
   // Scroll to and briefly flash a message targeted by the command palette, then
   // clear the one-shot request. The render pass above has already widened the
