@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import {
@@ -61,18 +61,13 @@ function buildNeighborMap(
  * marker styling/legend so it matches the Map page. Loaded via `dynamic` with
  * `ssr: false` (Leaflet needs the DOM); render only when the repeater is
  * located and at least one neighbor can be placed.
- *
- * @param control - overlay pinned to the map's top-right corner (the Refresh
- *   button), rendered above the tiles.
  */
 export function NeighborsMap({
   contact,
   neighbors,
-  control,
 }: {
   contact: Contact;
   neighbors: Neighbor[];
-  control?: ReactNode;
 }) {
   const contacts = useMeshStore((s) => s.contacts);
   const adverts = useMeshStore((s) => s.advertCache);
@@ -118,11 +113,6 @@ export function NeighborsMap({
             .setManagePanel({ kind: node.kind, id: node.pubkeyPrefix });
         }}
       >
-        {control && (
-          <div className='pointer-events-auto absolute top-3 right-3 z-1000'>
-            {control}
-          </div>
-        )}
         <MapLegend />
       </BaseLeafletMap>
     </div>

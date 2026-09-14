@@ -161,6 +161,62 @@ function neighborPrefixMatches(
 }
 
 /**
+ * The identity a `neighbors` reply's public-key prefix resolves to, whether or
+ * not that node has a location. Saved contacts win over the advert cache, so a
+ * neighbor the user already keeps shows the name they know it by.
+ */
+export interface NeighborIdentity {
+  pubkeyPrefix: string;
+  name: string;
+  advType: number;
+  kind: 'contact' | 'advert';
+  favorite: boolean;
+  /** Full public key, for actions that need more than the stored prefix. */
+  pubkey: string;
+}
+
+/**
+ * Resolves a neighbor's public-key prefix (from a `neighbors` reply) to the
+ * node it names, ignoring whether that node has a GPS fix. Returns `null` for a
+ * prefix this browser has never heard an advert from — all the repeater told us
+ * about it is the 4 bytes. See {@link neighborPrefixMatches} for the prefix
+ * rule.
+ */
+export function identifyNeighbor(
+  prefix: string,
+  contacts: Record<string, Contact>,
+  adverts: Record<string, Advert>,
+): NeighborIdentity | null {
+  const contact = Object.values(contacts).find((c) =>
+    neighborPrefixMatches(prefix, c.pubkey, c.pubkeyPrefix),
+  );
+  if (contact) {
+    return {
+      pubkeyPrefix: contact.pubkeyPrefix,
+      name: contact.name || contact.pubkeyPrefix.slice(0, 8),
+      advType: contact.advType,
+      kind: 'contact',
+      favorite: (contact.flags & FAVORITE_FLAG) !== 0,
+      pubkey: contact.pubkey,
+    };
+  }
+  const advert = Object.values(adverts).find((a) =>
+    neighborPrefixMatches(prefix, a.pubkey, a.pubkeyPrefix),
+  );
+  if (advert) {
+    return {
+      pubkeyPrefix: advert.pubkeyPrefix,
+      name: advert.name || advert.pubkeyPrefix.slice(0, 8),
+      advType: advert.advType,
+      kind: 'advert',
+      favorite: false,
+      pubkey: advert.pubkey,
+    };
+  }
+  return null;
+}
+
+/**
  * Resolves a neighbor's public-key prefix (from a `neighbors` reply) to a
  * located map node, matching saved contacts first — a contact opens its manage
  * panel — then the advert cache. A matched contact prefers its own fix but

@@ -626,6 +626,12 @@
       "empty": "No se han escuchado vecinos recientemente.",
       "error": "No se pudieron cargar los vecinos. Intenta actualizar.",
       "loading": "Cargando vecinos…",
+      "listLabel": "Vecinos",
+      "mapCoverage_one": "{{shown}} de {{count}} vecino mostrado en el mapa",
+      "mapCoverage_other": "{{shown}} de {{count}} vecinos mostrados en el mapa",
+      "colNode": "Nodo",
+      "colSnr": "SNR",
+      "colLastHeard": "Última escucha",
       "noLocation": "Se escucharon vecinos, pero ninguno pudo ubicarse en el mapa: no tienen una ubicación conocida.",
       "noAnchor": "Este repetidor no tiene una ubicación anunciada, por lo que sus vecinos no pueden mostrarse en el mapa."
     },

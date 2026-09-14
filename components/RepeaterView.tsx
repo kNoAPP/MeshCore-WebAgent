@@ -17,15 +17,16 @@ import { Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
-import { parseNeighborsReply } from '@/lib/meshcore/repeaterCli';
+import { parseNeighborsReply, type Neighbor } from '@/lib/meshcore/repeaterCli';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
 import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
-import { locateNeighborNode } from '@/lib/map/nodes';
+import { identifyNeighbor, locateNeighborNode } from '@/lib/map/nodes';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
   formatAirtime,
   formatDbm,
   formatPercent,
+  formatRelative,
   formatSnr,
   formatUptime,
   formatVoltage,
@@ -693,6 +694,7 @@ function NeighborsTab({ contact }: { contact: Contact }) {
       locateNeighborNode(n.prefix, contacts, advertCache),
     ).length;
   }, [contact.advLat, contact.advLon, neighbors, contacts, advertCache]);
+  const total = neighbors?.length ?? 0;
 
   const [loading, setLoading] = useState(false);
   // Set when a read fails (timeout/disconnect). Distinct from a settled empty
@@ -755,32 +757,36 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   // both correct and harmless when the user has navigated away.
 
   return (
-    <div className='h-full w-full'>
-      {mappableCount > 0 ? (
-        <NeighborsMap
-          contact={contact}
-          neighbors={neighbors ?? []}
-          control={
-            <RefreshButton
-              onClick={() => void refresh()}
-              busy={loading}
-              className='bg-surface'
-            />
-          }
+    <div className='flex w-full flex-col gap-3'>
+      <div className='flex items-center justify-between gap-3'>
+        <p className='text-xs text-text2'>
+          {total > 0
+            ? t('repeaterAdmin.neighbors.mapCoverage', {
+                shown: mappableCount,
+                count: total,
+              })
+            : t('repeaterAdmin.neighbors.listLabel')}
+        </p>
+        <RefreshButton
+          onClick={() => void refresh()}
+          busy={loading}
+          className='bg-surface'
         />
+      </div>
+      {mappableCount > 0 ? (
+        // A fixed height rather than `flex-1`: the list below is the primary
+        // presentation, and the tab panel scrolls.
+        <div className='h-80 shrink-0'>
+          <NeighborsMap contact={contact} neighbors={neighbors ?? []} />
+        </div>
       ) : (
-        <div className='relative flex h-full w-full items-center justify-center overflow-hidden rounded-lg border border-border'>
-          <RefreshButton
-            onClick={() => void refresh()}
-            busy={loading}
-            className='absolute top-2 right-2 z-10 bg-surface'
-          />
-          <p className='px-6 text-center text-sm text-text2'>
+        <div className='flex shrink-0 items-center justify-center rounded-lg border border-border p-6'>
+          <p className='text-center text-sm text-text2'>
             {errored
               ? t('repeaterAdmin.neighbors.error')
               : loading
                 ? t('repeaterAdmin.neighbors.loading')
-                : !(neighbors && neighbors.length > 0)
+                : total === 0
                   ? t('repeaterAdmin.neighbors.empty')
                   : contact.advLat && contact.advLon
                     ? t('repeaterAdmin.neighbors.noLocation')
@@ -788,7 +794,102 @@ function NeighborsTab({ contact }: { contact: Contact }) {
           </p>
         </div>
       )}
+      {total > 0 && <NeighborsList neighbors={neighbors ?? []} />}
     </div>
+  );
+}
+
+/**
+ * Every row the repeater returned, located or not — the map can only show the
+ * subset with a known fix, and an unmapped neighbor is exactly the one the user
+ * has not saved yet. A row resolving to a known node opens its manage panel;
+ * one that resolves only to a cached advert also offers Add contact. A prefix
+ * this browser has never heard an advert from carries no public key, so there
+ * is nothing to add — it shows as the bare 4 bytes the repeater reported.
+ */
+function NeighborsList({ neighbors }: { neighbors: Neighbor[] }) {
+  const { t } = useTranslation();
+  const contacts = useMeshStore((s) => s.contacts);
+  const advertCache = useMeshStore((s) => s.advertCache);
+  const setManagePanel = useMeshStore((s) => s.setManagePanel);
+  const connected = useMeshStore((s) => s.status === 'connected');
+  const { addDiscoveredContact } = useMeshCore();
+
+  const rows = useMemo(
+    () =>
+      neighbors.map((n) => ({
+        neighbor: n,
+        node: identifyNeighbor(n.prefix, contacts, advertCache),
+      })),
+    [neighbors, contacts, advertCache],
+  );
+
+  return (
+    <table className='w-full text-sm'>
+      <thead>
+        <tr className='text-left text-xs text-text2'>
+          <th scope='col' className='py-1 font-medium'>
+            {t('repeaterAdmin.neighbors.colNode')}
+          </th>
+          <th scope='col' className='py-1 font-medium'>
+            {t('repeaterAdmin.neighbors.colSnr')}
+          </th>
+          <th scope='col' className='py-1 font-medium'>
+            {t('repeaterAdmin.neighbors.colLastHeard')}
+          </th>
+          <th scope='col' className='py-1' />
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(({ neighbor, node }) => {
+          // Only a node known solely from the advert cache can be added: a
+          // saved contact already exists, and an unresolved prefix carries no
+          // public key to add.
+          const addable =
+            node?.kind === 'advert'
+              ? advertCache[node.pubkeyPrefix]
+              : undefined;
+          return (
+            <tr key={neighbor.prefix} className='border-t border-border'>
+              <td className='py-1.5'>
+                {node ? (
+                  <button
+                    onClick={() =>
+                      setManagePanel({
+                        kind: node.kind,
+                        id: node.pubkeyPrefix,
+                      })
+                    }
+                    className='truncate text-left hover:text-accent'
+                  >
+                    {ADV_ICON[node.advType] ?? '👤'} {node.name}
+                  </button>
+                ) : (
+                  <span className='font-mono text-xs text-text2'>
+                    {neighbor.prefix}
+                  </span>
+                )}
+              </td>
+              <td className='py-1.5 tabular-nums'>{formatSnr(neighbor.snr)}</td>
+              <td className='py-1.5 text-text2'>
+                {formatRelative(neighbor.lastHeard)}
+              </td>
+              <td className='py-1.5 text-right'>
+                {addable && (
+                  <button
+                    disabled={!connected}
+                    onClick={() => void addDiscoveredContact(addable)}
+                    className='rounded-md px-2 py-0.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 bg-accent-solid'
+                  >
+                    {t('discover.add')}
+                  </button>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
