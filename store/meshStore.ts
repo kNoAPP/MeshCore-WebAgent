@@ -351,6 +351,12 @@ export interface AdminSession {
    */
   token: number;
   status?: RepeaterStatus;
+  /**
+   * Unix epoch seconds, from *this computer's* clock, when {@link status} was
+   * read — the dashboard refreshes on a manual button, so the values carry no
+   * age of their own.
+   */
+  statusAt?: number;
   cli: CliLine[];
   /**
    * How many CLI commands are outstanding for this repeater — queued or
@@ -397,6 +403,12 @@ interface MeshState {
    * each counter did between the last two reads. Null until a second read.
    */
   prevDeviceStats: StatsResult | null;
+  /**
+   * Unix epoch seconds, from *this computer's* clock, when {@link deviceStats}
+   * was read. The cards refresh on a manual button, so without it there is no
+   * way to tell a live reading from one taken an hour ago.
+   */
+  deviceStatsAt: number | null;
   deviceClock: { time: number; skew: number } | null;
   /**
    * The Stats page's own battery/storage snapshot (including `null` when the
@@ -753,6 +765,7 @@ const initialState: MeshState = {
   syncProgress: null,
   deviceStats: null,
   prevDeviceStats: null,
+  deviceStatsAt: null,
   deviceClock: null,
   deviceBattery: null,
   contacts: {},
@@ -848,6 +861,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       deviceStats,
       // A null write ends the link session, so there is nothing to compare to.
       prevDeviceStats: deviceStats ? state.deviceStats : null,
+      deviceStatsAt: deviceStats ? Math.floor(Date.now() / 1000) : null,
     })),
   setDeviceClock: (deviceClock) => set({ deviceClock }),
   setDeviceBattery: (deviceBattery) => set({ deviceBattery }),
@@ -1199,7 +1213,11 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({
       adminSessions: {
         ...adminSessions,
-        [prefix]: { ...session, status },
+        [prefix]: {
+          ...session,
+          status,
+          statusAt: Math.floor(Date.now() / 1000),
+        },
       },
     });
   },

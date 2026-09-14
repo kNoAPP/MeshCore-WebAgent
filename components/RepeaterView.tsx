@@ -26,12 +26,15 @@ import {
   formatAirtime,
   formatDbm,
   formatPercent,
+  formatRatePercent,
+  formatRelative,
   formatSnr,
   formatUptime,
   formatVoltage,
 } from '@/lib/i18n/format';
 import { ADV_ICON, formatPubkey } from '@/lib/utils';
 import { ChatArea } from './ChatArea';
+import { HintToken } from './MessageBubble';
 import { RouteChip } from './RouteChip';
 import { StatCard } from './StatCard';
 import { RefreshButton } from './RefreshButton';
@@ -103,6 +106,12 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   const login = session?.login ?? 'loggedOut';
   const authed = isAuthedLogin(login);
   const prefix = contact.pubkeyPrefix;
+  // The node's own transmit budget, once the Config tab has read it. Only used
+  // to flag a TX duty cycle that has already run past it, so anything the
+  // firmware hasn't answered with a positive number simply means no flag —
+  // note `Number('')` is `0`, which would otherwise flag every node.
+  const configuredDuty = Number(session?.config?.dutycycle ?? NaN);
+  const dutyCycleLimit = configuredDuty > 0 ? configuredDuty : undefined;
 
   // Which tabs this session may see. A room's post feed comes first and is
   // open to every logged-in role (a read-only member may read, just not post).
@@ -259,6 +268,8 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
             {activeTab === 'status' && (
               <StatusDashboard
                 status={session?.status}
+                statusAt={session?.statusAt}
+                dutyCycleLimit={dutyCycleLimit}
                 onRefresh={() => repeaterStatus(contact)}
               />
             )}
@@ -486,9 +497,18 @@ function LoginGate({
 
 function StatusDashboard({
   status,
+  statusAt,
+  dutyCycleLimit,
   onRefresh,
 }: {
   status?: RepeaterStatus;
+  /** Unix epoch seconds this snapshot was read, from this computer's clock. */
+  statusAt?: number;
+  /**
+   * The node's configured transmit budget as a percentage, once the Config tab
+   * has read it. Used only to flag a TX duty cycle that has run past it.
+   */
+  dutyCycleLimit?: number;
   onRefresh: () => Promise<void>;
 }) {
   const { t, i18n } = useTranslation();
@@ -522,8 +542,10 @@ function StatusDashboard({
   }, [refresh]);
 
   const num = (n: number) => n.toLocaleString(i18n.language);
-  // Shared responsive layout for the stat cards (loading and loaded).
-  const gridClass = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
+  // Shared responsive layout for the stat cards (loading and loaded). Wrapping
+  // flex rather than a fixed column count: a short final row grows to fill the
+  // width instead of leaving dead cells.
+  const gridClass = 'flex flex-wrap items-start gap-4';
   const s = status;
   // Include a row only when the firmware reported that field.
   const opt = (
@@ -532,6 +554,34 @@ function StatusDashboard({
     fmt: (n: number) => string,
   ): [string, string][] => (value == null ? [] : [[label, fmt(value)]]);
 
+  // Airtime only means something against the uptime it accrued over — that
+  // ratio is the duty cycle regulators cap. The raw pair stays reachable as a
+  // hint, and a TX figure past the node's own configured budget is flagged.
+  const dutyCycle = (
+    airSecs: number | undefined,
+    uptimeSecs: number | undefined,
+    limitPercent?: number,
+  ): React.ReactNode => {
+    const over =
+      airSecs != null &&
+      uptimeSecs != null &&
+      uptimeSecs > 0 &&
+      limitPercent != null &&
+      (airSecs / uptimeSecs) * 100 > limitPercent;
+    return (
+      <span className={over ? 'text-red' : undefined}>
+        <HintToken
+          label={formatRatePercent(airSecs, uptimeSecs)}
+          title={
+            airSecs != null && uptimeSecs
+              ? `${formatAirtime(airSecs)} / ${formatUptime(uptimeSecs)}`
+              : undefined
+          }
+        />
+      </span>
+    );
+  };
+
   // One descriptor per card: `labels` drives the loading skeleton (one shimmer
   // row per label) and `rows` the loaded values (dropping unreported fields) —
   // the same shape the Stats page uses so the layout doesn't shift.
@@ -539,7 +589,7 @@ function StatusDashboard({
     title: string;
     labels: string[];
     meter?: { label: string; percent: number; text: string };
-    rows: [string, string][] | null;
+    rows: [string, React.ReactNode][] | null;
   }[] = [
     {
       title: t('repeaterAdmin.card.power'),
@@ -581,7 +631,12 @@ function StatusDashboard({
     },
     {
       title: t('repeaterAdmin.card.airtime'),
-      labels: [t('repeaterAdmin.txAirtime'), t('repeaterAdmin.rxAirtime')],
+      labels: [
+        t('repeaterAdmin.txAirtime'),
+        t('repeaterAdmin.rxAirtime'),
+        t('repeaterAdmin.txDutyCycle'),
+        t('repeaterAdmin.rxDutyCycle'),
+      ],
       rows: s
         ? [
             ...opt(
@@ -594,6 +649,14 @@ function StatusDashboard({
               s.totalRxAirTimeSecs,
               formatAirtime,
             ),
+            [
+              t('repeaterAdmin.txDutyCycle'),
+              dutyCycle(s.totalAirTimeSecs, s.totalUpTimeSecs, dutyCycleLimit),
+            ],
+            [
+              t('repeaterAdmin.rxDutyCycle'),
+              dutyCycle(s.totalRxAirTimeSecs, s.totalUpTimeSecs),
+            ],
           ]
         : null,
     },
@@ -607,8 +670,10 @@ function StatusDashboard({
         t('repeaterAdmin.directTx'),
         t('repeaterAdmin.directRx'),
         t('repeaterAdmin.floodDups'),
+        t('repeaterAdmin.floodDupRate'),
         t('repeaterAdmin.directDups'),
         t('repeaterAdmin.rxErrors'),
+        t('repeaterAdmin.rxErrorRate'),
       ],
       rows: s
         ? [
@@ -619,8 +684,21 @@ function StatusDashboard({
             ...opt(t('repeaterAdmin.directTx'), s.nSentDirect, num),
             ...opt(t('repeaterAdmin.directRx'), s.nRecvDirect, num),
             ...opt(t('repeaterAdmin.floodDups'), s.nFloodDups, num),
+            [
+              t('repeaterAdmin.floodDupRate'),
+              formatRatePercent(s.nFloodDups, s.nRecvFlood),
+            ],
             ...opt(t('repeaterAdmin.directDups'), s.nDirectDups, num),
             ...opt(t('repeaterAdmin.rxErrors'), s.nRecvErrors, num),
+            [
+              t('repeaterAdmin.rxErrorRate'),
+              formatRatePercent(
+                s.nRecvErrors,
+                s.nRecvErrors == null || s.nPacketsRecv == null
+                  ? undefined
+                  : s.nRecvErrors + s.nPacketsRecv,
+              ),
+            ],
           ]
         : null,
     },
@@ -628,19 +706,27 @@ function StatusDashboard({
 
   return (
     <div className='mx-auto w-full max-w-6xl space-y-4'>
-      <div className='flex justify-end'>
+      <div className='flex items-center justify-end gap-3'>
+        {statusAt != null && !loading && (
+          <span className='text-xs text-text2'>
+            {t('repeaterAdmin.lastUpdated', {
+              time: formatRelative(statusAt),
+            })}
+          </span>
+        )}
         <RefreshButton onClick={() => void refresh()} busy={loading} />
       </div>
 
       {loading ? (
         <div className={gridClass}>
           {cards.map(({ title: cardTitle, labels }) => (
-            <StatCard
-              key={cardTitle}
-              title={cardTitle}
-              loading
-              rows={labels.map((label) => [label, ''])}
-            />
+            <div key={cardTitle} className='min-w-72 flex-1'>
+              <StatCard
+                title={cardTitle}
+                loading
+                rows={labels.map((label) => [label, ''])}
+              />
+            </div>
           ))}
         </div>
       ) : status ? (
@@ -648,12 +734,9 @@ function StatusDashboard({
           {cards
             .filter((c) => c.rows && c.rows.length > 0)
             .map(({ title: cardTitle, rows, meter }) => (
-              <StatCard
-                key={cardTitle}
-                title={cardTitle}
-                rows={rows ?? []}
-                meter={meter}
-              />
+              <div key={cardTitle} className='min-w-72 flex-1'>
+                <StatCard title={cardTitle} rows={rows ?? []} meter={meter} />
+              </div>
             ))}
         </div>
       ) : (
