@@ -11,6 +11,7 @@ import { useMeshStore, channelConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
 import { CopyButton } from './CopyButton';
+import { HintToken } from './MessageBubble';
 import { ShareCard } from './ShareCard';
 import {
   ADV_ICON,
@@ -148,7 +149,7 @@ function ManagePanelView() {
           <DetailRow
             label={t('manage.lastAdvert')}
             value={formatRelative(advert.lastHeard)}
-            title={formatDateTime(advert.lastHeard)}
+            hint={formatDateTime(advert.lastHeard)}
           />
           {location && (
             <DetailRow label={t('manage.location')} value={location} />
@@ -237,7 +238,7 @@ function ManagePanelView() {
                   ? formatRelative(contact.lastAdvert)
                   : t('common.unknown')
               }
-              title={
+              hint={
                 contact.lastAdvert
                   ? formatDateTime(contact.lastAdvert)
                   : undefined
@@ -465,24 +466,21 @@ function routeLabel(t: TFunction, contact: Contact): string {
 function DetailRow({
   label,
   value,
-  title,
+  hint,
   mono,
   copy,
 }: {
   label: string;
   value: string;
-  title?: string;
+  hint?: string;
   mono?: boolean;
   copy?: string;
 }) {
   return (
     <div className='flex items-center gap-3 text-sm'>
       <span className='w-24 shrink-0 text-text2'>{label}</span>
-      <span
-        title={title}
-        className={`flex-1 break-all ${mono ? 'font-mono text-xs' : ''}`}
-      >
-        {value}
+      <span className={`flex-1 break-all ${mono ? 'font-mono text-xs' : ''}`}>
+        <HintToken label={value} title={hint} />
       </span>
       {copy && <CopyButton value={copy} />}
     </div>

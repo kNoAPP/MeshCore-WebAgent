@@ -9,6 +9,7 @@ import { Search } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
+import { HintToken } from './MessageBubble';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
   ADV_ICON,
@@ -251,16 +252,17 @@ export function AddContactModal() {
                             <div className='truncate text-sm'>
                               {a.name || a.pubkeyPrefix.slice(0, 8)}
                             </div>
-                            <div className='truncate text-xs text-text2'>
+                            <div className='text-xs text-text2'>
                               {t(
                                 ADV_LABEL_KEY[
                                   a.advType as keyof typeof ADV_LABEL_KEY
                                 ] ?? 'discover.node',
                               )}{' '}
                               ·{' '}
-                              <span title={formatDateTime(a.lastHeard)}>
-                                {formatRelative(a.lastHeard)}
-                              </span>{' '}
+                              <HintToken
+                                label={formatRelative(a.lastHeard)}
+                                title={formatDateTime(a.lastHeard)}
+                              />{' '}
                               · {formatPubkey(a.pubkey, showFullPublicKeys)}
                             </div>
                             {location && (
