@@ -48,12 +48,15 @@ const ABSOLUTE_DATE_AFTER_DAYS = 30;
 /**
  * Formats a Unix epoch-seconds timestamp as a relative age (`just now`,
  * `5m ago`, `2h ago`, `3d ago`). A timestamp more than a minute in the future
- * reads as a clock-skew notice instead of `just now`, and an age past 30 days
- * falls back to an absolute locale date rather than an unbounded day count.
+ * is a skewed sender clock, not a fresh sighting, so it reads as a clock-skew
+ * notice carrying the absolute timestamp instead of `just now`; an age past 30
+ * days likewise falls back to an absolute locale date rather than an unbounded
+ * day count.
  */
 export function formatRelative(timestamp: number): string {
   const secs = Math.floor(Date.now() / 1000) - timestamp;
-  if (secs < -CLOCK_SKEW_TOLERANCE_SECS) return i18n.t('relative.clockAhead');
+  if (secs < -CLOCK_SKEW_TOLERANCE_SECS)
+    return i18n.t('relative.clockAhead', { date: formatDateTime(timestamp) });
   if (secs < 60) return i18n.t('relative.justNow');
   if (secs < 3600)
     return i18n.t('relative.minutes', { count: Math.floor(secs / 60) });
@@ -62,22 +65,6 @@ export function formatRelative(timestamp: number): string {
   const days = Math.floor(secs / 86400);
   if (days > ABSOLUTE_DATE_AFTER_DAYS) return formatDate(timestamp);
   return i18n.t('relative.days', { count: days });
-}
-
-/**
- * Orders entries carrying a sender-supplied `lastHeard` timestamp freshest
- * first, returning a new array. Entries are ranked by the magnitude of their
- * offset from now, so a node whose clock runs ahead ranks by how far ahead it
- * is instead of permanently holding the top of the list. The clock is read
- * once, keeping the comparator consistent for the whole sort.
- */
-export function sortByHeardAge<T extends { lastHeard: number }>(
-  items: readonly T[],
-): T[] {
-  const nowSecs = Math.floor(Date.now() / 1000);
-  return [...items].sort(
-    (a, b) => Math.abs(nowSecs - a.lastHeard) - Math.abs(nowSecs - b.lastHeard),
-  );
 }
 
 /**

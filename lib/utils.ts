@@ -27,6 +27,25 @@ export function randomSecret(): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(16));
 }
 
+/**
+ * Orders entries carrying a `lastHeard` timestamp freshest first, returning a
+ * new array. `lastHeard` is the *sender's* clock and MeshCore nodes routinely
+ * run without a synchronized RTC, so entries are ranked by the magnitude of
+ * their offset from now: a node whose clock runs ahead ranks by how far ahead
+ * it is instead of permanently outranking a node we genuinely just heard. Used
+ * for both display order and cache eviction, so a skewed timestamp can neither
+ * top a list nor evict a fresher entry. The clock is read once, keeping the
+ * comparator consistent for the whole sort.
+ */
+export function sortByHeardAge<T extends { lastHeard: number }>(
+  items: readonly T[],
+): T[] {
+  const nowSecs = Math.floor(Date.now() / 1000);
+  return [...items].sort(
+    (a, b) => Math.abs(nowSecs - a.lastHeard) - Math.abs(nowSecs - b.lastHeard),
+  );
+}
+
 const utf8 = new TextEncoder();
 
 /**

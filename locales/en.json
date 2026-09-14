@@ -963,7 +963,7 @@
   },
   "relative": {
     "justNow": "just now",
-    "clockAhead": "clock ahead",
+    "clockAhead": "clock ahead ({{date}})",
     "minutes": "{{count}}m ago",
     "hours": "{{count}}h ago",
     "days": "{{count}}d ago",

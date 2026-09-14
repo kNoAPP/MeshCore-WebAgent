@@ -964,7 +964,7 @@
   },
   "relative": {
     "justNow": "gerade eben",
-    "clockAhead": "Uhr voraus",
+    "clockAhead": "Uhr voraus ({{date}})",
     "minutes": "vor {{count}}m",
     "hours": "vor {{count}}h",
     "days": "vor {{count}}d",

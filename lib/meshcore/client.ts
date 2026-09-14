@@ -84,7 +84,7 @@ import {
   parseStatusResponse,
   parseLoginPush,
 } from './parsers';
-import { toHex } from '@/lib/utils';
+import { sortByHeardAge, toHex } from '@/lib/utils';
 
 // Cap the heard-adverts log so a long session on a busy mesh can't grow
 // unbounded
@@ -678,12 +678,16 @@ export class MeshCoreClient {
   }
 
   private evictOldAdverts(): void {
-    const keys = Object.keys(this.adverts);
-    if (keys.length <= ADVERTS_LIMIT) return;
-    keys
-      .sort((a, b) => this.adverts[a].lastHeard - this.adverts[b].lastHeard)
-      .slice(0, keys.length - ADVERTS_LIMIT)
-      .forEach((k) => delete this.adverts[k]);
+    const entries = Object.values(this.adverts);
+    if (entries.length <= ADVERTS_LIMIT) return;
+    const kept = new Set(
+      sortByHeardAge(entries)
+        .slice(0, ADVERTS_LIMIT)
+        .map((a) => a.pubkeyPrefix),
+    );
+    for (const key of Object.keys(this.adverts)) {
+      if (!kept.has(key)) delete this.adverts[key];
+    }
   }
 
   private touchAdvert(d: Uint8Array): void {

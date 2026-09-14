@@ -1,6 +1,7 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
+import { sortByHeardAge } from '@/lib/utils';
 import type { Advert } from '@/types/meshcore';
 
 /**
@@ -71,10 +72,12 @@ export function mergeAdvertCache(
   if (keys.length <= ADVERT_CACHE_LIMIT) return merged;
 
   // Keep only the most-recently-heard nodes when over the cap.
-  const kept = keys
-    .sort((a, b) => merged[b].lastHeard - merged[a].lastHeard)
-    .slice(0, ADVERT_CACHE_LIMIT);
   const capped: Record<string, Advert> = {};
-  for (const key of kept) capped[key] = merged[key];
+  for (const advert of sortByHeardAge(Object.values(merged)).slice(
+    0,
+    ADVERT_CACHE_LIMIT,
+  )) {
+    capped[advert.pubkeyPrefix] = advert;
+  }
   return capped;
 }

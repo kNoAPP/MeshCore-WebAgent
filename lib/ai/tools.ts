@@ -12,10 +12,9 @@
 
 import { useMeshStore } from '@/store/meshStore';
 import i18n from '@/lib/i18n';
-import { sortByHeardAge } from '@/lib/i18n/format';
 import type { ToolSchema } from '@/lib/ai/provider';
 import { FAVORITE_FLAG, MAX_MSG_BYTES } from '@/lib/meshcore/constants';
-import { utf8ByteLength } from '@/lib/utils';
+import { sortByHeardAge, utf8ByteLength } from '@/lib/utils';
 
 /** Every tool the engine can call, in menu order. */
 export const TOOL_NAMES = [

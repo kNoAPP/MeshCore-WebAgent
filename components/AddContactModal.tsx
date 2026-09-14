@@ -9,7 +9,6 @@ import { Search } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
-import { HintToken } from './MessageBubble';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
   ADV_ICON,
@@ -18,18 +17,14 @@ import {
   formatPubkey,
   fromHex,
   parseContactUri,
+  sortByHeardAge,
 } from '@/lib/utils';
 import {
   ADV_TYPE_REPEATER,
   ADV_TYPE_ROOM,
   ADV_TYPE_SENSOR,
 } from '@/lib/meshcore/constants';
-import {
-  formatDateTime,
-  formatDistanceBearing,
-  formatRelative,
-  sortByHeardAge,
-} from '@/lib/i18n/format';
+import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
 
 type Mode = 'discover' | 'paste' | 'manual';
 
@@ -258,12 +253,8 @@ export function AddContactModal() {
                                   a.advType as keyof typeof ADV_LABEL_KEY
                                 ] ?? 'discover.node',
                               )}{' '}
-                              ·{' '}
-                              <HintToken
-                                label={formatRelative(a.lastHeard)}
-                                title={formatDateTime(a.lastHeard)}
-                              />{' '}
-                              · {formatPubkey(a.pubkey, showFullPublicKeys)}
+                              · {formatRelative(a.lastHeard)} ·{' '}
+                              {formatPubkey(a.pubkey, showFullPublicKeys)}
                             </div>
                             {location && (
                               <div className='truncate text-xs text-text2'>
