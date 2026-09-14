@@ -16,6 +16,7 @@ import dynamic from 'next/dynamic';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useClockTick } from '@/hooks/useClockTick';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { parseNeighborsReply } from '@/lib/meshcore/repeaterCli';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
@@ -512,6 +513,9 @@ function StatusDashboard({
   onRefresh: () => Promise<void>;
 }) {
   const { t, i18n } = useTranslation();
+  // The freshness label is derived from the wall clock, so it needs its own
+  // re-render to keep aging while the tab sits open.
+  useClockTick();
   // Skeletons only when there's no cached status; a cached snapshot (kept in
   // the admin session) renders immediately so returning to the tab stays
   // populated.
@@ -573,7 +577,7 @@ function StatusDashboard({
         <HintToken
           label={formatRatePercent(airSecs, uptimeSecs)}
           title={
-            airSecs != null && uptimeSecs
+            airSecs != null && uptimeSecs != null
               ? `${formatAirtime(airSecs)} / ${formatUptime(uptimeSecs)}`
               : undefined
           }
@@ -720,7 +724,7 @@ function StatusDashboard({
       {loading ? (
         <div className={gridClass}>
           {cards.map(({ title: cardTitle, labels }) => (
-            <div key={cardTitle} className='min-w-72 flex-1'>
+            <div key={cardTitle} className='min-w-full flex-1 sm:min-w-72'>
               <StatCard
                 title={cardTitle}
                 loading

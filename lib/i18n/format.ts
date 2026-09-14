@@ -224,14 +224,15 @@ export const NO_VALUE = '—';
  * packets received, flood duplicates against floods heard.
  *
  * @returns {@link NO_VALUE} when the ratio is undefined, rather than `NaN` or
- * `Infinity`: a node that just booted reports zero uptime, and a counter the
- * firmware left out is not a zero.
+ * `Infinity`: a node that just booted reports zero uptime, a counter the
+ * firmware left out is not a zero, and a non-finite operand is not a reading.
  */
 export function formatRatePercent(
   part: number | undefined,
   whole: number | undefined,
   digits = 2,
 ): string {
-  if (part == null || !whole || whole < 0) return NO_VALUE;
+  if (!Number.isFinite(part) || !Number.isFinite(whole)) return NO_VALUE;
+  if (part == null || whole == null || whole <= 0) return NO_VALUE;
   return formatPercent((part / whole) * 100, digits);
 }

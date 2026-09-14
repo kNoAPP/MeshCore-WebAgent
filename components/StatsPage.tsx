@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
+import { useClockTick } from '@/hooks/useClockTick';
 import type { StatsResult, BatteryInfo } from '@/types/meshcore';
 import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
 import {
@@ -195,6 +196,9 @@ export function StatsPage() {
   // already on hand — the previous snapshot the store keeps and `uptimeSecs`.
   const prev = useMeshStore((s) => s.prevDeviceStats)?.packets;
   const statsAt = useMeshStore((s) => s.deviceStatsAt);
+  // The freshness label is derived from the wall clock, so it needs its own
+  // re-render to keep aging while the page sits open.
+  useClockTick();
   const uptimeHours = (stats?.core?.uptimeSecs ?? 0) / 3600;
   const counter = (
     value: number,
@@ -232,7 +236,7 @@ export function StatsPage() {
     <HintToken
       label={formatRatePercent(airSecs, uptimeSecs)}
       title={
-        uptimeSecs
+        uptimeSecs != null
           ? `${formatAirtime(airSecs)} / ${formatUptime(uptimeSecs)}`
           : undefined
       }
@@ -375,6 +379,7 @@ export function StatsPage() {
         t('stats.floodRx'),
         t('stats.directTx'),
         t('stats.directRx'),
+        t('stats.rxErrorRate'),
       ],
       rows: stats?.packets
         ? [
@@ -402,15 +407,20 @@ export function StatsPage() {
                     t('stats.rxErrors'),
                     ...counter(stats.packets.recvErrors, prev?.recvErrors),
                   ],
-                  [
-                    t('stats.rxErrorRate'),
-                    formatRatePercent(
-                      stats.packets.recvErrors,
-                      stats.packets.recv + stats.packets.recvErrors,
-                    ),
-                  ],
                 ] as [string, React.ReactNode, React.ReactNode?][])
               : []),
+            // Always present, so the loaded card matches its skeleton: older
+            // firmware simply leaves the numerator undefined and the guard
+            // renders an em dash.
+            [
+              t('stats.rxErrorRate'),
+              formatRatePercent(
+                stats.packets.recvErrors ?? undefined,
+                stats.packets.recvErrors == null
+                  ? undefined
+                  : stats.packets.recv + stats.packets.recvErrors,
+              ),
+            ],
           ]
         : null,
     },
@@ -454,7 +464,7 @@ export function StatsPage() {
             );
             return (
               card && (
-                <div key={title} className='min-w-72 flex-1'>
+                <div key={title} className='min-w-full flex-1 sm:min-w-72'>
                   {card}
                 </div>
               )
