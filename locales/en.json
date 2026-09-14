@@ -975,6 +975,7 @@
     "newMessageInFrom": "{{sender}} in {{channel}}",
     "newMessageFrom": "New message from {{sender}}",
     "newPostIn": "New post in {{room}}",
+    "roomPostNoAccess": "You no longer have permission to post in this room",
     "connected": "Connected — {{device}}",
     "connectionFailed": "Connection failed",
     "radioNoResponse": "Radio did not respond — try reconnecting",

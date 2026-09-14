@@ -976,6 +976,7 @@
     "newMessageInFrom": "{{sender}} in {{channel}}",
     "newMessageFrom": "Neue Nachricht von {{sender}}",
     "newPostIn": "Neuer Beitrag in {{room}}",
+    "roomPostNoAccess": "Sie dürfen in diesem Raum nicht mehr veröffentlichen",
     "connected": "Verbunden — {{device}}",
     "connectionFailed": "Verbindung fehlgeschlagen",
     "radioNoResponse": "Funkgerät hat nicht geantwortet — bitte erneut verbinden",

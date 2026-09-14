@@ -669,6 +669,17 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
     );
     return;
   }
+  // Every attempt is re-gated on post access, not just the first: logging out
+  // (or being downgraded) between an attempt and its ACK timeout would
+  // otherwise keep transmitting into a room that silently drops the post.
+  if (
+    cycle.convo.kind === 'room' &&
+    !canPostToRoom(store.adminSessions[cycle.contactKey]?.login)
+  ) {
+    settleUndelivered(cycle);
+    store.showToast(i18n.t('toast.roomPostNoAccess'), 'error');
+    return;
+  }
   store.updateMessage(cycle.convo.id, cycle.msgId, {
     status: 'sending',
     attempt: cycle.attempt,

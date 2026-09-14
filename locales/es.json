@@ -976,6 +976,7 @@
     "newMessageInFrom": "{{sender}} en {{channel}}",
     "newMessageFrom": "Nuevo mensaje de {{sender}}",
     "newPostIn": "Nueva publicación en {{room}}",
+    "roomPostNoAccess": "Ya no tienes permiso para publicar en esta sala",
     "connected": "Conectado — {{device}}",
     "connectionFailed": "Conexión fallida",
     "radioNoResponse": "La radio no respondió — intenta reconectar",
