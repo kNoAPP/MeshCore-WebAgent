@@ -3,12 +3,17 @@
 
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useMeshStore } from '@/store/meshStore';
 import { escapeHtml, nodeIcon } from '@/lib/map/leafletIcon';
+import {
+  placeEdgeLabel,
+  pointAlongEdge,
+  type LabelBox,
+} from '@/lib/map/edgeLabel';
 import type { MapEdge, MapNode } from '@/lib/map/nodes';
 import {
   MAP_EDGE_OPACITY,
@@ -97,6 +102,9 @@ export function BaseLeafletMap({
 }: BaseLeafletMapProps) {
   const { t } = useTranslation();
   const theme = useMeshStore((s) => s.theme);
+  // Edge labels are decluttered in pixel space, which only holds at the zoom
+  // they were placed at, so a zoom change has to re-run that pass.
+  const [zoom, setZoom] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -175,11 +183,16 @@ export function BaseLeafletMap({
     };
     map.on('moveend', onMove);
 
+    const onZoom = () => setZoom(map.getZoom());
+    onZoom();
+    map.on('zoomend', onZoom);
+
     onMapReadyRef.current?.(map);
 
     return () => {
       onMapReadyRef.current?.(null);
       map.off('moveend', onMove);
+      map.off('zoomend', onZoom);
       map.off('resize', clampMinZoom);
       map.remove();
       mapRef.current = null;
@@ -241,21 +254,30 @@ export function BaseLeafletMap({
   }, [nodes, t, clickable, startView]);
 
   // Rebuild link polylines when the edge set changes, guarded by a signature so
-  // an unrelated node refresh doesn't churn the layer.
+  // an unrelated node refresh doesn't churn the layer. The zoom is part of that
+  // signature because it decides where each label lands.
   useEffect(() => {
     const layer = edgeLayerRef.current;
-    if (!layer) return;
+    const map = mapRef.current;
+    if (!layer || !map) return;
     const list = edges ?? [];
-    const sig = list
+    // Only a labeled edge set is zoom-sensitive, so an unlabeled one (the Map
+    // page) is not rebuilt on every zoom.
+    const labeled = list.some((e) => e.label);
+    const sig = `${labeled ? zoom : ''}|${list
       .map(
         (e) =>
           `${e.key}:${e.from[0]},${e.from[1]}:${e.to[0]},${e.to[1]}:${e.label ?? ''}`,
       )
-      .join('|');
+      .join('|')}`;
     if (sig === edgeSigRef.current) return;
     edgeSigRef.current = sig;
 
     layer.clearLayers();
+    // Labels are placed in list order, each avoiding the ones before it, so the
+    // result is stable for a given edge set rather than depending on paint
+    // order.
+    const placed: LabelBox[] = [];
     for (const edge of list) {
       const line = L.polyline([edge.from, edge.to], {
         className: 'meshcore-edge',
@@ -263,17 +285,28 @@ export function BaseLeafletMap({
         opacity: MAP_EDGE_OPACITY,
         interactive: false,
       });
-      if (edge.label) {
-        line.bindTooltip(escapeHtml(edge.label), {
-          permanent: true,
-          direction: 'center',
-          className: 'meshcore-edge-label',
-        });
-      }
       line.addTo(layer);
+      if (!edge.label) continue;
+      const fraction = placeEdgeLabel(
+        edge.label,
+        (f) => map.latLngToLayerPoint(pointAlongEdge(edge.from, edge.to, f)),
+        placed,
+      );
+      // No clear position at this zoom: the link keeps its line, and the label
+      // returns once zooming in separates the edges.
+      if (fraction === null) continue;
+      L.tooltip({
+        permanent: true,
+        direction: 'center',
+        className: 'meshcore-edge-label',
+        interactive: false,
+      })
+        .setLatLng(pointAlongEdge(edge.from, edge.to, fraction))
+        .setContent(escapeHtml(edge.label))
+        .addTo(layer);
     }
     // `startView` recreates the map with empty layers, so it has to refill.
-  }, [edges, startView]);
+  }, [edges, startView, zoom]);
 
   return (
     <div className='meshcore-map relative isolate flex-1'>
