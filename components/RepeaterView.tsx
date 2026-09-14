@@ -592,7 +592,12 @@ function StatusDashboard({
           <span className='sr-only'>
             {' '}
             {t('repeaterAdmin.overDutyCycle', {
-              limit: formatPercent(exceeded),
+              // The setting is fractional (0.5 steps), so a 1.5 % budget must
+              // not be announced as 2 %, which would contradict the flag.
+              limit: formatPercent(
+                exceeded,
+                Number.isInteger(exceeded) ? 0 : 1,
+              ),
             })}
           </span>
         )}

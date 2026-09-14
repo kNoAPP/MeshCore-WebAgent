@@ -21,6 +21,7 @@ import {
   formatSnr,
   formatUptime,
   formatVoltage,
+  NO_VALUE,
 } from '@/lib/i18n/format';
 import { StatCard } from './StatCard';
 import { HintToken } from './MessageBubble';
@@ -201,9 +202,11 @@ export function StatsPage() {
   useClockTick();
   const uptimeHours = (stats?.core?.uptimeSecs ?? 0) / 3600;
   const counter = (
-    value: number,
+    value: number | null | undefined,
     previous: number | null | undefined,
-  ): [string, React.ReactNode?] => {
+  ): [React.ReactNode, React.ReactNode?] => {
+    // A counter this firmware doesn't report is not a zero.
+    if (value == null) return [NO_VALUE];
     const delta = previous != null ? value - previous : 0;
     const parts: string[] = [];
     if (delta > 0) {
@@ -402,17 +405,13 @@ export function StatsPage() {
               t('stats.directRx'),
               ...counter(stats.packets.directRx, prev?.directRx),
             ],
-            ...(stats.packets.recvErrors != null
-              ? ([
-                  [
-                    t('stats.rxErrors'),
-                    ...counter(stats.packets.recvErrors, prev?.recvErrors),
-                  ],
-                ] as [string, React.ReactNode, React.ReactNode?][])
-              : []),
-            // Always present, so the loaded card matches its skeleton: older
-            // firmware simply leaves the numerator undefined and the guard
-            // renders an em dash.
+            // Both error rows are always present, so the loaded card matches
+            // its skeleton: older firmware omits the counter, and the em dash
+            // says so rather than dropping a row.
+            [
+              t('stats.rxErrors'),
+              ...counter(stats.packets.recvErrors, prev?.recvErrors),
+            ],
             [
               t('stats.rxErrorRate'),
               formatRatePercent(

@@ -729,7 +729,18 @@ interface MeshActions {
   /** Sets a repeater admin session's login state (creates it if new). */
   setAdminLogin: (prefix: string, login: AdminLoginState) => void;
   /** Stores the latest decoded status for a repeater's admin session. */
-  setRepeaterStatus: (prefix: string, status: RepeaterStatus) => void;
+  /**
+   * Records a repeater's status reply against its admin session, stamping
+   * {@link AdminSession.statusAt}.
+   *
+   * @param token - the {@link AdminSession.token} the request was issued
+   * under; the reply is dropped when the session has since been replaced.
+   */
+  setRepeaterStatus: (
+    prefix: string,
+    status: RepeaterStatus,
+    token?: number,
+  ) => void;
   /** Caches the last-read neighbors list for a repeater's admin session. */
   setRepeaterNeighbors: (prefix: string, neighbors: Neighbor[]) => void;
   /** Merges loaded/confirmed Config values into a repeater's session cache. */
@@ -1202,14 +1213,18 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         },
       };
     }),
-  setRepeaterStatus: (prefix, status) => {
+  setRepeaterStatus: (prefix, status, token) => {
     const { adminSessions } = get();
     const session = adminSessions[prefix];
     // Status belongs to a live, authenticated session. If a late reply lands
     // after log-out (session gone) or before login completes, drop it rather
     // than resurrecting a logged-out session with stale status that would then
-    // leak into the next login. Return before `set` so no listeners are woken.
+    // leak into the next login. A reply whose issuing session has since been
+    // replaced by a re-login is dropped for the same reason: it is not this
+    // session's status, and `statusAt` would date it to now. Return before
+    // `set` so no listeners are woken.
     if (!isAuthedLogin(session?.login)) return;
+    if (token !== undefined && session?.token !== token) return;
     set({
       adminSessions: {
         ...adminSessions,
