@@ -15,7 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { ArrowDown, Send } from 'lucide-react';
-import { useMeshStore, isConvoVisible } from '@/store/meshStore';
+import { useMeshStore, isConvoVisible, canPostToRoom } from '@/store/meshStore';
 import { useMeshCore, MAX_DELIVERY_ATTEMPTS } from '@/hooks/useMeshCore';
 import type { Contact, Message } from '@/types/meshcore';
 import {
@@ -96,9 +96,12 @@ const GROUP_WINDOW_SEC = 5 * 60;
 // The status line under an own bubble. Retries are automatic, so a message
 // still in its cycle reports which attempt it is on and offers nothing to
 // click; only an exhausted one does, and it starts a whole fresh cycle.
+// `canRetry` is false for a room the session may no longer post to, where a
+// retry would be dropped by the server.
 function deliveryDetail(
   t: TFunction,
   msg: Message,
+  canRetry: boolean,
   onRetry: () => void,
 ): React.ReactNode {
   if (!msg.own) return undefined;
@@ -111,13 +114,17 @@ function deliveryDetail(
           label={t('chat.notDelivered')}
           title={t('chat.notDeliveredTooltip')}
         />
-        <span>·</span>
-        <button
-          onClick={onRetry}
-          className='font-semibold underline hover:opacity-80'
-        >
-          {t('chat.tryAgain')}
-        </button>
+        {canRetry && (
+          <>
+            <span>·</span>
+            <button
+              onClick={onRetry}
+              className='font-semibold underline hover:opacity-80'
+            >
+              {t('chat.tryAgain')}
+            </button>
+          </>
+        )}
       </span>
     );
   }
@@ -161,6 +168,17 @@ export function ChatArea() {
   const unreadMarker = useMeshStore((s) =>
     activeConvo ? (s.unreadMarkers[activeConvo.id] ?? null) : null,
   );
+  // A room server's post feed is rendered by this pane inside `RepeaterView`,
+  // which draws the header and owns the login gate, so the only extra this
+  // needs is the room's own identity and the role it granted us.
+  const roomPrefix =
+    activeConvo?.kind === 'room' ? (activeConvo.rawId as string) : null;
+  const roomAccess = useMeshStore((s) =>
+    roomPrefix ? (s.adminSessions[roomPrefix]?.login ?? 'loggedOut') : null,
+  );
+  // A read-only member's post is silently dropped by the room (no ACK, no
+  // post), so the composer is gated on the role rather than on the send.
+  const canPost = roomPrefix === null || canPostToRoom(roomAccess);
   const { sendMessage, retryMessage } = useMeshCore();
   const { t } = useTranslation();
   const convoId = activeConvo?.id ?? null;
@@ -305,13 +323,37 @@ export function ChatArea() {
         if (msg.kind === 'channel') {
           return splitChannelMessage(msg.text).sender?.trim() || '?';
         }
+        // A room post is signed by the member who wrote it; the frame's own
+        // prefix names only the room, so attributing by it would make every
+        // post look like the room's.
+        if (roomPrefix) {
+          if (!msg.authorPrefix) return '?';
+          const author = matchContact(contacts, msg.authorPrefix);
+          // An author the radio has no contact for keeps its raw hex, which
+          // is still an identity the reader can match across posts.
+          return author?.name || msg.authorPrefix;
+        }
         const contact = matchContact(contacts, msg.pubkeyPrefix);
         // Deliberately not `msg.senderName`: that is the name captured when
         // the message arrived, so a removed or renamed contact would keep
         // showing it while the sidebar and the grouping key had moved on.
         return contact?.name || msg.pubkeyPrefix?.slice(0, 8) || '?';
       }),
-    [visibleMessages, contacts, t],
+    [visibleMessages, contacts, roomPrefix, t],
+  );
+  // Which mounted messages are the room's own announcements (published with
+  // its `room.post` CLI command) rather than a member's post — the author
+  // prefix is the room's own key.
+  const announcements = useMemo(
+    () =>
+      visibleMessages.map(
+        (msg) =>
+          !!roomPrefix &&
+          !msg.own &&
+          !!msg.authorPrefix &&
+          roomPrefix.startsWith(msg.authorPrefix),
+      ),
+    [visibleMessages, roomPrefix],
   );
   const senderKeys = useMemo(
     () =>
@@ -324,12 +366,18 @@ export function ChatArea() {
           // `?` label rather than no header at all.
           return sender ? `channel:${sender}` : 'channel:?';
         }
+        // Room posts all arrive from the room, so they group by their author
+        // instead — otherwise every post in the feed would read as one turn.
+        if (roomPrefix) {
+          const author = matchContact(contacts, msg.authorPrefix);
+          return `room:${author?.pubkeyPrefix ?? msg.authorPrefix ?? '?'}`;
+        }
         // The contact's own prefix, so a short and a long frame prefix for the
         // same sender stay one turn.
         const contact = matchContact(contacts, msg.pubkeyPrefix);
         return `direct:${contact?.pubkeyPrefix ?? msg.pubkeyPrefix ?? '?'}`;
       }),
-    [visibleMessages, contacts],
+    [visibleMessages, contacts, roomPrefix],
   );
 
   // Whether each message needs its own sender header. A burst from one contact
@@ -377,10 +425,12 @@ export function ChatArea() {
         if (msg.own || msg.system) continue;
         if (msg.kind === 'channel') {
           add(splitChannelMessage(msg.text).sender ?? undefined);
-        } else if (msg.senderName !== msg.pubkeyPrefix?.slice(0, 8)) {
+        } else {
           // Skip the hex-prefix fallback used for unsaved senders — it's an
-          // identifier, not a mentionable name.
-          add(msg.senderName);
+          // identifier, not a mentionable name. A room post falls back to its
+          // author's prefix, not to the room's.
+          const identifier = msg.authorPrefix ?? msg.pubkeyPrefix?.slice(0, 8);
+          if (msg.senderName !== identifier) add(msg.senderName);
         }
       }
     }
@@ -631,7 +681,7 @@ export function ChatArea() {
 
   const handleSend = useCallback(async () => {
     const body = text;
-    if (!body.trim() || !activeConvo || overLimit) return;
+    if (!body.trim() || !activeConvo || overLimit || !canPost) return;
     // Clear and refocus optimistically, before the radio I/O, and with no
     // in-flight lockout: a send can sit behind the radio's command queue for
     // ten seconds, the bubble's own status already tracks it, and the client
@@ -642,7 +692,15 @@ export function ChatArea() {
     setMentionQuery(null);
     textareaRef.current?.focus();
     await sendMessage(body, activeConvo);
-  }, [text, activeConvo, overLimit, sendMessage, setDraft, setMentionQuery]);
+  }, [
+    text,
+    activeConvo,
+    overLimit,
+    canPost,
+    sendMessage,
+    setDraft,
+    setMentionQuery,
+  ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // While the suggestion popover is open, arrows move the highlight and
@@ -704,20 +762,23 @@ export function ChatArea() {
 
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
-      {/* Chat header */}
-      <div className='flex shrink-0 items-center gap-2.5 border-b px-4 py-3 bg-surface border-border'>
-        <span className='text-lg'>{icon}</span>
-        <span className='text-[15px] font-semibold'>{activeConvo.label}</span>
-        {directContact && <RouteChip contact={directContact} />}
-        <span className='ml-auto text-xs text-text2'>
-          {activeConvo.kind === 'channel'
-            ? t('common.channelName', { index: activeConvo.rawId })
-            : formatPubkey(
-                directContact?.pubkey ?? (activeConvo.rawId as string),
-                showFullPublicKeys,
-              )}
-        </span>
-      </div>
+      {/* Chat header. A room's feed is embedded in RepeaterView, which already
+          heads the pane with the room's name, route and access. */}
+      {!roomPrefix && (
+        <div className='flex shrink-0 items-center gap-2.5 border-b px-4 py-3 bg-surface border-border'>
+          <span className='text-lg'>{icon}</span>
+          <span className='text-[15px] font-semibold'>{activeConvo.label}</span>
+          {directContact && <RouteChip contact={directContact} />}
+          <span className='ml-auto text-xs text-text2'>
+            {activeConvo.kind === 'channel'
+              ? t('common.channelName', { index: activeConvo.rawId })
+              : formatPubkey(
+                  directContact?.pubkey ?? (activeConvo.rawId as string),
+                  showFullPublicKeys,
+                )}
+          </span>
+        </div>
+      )}
 
       {/* Messages */}
       <div className='relative flex flex-1 flex-col overflow-hidden'>
@@ -736,7 +797,7 @@ export function ChatArea() {
         >
           {messages.length === 0 && (
             <div className='mt-8 text-center text-xs text-text2'>
-              {t('chat.noMessages')}
+              {t(roomPrefix ? 'room.noPosts' : 'chat.noMessages')}
             </div>
           )}
           {/* One pixel tall, not zero: a zero-area target is not a reliable
@@ -784,12 +845,18 @@ export function ChatArea() {
                   {!msg.system && showHeader[i] && (
                     <div
                       className={
-                        msg.own ? 'sr-only' : 'px-1 text-[11px] text-text2'
+                        msg.own
+                          ? 'sr-only'
+                          : announcements[i]
+                            ? 'px-1 text-[11px] font-semibold text-accent'
+                            : 'px-1 text-[11px] text-text2'
                       }
                     >
-                      {senderLabels[i] === '?'
-                        ? t('common.unknown')
-                        : senderLabels[i]}
+                      {announcements[i]
+                        ? t('room.announcement', { name: senderLabels[i] })
+                        : senderLabels[i] === '?'
+                          ? t('common.unknown')
+                          : senderLabels[i]}
                     </div>
                   )}
                   <MessageBubble
@@ -797,7 +864,7 @@ export function ChatArea() {
                     text={bodyText}
                     deviceName={deviceName}
                     mentioned={mentioned}
-                    statusActions={deliveryDetail(t, msg, () =>
+                    statusActions={deliveryDetail(t, msg, canPost, () =>
                       retryMessage(msg, activeConvo),
                     )}
                   />
@@ -824,6 +891,10 @@ export function ChatArea() {
       {directContact?.advType === ADV_TYPE_REPEATER ? (
         <div className='shrink-0 border-t px-4 py-3 text-center text-xs text-text2 bg-surface border-border'>
           {t('chat.repeaterCantMessage')}
+        </div>
+      ) : !canPost ? (
+        <div className='shrink-0 border-t px-4 py-3 text-center text-xs text-text2 bg-surface border-border'>
+          {t('room.readOnly')}
         </div>
       ) : (
         <div className='relative flex shrink-0 flex-col border-t bg-surface border-border'>
@@ -879,8 +950,12 @@ export function ChatArea() {
                 handleKeyUp as unknown as React.MouseEventHandler<HTMLTextAreaElement>
               }
               rows={1}
-              placeholder={t('chat.placeholder')}
-              aria-label={t('chat.placeholder')}
+              placeholder={t(
+                roomPrefix ? 'room.placeholder' : 'chat.placeholder',
+              )}
+              aria-label={t(
+                roomPrefix ? 'room.placeholder' : 'chat.placeholder',
+              )}
               aria-autocomplete='list'
               aria-controls={
                 suggestions.length > 0 ? MENTION_LISTBOX_ID : undefined

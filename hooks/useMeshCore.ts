@@ -15,8 +15,11 @@ import {
   useMeshStore,
   channelConvoId,
   directConvoId,
+  roomConvoId,
   selectPreferences,
   isConvoVisible,
+  isAuthedLogin,
+  canPostToRoom,
   type ConnectErrorCode,
 } from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
@@ -40,6 +43,7 @@ import {
   ROUTE_TYPE_FLOOD,
   PAYLOAD_TYPE_GRP_TXT,
   ADV_TYPE_REPEATER,
+  ADV_TYPE_ROOM,
   FAVORITE_FLAG,
   ERR_CODE,
   ADVERT_LOC_POLICY,
@@ -66,7 +70,7 @@ import type {
   RadioParams,
   Message,
   RawRxPacket,
-  RepeaterAccess,
+  LoginKind,
   SendReceipt,
   ITransport,
   TransportKind,
@@ -665,6 +669,17 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
     );
     return;
   }
+  // Every attempt is re-gated on post access, not just the first: logging out
+  // (or being downgraded) between an attempt and its ACK timeout would
+  // otherwise keep transmitting into a room that silently drops the post.
+  if (
+    cycle.convo.kind === 'room' &&
+    !canPostToRoom(store.adminSessions[cycle.contactKey]?.login)
+  ) {
+    settleUndelivered(cycle);
+    store.showToast(i18n.t('toast.roomPostNoAccess'), 'error');
+    return;
+  }
   store.updateMessage(cycle.convo.id, cycle.msgId, {
     status: 'sending',
     attempt: cycle.attempt,
@@ -1054,10 +1069,23 @@ export function useMeshCore() {
             // contact. The sidebar keys conversations off the contact, so use
             // its prefix or the thread splits in two.
             const prefix = contact?.pubkeyPrefix ?? msg.pubkeyPrefix;
-            const id = directConvoId(prefix);
+            // A room server's traffic is its post feed, which lives in its own
+            // namespace so it never shares a transcript with the admin CLI.
+            const isRoom = contact?.advType === ADV_TYPE_ROOM;
+            const id = isRoom ? roomConvoId(prefix) : directConvoId(prefix);
+            // A post is signed by the member who wrote it, so the frame's own
+            // prefix names only the room. Contacts are keyed on six bytes and
+            // the signature carries four, which `lookupContact` matches either
+            // way; an author we have never heard of keeps its raw hex.
+            const author =
+              isRoom && msg.authorPrefix
+                ? c.lookupContact(msg.authorPrefix)
+                : undefined;
             // An empty contact name would leave "New message from " dangling,
             // so fall back to the prefix exactly as the sidebar does.
-            const sender = contact?.name || prefix.slice(0, 8);
+            const sender = isRoom
+              ? author?.name || msg.authorPrefix || prefix.slice(0, 8)
+              : contact?.name || prefix.slice(0, 8);
             // Carry the contact's prefix on the message too: automation
             // filters and direct-reply lookups match this field exactly, so a
             // longer v3 prefix would skip a contact-scoped rule or fail a
@@ -1071,12 +1099,19 @@ export function useMeshCore() {
             const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
             if (!visible && state.status === 'connected') {
-              showToast(i18n.t('toast.newMessageFrom', { sender }), '', {
-                kind: 'direct',
-                id,
-                rawId: prefix,
-                label: sender,
-              });
+              const room = contact?.name || prefix.slice(0, 8);
+              showToast(
+                isRoom
+                  ? i18n.t('toast.newPostIn', { room })
+                  : i18n.t('toast.newMessageFrom', { sender }),
+                '',
+                {
+                  kind: isRoom ? 'room' : 'direct',
+                  id,
+                  rawId: prefix,
+                  label: isRoom ? room : sender,
+                },
+              );
             }
             emit({ type: 'message', msg: enriched });
           }
@@ -1451,8 +1486,10 @@ export function useMeshCore() {
         }
         return;
       }
-      // Repeater conversations are remote-admin consoles, not chats.
-      if (convo.kind !== 'direct') return;
+      // Repeater conversations are remote-admin consoles, not chats. A room
+      // post is an ordinary plain-text direct message to the room contact,
+      // acked by the room once it accepts the post.
+      if (convo.kind !== 'direct' && convo.kind !== 'room') return;
       await startDeliveryCycle(convo, msgId, text);
     },
     [client, updateMessage, showToast],
@@ -1474,7 +1511,10 @@ export function useMeshCore() {
       const msgId = crypto.randomUUID();
       addMessage(activeConvo.id, {
         id: msgId,
-        kind: activeConvo.kind,
+        // A room post travels as a direct message; only its conversation
+        // namespace differs, so the bubble keeps the direct-message kind and
+        // its delivery reporting.
+        kind: activeConvo.kind === 'room' ? 'direct' : activeConvo.kind,
         text: trimmed,
         own: true,
         timestamp: Math.floor(Date.now() / 1000),
@@ -1501,6 +1541,16 @@ export function useMeshCore() {
         !convo ||
         !msg.id ||
         msg.status !== 'failed'
+      ) {
+        return;
+      }
+      // The session may have been downgraded (or logged out) since the post
+      // failed, and a read-only member's retry would be dropped by the room.
+      if (
+        convo.kind === 'room' &&
+        !canPostToRoom(
+          useMeshStore.getState().adminSessions[String(convo.rawId)]?.login,
+        )
       ) {
         return;
       }
@@ -1555,11 +1605,12 @@ export function useMeshCore() {
 
   /**
    * Logs in to a repeater/room server for remote admin. Marks the session
-   * `pending`, then on success the level the user selected (`kind`) or
-   * `loggedOut` on failure (surfaced via toast). `client.login()` is awaited so
-   * a wrong password still fails, but its server-reported role is not used for
-   * the label: a blank/guest login re-uses an admin-enrolled node's stored ACL
-   * role, which would otherwise show a guest session as admin. When `remember`
+   * `pending`, then on success the granted level, or `loggedOut` on failure
+   * (surfaced via toast). A room server's own reported role wins, because it
+   * is what decides whether the member may post; a repeater's is ignored in
+   * favour of the level the user selected (`kind`), since a blank/guest login
+   * re-uses an admin-enrolled node's stored ACL role and would otherwise show
+   * a guest session as admin. When `remember`
    * is set, the password is persisted encrypted per-radio in the `secrets`
    * store (never in the store, prefs blob, or localStorage); otherwise it is
    * not persisted.
@@ -1568,21 +1619,24 @@ export function useMeshCore() {
     async (
       contact: Contact,
       password: string,
-      kind: RepeaterAccess,
+      kind: LoginKind,
       remember: boolean,
     ) => {
       if (!canTransmit(client)) return;
       setAdminLogin(contact.pubkeyPrefix, 'pending');
       try {
-        await client.login(contact, password);
+        const granted = await client.login(contact, password);
         // A drop during login can tear the session down; don't revive it.
         if (!canTransmit(client)) return;
-        // Reflect the access level the user chose (admin/guest), not the role
-        // the node reports back. A node re-uses your existing ACL role for a
-        // blank/guest login, so an admin-enrolled node would otherwise report
-        // admin even when you intended a read-only guest session. The node
-        // still enforces real permissions (rejecting unauthorized writes).
-        setAdminLogin(contact.pubkeyPrefix, kind);
+        // A room grants three roles and the middle one (the room password)
+        // is what decides whether the composer may post, so its
+        // server-reported role is authoritative. A repeater reflects the
+        // level the user chose instead: it re-uses your existing ACL role for
+        // a blank/guest login, so an admin-enrolled node would otherwise
+        // report admin even when you intended a read-only guest session. The
+        // node still enforces real permissions either way.
+        const isRoom = contact.advType === ADV_TYPE_ROOM;
+        setAdminLogin(contact.pubkeyPrefix, (isRoom && granted) || kind);
         // Only a successful login is ever remembered, so a wrong password can't
         // be persisted. The credential lives solely in the encrypted per-radio
         // secrets store — never the store, prefs blob, or localStorage.
@@ -1688,7 +1742,7 @@ export function useMeshCore() {
         const session = useMeshStore.getState().adminSessions[prefix];
         if (
           !session ||
-          (session.login !== 'admin' && session.login !== 'guest') ||
+          !isAuthedLogin(session.login) ||
           session.token !== enqueuedToken
         ) {
           return Promise.reject(

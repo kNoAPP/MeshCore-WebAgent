@@ -13,6 +13,7 @@ import {
   isActiveStatus,
   openConvo,
   repeaterConvoId,
+  roomConvoId,
   useMeshStore,
   type AppView,
   type SettingsSection,
@@ -58,6 +59,7 @@ function parseConvoRef(raw: string): string | null {
   if (!PUBKEY_PREFIX_RE.test(rawId)) return null;
   if (kind === 'direct') return directConvoId(rawId);
   if (kind === 'repeater') return repeaterConvoId(rawId);
+  if (kind === 'room') return roomConvoId(rawId);
   return null;
 }
 
@@ -114,15 +116,17 @@ function resolveConvo(ref: string): ActiveConvo | null {
   }
   const contact = contacts[rawId];
   if (!contact) return null;
-  // The contact's advert type — not the kind in the hash — decides whether this
-  // is a chat or an admin view, mirroring the sidebar, so a hand-edited link
-  // can't open the wrong surface for a node.
-  const isAdminNode =
-    contact.advType === ADV_TYPE_REPEATER || contact.advType === ADV_TYPE_ROOM;
+  // The contact's advert type — not the kind in the hash — decides which
+  // surface this opens, mirroring the sidebar, so a hand-edited link can't
+  // open the wrong one for a node.
   const label = contact.name || rawId.slice(0, 8);
-  return isAdminNode
-    ? { kind: 'repeater', id: repeaterConvoId(rawId), rawId, label }
-    : { kind: 'direct', id: directConvoId(rawId), rawId, label };
+  if (contact.advType === ADV_TYPE_REPEATER) {
+    return { kind: 'repeater', id: repeaterConvoId(rawId), rawId, label };
+  }
+  if (contact.advType === ADV_TYPE_ROOM) {
+    return { kind: 'room', id: roomConvoId(rawId), rawId, label };
+  }
+  return { kind: 'direct', id: directConvoId(rawId), rawId, label };
 }
 
 /** Total unread messages across every conversation. */

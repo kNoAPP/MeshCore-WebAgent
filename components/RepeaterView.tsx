@@ -14,12 +14,12 @@ import {
 import { useTranslation } from 'react-i18next';
 import dynamic from 'next/dynamic';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
-import { useMeshStore } from '@/store/meshStore';
+import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { parseNeighborsReply } from '@/lib/meshcore/repeaterCli';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
-import { ADV_TYPE_REPEATER } from '@/lib/meshcore/constants';
+import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import { locateNeighborNode } from '@/lib/map/nodes';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
@@ -30,12 +30,18 @@ import {
   formatUptime,
   formatVoltage,
 } from '@/lib/i18n/format';
-import { formatPubkey } from '@/lib/utils';
+import { ADV_ICON, formatPubkey } from '@/lib/utils';
+import { ChatArea } from './ChatArea';
 import { RouteChip } from './RouteChip';
 import { StatCard } from './StatCard';
 import { RefreshButton } from './RefreshButton';
 import { RepeaterConfigTab } from './RepeaterConfigTab';
-import type { Contact, RepeaterAccess, RepeaterStatus } from '@/types/meshcore';
+import type {
+  Contact,
+  LoginKind,
+  RepeaterAccess,
+  RepeaterStatus,
+} from '@/types/meshcore';
 
 // Leaflet and the neighbors map are loaded only when a located repeater with
 // locatable neighbors opens the tab, keeping the initial bundle lean. `ssr:
@@ -55,20 +61,21 @@ function approxBatteryPercent(milliVolts: number): number {
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
-type RepeaterTab = 'status' | 'config' | 'neighbors' | 'console';
+type RepeaterTab = 'posts' | 'status' | 'config' | 'neighbors' | 'console';
 
 /**
- * The main-window remote-admin view for a repeater or room server, shown in
- * place of the chat pane when either is selected in the sidebar (or the command
- * palette). Resolves the target contact from the active conversation; renders
- * nothing useful if it has been evicted.
+ * The main-window view for a repeater or room server, shown in place of the
+ * chat pane when either is selected in the sidebar (or the command palette). A
+ * room opens on its post feed; a repeater on remote-admin status. Resolves the
+ * target contact from the active conversation; renders nothing useful if it
+ * has been evicted.
  */
 export function RepeaterView() {
   const { t } = useTranslation();
   const activeConvo = useMeshStore((s) => s.activeConvo);
   const contacts = useMeshStore((s) => s.contacts);
   const prefix =
-    activeConvo?.kind === 'repeater'
+    activeConvo?.kind === 'repeater' || activeConvo?.kind === 'room'
       ? (activeConvo.rawId as string)
       : undefined;
   const contact = prefix ? contacts[prefix] : undefined;
@@ -94,42 +101,70 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
 
   const login = session?.login ?? 'loggedOut';
-  const authed = login === 'admin' || login === 'guest';
+  const authed = isAuthedLogin(login);
   const prefix = contact.pubkeyPrefix;
 
-  // Which tabs this session may see. Status is available to guests too (the
-  // firmware answers a status request for any authed client), but every other
-  // surface is admin-only: current repeater/room firmware handles remote
-  // `TXT_TYPE_CLI_DATA` only for `client->isAdmin()`, so a guest gets no reply
-  // to a config read, neighbors query, or console command. Neighbors is
-  // additionally repeater-only — a room server's `formatNeighborsReply`
-  // returns "not supported".
+  // Which tabs this session may see. A room's post feed comes first and is
+  // open to every logged-in role (a read-only member may read, just not post).
+  // Status is available to guests too (the firmware answers a status request
+  // for any authed client), but every other surface is admin-only: current
+  // repeater/room firmware handles remote `TXT_TYPE_CLI_DATA` only for
+  // `client->isAdmin()`, so a guest gets no reply to a config read, neighbors
+  // query, or console command. Neighbors is additionally repeater-only — a
+  // room server's `formatNeighborsReply` returns "not supported".
   const isAdmin = login === 'admin';
   const isRepeater = contact.advType === ADV_TYPE_REPEATER;
+  const isRoom = contact.advType === ADV_TYPE_ROOM;
   const tabs = useMemo<RepeaterTab[]>(() => {
-    const list: RepeaterTab[] = ['status'];
+    const list: RepeaterTab[] = isRoom ? ['posts', 'status'] : ['status'];
     if (isAdmin) list.push('config');
     if (isAdmin && isRepeater) list.push('neighbors');
     if (isAdmin) list.push('console');
     return list;
-  }, [isAdmin, isRepeater]);
-  const [tab, setTab] = useState<RepeaterTab>(() => {
-    // Returning from the map picker (Set on map in the Config tab) reopens on
-    // Config so the just-picked coordinate lands where the user left off.
+  }, [isAdmin, isRepeater, isRoom]);
+  // Where a fresh selection of this node lands. Returning from the map picker
+  // (Set on map in the Config tab) reopens on Config so the just-picked
+  // coordinate arrives where the user left off.
+  const defaultTab = (): RepeaterTab => {
     const s = useMeshStore.getState();
     return s.pendingLocation && s.locationPickReturn === 'chat'
       ? 'config'
-      : 'status';
-  });
-  // The selected tab clamped to what this session may see. `tab` persists a
+      : isRoom
+        ? 'posts'
+        : 'status';
+  };
+  // Selecting this node again — from its toast, its sidebar row or the command
+  // palette — must return to the default tab, or the post that was pointed at
+  // stays hidden behind Status. The view is keyed by node, so re-opening the
+  // one already on screen does not remount it; `convoOpenSeq` is what makes
+  // that navigation visible here.
+  const convoOpenSeq = useMeshStore((s) => s.convoOpenSeq);
+  const [selection, setSelection] = useState(() => ({
+    seq: convoOpenSeq,
+    tab: defaultTab(),
+  }));
+  if (selection.seq !== convoOpenSeq) {
+    setSelection({ seq: convoOpenSeq, tab: defaultTab() });
+  }
+  const setTab = (tab: RepeaterTab) => setSelection({ seq: convoOpenSeq, tab });
+  // The selected tab clamped to what this session may see. It persists a
   // logout/re-login (the view stays mounted), so an admin who was on
   // Neighbors/Console and logs back in as a guest must not keep rendering a
-  // now-hidden panel — fall back to Status.
-  const activeTab = tabs.includes(tab) ? tab : 'status';
+  // now-hidden panel — fall back to the first tab this session may see.
+  const activeTab = tabs.includes(selection.tab) ? selection.tab : tabs[0];
   // True only during the initial credential probe (from a clean logged-out
   // state), so we show a brief spinner instead of flashing the login form
   // before auto-login runs. A `pending` login shows the disabled gate instead.
   const [checking, setChecking] = useState(login === 'loggedOut');
+
+  // Report whether the post feed is actually rendered, so arrivals behind the
+  // login gate or another tab stay unread and keep their toast.
+  const setVisibleRoomFeed = useMeshStore((s) => s.setVisibleRoomFeed);
+  const feedVisible = isRoom && authed && activeTab === 'posts';
+  useEffect(() => {
+    setVisibleRoomFeed(feedVisible ? roomConvoId(prefix) : null);
+    return () => setVisibleRoomFeed(null);
+  }, [feedVisible, prefix, setVisibleRoomFeed]);
 
   // Captured once at mount (the component is keyed by `prefix`, so it remounts
   // per repeater). The auto-login effect reads these without listing them as
@@ -184,7 +219,7 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
     <div className='flex flex-1 flex-col overflow-hidden'>
       {/* Header */}
       <div className='flex shrink-0 items-center gap-2.5 border-b px-4 py-3 bg-surface border-border'>
-        <span className='text-lg'>📡</span>
+        <span className='text-lg'>{ADV_ICON[contact.advType] ?? '📡'}</span>
         <span className='text-[15px] font-semibold'>
           {contact.name || contact.pubkeyPrefix.slice(0, 8)}
         </span>
@@ -212,8 +247,15 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
             id='repeater-tabpanel'
             role='tabpanel'
             aria-labelledby={`repeater-tab-${activeTab}`}
-            className='flex-1 overflow-y-auto p-4'
+            // The post feed brings its own scroller and composer, so it fills
+            // the panel instead of sitting inside a padded one.
+            className={
+              activeTab === 'posts'
+                ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+                : 'flex-1 overflow-y-auto p-4'
+            }
           >
+            {activeTab === 'posts' && <ChatArea />}
             {activeTab === 'status' && (
               <StatusDashboard
                 status={session?.status}
@@ -235,6 +277,7 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
             <div className='w-full max-w-md'>
               <LoginGate
                 pending={login === 'pending'}
+                isRoom={isRoom}
                 onSubmit={(password, kind, remember) =>
                   void repeaterLogin(contact, password, kind, remember)
                 }
@@ -257,9 +300,7 @@ function AccessChip({ access }: { access: RepeaterAccess }) {
           : 'bg-surface2 text-text2'
       }`}
     >
-      {access === 'admin'
-        ? t('repeaterAdmin.access.admin')
-        : t('repeaterAdmin.access.guest')}
+      {t(`repeaterAdmin.access.${access}`)}
     </span>
   );
 }
@@ -309,19 +350,25 @@ function TabBar({
 
 // The password is never auto-filled: it stays in local state and is persisted
 // (encrypted, per-radio) only when the user opts in via the remember toggle.
+// A room offers the same two choices, but its non-admin password is the room
+// password, which grants posting — the server reports the role it actually
+// granted, so the label here is only about which password is being entered.
 function LoginGate({
   pending,
+  isRoom,
   onSubmit,
 }: {
   pending: boolean;
-  onSubmit: (password: string, kind: RepeaterAccess, remember: boolean) => void;
+  isRoom: boolean;
+  onSubmit: (password: string, kind: LoginKind, remember: boolean) => void;
 }) {
   const { t } = useTranslation();
   const passwordId = useId();
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [kind, setKind] = useState<RepeaterAccess>('admin');
+  const [kind, setKind] = useState<LoginKind>('admin');
   const [remember, setRemember] = useState(false);
+  const scope = isRoom ? 'room.login' : 'repeaterAdmin.login';
 
   const submit = () => {
     // An empty password is a valid guest login; only Admin requires one.
@@ -337,7 +384,7 @@ function LoginGate({
         submit();
       }}
     >
-      <p className='text-sm text-text2'>{t('repeaterAdmin.login.prompt')}</p>
+      <p className='text-sm text-text2'>{t(`${scope}.prompt`)}</p>
 
       <div
         role='radiogroup'
@@ -365,10 +412,10 @@ function LoginGate({
             }`}
           >
             <span className='block text-sm font-medium text-text'>
-              {t(`repeaterAdmin.login.${k}`)}
+              {t(`${scope}.${k}`)}
             </span>
             <span className='block text-xs text-text2'>
-              {t(`repeaterAdmin.login.${k}Hint`)}
+              {t(`${scope}.${k}Hint`)}
             </span>
           </button>
         ))}

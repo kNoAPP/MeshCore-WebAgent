@@ -187,6 +187,12 @@ function eventPromptContent(event: MeshEvent): string {
     // (via send_direct_message with to=<id>) without a read_contacts lookup.
     const id = event.msg.pubkeyPrefix ?? '';
     const idHint = id ? ` (sender contact id: ${id})` : '';
+    // A room post is signed by a member but addressed from the room, so the
+    // id above is the room's, not the author's — say so, or the model reads
+    // the two as one node and later reuses the room id as the author's.
+    if (event.msg.authorPrefix) {
+      return `A new room post arrived from ${who} in room ${id}: "${event.msg.text}". To post a reply in that room, use send_direct_message with to="${id}".`;
+    }
     return `A new direct message arrived from ${who}${idHint}: "${event.msg.text}". To reply, use send_direct_message with to="${id}".`;
   }
   return eventLabel(event);

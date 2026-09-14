@@ -27,6 +27,7 @@ import {
   channelConvoId,
   directConvoId,
   repeaterConvoId,
+  roomConvoId,
   unreadCount,
   clampSidebarWidth,
   CONTACT_FILTERS,
@@ -110,7 +111,13 @@ function lastMessageTime(
   msgHistory: Record<string, Message[]>,
   contact: Contact,
 ): number {
-  const msgs = msgHistory[directConvoId(contact.pubkeyPrefix)];
+  // A room's activity is its post feed, which is keyed separately from chats.
+  const msgs =
+    msgHistory[
+      contact.advType === ADV_TYPE_ROOM
+        ? roomConvoId(contact.pubkeyPrefix)
+        : directConvoId(contact.pubkeyPrefix)
+    ];
   if (!msgs?.length) return 0;
   let latest = 0;
   for (const m of msgs) {
@@ -583,13 +590,16 @@ export function Sidebar() {
         <div className='flex-1 overflow-y-auto'>
           <ul aria-labelledby='sidebar-contacts'>
             {sortedContacts.map((c) => {
-              // Repeaters and room servers are remote-admin targets, so
-              // selecting one opens its admin view instead of a chat.
-              const isAdminNode =
-                c.advType === ADV_TYPE_REPEATER || c.advType === ADV_TYPE_ROOM;
-              const id = isAdminNode
+              // Repeaters open their remote-admin view and rooms their post
+              // feed, so selecting either opens something other than a chat.
+              const isRepeater = c.advType === ADV_TYPE_REPEATER;
+              const isRoom = c.advType === ADV_TYPE_ROOM;
+              const kind = isRepeater ? 'repeater' : isRoom ? 'room' : 'direct';
+              const id = isRepeater
                 ? repeaterConvoId(c.pubkeyPrefix)
-                : directConvoId(c.pubkeyPrefix);
+                : isRoom
+                  ? roomConvoId(c.pubkeyPrefix)
+                  : directConvoId(c.pubkeyPrefix);
               const unread = unreadCount(msgHistory, id);
               const active = activeConvo?.id === id;
               const isFav = (c.flags & FAVORITE_FLAG) !== 0;
@@ -620,7 +630,7 @@ export function Sidebar() {
                   }
                   onClick={() =>
                     openConvo({
-                      kind: isAdminNode ? 'repeater' : 'direct',
+                      kind,
                       id,
                       rawId: c.pubkeyPrefix,
                       label,

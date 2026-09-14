@@ -88,6 +88,7 @@ export interface Message {
   timestamp?: number;
   channelIdx?: number;
   pubkeyPrefix?: string;
+  authorPrefix?: string; // signed message's 4-byte author pubkey prefix (hex); a room post's real sender
   senderName?: string;
   snr?: number | null;
   pathLen?: number; // hops the received message traveled (0 = heard directly)
@@ -278,14 +279,22 @@ export interface RepeaterStatus {
  * Access level a repeater/room server grants a login, decoded from the ACL role
  * bits of the `PUSH_LOGIN_SUCCESS` permissions byte. The server — not the
  * client — decides this from the password it accepted, so it is authoritative.
- * The two non-admin roles (read-only, read-write) collapse to `guest` here.
+ * `guest` covers both roles the firmware declares read-only (`PERM_ACL_GUEST`
+ * and `PERM_ACL_READ_ONLY`); only `readWrite` (the room password) and `admin`
+ * are treated as able to post.
  */
-export type RepeaterAccess = 'admin' | 'guest';
+export type RepeaterAccess = 'admin' | 'readWrite' | 'guest';
+
+/**
+ * Which password a repeater/room login is attempting. Only these two are
+ * offered: `readWrite` is a role a room grants, never one the user asks for.
+ */
+export type LoginKind = Extract<RepeaterAccess, 'admin' | 'guest'>;
 
 /** The conversation currently open in the UI. */
 export interface ActiveConvo {
-  kind: 'channel' | 'direct' | 'repeater';
-  id: string; // e.g. "channel:0", "direct:b6cf429f4882", or "repeater:b6cf429f4882"
+  kind: 'channel' | 'direct' | 'repeater' | 'room';
+  id: string; // e.g. "channel:0", "direct:b6cf429f4882", or "room:b6cf429f4882"
   rawId: string | number;
   label: string;
 }

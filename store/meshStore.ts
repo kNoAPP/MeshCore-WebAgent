@@ -295,6 +295,28 @@ export interface ReconnectProgress {
  */
 export type AdminLoginState = 'loggedOut' | 'pending' | RepeaterAccess;
 
+/**
+ * Whether a session reached an accepted, server-granted login — any of the
+ * {@link RepeaterAccess} levels, as opposed to the handshake or logged-out
+ * states.
+ */
+export function isAuthedLogin(
+  login: AdminLoginState | undefined,
+): login is RepeaterAccess {
+  return login != null && login !== 'loggedOut' && login !== 'pending';
+}
+
+/**
+ * Whether a room session's granted role may publish posts. Read-only roles
+ * have their post dropped by the server without an ack, so every path that can
+ * put a post on the air — composer, retry, automation — gates on this.
+ */
+export function canPostToRoom(
+  login: AdminLoginState | null | undefined,
+): boolean {
+  return login === 'admin' || login === 'readWrite';
+}
+
 /** One line of a repeater CLI transcript. */
 export interface CliLine {
   /** `true` for a command we sent, `false` for the repeater's reply. */
@@ -425,6 +447,13 @@ interface MeshState {
   lastAppends: Record<string, MessageAppend>;
   activeConvo: ActiveConvo | null;
   /**
+   * Bumped on every selection, including re-selecting the conversation already
+   * open. The repeater/room view is keyed by node and so does not remount on a
+   * repeat selection; this is how it notices one and returns to its default
+   * tab.
+   */
+  convoOpenSeq: number;
+  /**
    * Id of a message the open conversation should scroll to and briefly
    * highlight, set when navigating from the command palette. One-shot: cleared
    * by {@link ChatArea} once consumed.
@@ -499,6 +528,13 @@ interface MeshState {
    * alt-tabbed window keeps accumulating unread messages.
    */
   windowFocused: boolean;
+  /**
+   * Conversation id of the room post feed currently rendered, or `null`. A
+   * room shares its pane with the admin tabs and sits behind a login gate, so
+   * unlike a chat it can be the open conversation while its feed is off
+   * screen. Set by the view that renders the feed.
+   */
+  visibleRoomFeed: string | null;
   /**
    * True while the map is in location-pick mode (opened from the Location card
    * in Settings). Drives the map's confirm/cancel banner and click-to-place
@@ -633,6 +669,7 @@ interface MeshActions {
   setView: (view: AppView) => void;
   /** Records whether this browser tab has focus. */
   setWindowFocused: (focused: boolean) => void;
+  setVisibleRoomFeed: (convoId: string | null) => void;
   /** Opens the map to pick a location, returning to `returnTo` on confirm. */
   startLocationPick: (returnTo?: AppView) => void;
   /** Confirms the picked coordinate (degrees) and returns to the caller. */
@@ -727,6 +764,7 @@ const initialState: MeshState = {
   lastArrival: null,
   lastAppends: {},
   activeConvo: null,
+  convoOpenSeq: 0,
   scrollToMsgId: null,
   unreadMarkers: {},
   drafts: {},
@@ -745,6 +783,7 @@ const initialState: MeshState = {
   reconnectProgress: null,
   view: 'chat',
   windowFocused: true,
+  visibleRoomFeed: null,
   mapPicking: false,
   pendingLocation: null,
   locationPickReturn: 'settings',
@@ -940,7 +979,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       };
     }),
 
-  setActiveConvo: (activeConvo) => set({ activeConvo }),
+  setActiveConvo: (activeConvo) =>
+    set((s) => ({ activeConvo, convoOpenSeq: s.convoOpenSeq + 1 })),
 
   setScrollToMsgId: (scrollToMsgId) => set({ scrollToMsgId }),
 
@@ -1045,6 +1085,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({ windowFocused });
     if (windowFocused) catchUpVisibleConvo();
   },
+  setVisibleRoomFeed: (visibleRoomFeed) => {
+    if (get().visibleRoomFeed === visibleRoomFeed) return;
+    set({ visibleRoomFeed });
+    // Revealing the feed is the moment its backlog becomes seen, the same way
+    // refocusing the tab is for a chat.
+    if (visibleRoomFeed) catchUpVisibleConvo();
+  },
   startLocationPick: (returnTo = 'settings') =>
     set({ mapPicking: true, view: 'map', locationPickReturn: returnTo }),
   confirmLocationPick: (lat, lon) => {
@@ -1148,7 +1195,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // after log-out (session gone) or before login completes, drop it rather
     // than resurrecting a logged-out session with stale status that would then
     // leak into the next login. Return before `set` so no listeners are woken.
-    if (session?.login !== 'admin' && session?.login !== 'guest') return;
+    if (!isAuthedLogin(session?.login)) return;
     set({
       adminSessions: {
         ...adminSessions,
@@ -1162,7 +1209,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // Neighbors belong to a live, authenticated session. Drop a late reply
     // that lands after log-out or before login completes, matching
     // setRepeaterStatus, so it can't resurrect a logged-out session.
-    if (session?.login !== 'admin' && session?.login !== 'guest') return;
+    if (!isAuthedLogin(session?.login)) return;
     set({
       adminSessions: {
         ...adminSessions,
@@ -1343,7 +1390,10 @@ export function isConvoVisible(state: MeshState, id: string): boolean {
     state.openModals === 0 &&
     state.activeConvo?.id === id &&
     state.view === 'chat' &&
-    state.windowFocused
+    state.windowFocused &&
+    // Selecting a room is not enough: its feed is one tab of a pane that also
+    // holds the admin surfaces, and is hidden entirely until the login lands.
+    (state.activeConvo.kind !== 'room' || state.visibleRoomFeed === id)
   );
 }
 
@@ -1381,4 +1431,13 @@ export function directConvoId(prefix: string): string {
  */
 export function repeaterConvoId(prefix: string): string {
   return convoId('repeater', prefix);
+}
+
+/**
+ * Builds the conversation id for a room server's post feed (by pubkey prefix).
+ * Separate from {@link repeaterConvoId} so the posts never share a transcript
+ * with the room's remote-admin CLI.
+ */
+export function roomConvoId(prefix: string): string {
+  return convoId('room', prefix);
 }

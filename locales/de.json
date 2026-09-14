@@ -559,9 +559,11 @@
     "contactUnavailable": "Dieser Knoten ist nicht mehr verfügbar.",
     "access": {
       "admin": "Admin",
+      "readWrite": "Mitglied",
       "guest": "Gast"
     },
     "tabs": {
+      "posts": "Beiträge",
       "status": "Status",
       "config": "Konfiguration",
       "neighbors": "Nachbarn",
@@ -776,6 +778,19 @@
       }
     }
   },
+  "room": {
+    "noPosts": "Noch keine Beiträge",
+    "placeholder": "Beitrag schreiben… (Enter zum Senden, Umschalt+Enter für neue Zeile)",
+    "readOnly": "Sie haben nur Lesezugriff auf diesen Raum und können daher nichts veröffentlichen.",
+    "announcement": "{{name}} · Ankündigung",
+    "login": {
+      "prompt": "Melden Sie sich an, um Beiträge zu lesen und zu veröffentlichen.",
+      "admin": "Admin",
+      "adminHint": "Admin-Passwort — Veröffentlichen und Fernverwaltung",
+      "guest": "Mitglied",
+      "guestHint": "Raumpasswort oder leer — der Raum entscheidet über den gewährten Zugriff"
+    }
+  },
   "route": {
     "noRouteFloods": "Keine Route — Flood",
     "directHops": "Direkt (0 Hops)",
@@ -960,6 +975,8 @@
     "newMessageIn": "Neue Nachricht in {{channel}}",
     "newMessageInFrom": "{{sender}} in {{channel}}",
     "newMessageFrom": "Neue Nachricht von {{sender}}",
+    "newPostIn": "Neuer Beitrag in {{room}}",
+    "roomPostNoAccess": "Sie dürfen in diesem Raum nicht mehr veröffentlichen",
     "connected": "Verbunden — {{device}}",
     "connectionFailed": "Verbindung fehlgeschlagen",
     "radioNoResponse": "Funkgerät hat nicht geantwortet — bitte erneut verbinden",

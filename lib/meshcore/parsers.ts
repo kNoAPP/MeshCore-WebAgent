@@ -22,6 +22,7 @@ import {
   TXT_TYPE,
   PERM_ACL_ROLE_MASK,
   PERM_ACL_ADMIN,
+  PERM_ACL_READ_WRITE,
 } from './constants';
 import { toHex } from '@/lib/utils';
 
@@ -277,17 +278,23 @@ export function parseChannelMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
 /**
  * Parses a v1 direct (1:1) message frame. SNR is unavailable in v1 (null).
  *
- * @remarks `txt_type` 2 (signed) carries a 4-byte prefix before the text.
+ * @remarks `txt_type` 2 (signed) carries the author's 4-byte public-key prefix
+ * before the text. For a room-server post that author is the member who wrote
+ * it, while the frame's own `pubkeyPrefix` is the room.
  */
 export function parseContactMsg(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 13) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   const txtType = d[8];
-  const textOffset = txtType === TXT_TYPE.SIGNED ? 17 : 13;
+  const signed = txtType === TXT_TYPE.SIGNED;
+  // A signed frame owes four more bytes than the header minimum; a truncated
+  // one would otherwise yield a short author prefix rather than be rejected.
+  if (signed && d.length < 17) return null;
   return {
     pubkeyPrefix: hexBytes(d, 1, 7),
+    authorPrefix: signed ? hexBytes(d, 13, 17) : undefined,
     timestamp: v.getUint32(9, true),
-    text: dec.decode(d.slice(textOffset)),
+    text: dec.decode(d.slice(signed ? 17 : 13)),
     snr: null,
     txtType,
   };
@@ -300,12 +307,14 @@ export function parseContactMsgV3(d: Uint8Array): Omit<Message, 'kind'> | null {
   if (d.length < 17) return null;
   const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
   const txtType = d[11];
-  const textOffset = txtType === TXT_TYPE.SIGNED ? 20 : 16;
+  const signed = txtType === TXT_TYPE.SIGNED;
+  if (signed && d.length < 20) return null;
   return {
     snr: new Int8Array([d[1]])[0] / 4,
     pubkeyPrefix: hexBytes(d, 4, 10),
+    authorPrefix: signed ? hexBytes(d, 16, 20) : undefined,
     timestamp: v.getUint32(12, true),
-    text: dec.decode(d.slice(textOffset)),
+    text: dec.decode(d.slice(signed ? 20 : 16)),
     txtType,
   };
 }
@@ -507,10 +516,12 @@ export function parseStatusResponse(d: Uint8Array): RepeaterStatus | null {
  * firmware level. Byte 1 is only the legacy is-admin indicator (`1` = admin;
  * room servers also emit `2` for read-only), not the ACL role. The
  * authoritative role lives in the ACL permissions byte at offset 12 — its low
- * two bits are the role, so `admin` requires {@link PERM_ACL_ADMIN}. Legacy
- * responses omit that byte: `1` decodes as `admin` and `2` as a read-only
- * `guest`, while a zero-byte `"OK"` cannot report the granted role, so `access`
- * is `null` and the caller falls back to the level it attempted.
+ * two bits are the role: {@link PERM_ACL_ADMIN} is `admin`,
+ * {@link PERM_ACL_READ_WRITE} may post to a room, and the two roles below it
+ * are read-only. Legacy responses omit that byte: `1` decodes as `admin` and
+ * `2` as a read-only `guest`, while a zero-byte `"OK"` cannot report the
+ * granted role, so `access` is `null` and the caller falls back to the level it
+ * attempted.
  * @returns the prefix and granted access (`null` when the response cannot
  * report a role), or null if the frame is too short.
  */
@@ -522,8 +533,13 @@ export function parseLoginPush(
   // Modern firmware appends the ACL permissions byte at offset 12; its low two
   // bits hold the authoritative role.
   if (d.length > 12) {
+    const role = d[12] & PERM_ACL_ROLE_MASK;
     const access: RepeaterAccess =
-      (d[12] & PERM_ACL_ROLE_MASK) === PERM_ACL_ADMIN ? 'admin' : 'guest';
+      role === PERM_ACL_ADMIN
+        ? 'admin'
+        : role === PERM_ACL_READ_WRITE
+          ? 'readWrite'
+          : 'guest';
     return { pubkeyPrefix, access };
   }
   // Legacy response: byte 1 is the only signal (1 = admin, 2 = read-only guest

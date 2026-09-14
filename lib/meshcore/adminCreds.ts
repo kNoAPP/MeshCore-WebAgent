@@ -5,7 +5,7 @@
 
 import { saveSecret, loadSecret, clearSecret } from '@/lib/storage';
 import { getStorageContext } from '@/lib/ai/secret';
-import type { RepeaterAccess } from '@/types/meshcore';
+import type { LoginKind } from '@/types/meshcore';
 
 // A remembered repeater login lives ONLY as an encrypted record in the
 // per-radio `secrets` store — never in `localStorage`, the preferences blob,
@@ -13,9 +13,14 @@ import type { RepeaterAccess } from '@/types/meshcore';
 // crypto context bound in `useMeshCore` (via `getStorageContext`), so a
 // different radio literally cannot decrypt another radio's remembered login.
 
-/** A repeater login credential the user chose to persist, one per repeater. */
+/**
+ * A repeater login credential the user chose to persist, one per repeater.
+ * `access` records which password was entered, not the role the node granted
+ * back, so it is one of the two login choices {@link isRememberedCred}
+ * accepts.
+ */
 export interface RememberedCred {
-  access: RepeaterAccess;
+  access: LoginKind;
   password: string;
 }
 

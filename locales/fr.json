@@ -559,9 +559,11 @@
     "contactUnavailable": "Ce nœud n’est plus disponible.",
     "access": {
       "admin": "Admin",
+      "readWrite": "Membre",
       "guest": "Invité"
     },
     "tabs": {
+      "posts": "Publications",
       "status": "État",
       "config": "Configuration",
       "neighbors": "Voisins",
@@ -776,6 +778,19 @@
       }
     }
   },
+  "room": {
+    "noPosts": "Aucune publication pour l’instant",
+    "placeholder": "Rédiger une publication… (Entrée pour envoyer, Maj+Entrée pour un saut de ligne)",
+    "readOnly": "Vous avez un accès en lecture seule à ce salon, vous ne pouvez donc pas publier.",
+    "announcement": "{{name}} · annonce",
+    "login": {
+      "prompt": "Connectez-vous à ce salon pour lire et publier.",
+      "admin": "Admin",
+      "adminHint": "Mot de passe admin — publication et administration à distance",
+      "guest": "Membre",
+      "guestHint": "Mot de passe du salon, ou vide — le salon décide de l’accès accordé"
+    }
+  },
   "route": {
     "noRouteFloods": "Aucune route — flood",
     "directHops": "Direct (0 saut)",
@@ -960,6 +975,8 @@
     "newMessageIn": "Nouveau message dans {{channel}}",
     "newMessageInFrom": "{{sender}} dans {{channel}}",
     "newMessageFrom": "Nouveau message de {{sender}}",
+    "newPostIn": "Nouvelle publication dans {{room}}",
+    "roomPostNoAccess": "Vous n’avez plus l’autorisation de publier dans ce salon",
     "connected": "Connecté — {{device}}",
     "connectionFailed": "Échec de la connexion",
     "radioNoResponse": "La radio n’a pas répondu — réessayez de vous connecter",
