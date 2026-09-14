@@ -176,6 +176,9 @@ export function ChatArea() {
   const roomAccess = useMeshStore((s) =>
     roomPrefix ? (s.adminSessions[roomPrefix]?.login ?? 'loggedOut') : null,
   );
+  // Set by the pane that renders the feed, one effect pass after this one
+  // mounts; the landing scroll waits for it.
+  const visibleRoomFeed = useMeshStore((s) => s.visibleRoomFeed);
   // A read-only member's post is silently dropped by the room (no ACK, no
   // post), so the composer is gated on the role rather than on the send.
   const canPost = roomPrefix === null || canPostToRoom(roomAccess);
@@ -457,6 +460,11 @@ export function ChatArea() {
   // wrongly animate the rest.
   useEffect(() => {
     const convoId = activeConvo?.id ?? null;
+    // A room's feed reports its visibility from a parent effect, and React
+    // runs child effects first — so on mount the unread boundary that effect
+    // is about to freeze does not exist yet. Landing now would scroll past it;
+    // the dependency below brings us back once it has.
+    if (activeConvo?.kind === 'room' && visibleRoomFeed !== convoId) return;
     const switched = prevConvoId.current !== convoId;
     prevConvoId.current = convoId;
     // Whether this run should jump to the bottom instantly rather than animate
@@ -539,7 +547,13 @@ export function ChatArea() {
       behavior: switched || instantJump ? 'auto' : 'smooth',
     });
     atBottomRef.current = true;
-  }, [activeConvo?.id, messages.length, unreadMarker]);
+  }, [
+    activeConvo?.id,
+    activeConvo?.kind,
+    visibleRoomFeed,
+    messages.length,
+    unreadMarker,
+  ]);
 
   // Scroll to and briefly flash a message targeted by the command palette, then
   // clear the one-shot request. The render pass above has already widened the
