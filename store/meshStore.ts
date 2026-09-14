@@ -511,6 +511,13 @@ interface MeshState {
    */
   windowFocused: boolean;
   /**
+   * Conversation id of the room post feed currently rendered, or `null`. A
+   * room shares its pane with the admin tabs and sits behind a login gate, so
+   * unlike a chat it can be the open conversation while its feed is off
+   * screen. Set by the view that renders the feed.
+   */
+  visibleRoomFeed: string | null;
+  /**
    * True while the map is in location-pick mode (opened from the Location card
    * in Settings). Drives the map's confirm/cancel banner and click-to-place
    * marker; cleared by any navigation.
@@ -644,6 +651,7 @@ interface MeshActions {
   setView: (view: AppView) => void;
   /** Records whether this browser tab has focus. */
   setWindowFocused: (focused: boolean) => void;
+  setVisibleRoomFeed: (convoId: string | null) => void;
   /** Opens the map to pick a location, returning to `returnTo` on confirm. */
   startLocationPick: (returnTo?: AppView) => void;
   /** Confirms the picked coordinate (degrees) and returns to the caller. */
@@ -756,6 +764,7 @@ const initialState: MeshState = {
   reconnectProgress: null,
   view: 'chat',
   windowFocused: true,
+  visibleRoomFeed: null,
   mapPicking: false,
   pendingLocation: null,
   locationPickReturn: 'settings',
@@ -1056,6 +1065,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({ windowFocused });
     if (windowFocused) catchUpVisibleConvo();
   },
+  setVisibleRoomFeed: (visibleRoomFeed) => {
+    if (get().visibleRoomFeed === visibleRoomFeed) return;
+    set({ visibleRoomFeed });
+    // Revealing the feed is the moment its backlog becomes seen, the same way
+    // refocusing the tab is for a chat.
+    if (visibleRoomFeed) catchUpVisibleConvo();
+  },
   startLocationPick: (returnTo = 'settings') =>
     set({ mapPicking: true, view: 'map', locationPickReturn: returnTo }),
   confirmLocationPick: (lat, lon) => {
@@ -1354,7 +1370,10 @@ export function isConvoVisible(state: MeshState, id: string): boolean {
     state.openModals === 0 &&
     state.activeConvo?.id === id &&
     state.view === 'chat' &&
-    state.windowFocused
+    state.windowFocused &&
+    // Selecting a room is not enough: its feed is one tab of a pane that also
+    // holds the admin surfaces, and is hidden entirely until the login lands.
+    (state.activeConvo.kind !== 'room' || state.visibleRoomFeed === id)
   );
 }
 

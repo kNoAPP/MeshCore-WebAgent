@@ -22,7 +22,7 @@ import {
   TXT_TYPE,
   PERM_ACL_ROLE_MASK,
   PERM_ACL_ADMIN,
-  PERM_ACL_GUEST,
+  PERM_ACL_READ_WRITE,
 } from './constants';
 import { toHex } from '@/lib/utils';
 
@@ -513,10 +513,11 @@ export function parseStatusResponse(d: Uint8Array): RepeaterStatus | null {
  * room servers also emit `2` for read-only), not the ACL role. The
  * authoritative role lives in the ACL permissions byte at offset 12 — its low
  * two bits are the role: {@link PERM_ACL_ADMIN} is `admin`,
- * {@link PERM_ACL_GUEST} is read-only, and the two in between may post to a
- * room. Legacy responses omit that byte: `1` decodes as `admin` and `2` as a
- * read-only `guest`, while a zero-byte `"OK"` cannot report the granted role,
- * so `access` is `null` and the caller falls back to the level it attempted.
+ * {@link PERM_ACL_READ_WRITE} may post to a room, and the two roles below it
+ * are read-only. Legacy responses omit that byte: `1` decodes as `admin` and
+ * `2` as a read-only `guest`, while a zero-byte `"OK"` cannot report the
+ * granted role, so `access` is `null` and the caller falls back to the level it
+ * attempted.
  * @returns the prefix and granted access (`null` when the response cannot
  * report a role), or null if the frame is too short.
  */
@@ -532,9 +533,9 @@ export function parseLoginPush(
     const access: RepeaterAccess =
       role === PERM_ACL_ADMIN
         ? 'admin'
-        : role === PERM_ACL_GUEST
-          ? 'guest'
-          : 'readWrite';
+        : role === PERM_ACL_READ_WRITE
+          ? 'readWrite'
+          : 'guest';
     return { pubkeyPrefix, access };
   }
   // Legacy response: byte 1 is the only signal (1 = admin, 2 = read-only guest

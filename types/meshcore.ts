@@ -279,7 +279,8 @@ export interface RepeaterStatus {
  * Access level a repeater/room server grants a login, decoded from the ACL role
  * bits of the `PUSH_LOGIN_SUCCESS` permissions byte. The server — not the
  * client — decides this from the password it accepted, so it is authoritative.
- * `guest` is the read-only role: a room server accepts nothing a `guest` sends,
+ * `guest` covers both roles below read/write (`PERM_ACL_GUEST` and
+ * `PERM_ACL_READ_ONLY`): a room server accepts nothing such a client sends,
  * where `readWrite` (the room password) may post.
  */
 export type RepeaterAccess = 'admin' | 'readWrite' | 'guest';

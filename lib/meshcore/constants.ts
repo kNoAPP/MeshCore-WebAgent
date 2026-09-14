@@ -389,14 +389,14 @@ export const FAVORITE_FLAG = 0x01;
  */
 export const PERM_ACL_ROLE_MASK = 0x03;
 /**
- * Lowest ACL role: read-only. A room server grants it when the login password
- * matched nothing and `allow.read.only` is set, and silently drops (no ACK,
- * no post) any message such a client sends.
+ * ACL role granting read/write: a room server assigns it to a login that gave
+ * the room (guest) password, and it is the lowest role allowed to post. The
+ * two roles below it (`PERM_ACL_GUEST`, `PERM_ACL_READ_ONLY`) are read-only.
  *
- * @see the `PERM_ACL_GUEST` branches in `onAnonDataRecv` / `onPeerDataRecv` of
- * the firmware's `examples/simple_room_server/MyMesh.cpp`.
+ * @see `onAnonDataRecv` in the firmware's
+ * `examples/simple_room_server/MyMesh.cpp`.
  */
-export const PERM_ACL_GUEST = 0x00;
+export const PERM_ACL_READ_WRITE = 0x02;
 /** ACL role value granting full remote administration. */
 export const PERM_ACL_ADMIN = 0x03;
 

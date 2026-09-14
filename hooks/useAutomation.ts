@@ -4,12 +4,18 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useMeshStore, channelConvoId, directConvoId } from '@/store/meshStore';
+import {
+  useMeshStore,
+  channelConvoId,
+  directConvoId,
+  roomConvoId,
+} from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { subscribe, emit } from '@/lib/ai/eventBus';
 import { automationEngine } from '@/lib/ai/engine';
 import { getStorageContext } from '@/lib/ai/secret';
 import { saveAutomationRules } from '@/lib/storage';
+import { ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import type { ActionContext } from '@/lib/ai/tools';
 import i18n from '@/lib/i18n';
 
@@ -45,8 +51,25 @@ export function useAutomation(): void {
   const actionContext = useMemo<ActionContext>(
     () => ({
       sendDirectMessage: async (prefix, text) => {
-        const contact = useMeshStore.getState().contacts[prefix];
+        const state = useMeshStore.getState();
+        const contact = state.contacts[prefix];
         if (!contact) throw new Error(`Unknown contact ${prefix}`);
+        if (contact.advType === ADV_TYPE_ROOM) {
+          // A room's traffic is its post feed, and it drops a post from a
+          // read-only (or logged-out) client without an ack — which would
+          // otherwise surface as a silent delivery failure.
+          const login = state.adminSessions[prefix]?.login;
+          if (login !== 'admin' && login !== 'readWrite') {
+            throw new Error(`No post access to room ${prefix}`);
+          }
+          await actionsRef.current.sendMessage(text, {
+            kind: 'room',
+            id: roomConvoId(prefix),
+            rawId: prefix,
+            label: contact.name,
+          });
+          return;
+        }
         await actionsRef.current.sendMessage(text, {
           kind: 'direct',
           id: directConvoId(prefix),

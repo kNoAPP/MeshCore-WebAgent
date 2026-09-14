@@ -14,7 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import dynamic from 'next/dynamic';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
-import { useMeshStore, isAuthedLogin } from '@/store/meshStore';
+import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { parseNeighborsReply } from '@/lib/meshcore/repeaterCli';
@@ -136,6 +136,15 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   // state), so we show a brief spinner instead of flashing the login form
   // before auto-login runs. A `pending` login shows the disabled gate instead.
   const [checking, setChecking] = useState(login === 'loggedOut');
+
+  // Report whether the post feed is actually rendered, so arrivals behind the
+  // login gate or another tab stay unread and keep their toast.
+  const setVisibleRoomFeed = useMeshStore((s) => s.setVisibleRoomFeed);
+  const feedVisible = isRoom && authed && activeTab === 'posts';
+  useEffect(() => {
+    setVisibleRoomFeed(feedVisible ? roomConvoId(prefix) : null);
+    return () => setVisibleRoomFeed(null);
+  }, [feedVisible, prefix, setVisibleRoomFeed]);
 
   // Captured once at mount (the component is keyed by `prefix`, so it remounts
   // per repeater). The auto-login effect reads these without listing them as

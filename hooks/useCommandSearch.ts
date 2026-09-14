@@ -219,10 +219,10 @@ export function useCommandSearch(query: string): CommandGroup[] {
           rawId: idx,
           label: ch?.name || t('common.channelName', { index: idx }),
         };
-      } else if (kind === 'direct') {
+      } else if (kind === 'direct' || kind === 'room') {
         const contact = contacts[rawId];
         convo = {
-          kind: 'direct',
+          kind,
           id: convoId,
           rawId,
           label: contact?.name || rawId.slice(0, 8),
