@@ -81,6 +81,7 @@
       "identity": "Identité",
       "location": "Emplacement",
       "display": "Paramètres d'affichage",
+      "notifications": "Paramètres de notification",
       "ai": "Paramètres IA",
       "automation": "Automatisation",
       "danger": "Actions de l'appareil"
@@ -95,6 +96,7 @@
       "identity": "identité clé publique nom de nœud",
       "location": "emplacement coordonnées gps position",
       "display": "affichage unités métrique impérial distance mesure",
+      "notifications": "notifications alertes son sonnerie bureau mentions",
       "ai": "ia llm clé api anthropic claude assistant",
       "automation": "automatisation règles automatiser agent déclencheurs tâches",
       "danger": "redémarrer appareil actions danger"
@@ -252,6 +254,7 @@
       "radio": "Radio",
       "location": "Localisation",
       "display": "Affichage",
+      "notifications": "Notifications",
       "ai": "IA",
       "automation": "Automatisation",
       "danger": "Actions de l'appareil"
@@ -283,6 +286,19 @@
     "units_metric": "Métrique (km)",
     "units_imperial": "Impérial (mi)",
     "showFullPublicKeys": "Afficher les clés publiques complètes",
+    "notifyPrivacy": "Les notifications du bureau affichent l'expéditeur et le texte du message en dehors de cet onglet. Elles restent désactivées tant que vous ne les activez pas.",
+    "notifyMode": "Me notifier pour",
+    "notifyMode_off": "Rien",
+    "notifyMode_mentions": "Messages directs et mentions",
+    "notifyMode_all": "Tous les messages",
+    "notifySound": "Jouer un son",
+    "notifyPermission_default": "Autorisation du navigateur pas encore accordée",
+    "notifyPermission_granted": "Autorisation du navigateur accordée",
+    "notifyPermission_denied": "Bloqué dans les paramètres du navigateur",
+    "notifyPermission_unsupported": "Ce navigateur ne gère pas les notifications",
+    "notifyTest": "Tester",
+    "notifyTestTitle": "MeshCore",
+    "notifyTestBody": "Les notifications fonctionnent.",
     "edit": "Modifier",
     "editRadio": "Modifier les paramètres radio",
     "radioEdit": {
@@ -993,6 +1009,10 @@
     "days": "il y a {{count}}j",
     "today": "Aujourd'hui",
     "yesterday": "Hier"
+  },
+  "notify": {
+    "channelFrom": "{{sender}} dans {{channel}}",
+    "roomFrom": "{{sender}} dans {{room}}"
   },
   "toast": {
     "notConnected": "Aucune radio connectée",

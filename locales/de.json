@@ -81,6 +81,7 @@
       "identity": "Identität",
       "location": "Standort",
       "display": "Anzeigeeinstellungen",
+      "notifications": "Benachrichtigungseinstellungen",
       "ai": "KI-Einstellungen",
       "automation": "Automatisierung",
       "danger": "Geräteaktionen"
@@ -95,6 +96,7 @@
       "identity": "identität öffentlicher schlüssel knotenname",
       "location": "standort koordinaten gps position",
       "display": "anzeige einheiten metrisch imperial entfernung maßeinheit",
+      "notifications": "benachrichtigungen hinweise ton klang desktop erwähnungen",
       "ai": "ki llm api-schlüssel anthropic claude assistent",
       "automation": "automatisierung regeln automatisieren agent auslöser aufgaben",
       "danger": "neustart gerät aktionen gefahr"
@@ -252,6 +254,7 @@
       "radio": "Funk",
       "location": "Standort",
       "display": "Anzeige",
+      "notifications": "Benachrichtigungen",
       "ai": "KI",
       "automation": "Automatisierung",
       "danger": "Geräteaktionen"
@@ -283,6 +286,19 @@
     "units_metric": "Metrisch (km)",
     "units_imperial": "Imperial (mi)",
     "showFullPublicKeys": "Vollständige öffentliche Schlüssel anzeigen",
+    "notifyPrivacy": "Desktop-Benachrichtigungen zeigen Absender und Nachrichtentext außerhalb dieses Tabs. Sie sind aus, bis du sie einschaltest.",
+    "notifyMode": "Benachrichtigen bei",
+    "notifyMode_off": "Nichts",
+    "notifyMode_mentions": "Direktnachrichten und Erwähnungen",
+    "notifyMode_all": "Jeder Nachricht",
+    "notifySound": "Ton abspielen",
+    "notifyPermission_default": "Browser-Berechtigung noch nicht erteilt",
+    "notifyPermission_granted": "Browser-Berechtigung erteilt",
+    "notifyPermission_denied": "In den Browsereinstellungen blockiert",
+    "notifyPermission_unsupported": "Dieser Browser kennt keine Benachrichtigungen",
+    "notifyTest": "Testen",
+    "notifyTestTitle": "MeshCore",
+    "notifyTestBody": "Benachrichtigungen funktionieren.",
     "edit": "Bearbeiten",
     "editRadio": "Funkeinstellungen bearbeiten",
     "radioEdit": {
@@ -993,6 +1009,10 @@
     "days": "vor {{count}}d",
     "today": "Heute",
     "yesterday": "Gestern"
+  },
+  "notify": {
+    "channelFrom": "{{sender}} in {{channel}}",
+    "roomFrom": "{{sender}} in {{room}}"
   },
   "toast": {
     "notConnected": "Nicht mit einem Funkgerät verbunden",

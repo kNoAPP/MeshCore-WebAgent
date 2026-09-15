@@ -80,6 +80,7 @@
       "identity": "Identity",
       "location": "Location",
       "display": "Display settings",
+      "notifications": "Notification settings",
       "ai": "AI settings",
       "automation": "Automation",
       "danger": "Device actions"
@@ -94,6 +95,7 @@
       "identity": "identity public key node name",
       "location": "location coordinates gps position",
       "display": "display units metric imperial distance measurement",
+      "notifications": "notifications notify alerts sound chime desktop banner mentions",
       "ai": "ai llm api key anthropic claude assistant",
       "automation": "automation rules automate agent triggers tasks",
       "danger": "reboot restart device actions danger"
@@ -251,6 +253,7 @@
       "radio": "Radio",
       "location": "Location",
       "display": "Display",
+      "notifications": "Notifications",
       "ai": "AI",
       "automation": "Automation",
       "danger": "Device actions"
@@ -282,6 +285,19 @@
     "units_metric": "Metric (km)",
     "units_imperial": "Imperial (mi)",
     "showFullPublicKeys": "Show full public keys",
+    "notifyPrivacy": "Desktop notifications show the sender and the message text outside this tab. They are off until you turn them on.",
+    "notifyMode": "Notify me about",
+    "notifyMode_off": "Nothing",
+    "notifyMode_mentions": "Direct messages and mentions",
+    "notifyMode_all": "Every message",
+    "notifySound": "Play a sound",
+    "notifyPermission_default": "Browser permission not granted yet",
+    "notifyPermission_granted": "Browser permission granted",
+    "notifyPermission_denied": "Blocked in your browser settings",
+    "notifyPermission_unsupported": "This browser has no notifications",
+    "notifyTest": "Test",
+    "notifyTestTitle": "MeshCore",
+    "notifyTestBody": "Notifications are working.",
     "edit": "Edit",
     "editRadio": "Edit radio settings",
     "radioEdit": {
@@ -992,6 +1008,10 @@
     "days": "{{count}}d ago",
     "today": "Today",
     "yesterday": "Yesterday"
+  },
+  "notify": {
+    "channelFrom": "{{sender}} in {{channel}}",
+    "roomFrom": "{{sender}} in {{room}}"
   },
   "toast": {
     "notConnected": "Not connected to a radio",

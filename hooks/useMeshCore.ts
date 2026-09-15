@@ -62,6 +62,7 @@ import {
   splitChannelMessage,
 } from '@/lib/utils';
 import i18n from '@/lib/i18n';
+import { notifyMessage } from '@/lib/notify/notify';
 import type {
   ActiveConvo,
   Contact,
@@ -1045,6 +1046,12 @@ export function useMeshCore() {
                 c.channels[msg.channelIdx]?.name ||
                 i18n.t('common.channelName', { index: msg.channelIdx });
               const sender = splitChannelMessage(msg.text).sender;
+              const convo: ActiveConvo = {
+                kind: 'channel',
+                id,
+                rawId: msg.channelIdx,
+                label: chName,
+              };
               showToast(
                 sender
                   ? i18n.t('toast.newMessageInFrom', {
@@ -1053,13 +1060,15 @@ export function useMeshCore() {
                     })
                   : i18n.t('toast.newMessageIn', { channel: chName }),
                 '',
-                {
-                  kind: 'channel',
-                  id,
-                  rawId: msg.channelIdx,
-                  label: chName,
-                },
+                convo,
               );
+              notifyMessage({
+                convo,
+                title: sender
+                  ? i18n.t('notify.channelFrom', { sender, channel: chName })
+                  : chName,
+                body: msg.text,
+              });
             }
             // Emit after the store update so subscribers see a settled world.
             emit({ type: 'message', msg: enriched });
@@ -1100,18 +1109,26 @@ export function useMeshCore() {
             addMessage(id, enriched);
             if (!visible && state.status === 'connected') {
               const room = contact?.name || prefix.slice(0, 8);
+              const convo: ActiveConvo = {
+                kind: isRoom ? 'room' : 'direct',
+                id,
+                rawId: prefix,
+                label: isRoom ? room : sender,
+              };
               showToast(
                 isRoom
                   ? i18n.t('toast.newPostIn', { room })
                   : i18n.t('toast.newMessageFrom', { sender }),
                 '',
-                {
-                  kind: isRoom ? 'room' : 'direct',
-                  id,
-                  rawId: prefix,
-                  label: isRoom ? room : sender,
-                },
+                convo,
               );
+              notifyMessage({
+                convo,
+                title: isRoom
+                  ? i18n.t('notify.roomFrom', { sender, room })
+                  : sender,
+                body: msg.text,
+              });
             }
             emit({ type: 'message', msg: enriched });
           }
@@ -1283,7 +1300,8 @@ export function useMeshCore() {
               state.automationEnabled === prev.automationEnabled &&
               state.mapPrefs === prev.mapPrefs &&
               state.aiPref === prev.aiPref &&
-              state.showFullPublicKeys === prev.showFullPublicKeys
+              state.showFullPublicKeys === prev.showFullPublicKeys &&
+              state.notifyPref === prev.notifyPref
             ) {
               return;
             }

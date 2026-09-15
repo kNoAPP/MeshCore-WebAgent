@@ -48,6 +48,11 @@ import {
 } from '@/lib/units/config';
 import { normalizeMapPrefs, type MapPrefs } from '@/lib/map/config';
 import { DEFAULT_AI_PREF, normalizeAiPref, type AiPref } from '@/lib/ai/pref';
+import {
+  DEFAULT_NOTIFY_PREF,
+  normalizeNotifyPref,
+  type NotifyPref,
+} from '@/lib/notify/config';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
 
 const AUDIT_LOG_LIMIT = 200;
@@ -108,6 +113,7 @@ export const SETTINGS_SECTIONS = [
   'identity',
   'location',
   'display',
+  'notifications',
   'ai',
   'automation',
   'danger',
@@ -211,6 +217,7 @@ export interface RadioPreferences {
   mapPrefs: MapPrefs | null;
   aiPref: AiPref;
   showFullPublicKeys: boolean;
+  notifyPref: NotifyPref;
 }
 
 /**
@@ -500,6 +507,11 @@ interface MeshState {
   showFullPublicKeys: boolean;
   /** Provider/model the AI settings picker last selected (never the key). */
   aiPref: AiPref;
+  /**
+   * How much background traffic raises an OS notification, plus whether it
+   * chimes. Defaults to off: the banner body is message content.
+   */
+  notifyPref: NotifyPref;
   /** Persisted viewport, or `null` until the user first pans/zooms the map. */
   mapPrefs: MapPrefs | null;
   /**
@@ -637,6 +649,7 @@ interface MeshActions {
   setUnitSystem: (unitSystem: UnitSystem) => void;
   setShowFullPublicKeys: (showFullPublicKeys: boolean) => void;
   setAiPref: (aiPref: AiPref) => void;
+  setNotifyPref: (notifyPref: NotifyPref) => void;
   setMapPrefs: (prefs: MapPrefs) => void;
   /**
    * Folds a decrypted per-radio preferences blob into the store on connect,
@@ -798,6 +811,7 @@ const initialState: MeshState = {
   unitSystem: DEFAULT_UNIT_SYSTEM,
   showFullPublicKeys: false,
   aiPref: DEFAULT_AI_PREF,
+  notifyPref: DEFAULT_NOTIFY_PREF,
   mapPrefs: null,
   prefsHydrated: false,
   toast: null,
@@ -923,6 +937,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setAiPref: (aiPref) => set({ aiPref }),
 
+  setNotifyPref: (notifyPref) => set({ notifyPref }),
+
   restorePreferences: (raw) => {
     const p = (
       typeof raw === 'object' && raw !== null ? raw : {}
@@ -948,6 +964,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         typeof p.showFullPublicKeys === 'boolean'
           ? p.showFullPublicKeys
           : false,
+      notifyPref: normalizeNotifyPref(p.notifyPref),
       prefsHydrated: true,
     }));
   },
@@ -1382,6 +1399,7 @@ export function selectPreferences(
     mapPrefs: state.mapPrefs,
     aiPref: state.aiPref,
     showFullPublicKeys: state.showFullPublicKeys,
+    notifyPref: state.notifyPref,
   };
 }
 

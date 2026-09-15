@@ -31,10 +31,18 @@ import { ShareCard } from './ShareCard';
 import { RadioSettingsModal, radioFields } from './RadioSettings';
 import { SaveStatusChip, useSaveStatus } from './SaveStatus';
 import { Select } from './Select';
-import { SwitchTrack } from './Switch';
+import { Switch, SwitchTrack } from './Switch';
 import { AiSettingsBody } from './AiSettings';
 import { AutomationSettingsBody } from './AutomationPanel';
 import { SUPPORTED_UNIT_SYSTEMS } from '@/lib/units/config';
+import { NOTIFY_MODES, type NotifyMode } from '@/lib/notify/config';
+import {
+  notifyPermission,
+  requestNotifyPermission,
+  showNotification,
+  playNotifyTone,
+  type NotifyPermission,
+} from '@/lib/notify/notify';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 
 /**
@@ -206,6 +214,8 @@ export function SettingsPage() {
             <LocationCard />
 
             <DisplayCard />
+
+            <NotificationsCard />
 
             <Card
               title={t('settings.section.ai')}
@@ -816,6 +826,81 @@ function DisplayCard() {
           <SaveStatusChip />
         </span>
       </button>
+    </Card>
+  );
+}
+
+// Permission is asked for only on the explicit opt-in click that turns
+// notifications on, never on load: a prompt raised without a gesture is
+// penalized by browsers, and a denial is permanent for the origin.
+function NotificationsCard() {
+  const { t } = useTranslation();
+  const notifyPref = useMeshStore((s) => s.notifyPref);
+  const setNotifyPref = useMeshStore((s) => s.setNotifyPref);
+  const [permission, setPermission] = useState<NotifyPermission>(() =>
+    notifyPermission(),
+  );
+
+  const supported = permission !== 'unsupported';
+
+  const chooseMode = async (mode: NotifyMode) => {
+    setNotifyPref({ ...notifyPref, mode });
+    if (mode !== 'off' && permission === 'default') {
+      setPermission(await requestNotifyPermission());
+    }
+  };
+
+  const test = () => {
+    if (notifyPref.sound) playNotifyTone();
+    showNotification(
+      t('settings.notifyTestTitle'),
+      t('settings.notifyTestBody'),
+      'meshcore-test',
+    );
+  };
+
+  return (
+    <Card
+      title={t('settings.section.notifications')}
+      className='md:col-span-2 xl:col-span-1'
+      section='notifications'
+    >
+      <p className='mb-3 text-xs text-text2'>{t('settings.notifyPrivacy')}</p>
+      <div className='flex items-center justify-between gap-3 border-b border-border py-1.5 text-xs'>
+        <span className='shrink-0 text-text2'>{t('settings.notifyMode')}</span>
+        <Select
+          value={notifyPref.mode}
+          onChange={(mode) => void chooseMode(mode)}
+          ariaLabel={t('settings.notifyMode')}
+          disabled={!supported}
+          options={NOTIFY_MODES.map((m) => ({
+            value: m,
+            label: t(`settings.notifyMode_${m}`),
+          }))}
+          className='cursor-pointer transition-colors hover:border-accent'
+        />
+      </div>
+      <div className='border-b border-border py-1.5'>
+        <Switch
+          checked={notifyPref.sound}
+          onChange={(sound) => setNotifyPref({ ...notifyPref, sound })}
+          label={
+            <span className='text-text2'>{t('settings.notifySound')}</span>
+          }
+        />
+      </div>
+      <div className='flex items-center justify-between gap-3 py-1.5 text-xs'>
+        <span className='min-w-0 text-text2'>
+          {t(`settings.notifyPermission_${permission}`)}
+        </span>
+        <button
+          onClick={test}
+          disabled={!supported}
+          className='shrink-0 rounded-md border border-border-control px-2.5 py-1 text-xs text-text2 hover:text-text disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text2'
+        >
+          {t('settings.notifyTest')}
+        </button>
+      </div>
     </Card>
   );
 }
