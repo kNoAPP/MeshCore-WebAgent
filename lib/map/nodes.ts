@@ -22,6 +22,12 @@ export interface MapNode {
   kind: 'self' | 'contact' | 'advert';
   /** Favorited contact — flagged with a gold marker outline. */
   favorite: boolean;
+  /**
+   * The coordinates are a placeholder, not a fix: this node is known only by
+   * the 4 bytes a repeater reported, so it is parked on a ring around its
+   * anchor and must be drawn as unplaced rather than plotted as terrain.
+   */
+  positionUnknown?: boolean;
 }
 
 /**
@@ -42,6 +48,11 @@ export interface MapEdge {
    * label is drawn, or drawn at the midpoint.
    */
   label?: string;
+  /**
+   * Draw the link dashed — the endpoint is a placeholder position, so the line
+   * carries a real SNR but a made-up direction and length.
+   */
+  provisional?: boolean;
 }
 
 type DegCoords = { lat: number; lon: number } | null;
@@ -166,66 +177,154 @@ function neighborPrefixMatches(
   return key.startsWith(lower) || kp.startsWith(lower) || lower.startsWith(kp);
 }
 
+/** The one node a neighbor prefix names, seen from each store that knows it. */
+interface NeighborMatch {
+  contact: Contact | null;
+  advert: Advert | null;
+}
+
+// Four bytes are not enough to be unique, so both stores are searched together
+// and the candidates deduplicated by full public key: the same node commonly
+// appears as both a saved contact and a cached advert, but two *different*
+// keys sharing the prefix means the repeater has not told us which one it
+// heard. Naming, plotting or adding either would be a guess, so an ambiguous
+// prefix resolves to nothing.
+function matchNeighbor(
+  prefix: string,
+  contacts: Record<string, Contact>,
+  adverts: Record<string, Advert>,
+): NeighborMatch | null {
+  const keys = new Set<string>();
+  let contact: Contact | null = null;
+  let advert: Advert | null = null;
+  for (const c of Object.values(contacts)) {
+    if (!neighborPrefixMatches(prefix, c.pubkey, c.pubkeyPrefix)) continue;
+    keys.add(c.pubkey.toLowerCase());
+    contact ??= c;
+  }
+  for (const a of Object.values(adverts)) {
+    if (!neighborPrefixMatches(prefix, a.pubkey, a.pubkeyPrefix)) continue;
+    keys.add(a.pubkey.toLowerCase());
+    advert ??= a;
+  }
+  return keys.size === 1 ? { contact, advert } : null;
+}
+
 /**
- * Resolves a neighbor's public-key prefix (from a `neighbors` reply) to a
- * located map node, matching saved contacts first — a contact opens its manage
- * panel — then the advert cache. A matched contact prefers its own fix but
- * falls back to a cached advert fix for the *same* node, matched by the
- * contact's full public key (not the shorter neighbor prefix) so a 4-byte
- * prefix collision can't lend another node's coordinates; it stays a `contact`
- * node either way. Returns `null` when no corresponding node has a GPS fix, so
- * the caller keeps that neighbor out of the map. See
- * {@link neighborPrefixMatches} for the prefix rule.
+ * The identity a `neighbors` reply's public-key prefix resolves to, whether or
+ * not that node has a location. Saved contacts win over the advert cache, so a
+ * neighbor the user already keeps shows the name they know it by.
+ */
+export interface NeighborIdentity {
+  pubkeyPrefix: string;
+  name: string;
+  advType: number;
+  kind: 'contact' | 'advert';
+  favorite: boolean;
+  /** Full public key, for actions that need more than the stored prefix. */
+  pubkey: string;
+}
+
+/**
+ * What a neighbor prefix resolves to: the node's identity, and its map node
+ * when it also has a fix. Both come out of one pass over the stores, because
+ * the advert cache is large and refreshes on every heard advert.
+ */
+export interface ResolvedNeighbor {
+  /** `null` when the prefix is unknown or ambiguous. */
+  identity: NeighborIdentity | null;
+  /** `null` when {@link identity} is, or when that node has no GPS fix. */
+  node: MapNode | null;
+}
+
+/**
+ * Resolves a neighbor's public-key prefix (from a `neighbors` reply) against
+ * the saved contacts and the advert cache. A saved contact wins — it is the
+ * name the user knows the node by, and its marker opens a manage panel — and
+ * an unlocated contact falls back to the cached advert's fix, which
+ * {@link matchNeighbor} guarantees belongs to that same node; it stays a
+ * `contact` either way. An unknown or ambiguous prefix resolves to nothing, so
+ * a caller neither names nor plots a guess.
+ */
+export function resolveNeighbor(
+  prefix: string,
+  contacts: Record<string, Contact>,
+  adverts: Record<string, Advert>,
+): ResolvedNeighbor {
+  const match = matchNeighbor(prefix, contacts, adverts);
+  if (!match) return { identity: null, node: null };
+  const { contact, advert } = match;
+
+  if (contact) {
+    const name = contact.name || contact.pubkeyPrefix.slice(0, 8);
+    const favorite = (contact.flags & FAVORITE_FLAG) !== 0;
+    const coords =
+      contactCoords(contact.advLat, contact.advLon) ??
+      (advert ? contactCoords(advert.advLat, advert.advLon) : null);
+    return {
+      identity: {
+        pubkeyPrefix: contact.pubkeyPrefix,
+        name,
+        advType: contact.advType,
+        kind: 'contact',
+        favorite,
+        pubkey: contact.pubkey,
+      },
+      node: coords
+        ? {
+            key: contact.pubkeyPrefix,
+            pubkeyPrefix: contact.pubkeyPrefix,
+            name,
+            advType: contact.advType,
+            lat: coords.lat,
+            lon: coords.lon,
+            kind: 'contact',
+            favorite,
+          }
+        : null,
+    };
+  }
+
+  if (advert) {
+    const name = advert.name || advert.pubkeyPrefix.slice(0, 8);
+    const coords = contactCoords(advert.advLat, advert.advLon);
+    return {
+      identity: {
+        pubkeyPrefix: advert.pubkeyPrefix,
+        name,
+        advType: advert.advType,
+        kind: 'advert',
+        favorite: false,
+        pubkey: advert.pubkey,
+      },
+      node: coords
+        ? {
+            key: advert.pubkeyPrefix,
+            pubkeyPrefix: advert.pubkeyPrefix,
+            name,
+            advType: advert.advType,
+            lat: coords.lat,
+            lon: coords.lon,
+            kind: 'advert',
+            favorite: false,
+          }
+        : null,
+    };
+  }
+
+  return { identity: null, node: null };
+}
+
+/**
+ * The located map node a neighbor prefix resolves to, or `null` when it has no
+ * fix or the prefix is ambiguous. A caller that also needs the node's identity
+ * should use {@link resolveNeighbor} instead of pairing this with a second
+ * lookup.
  */
 export function locateNeighborNode(
   prefix: string,
   contacts: Record<string, Contact>,
   adverts: Record<string, Advert>,
 ): MapNode | null {
-  const contact = Object.values(contacts).find((c) =>
-    neighborPrefixMatches(prefix, c.pubkey, c.pubkeyPrefix),
-  );
-  if (contact) {
-    // Back up an unlocated contact only with an advert for the exact same node
-    // (full-key match), never one merely sharing the 4-byte neighbor prefix.
-    const cached = Object.values(adverts).find(
-      (a) => a.pubkey.toLowerCase() === contact.pubkey.toLowerCase(),
-    );
-    const coords =
-      contactCoords(contact.advLat, contact.advLon) ??
-      (cached ? contactCoords(cached.advLat, cached.advLon) : null);
-    if (!coords) return null;
-    return {
-      key: contact.pubkeyPrefix,
-      pubkeyPrefix: contact.pubkeyPrefix,
-      name: contact.name || contact.pubkeyPrefix.slice(0, 8),
-      advType: contact.advType,
-      lat: coords.lat,
-      lon: coords.lon,
-      kind: 'contact',
-      favorite: (contact.flags & FAVORITE_FLAG) !== 0,
-    };
-  }
-
-  // No saved contact: locate via the advert cache, matched by the neighbor
-  // prefix.
-  const advert = Object.values(adverts).find((a) =>
-    neighborPrefixMatches(prefix, a.pubkey, a.pubkeyPrefix),
-  );
-  if (advert) {
-    const coords = contactCoords(advert.advLat, advert.advLon);
-    if (!coords) return null;
-    return {
-      key: advert.pubkeyPrefix,
-      pubkeyPrefix: advert.pubkeyPrefix,
-      name: advert.name || advert.pubkeyPrefix.slice(0, 8),
-      advType: advert.advType,
-      lat: coords.lat,
-      lon: coords.lon,
-      kind: 'advert',
-      favorite: false,
-    };
-  }
-
-  return null;
+  return resolveNeighbor(prefix, contacts, adverts).node;
 }

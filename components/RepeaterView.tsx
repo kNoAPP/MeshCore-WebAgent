@@ -18,10 +18,14 @@ import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useClockTick } from '@/hooks/useClockTick';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
-import { parseNeighborsReply } from '@/lib/meshcore/repeaterCli';
+import { parseNeighborsReply, type Neighbor } from '@/lib/meshcore/repeaterCli';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
 import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
-import { locateNeighborNode } from '@/lib/map/nodes';
+import {
+  repeaterAnchorNode,
+  resolveNeighbor,
+  type NeighborIdentity,
+} from '@/lib/map/nodes';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
   formatAirtime,
@@ -47,9 +51,9 @@ import type {
   RepeaterStatus,
 } from '@/types/meshcore';
 
-// Leaflet and the neighbors map are loaded only when a located repeater with
-// locatable neighbors opens the tab, keeping the initial bundle lean. `ssr:
-// false` skips it during the static export, since Leaflet needs the DOM.
+// Leaflet and the neighbors map are loaded only when a located repeater opens
+// the tab, keeping the initial bundle lean. `ssr: false` skips it during the
+// static export, since Leaflet needs the DOM.
 const NeighborsMap = dynamic(
   () => import('./NeighborsMap').then((m) => ({ default: m.NeighborsMap })),
   { ssr: false },
@@ -797,6 +801,9 @@ function StatusDashboard({
 // same reply text. The entry is removed once the read settles.
 const neighborsRequests = new Map<string, Promise<string>>();
 
+const NEIGHBOR_VIEWS = ['map', 'list'] as const;
+type NeighborView = (typeof NEIGHBOR_VIEWS)[number];
+
 function NeighborsTab({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
   const { repeaterCliRequest } = useMeshCore();
@@ -810,17 +817,39 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   const neighbors = useMeshStore((s) => s.adminSessions[prefix]?.neighbors);
   const setRepeaterNeighbors = useMeshStore((s) => s.setRepeaterNeighbors);
 
-  // The map renders only when the repeater itself is located and at least one
-  // neighbor resolves to a saved contact/advert with a fix; otherwise there is
-  // nothing to anchor or draw, so the tab shows an explanatory placeholder.
-  const mappableCount = useMemo(() => {
-    if (!contact.advLat || !contact.advLon) return 0;
-    return (neighbors ?? []).filter((n) =>
-      locateNeighborNode(n.prefix, contacts, advertCache),
-    ).length;
-  }, [contact.advLat, contact.advLon, neighbors, contacts, advertCache]);
+  // Resolve every row once: the identity the list names it by, and whether it
+  // also has a fix the map can anchor. The lookup scans the advert cache,
+  // which refreshes on every heard advert, so it runs once per row here and is
+  // shared rather than repeated per consumer.
+  const rows = useMemo(() => {
+    const anchor = repeaterAnchorNode(contact);
+    return (neighbors ?? []).flatMap((neighbor) => {
+      const { identity, node } = resolveNeighbor(
+        neighbor.prefix,
+        contacts,
+        advertCache,
+      );
+      // A neighbor resolving back to the repeater itself is a self-edge
+      // `buildNeighborMap` drops. Dropping it here too keeps the table, the
+      // map and the coverage count describing the same set.
+      if (node !== null && node.key === anchor?.key) return [];
+      // Their own fix, not whether the map can draw it: a repeater with no
+      // advertised position does not make its neighbors' locations unknown.
+      return [{ neighbor, node: identity, located: node !== null }];
+    });
+  }, [contact, neighbors, contacts, advertCache]);
+
+  // The map needs an anchor to draw around. Neighbors without a fix are parked
+  // on a ring rather than dropped, so any neighbor at all is worth drawing once
+  // the repeater itself is located.
+  const anchored = repeaterAnchorNode(contact) !== null;
+  const locatedCount = rows.filter((r) => r.located).length;
+  const total = rows.length;
 
   const [loading, setLoading] = useState(false);
+  // Two renderings of one dataset, shown one at a time so neither is squeezed:
+  // the map for shape, the table for the per-neighbor detail it can't carry.
+  const [view, setView] = useState<NeighborView>('map');
   // Set when a read fails (timeout/disconnect). Distinct from a settled empty
   // list so the tab can show an error (and keep any cached data) instead of a
   // false "no neighbors".
@@ -880,41 +909,207 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   // result is cached in the store, so letting the request run to completion is
   // both correct and harmless when the user has navigated away.
 
+  // Shown whenever the map has nothing to draw, which on the map side doubles
+  // as the explanation of why — so the switcher stays available either way.
+  const notice = (
+    <div className='flex h-full items-center justify-center rounded-lg border border-border p-6'>
+      <p className='text-center text-sm text-text2'>
+        {errored
+          ? t('repeaterAdmin.neighbors.error')
+          : loading
+            ? t('repeaterAdmin.neighbors.loading')
+            : total === 0
+              ? t('repeaterAdmin.neighbors.empty')
+              : contact.advLat && contact.advLon
+                ? t('repeaterAdmin.neighbors.noLocation')
+                : t('repeaterAdmin.neighbors.noAnchor')}
+      </p>
+    </div>
+  );
+
   return (
-    <div className='h-full w-full'>
-      {mappableCount > 0 ? (
-        <NeighborsMap
-          contact={contact}
-          neighbors={neighbors ?? []}
-          control={
-            <RefreshButton
-              onClick={() => void refresh()}
-              busy={loading}
-              className='bg-surface'
-            />
-          }
-        />
-      ) : (
-        <div className='relative flex h-full w-full items-center justify-center overflow-hidden rounded-lg border border-border'>
+    <div className='flex h-full w-full flex-col gap-3'>
+      <div className='flex shrink-0 flex-wrap items-center justify-between gap-3'>
+        <p className='text-xs text-text2'>
+          {total > 0
+            ? t('repeaterAdmin.neighbors.mapCoverage', {
+                shown: locatedCount,
+                count: total,
+              })
+            : t('repeaterAdmin.neighbors.listLabel')}
+        </p>
+        <div className='flex items-center gap-2'>
+          {total > 0 && (
+            <div
+              role='tablist'
+              aria-label={t('repeaterAdmin.neighbors.viewLabel')}
+              onKeyDown={(e) =>
+                handleRovingKeyDown(
+                  e,
+                  NEIGHBOR_VIEWS.length,
+                  NEIGHBOR_VIEWS.indexOf(view),
+                  (i) => setView(NEIGHBOR_VIEWS[i]),
+                )
+              }
+              className='flex gap-1 rounded-md p-1 bg-bg'
+            >
+              {NEIGHBOR_VIEWS.map((id) => (
+                <button
+                  key={id}
+                  role='tab'
+                  id={`neighbors-view-${id}`}
+                  aria-selected={view === id}
+                  aria-controls='neighbors-tabpanel'
+                  tabIndex={view === id ? 0 : -1}
+                  onClick={() => setView(id)}
+                  className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                    view === id
+                      ? 'bg-accent-solid text-white inset-ring-1 inset-ring-accent'
+                      : 'text-text2 hover:bg-surface2'
+                  }`}
+                >
+                  {t(`repeaterAdmin.neighbors.view_${id}`)}
+                </button>
+              ))}
+            </div>
+          )}
           <RefreshButton
             onClick={() => void refresh()}
             busy={loading}
-            className='absolute top-2 right-2 z-10 bg-surface'
+            className='bg-surface'
           />
-          <p className='px-6 text-center text-sm text-text2'>
-            {errored
-              ? t('repeaterAdmin.neighbors.error')
-              : loading
-                ? t('repeaterAdmin.neighbors.loading')
-                : !(neighbors && neighbors.length > 0)
-                  ? t('repeaterAdmin.neighbors.empty')
-                  : contact.advLat && contact.advLon
-                    ? t('repeaterAdmin.neighbors.noLocation')
-                    : t('repeaterAdmin.neighbors.noAnchor')}
-          </p>
         </div>
-      )}
+      </div>
+      <div
+        id='neighbors-tabpanel'
+        {...(total > 0
+          ? { role: 'tabpanel', 'aria-labelledby': `neighbors-view-${view}` }
+          : {})}
+        // Takes the whole tab below the header: `NeighborsMap` sizes itself
+        // with `h-full`, which collapses against a parent that only grows.
+        className='min-h-0 flex-1'
+      >
+        {total === 0 || view === 'list' ? (
+          total === 0 ? (
+            notice
+          ) : (
+            <div className='h-full overflow-y-auto rounded-lg border border-border px-3'>
+              <NeighborsList rows={rows} />
+            </div>
+          )
+        ) : anchored ? (
+          <NeighborsMap contact={contact} neighbors={neighbors ?? []} />
+        ) : (
+          notice
+        )}
+      </div>
     </div>
+  );
+}
+
+/** One `neighbors` row, already resolved against contacts and the advert
+ * cache by {@link NeighborsTab}. */
+interface NeighborRow {
+  neighbor: Neighbor;
+  node: NeighborIdentity | null;
+}
+
+/**
+ * Every row the repeater returned, located or not — the map can only show the
+ * subset with a known fix, and an unmapped neighbor is exactly the one the user
+ * has not saved yet. A row resolving to a known node opens its manage panel;
+ * one that resolves only to a cached advert also offers Add contact. A prefix
+ * this browser has never heard an advert from carries no public key, so there
+ * is nothing to add — it shows as the bare 4 bytes the repeater reported.
+ */
+function NeighborsList({ rows }: { rows: NeighborRow[] }) {
+  const { t } = useTranslation();
+  const advertCache = useMeshStore((s) => s.advertCache);
+  const setManagePanel = useMeshStore((s) => s.setManagePanel);
+  const connected = useMeshStore((s) => s.status === 'connected');
+  const { addDiscoveredContact } = useMeshCore();
+  // Nothing else re-renders this between refreshes, so without a tick the
+  // ages below would freeze at whatever they read when the tab opened.
+  useClockTick();
+
+  return (
+    <table
+      className='w-full text-sm'
+      aria-label={t('repeaterAdmin.neighbors.listLabel')}
+    >
+      <thead>
+        {/* Pinned: the pane scrolls on its own now that it fills the tab. */}
+        <tr className='sticky top-0 text-left text-xs text-text2 bg-surface'>
+          <th scope='col' className='py-1 font-medium'>
+            {t('repeaterAdmin.neighbors.colNode')}
+          </th>
+          <th scope='col' className='py-1 font-medium'>
+            {t('repeaterAdmin.neighbors.colSnr')}
+          </th>
+          <th scope='col' className='py-1 font-medium'>
+            {t('repeaterAdmin.neighbors.colLastHeard')}
+          </th>
+          <th scope='col' className='py-1' />
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(({ neighbor, node }, index) => {
+          // Only a node known solely from the advert cache can be added: a
+          // saved contact already exists, and an unresolved prefix carries no
+          // public key to add.
+          const addable =
+            node?.kind === 'advert'
+              ? advertCache[node.pubkeyPrefix]
+              : undefined;
+          return (
+            // A 4-byte prefix is not unique on its own, so the reply position
+            // discriminates two rows that happen to share one.
+            <tr
+              key={`${neighbor.prefix}:${index}`}
+              className='border-t border-border'
+            >
+              <td className='py-1.5'>
+                {node ? (
+                  <button
+                    onClick={() =>
+                      setManagePanel({
+                        kind: node.kind,
+                        id: node.pubkeyPrefix,
+                      })
+                    }
+                    className='truncate text-left hover:text-accent'
+                  >
+                    {ADV_ICON[node.advType] ?? '👤'} {node.name}
+                  </button>
+                ) : (
+                  <span className='font-mono text-xs text-text2'>
+                    {neighbor.prefix}
+                  </span>
+                )}
+              </td>
+              <td className='py-1.5 tabular-nums'>{formatSnr(neighbor.snr)}</td>
+              <td className='py-1.5 text-text2'>
+                {formatRelative(neighbor.lastHeard)}
+              </td>
+              <td className='py-1.5 text-right'>
+                {addable && (
+                  <button
+                    disabled={!connected}
+                    onClick={() => void addDiscoveredContact(addable)}
+                    aria-label={t('repeaterAdmin.neighbors.addNode', {
+                      name: node?.name ?? neighbor.prefix,
+                    })}
+                    className='rounded-md px-2 py-0.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 bg-accent-solid'
+                  >
+                    {t('discover.add')}
+                  </button>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 

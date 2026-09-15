@@ -34,9 +34,24 @@ export function escapeHtml(value: string): string {
 
 /**
  * Builds a `divIcon` for a node — category shape/color, self ringed, and a
- * gold border on favorited contacts.
+ * gold border on favorited contacts. A node with no real position gets a
+ * neutral dashed glyph instead of a category one, because its category is as
+ * unknown as its location.
  */
 export function nodeIcon(node: MapNode): L.DivIcon {
+  const size = MAP_MARKER_SIZE_PX;
+  if (node.positionUnknown) {
+    const svg =
+      `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" ` +
+      `stroke="var(--map-unplaced)" stroke-width="2.5" stroke-dasharray="4 3" ` +
+      `aria-hidden="true"><circle cx="12" cy="12" r="8.5" /></svg>`;
+    return L.divIcon({
+      html: `<div class="map-marker map-marker-unplaced" style="width:${size}px;height:${size}px">${svg}</div>`,
+      className: '',
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+  }
   const { shape, color } = markerStyle(node.advType);
   const cls =
     node.kind === 'self'
@@ -44,7 +59,6 @@ export function nodeIcon(node: MapNode): L.DivIcon {
       : node.kind === 'advert'
         ? 'map-marker map-marker-cached'
         : 'map-marker';
-  const size = MAP_MARKER_SIZE_PX;
   const svg = node.favorite
     ? shapeSvg(shape, color, size, FAVORITE_OUTLINE, FAVORITE_OUTLINE_WIDTH)
     : shapeSvg(shape, color, size);
