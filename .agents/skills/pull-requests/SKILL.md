@@ -83,6 +83,7 @@ tracked file untracked and can strand you there:
 
 ```bash
 SHOT_BRANCH=assets/pr-$PR
+# --orphan modifies `add`; the branch name comes from -b (verified, git 2.54).
 git worktree add --orphan -b "$SHOT_BRANCH" ../shots-worktree
 cp .git/shots/*.png ../shots-worktree/
 git -C ../shots-worktree add ./*.png

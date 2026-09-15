@@ -59,8 +59,8 @@ concurrent runs would fight over it, over the dev server, and over the working
 tree.
 
 - Finish a ticket end to end — through the `copilot-review-loop` exit condition
-  — before starting the next one. Steps 7 and 8 below are run-level: they happen
-  once, after the last ticket, not after each one.
+  — before starting the next one. Step 7 is the transition between tickets; its
+  roll-up and the step 8 tour happen once, after the last one.
 - Every ticket gets **its own branch off fresh `develop`** and **its own PR**.
   Never stack two issues onto one branch or one PR.
 - Subagents are still welcome **within** a ticket (research, code search, log
