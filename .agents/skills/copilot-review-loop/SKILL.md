@@ -145,6 +145,12 @@ gh api graphql -f query='
         | if . == null then "none yet" else {state, current: (.commit.oid == $head)} end'
 ```
 
+**Run this freshness check only when you arrive from step 2.** Once you have
+passed through 3d a re-review is pending, and the previous review is necessarily
+stale — re-checking it here would send you round the stale branch forever. After
+3d, go straight to the arrival loop below and judge freshness on the review that
+_arrives_.
+
 `"none yet"` means Copilot has not reviewed this PR at all — that is the normal
 wait case, not a stale review. (The `last:100` window is exhaustive in practice;
 this loop caps at six rounds. If a PR ever accumulates more than 100 reviews,
@@ -152,12 +158,12 @@ page the connection instead of trusting the window.) Skip the wait only when
 step 2 found a completed review with `current: true` that you have not read; go
 straight to the verdict below.
 
-Only a review that exists and reports `current: false` is stale, which means a
-push landed after it. Handle that case in this order, or the loop traps itself
-on the same stale review: drive CI green on the new head (step 1), **then go
-straight to 3d** and request the re-review, reset `BEFORE` to the current
-Copilot review count, and come back here to wait. Do not re-enter step 2 — it
-would find the same stale review and send you round again.
+On that first entry, a review that exists and reports `current: false` is stale,
+which means a push landed after it. Handle it in this order: drive CI green on
+the new head (step 1), **then go straight to 3d** and request the re-review,
+reset `BEFORE` to the current Copilot review count, and come back here to wait.
+Do not re-enter step 2 — it would find the same stale review and send you round
+again.
 
 Otherwise a review takes a few minutes. Wait with a single blocking command
 instead of polling repeatedly, and make the timeout a real failure:
