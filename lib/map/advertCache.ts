@@ -1,6 +1,7 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
+import { sortByHeardAge } from '@/lib/utils';
 import type { Advert } from '@/types/meshcore';
 
 /**
@@ -37,6 +38,7 @@ export function mergeAdvertCache(
   incoming: Record<string, Advert>,
 ): Record<string, Advert> {
   const merged: Record<string, Advert> = { ...cache };
+  const nowSecs = Math.floor(Date.now() / 1000);
 
   for (const advert of Object.values(incoming)) {
     const existing = merged[advert.pubkeyPrefix];
@@ -44,7 +46,15 @@ export function mergeAdvertCache(
       ? {
           ...existing,
           ...advert,
-          lastHeard: Math.max(existing.lastHeard, advert.lastHeard),
+          // Advert timestamps are the sender's clock. Normally the newest
+          // sighting wins, but a cached value that sits in the future is a
+          // skewed clock rather than a recent sighting — take the incoming
+          // value outright there, or `Math.max` would pin the bad timestamp
+          // until wall time catches up even after the node is corrected.
+          lastHeard:
+            existing.lastHeard > nowSecs
+              ? advert.lastHeard
+              : Math.max(existing.lastHeard, advert.lastHeard),
           // An empty name is the "unset" case (not undefined), so a re-advert
           // that arrives without one must not clobber a known name — fall back
           // to the cached value, mirroring the location handling below.
@@ -62,10 +72,12 @@ export function mergeAdvertCache(
   if (keys.length <= ADVERT_CACHE_LIMIT) return merged;
 
   // Keep only the most-recently-heard nodes when over the cap.
-  const kept = keys
-    .sort((a, b) => merged[b].lastHeard - merged[a].lastHeard)
-    .slice(0, ADVERT_CACHE_LIMIT);
   const capped: Record<string, Advert> = {};
-  for (const key of kept) capped[key] = merged[key];
+  for (const advert of sortByHeardAge(Object.values(merged)).slice(
+    0,
+    ADVERT_CACHE_LIMIT,
+  )) {
+    capped[advert.pubkeyPrefix] = advert;
+  }
   return capped;
 }
