@@ -41,12 +41,13 @@ Work through every unresolved review thread one at a time:
    THREAD_ID=...   # a reviewThread node id from the query below
 
    # List review threads (the isResolved field tells you which are still open)
-   gh api graphql -f query='
-     query($owner:String!,$repo:String!,$pr:Int!){
+   gh api graphql --paginate -f query='
+     query($owner:String!,$repo:String!,$pr:Int!,$endCursor:String){
        repository(owner:$owner,name:$repo){
          pullRequest(number:$pr){
-           reviewThreads(first:100){
+           reviewThreads(first:100, after:$endCursor){
              nodes{ id isResolved comments(first:20){ nodes{ body path } } }
+             pageInfo{ hasNextPage endCursor }
            }
          }
        }
