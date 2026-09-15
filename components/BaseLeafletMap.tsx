@@ -57,11 +57,6 @@ export interface BaseLeafletMapProps {
    * can wire imperative behavior (e.g. click-to-place picking) against it.
    */
   onMapReady?: (map: L.Map | null) => void;
-  /**
-   * Whether the wheel zooms the map. Off for a map embedded in a scrolling
-   * pane, where wheeling should scroll the pane instead. Defaults to `true`.
-   */
-  scrollWheelZoom?: boolean;
   /** Overlays rendered above the map (banners, legend, cap notice). */
   children?: ReactNode;
 }
@@ -97,7 +92,6 @@ export function BaseLeafletMap({
   onNodeClick,
   onMoveEnd,
   onMapReady,
-  scrollWheelZoom = true,
   children,
 }: BaseLeafletMapProps) {
   const { t } = useTranslation();
@@ -137,7 +131,6 @@ export function BaseLeafletMap({
       // opening viewport is applied below, once the min zoom is known.
       maxBounds: WORLD_BOUNDS,
       maxBoundsViscosity: 1,
-      scrollWheelZoom,
     });
     mapRef.current = map;
 
@@ -200,7 +193,7 @@ export function BaseLeafletMap({
       edgeLayerRef.current = null;
       tileLayerRef.current = null;
     };
-  }, [startView, scrollWheelZoom]);
+  }, [startView]);
 
   // Point the single tile layer at the active theme's CARTO style; light/dark
   // just swaps the URL template, avoiding a remove/re-add flash.
