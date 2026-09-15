@@ -126,21 +126,24 @@ gh api graphql -f query='
     repository(owner:$owner,name:$repo){
       pullRequest(number:$pr){
         headRefOid
-        reviews(last:20){ nodes{ author{login} state commit{oid} } }
+        reviews(last:100){ nodes{ author{login} state commit{oid} } }
       }
     }
   }' -f owner=kNoAPP -f repo=MeshCore-WebAgent -F pr="$PR" \
   --jq '.data.repository.pullRequest
         | .headRefOid as $head
         | [.reviews.nodes[] | select(.author.login | test("copilot"; "i"))] | last
-        | {state, current: (.commit.oid == $head)}'
+        | if . == null then "none yet" else {state, current: (.commit.oid == $head)} end'
 ```
 
-The query returns `null` when Copilot has not reviewed this PR yet — that is the
-normal wait case, not a stale review. Skip the wait only when step 2 found a
-completed review with `current: true` that you have not read; go straight to the
-verdict below. Only a **non-null** review with `current: false` is stale: ignore
-its verdict, request a re-review (step 3d), and wait.
+`"none yet"` means Copilot has not reviewed this PR at all — that is the normal
+wait case, not a stale review. (The `last:100` window is exhaustive in practice;
+this loop caps at six rounds. If a PR ever accumulates more than 100 reviews,
+page the connection instead of trusting the window.) Skip the wait only when
+step 2 found a completed review with `current: true` that you have not read; go
+straight to the verdict below. Only a review that exists and reports
+`current: false` is stale: ignore its verdict, request a re-review (step 3d),
+and wait.
 
 Otherwise a review takes a few minutes. Wait with a single blocking command
 instead of polling repeatedly, and make the timeout a real failure:
@@ -225,8 +228,13 @@ gh pr edit "$PR" --add-reviewer @copilot
 ```
 
 Request it **after** the push you want reviewed — a request placed before the
-push is consumed by the old head. Then return to step 3a with `BEFORE` set to
-the review count you just observed.
+push is consumed by the old head. A round where you declined everything has no
+push, so the re-review runs against the same head deliberately: your replies are
+the new input. If two consecutive same-head rounds bring no new findings and no
+approval, stop and hand back to the user rather than requesting a third — that
+is a disagreement, not a loop that will converge.
+
+Then return to step 3a with `BEFORE` set to the review count you just observed.
 
 ## Exit condition
 

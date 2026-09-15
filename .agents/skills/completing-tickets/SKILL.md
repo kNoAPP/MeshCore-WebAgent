@@ -58,8 +58,9 @@ Unless the user explicitly asks for parallel work, deliver the tickets
 concurrent runs would fight over it, over the dev server, and over the working
 tree.
 
-- Finish a ticket end to end — steps 1–8, through Copilot approval — before
-  starting the next one.
+- Finish a ticket end to end — through the `copilot-review-loop` exit condition
+  — before starting the next one. Steps 7 and 8 below are run-level: they happen
+  once, after the last ticket, not after each one.
 - Every ticket gets **its own branch off fresh `develop`** and **its own PR**.
   Never stack two issues onto one branch or one PR.
 - Subagents are still welcome **within** a ticket (research, code search, log
@@ -190,9 +191,10 @@ current head. That skill is authoritative — do not re-derive its waits, retrie
 or exit condition here.
 
 It ends the ticket one of three ways: approved with zero unresolved threads
-(done), no Copilot review requested at all (done — report the PR URL), or a stop
-condition such as a CI failure you cannot fix or the sixth-iteration cap (report
-and set the ticket aside).
+(done), no Copilot review requested at all (done — report the PR URL, and say so
+explicitly if the PR is a draft and the loop was skipped for that reason), or a
+stop condition such as a CI failure you cannot fix or the sixth-iteration cap
+(report and set the ticket aside).
 
 ## 7. Next ticket
 

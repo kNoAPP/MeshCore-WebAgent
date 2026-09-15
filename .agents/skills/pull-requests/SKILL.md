@@ -86,12 +86,14 @@ SHOT_BRANCH=assets/pr-$PR
 git worktree add --orphan -b "$SHOT_BRANCH" ../shots-worktree
 cp .git/shots/*.png ../shots-worktree/
 git -C ../shots-worktree add ./*.png
-git -C ../shots-worktree commit -m "chore: pr $PR screenshots"
+git -C ../shots-worktree commit -m "chore: add PR $PR screenshots"
 git -C ../shots-worktree push -u origin "$SHOT_BRANCH"
 git worktree remove ../shots-worktree
 ```
 
-Your PR branch stays checked out and untouched throughout.
+Your PR branch stays checked out and untouched throughout. To refresh the images
+later the branch already exists, so check it out instead of creating it:
+`git worktree add ../shots-worktree "$SHOT_BRANCH"`.
 
 Then reference them from the body file and re-upload the whole body with
 `gh pr edit "$PR" --body-file .git/PR_BODY.md`:
