@@ -25,10 +25,19 @@ pull request. Before the first commit of any change, confirm you are not on it:
 git rev-parse --abbrev-ref HEAD   # must not be "develop"
 ```
 
-If you already committed to a local `develop`, move the work onto a branch
-(`git switch -c <handle>/none-<type>-<desc>`) and reset `develop` back to
-`origin/develop` before pushing anything. Never push or force-push to `develop`,
-and never commit there "just this once" for a typo or formatting fix.
+If you already committed to a local `develop`, move the work onto a branch and
+put `develop` back, in this order — resetting while still on the new branch
+would throw the work away:
+
+```bash
+git switch -c <handle>/none-<type>-<desc>   # the commits now live here
+git switch develop
+git reset --hard origin/develop             # discards develop's local commits
+git switch -                                # back to the work branch
+```
+
+Never push or force-push to `develop`, and never commit there "just this once"
+for a typo or formatting fix.
 
 ## Format
 

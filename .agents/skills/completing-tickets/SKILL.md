@@ -45,6 +45,17 @@ gh issue list --repo kNoAPP/MeshCore-WebAgent --state open --limit 100 \
   --json number,title,labels,assignees,milestone,createdAt,url
 ```
 
+That listing is only a shortlist — it carries no body, comments, or linked PRs.
+Before committing to a candidate, pull the detail the exclusions below depend
+on:
+
+```bash
+gh issue view <n> --repo kNoAPP/MeshCore-WebAgent \
+  --json number,title,body,comments,assignees,labels,url
+gh api "repos/kNoAPP/MeshCore-WebAgent/issues/<n>/timeline?per_page=100" \
+  --jq '[.[] | select(.event == "cross-referenced" or .event == "connected")]'
+```
+
 Skip anything already assigned, already linked to an open PR, blocked on another
 issue, or labelled as needing a product decision. Prefer small, self-contained,
 well-specified issues, and prefer ones whose files do not overlap. Tell the user
@@ -73,10 +84,12 @@ Before starting the first ticket, check once whether a physical MeshCore radio
 is reachable from the webapp, using the chrome-devtools MCP server:
 
 1. Start the dev server (`npm run dev`) and open `http://localhost:3000`.
-2. Take a snapshot of the connect screen. A granted Web Serial device shows as a
-   direct **"Connect to Espressif 303A:1001"**-style button rather than the
-   generic picker.
-3. If it is there, click it and confirm the app reaches a connected state
+2. Take a snapshot of the connect screen and check **every** transport tab, not
+   just USB — Serial, BLE, and WiFi all count. An already-granted Web Serial
+   device shows as a direct **"Connect to Espressif 303A:1001"**-style button
+   rather than the generic picker; a reachable BLE or WiFi radio is just as
+   good.
+3. If one is there, connect and confirm the app reaches a connected state
    (sidebar contacts, Stats page populated).
 
 **If a radio is available**, treat hardware verification as part of the
@@ -233,7 +246,9 @@ Stop and ask the user before:
 
 - Merging the PR — this workflow never merges. It ends at an approved PR, ready
   for a human to merge.
-- Force-pushing, rewriting published history, or touching another branch.
+- Force-pushing or rewriting published history.
+- Committing to a branch other than the one for the ticket in hand — starting
+  the next ticket's branch at step 7 is the workflow, not an exception.
 - Changing anything outside the issue's scope, including unrelated dependency
   bumps.
 - Working more than one ticket at a time, or delegating whole tickets to

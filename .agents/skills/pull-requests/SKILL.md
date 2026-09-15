@@ -77,16 +77,19 @@ Capture the pair with the chrome-devtools MCP server:
 Frame both shots identically so the diff is obvious, one pair per distinct
 surface you changed, and write them to a scratch path such as `.git/shots/`.
 
-Host them on a throwaway asset branch so nothing ships in the diff. Build it in
-a separate worktree — an orphan branch in the current worktree leaves every
-tracked file untracked and can strand you there:
+Host them on a throwaway asset branch so nothing ships in the diff. The branch
+is named after the PR, so this happens **after** `gh pr create` — capture the
+images first, open the PR, then host and link them and re-upload the body. Build
+it in a separate worktree — an orphan branch in the current worktree leaves
+every tracked file untracked and can strand you there:
 
 ```bash
+PR=$(gh pr view --json number --jq .number)
 SHOT_BRANCH=assets/pr-$PR
 # --orphan modifies `add`; the branch name comes from -b (verified, git 2.54).
 git worktree add --orphan -b "$SHOT_BRANCH" ../shots-worktree
 cp .git/shots/*.png ../shots-worktree/
-git -C ../shots-worktree add ./*.png
+git -C ../shots-worktree add -A
 git -C ../shots-worktree commit -m "chore: add PR $PR screenshots"
 git -C ../shots-worktree push -u origin "$SHOT_BRANCH"
 git worktree remove ../shots-worktree
