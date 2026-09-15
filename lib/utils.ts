@@ -355,6 +355,36 @@ export function bearingDeg(
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
+/**
+ * The point `km` away from a start position along a compass `bearing`, in
+ * decimal degrees — the inverse of {@link haversineKm}/{@link bearingDeg}.
+ */
+export function destinationPoint(
+  lat: number,
+  lon: number,
+  km: number,
+  bearing: number,
+): { lat: number; lon: number } {
+  const angular = km / EARTH_RADIUS_KM;
+  const lat1 = toRad(lat);
+  const lon1 = toRad(lon);
+  const brg = toRad(bearing);
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(angular) +
+      Math.cos(lat1) * Math.sin(angular) * Math.cos(brg),
+  );
+  const lon2 =
+    lon1 +
+    Math.atan2(
+      Math.sin(brg) * Math.sin(angular) * Math.cos(lat1),
+      Math.cos(angular) - Math.sin(lat1) * Math.sin(lat2),
+    );
+  return {
+    lat: (lat2 * 180) / Math.PI,
+    lon: (((lon2 * 180) / Math.PI + 540) % 360) - 180,
+  };
+}
+
 /** Translation keys for the 8-point compass, ordered clockwise from north. */
 export const COMPASS_KEYS = [
   'compass.n',

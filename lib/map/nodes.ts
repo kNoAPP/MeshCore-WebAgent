@@ -22,6 +22,12 @@ export interface MapNode {
   kind: 'self' | 'contact' | 'advert';
   /** Favorited contact — flagged with a gold marker outline. */
   favorite: boolean;
+  /**
+   * The coordinates are a placeholder, not a fix: this node is known only by
+   * the 4 bytes a repeater reported, so it is parked on a ring around its
+   * anchor and must be drawn as unplaced rather than plotted as terrain.
+   */
+  positionUnknown?: boolean;
 }
 
 /**
@@ -36,6 +42,11 @@ export interface MapEdge {
   to: [number, number];
   /** Midpoint label, already localized/formatted by the caller. */
   label?: string;
+  /**
+   * Draw the link dashed — the endpoint is a placeholder position, so the line
+   * carries a real SNR but a made-up direction and length.
+   */
+  provisional?: boolean;
 }
 
 type DegCoords = { lat: number; lon: number } | null;

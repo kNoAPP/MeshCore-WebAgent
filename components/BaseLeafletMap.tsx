@@ -249,7 +249,7 @@ export function BaseLeafletMap({
     const sig = list
       .map(
         (e) =>
-          `${e.key}:${e.from[0]},${e.from[1]}:${e.to[0]},${e.to[1]}:${e.label ?? ''}`,
+          `${e.key}:${e.from[0]},${e.from[1]}:${e.to[0]},${e.to[1]}:${e.label ?? ''}:${e.provisional ? 'p' : ''}`,
       )
       .join('|');
     if (sig === edgeSigRef.current) return;
@@ -261,6 +261,9 @@ export function BaseLeafletMap({
         className: 'meshcore-edge',
         weight: MAP_EDGE_WEIGHT,
         opacity: MAP_EDGE_OPACITY,
+        // A provisional link has a real SNR but an invented bearing and
+        // length, so it is dashed to read as a connection, not a route.
+        dashArray: edge.provisional ? '4 5' : undefined,
         interactive: false,
       });
       if (edge.label) {

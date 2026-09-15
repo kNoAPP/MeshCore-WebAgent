@@ -181,6 +181,7 @@ label[for] {
   --map-sensor: var(--yellow);
   --map-outline: #ffffff;
   --map-favorite: #fbbf24;
+  --map-unplaced: #94a3b8;
   --map-shadow: rgb(0 0 0 / 0.5);
 }
 
@@ -220,6 +221,7 @@ label[for] {
      have to darken or they vanish into the tiles. */
   --map-outline: #1a1d27;
   --map-favorite: #a16207;
+  --map-unplaced: #64748b;
   --map-shadow: rgb(15 17 23 / 0.3);
 }
 
@@ -343,6 +345,11 @@ html {
  * faded to read as secondary next to solid, radio-backed contacts. */
 .map-marker-cached {
   opacity: 0.5;
+}
+/* Neighbors with no known position. Parked on a ring around their anchor, so
+ * they must not carry the drop-shadow that makes a marker read as planted. */
+.map-marker-unplaced {
+  filter: none;
 }
 .meshcore-map .leaflet-bar a,
 .meshcore-map .leaflet-bar a:hover {

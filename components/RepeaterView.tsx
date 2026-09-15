@@ -676,6 +676,9 @@ function StatusDashboard({
 // same reply text. The entry is removed once the read settles.
 const neighborsRequests = new Map<string, Promise<string>>();
 
+const NEIGHBOR_VIEWS = ['map', 'list'] as const;
+type NeighborView = (typeof NEIGHBOR_VIEWS)[number];
+
 function NeighborsTab({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
   const { repeaterCliRequest } = useMeshCore();
@@ -712,13 +715,17 @@ function NeighborsTab({ contact }: { contact: Contact }) {
     });
   }, [contact, neighbors, contacts, advertCache]);
 
-  // The map renders only when the repeater itself is located and at least one
-  // neighbor resolves to a saved contact/advert with a fix; otherwise there is
-  // nothing to anchor or draw, so the tab shows an explanatory placeholder.
-  const mappableCount = rows.filter((r) => r.mappable).length;
+  // The map needs an anchor to draw around. Neighbors without a fix are parked
+  // on a ring rather than dropped, so any neighbor at all is worth drawing once
+  // the repeater itself is located.
+  const anchored = repeaterAnchorNode(contact) !== null;
+  const locatedCount = rows.filter((r) => r.mappable).length;
   const total = rows.length;
 
   const [loading, setLoading] = useState(false);
+  // Two renderings of one dataset, shown one at a time so neither is squeezed:
+  // the map for shape, the table for the per-neighbor detail it can't carry.
+  const [view, setView] = useState<NeighborView>('map');
   // Set when a read fails (timeout/disconnect). Distinct from a settled empty
   // list so the tab can show an error (and keep any cached data) instead of a
   // false "no neighbors".
@@ -778,45 +785,100 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   // result is cached in the store, so letting the request run to completion is
   // both correct and harmless when the user has navigated away.
 
+  // Shown whenever the map has nothing to draw, which on the map side doubles
+  // as the explanation of why — so the switcher stays available either way.
+  const notice = (
+    <div className='flex h-full items-center justify-center rounded-lg border border-border p-6'>
+      <p className='text-center text-sm text-text2'>
+        {errored
+          ? t('repeaterAdmin.neighbors.error')
+          : loading
+            ? t('repeaterAdmin.neighbors.loading')
+            : total === 0
+              ? t('repeaterAdmin.neighbors.empty')
+              : contact.advLat && contact.advLon
+                ? t('repeaterAdmin.neighbors.noLocation')
+                : t('repeaterAdmin.neighbors.noAnchor')}
+      </p>
+    </div>
+  );
+
   return (
-    <div className='flex w-full flex-col gap-3'>
-      <div className='flex items-center justify-between gap-3'>
+    <div className='flex h-full w-full flex-col gap-3'>
+      <div className='flex shrink-0 flex-wrap items-center justify-between gap-3'>
         <p className='text-xs text-text2'>
           {total > 0
             ? t('repeaterAdmin.neighbors.mapCoverage', {
-                shown: mappableCount,
+                shown: locatedCount,
                 count: total,
               })
             : t('repeaterAdmin.neighbors.listLabel')}
         </p>
-        <RefreshButton
-          onClick={() => void refresh()}
-          busy={loading}
-          className='bg-surface'
-        />
+        <div className='flex items-center gap-2'>
+          {total > 0 && (
+            <div
+              role='tablist'
+              aria-label={t('repeaterAdmin.neighbors.viewLabel')}
+              onKeyDown={(e) =>
+                handleRovingKeyDown(
+                  e,
+                  NEIGHBOR_VIEWS.length,
+                  NEIGHBOR_VIEWS.indexOf(view),
+                  (i) => setView(NEIGHBOR_VIEWS[i]),
+                )
+              }
+              className='flex gap-1 rounded-md p-1 bg-bg'
+            >
+              {NEIGHBOR_VIEWS.map((id) => (
+                <button
+                  key={id}
+                  role='tab'
+                  id={`neighbors-view-${id}`}
+                  aria-selected={view === id}
+                  aria-controls='neighbors-tabpanel'
+                  tabIndex={view === id ? 0 : -1}
+                  onClick={() => setView(id)}
+                  className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                    view === id
+                      ? 'bg-accent-solid text-white inset-ring-1 inset-ring-accent'
+                      : 'text-text2 hover:bg-surface2'
+                  }`}
+                >
+                  {t(`repeaterAdmin.neighbors.view_${id}`)}
+                </button>
+              ))}
+            </div>
+          )}
+          <RefreshButton
+            onClick={() => void refresh()}
+            busy={loading}
+            className='bg-surface'
+          />
+        </div>
       </div>
-      {mappableCount > 0 ? (
-        // A fixed height rather than `flex-1`: the list below is the primary
-        // presentation, and the tab panel scrolls.
-        <div className='h-80 shrink-0'>
+      <div
+        id='neighbors-tabpanel'
+        {...(total > 0
+          ? { role: 'tabpanel', 'aria-labelledby': `neighbors-view-${view}` }
+          : {})}
+        // Takes the whole tab below the header: `NeighborsMap` sizes itself
+        // with `h-full`, which collapses against a parent that only grows.
+        className='min-h-0 flex-1'
+      >
+        {total === 0 || view === 'list' ? (
+          total === 0 ? (
+            notice
+          ) : (
+            <div className='h-full overflow-y-auto rounded-lg border border-border px-3'>
+              <NeighborsList rows={rows} />
+            </div>
+          )
+        ) : anchored ? (
           <NeighborsMap contact={contact} neighbors={neighbors ?? []} />
-        </div>
-      ) : (
-        <div className='flex shrink-0 items-center justify-center rounded-lg border border-border p-6'>
-          <p className='text-center text-sm text-text2'>
-            {errored
-              ? t('repeaterAdmin.neighbors.error')
-              : loading
-                ? t('repeaterAdmin.neighbors.loading')
-                : total === 0
-                  ? t('repeaterAdmin.neighbors.empty')
-                  : contact.advLat && contact.advLon
-                    ? t('repeaterAdmin.neighbors.noLocation')
-                    : t('repeaterAdmin.neighbors.noAnchor')}
-          </p>
-        </div>
-      )}
-      {total > 0 && <NeighborsList rows={rows} />}
+        ) : (
+          notice
+        )}
+      </div>
     </div>
   );
 }
@@ -849,7 +911,8 @@ function NeighborsList({ rows }: { rows: NeighborRow[] }) {
       aria-label={t('repeaterAdmin.neighbors.listLabel')}
     >
       <thead>
-        <tr className='text-left text-xs text-text2'>
+        {/* Pinned: the pane scrolls on its own now that it fills the tab. */}
+        <tr className='sticky top-0 text-left text-xs text-text2 bg-surface'>
           <th scope='col' className='py-1 font-medium'>
             {t('repeaterAdmin.neighbors.colNode')}
           </th>
