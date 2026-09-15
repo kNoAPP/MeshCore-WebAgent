@@ -13,11 +13,14 @@ import {
   Search,
   User,
   X,
+  Zap,
 } from 'lucide-react';
 import { useMeshStore, openConvo } from '@/store/meshStore';
 import { formatRelative } from '@/lib/i18n/format';
 import type { CommandKind, CommandResult } from '@/lib/search/commandSearch';
 import { useCommandSearch } from '@/hooks/useCommandSearch';
+import { usePaletteActions } from '@/hooks/usePaletteActions';
+import { ConfirmRow } from './ConfirmRow';
 import { ModalShell } from './ModalShell';
 
 const KIND_ICON: Record<CommandKind, typeof Search> = {
@@ -26,6 +29,7 @@ const KIND_ICON: Record<CommandKind, typeof Search> = {
   advert: Radio,
   channel: Hash,
   page: ArrowRight,
+  action: Zap,
 };
 
 const LISTBOX_ID = 'command-results';
@@ -90,9 +94,14 @@ function ResultRow({
         active ? 'bg-surface2' : ''
       }`}
     >
-      <Icon size={16} className='shrink-0 text-text2' />
+      <Icon
+        size={16}
+        className={`shrink-0 ${result.destructive ? 'text-red' : 'text-text2'}`}
+      />
       <span className='flex min-w-0 flex-1 flex-col'>
-        <span className='truncate text-sm text-text'>
+        <span
+          className={`truncate text-sm ${result.destructive ? 'text-red' : 'text-text'}`}
+        >
           <Highlighted text={result.primary} ranges={result.highlight} />
         </span>
         {result.secondary && (
@@ -112,11 +121,12 @@ function ResultRow({
 
 /**
  * The global "Find Anything" command palette: a centered modal with a search
- * input over grouped, ranked results (messages, contacts, channels, and
- * navigation targets). Typing filters via Fuse.js; an empty query shows recent
- * conversations and page shortcuts. Arrow keys move the highlight across
- * groups, Enter activates, Escape (or a backdrop click) closes. Mounted only
- * while the palette is open.
+ * input over grouped, ranked results (messages, contacts, channels, runnable
+ * actions, and navigation targets). Typing filters via Fuse.js; an empty query
+ * shows recent conversations, the radio-wide actions and page shortcuts. Arrow
+ * keys move the highlight across groups, Enter activates, Escape (or a backdrop
+ * click) closes. A destructive action swaps the list for an inline confirmation
+ * instead of firing. Mounted only while the palette is open.
  */
 export function CommandPalette(): React.ReactElement {
   const { t } = useTranslation();
@@ -125,9 +135,11 @@ export function CommandPalette(): React.ReactElement {
   const openSettingsSection = useMeshStore((s) => s.openSettingsSection);
   const setScrollToMsgId = useMeshStore((s) => s.setScrollToMsgId);
   const setManagePanel = useMeshStore((s) => s.setManagePanel);
+  const runAction = usePaletteActions();
 
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+  const [pending, setPending] = useState<CommandResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -151,7 +163,15 @@ export function CommandPalette(): React.ReactElement {
 
   const activate = (result: CommandResult): void => {
     const { action } = result;
-    if (action.type === 'page') {
+    if (action.type === 'run') {
+      // A destructive verb gets the same inline confirmation the surface that
+      // owns it uses, rather than firing on a single Enter.
+      if (result.destructive) {
+        setPending(result);
+        return;
+      }
+      runAction(action.run);
+    } else if (action.type === 'page') {
       if (action.section) openSettingsSection(action.section);
       else setView(action.view);
     } else if (action.type === 'advert') {
@@ -166,6 +186,12 @@ export function CommandPalette(): React.ReactElement {
       setView('chat');
       if (action.type === 'message') setScrollToMsgId(action.msgId);
     }
+    closeCommandPalette();
+  };
+
+  const confirmPending = (): void => {
+    if (pending?.action.type === 'run') runAction(pending.action.run);
+    setPending(null);
     closeCommandPalette();
   };
 
@@ -195,6 +221,20 @@ export function CommandPalette(): React.ReactElement {
 
   // Running index across all groups, so keyboard navigation crosses headings.
   let cursor = -1;
+
+  if (pending) {
+    return (
+      <ModalShell title={t('command.title')} onClose={closeCommandPalette}>
+        <ConfirmRow
+          message={t('command.confirm')}
+          confirmLabel={pending.primary}
+          autoFocus
+          onCancel={() => setPending(null)}
+          onConfirm={confirmPending}
+        />
+      </ModalShell>
+    );
+  }
 
   return (
     <ModalShell title={t('command.title')} onClose={closeCommandPalette}>

@@ -3,6 +3,8 @@
 
 import type { IFuseOptions } from 'fuse.js';
 import type { AppView, SettingsSection } from '@/store/meshStore';
+import type { SupportedLocale } from '@/lib/i18n/config';
+import type { UnitSystem } from '@/lib/units/config';
 import type {
   ActiveConvo,
   Advert,
@@ -12,22 +14,46 @@ import type {
 } from '@/types/meshcore';
 
 /** The kinds of thing the command palette can surface. */
-export type CommandKind = 'message' | 'contact' | 'advert' | 'channel' | 'page';
+export type CommandKind =
+  'message' | 'contact' | 'advert' | 'channel' | 'page' | 'action';
+
+/**
+ * A verb the palette can run. Every variant maps onto a store action or a
+ * `useMeshCore` function that some other surface already calls — the palette
+ * is a second entry point, never a second implementation.
+ */
+export type PaletteAction =
+  | { kind: 'advertise'; flood: boolean }
+  | { kind: 'disconnect' }
+  | { kind: 'reboot' }
+  | { kind: 'toggleTheme' }
+  | { kind: 'setLocale'; locale: SupportedLocale }
+  | { kind: 'setUnitSystem'; unitSystem: UnitSystem }
+  | { kind: 'markAllRead' }
+  | { kind: 'addContact' }
+  | { kind: 'addChannel' }
+  | { kind: 'repeaterStatus'; prefix: string }
+  | { kind: 'repeaterLogOut'; prefix: string }
+  | { kind: 'contactResetRoute'; prefix: string }
+  | { kind: 'contactFavorite'; prefix: string }
+  | { kind: 'contactShare'; prefix: string };
 
 /**
  * What selecting a result does: open a conversation (optionally scrolled to a
- * message), open a cached advert's detail popup, or navigate to a page/settings
- * section.
+ * message), open a cached advert's detail popup, navigate to a page/settings
+ * section, or run a {@link PaletteAction}.
  */
 export type CommandAction =
   | { type: 'message'; convo: ActiveConvo; msgId: string }
   | { type: 'convo'; convo: ActiveConvo }
   | { type: 'advert'; prefix: string }
-  | { type: 'page'; view: AppView; section?: SettingsSection };
+  | { type: 'page'; view: AppView; section?: SettingsSection }
+  | { type: 'run'; run: PaletteAction };
 
 /**
  * A ranked, display-ready palette row. `highlight` holds Fuse match ranges into
- * `primary` (from `includeMatches`), for snippet emphasis.
+ * `primary` (from `includeMatches`), for snippet emphasis. `destructive` styles
+ * the row and makes the palette confirm before running it.
  */
 export interface CommandResult {
   kind: CommandKind;
@@ -36,6 +62,7 @@ export interface CommandResult {
   secondary?: string;
   timestamp?: number;
   highlight?: ReadonlyArray<readonly [number, number]>;
+  destructive?: boolean;
   action: CommandAction;
 }
 
@@ -80,6 +107,20 @@ export interface PageRecord {
 }
 
 /**
+ * A runnable verb with search keywords. `hint` names what the verb applies to
+ * (a contact, a repeater) for the row's second line; `destructive` routes it
+ * through the palette's confirmation.
+ */
+export interface ActionRecord {
+  id: string;
+  label: string;
+  keywords: string;
+  hint?: string;
+  destructive?: boolean;
+  action: Extract<CommandAction, { type: 'run' }>;
+}
+
+/**
  * Static navigation targets, resolved to localized labels/keywords in the hook.
  * `section` deep-links a Settings card via {@link SettingsSection}.
  */
@@ -102,6 +143,37 @@ export const PAGE_TARGETS = [
   view: AppView;
   section?: SettingsSection;
 }>;
+
+/**
+ * The radio-wide verbs, in display order, resolved to localized labels and
+ * keywords in the hook. Each `id` is also the `command.action.*` /
+ * `command.actionKeywords.*` key. Everything here needs a live link, which the
+ * palette always has: it only mounts while connected.
+ */
+export const ACTION_TARGETS = [
+  { id: 'advertiseFlood', run: { kind: 'advertise', flood: true } },
+  { id: 'advertiseZeroHop', run: { kind: 'advertise', flood: false } },
+  { id: 'markAllRead', run: { kind: 'markAllRead' } },
+  { id: 'addContact', run: { kind: 'addContact' } },
+  { id: 'addChannel', run: { kind: 'addChannel' } },
+  { id: 'toggleTheme', run: { kind: 'toggleTheme' } },
+  { id: 'reboot', run: { kind: 'reboot' }, destructive: true },
+  { id: 'disconnect', run: { kind: 'disconnect' }, destructive: true },
+] as const satisfies ReadonlyArray<{
+  id: string;
+  run: PaletteAction;
+  destructive?: boolean;
+}>;
+
+/**
+ * The per-contact verbs, in display order. `route` is only offered when the
+ * contact has a stored path, so a verb the target UI would render disabled
+ * never reaches the palette.
+ */
+export const CONTACT_VERBS = ['favorite', 'route', 'share'] as const;
+
+/** One of the per-contact verbs the palette can run. */
+export type ContactVerb = (typeof CONTACT_VERBS)[number];
 
 /** Fuse options for message bodies: extended (token) search for out-of-order,
  * multi-word queries, with match indices for snippet highlighting. */
@@ -161,6 +233,45 @@ export const PAGE_FUSE_OPTIONS: IFuseOptions<PageRecord> = {
   threshold: 0.4,
   minMatchCharLength: 1,
 };
+
+/**
+ * Fuse options for runnable verbs. `hint` carries the contact or repeater a
+ * verb applies to and is weighted alongside the label. Extended search makes a
+ * space an AND between terms, so "reset gold-saddle" matches "Reset route to
+ * Gold-Saddle" without the words in between counting against the threshold —
+ * run the query through {@link actionPattern} first.
+ */
+export const ACTION_FUSE_OPTIONS: IFuseOptions<ActionRecord> = {
+  keys: [
+    { name: 'label', weight: 0.5 },
+    { name: 'hint', weight: 0.3 },
+    { name: 'keywords', weight: 0.2 },
+  ],
+  ignoreLocation: true,
+  useExtendedSearch: true,
+  threshold: 0.4,
+  minMatchCharLength: 1,
+};
+
+// Extended search reads `^ ! ' =` and `$` as operators and `|` as OR. A typed
+// node name must never turn into one, so they are dropped rather than escaped —
+// Fuse has no escape syntax.
+const EXTENDED_SEARCH_OPERATORS = /[|^!'=$]/g;
+
+/**
+ * Normalizes a raw query into a whitespace-separated list of required terms for
+ * {@link ACTION_FUSE_OPTIONS}.
+ *
+ * @returns the pattern, or `''` when the query was nothing but operators, in
+ * which case there is nothing to search for.
+ */
+export function actionPattern(query: string): string {
+  return query
+    .replace(EXTENDED_SEARCH_OPERATORS, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .join(' ');
+}
 
 // Received channel messages are firmware-formatted as `<sender>: <body>`; own
 // and direct messages carry only the body, with the sender from `senderName`.

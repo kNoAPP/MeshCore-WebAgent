@@ -9,6 +9,7 @@ import { Eye } from 'lucide-react';
 import { useMeshStore, channelConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
+import { ConfirmRow } from './ConfirmRow';
 import { CopyButton } from './CopyButton';
 import { HintToken } from './MessageBubble';
 import { ShareCard } from './ShareCard';
@@ -53,8 +54,14 @@ export function ManagePanel() {
   if (!managePanel) return null;
   // Remount the panel whenever the selection changes — including when the open
   // item is evicted from the store and replaced — so the sub-view flags
-  // (`confirming`/`sharing`) reset instead of leaking into the next item.
-  return <ManagePanelView key={`${managePanel.kind}:${managePanel.id}`} />;
+  // (`confirming`/`sharing`) reset instead of leaking into the next item. The
+  // share flag is part of the key too: asking for the share page on the
+  // already-open contact has to re-run the initial sub-view choice.
+  return (
+    <ManagePanelView
+      key={`${managePanel.kind}:${managePanel.id}:${managePanel.share ?? false}`}
+    />
+  );
 }
 
 function ManagePanelView() {
@@ -77,7 +84,7 @@ function ManagePanelView() {
   } = useMeshCore();
   const [confirming, setConfirming] = useState(false);
   // `sharing` selects the contact share sub-page in place of the detail view.
-  const [sharing, setSharing] = useState(false);
+  const [sharing, setSharing] = useState(managePanel?.share ?? false);
 
   if (!managePanel) return null;
   const close = () => {
@@ -99,6 +106,7 @@ function ManagePanelView() {
         {confirming ? (
           <ConfirmRow
             message={t('manage.removeChannelConfirm')}
+            confirmLabel={t('common.remove')}
             onCancel={() => setConfirming(false)}
             onConfirm={() => {
               removeChannel(idx);
@@ -263,6 +271,7 @@ function ManagePanelView() {
           {confirming ? (
             <ConfirmRow
               message={t('manage.removeContactConfirm')}
+              confirmLabel={t('common.remove')}
               onCancel={() => setConfirming(false)}
               onConfirm={() => {
                 removeContact(contact);
@@ -430,37 +439,6 @@ function ChannelDetails({ channel }: { channel: Channel }) {
           <CopyButton value={secretHex} />
         </div>
       )}
-    </div>
-  );
-}
-
-function ConfirmRow({
-  message,
-  onCancel,
-  onConfirm,
-}: {
-  message: string;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className='mt-6 flex items-center justify-between gap-3 border-t border-border pt-4'>
-      <span className='text-sm text-text2'>{message}</span>
-      <div className='flex shrink-0 gap-2'>
-        <button
-          onClick={onCancel}
-          className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
-        >
-          {t('common.cancel')}
-        </button>
-        <button
-          onClick={onConfirm}
-          className='rounded-md bg-red-solid px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-hover'
-        >
-          {t('common.remove')}
-        </button>
-      </div>
     </div>
   );
 }
