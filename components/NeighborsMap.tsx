@@ -156,11 +156,9 @@ export function NeighborsMap({
         onNodeClick={(node) => {
           // The anchor is the repeater already open in this admin view, so only
           // neighbor markers (always contacts/adverts, never self) open a
-          // manage panel. An unplaced node has nothing to open — the repeater's
-          // four bytes are everything we know about it.
+          // manage panel.
           if (
             node.kind === 'self' ||
-            node.positionUnknown ||
             node.pubkeyPrefix === contact.pubkeyPrefix
           )
             return;

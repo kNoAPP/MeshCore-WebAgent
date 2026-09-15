@@ -207,7 +207,7 @@ export function BaseLeafletMap({
     const sig = nodes
       .map(
         (n) =>
-          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.name}`,
+          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.positionUnknown ? 'u' : ''}:${n.name}`,
       )
       .join('|');
     // `t` (locale) drives the self tooltip and `clickable` gates click wiring,
@@ -218,7 +218,13 @@ export function BaseLeafletMap({
 
     layer.clearLayers();
     for (const node of nodes) {
-      const inert = !(clickable && node.kind !== 'self');
+      // A node parked on the unplaced ring sits at an invented coordinate and
+      // is known only by its prefix, so there is nothing for a click to open.
+      const inert = !(
+        clickable &&
+        node.kind !== 'self' &&
+        !node.positionUnknown
+      );
       const name = node.kind === 'self' ? t('map.self') : node.name;
       const marker = L.marker([node.lat, node.lon], {
         icon: nodeIcon(node),
