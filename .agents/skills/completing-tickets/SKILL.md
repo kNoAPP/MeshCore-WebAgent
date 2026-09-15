@@ -203,11 +203,11 @@ resolving its feedback, and re-requesting until the newest review approves the
 current head. That skill is authoritative — do not re-derive its waits, retries,
 or exit condition here.
 
-It ends the ticket one of three ways: approved with zero unresolved threads
-(done), no Copilot review requested at all (done — report the PR URL, and say so
-explicitly if the PR is a draft and the loop was skipped for that reason), or a
-stop condition such as a CI failure you cannot fix or the sixth-iteration cap
-(report and set the ticket aside).
+It ends the ticket one of two ways: approved with zero unresolved threads
+(done), or a stop condition — a CI failure you cannot fix, the sixth-iteration
+cap, or no Copilot review being requested at all (including a draft PR, where
+none is). A stop condition is never "done": report what happened, say the PR is
+unreviewed, and set the ticket aside for the user.
 
 ## 7. Next ticket
 

@@ -100,8 +100,12 @@ Copilot appears as `Copilot` / `copilot-pull-request-reviewer[bot]` in
 `reviewRequests` (pending) or as `copilot-pull-request-reviewer` in the author
 of a `reviews` entry (completed).
 
-- **No Copilot request and no Copilot review** → you are done. Report the PR URL
-  and stop. Do not request a review from Copilot yourself.
+- **No Copilot request and no Copilot review** → the loop cannot run. Stop and
+  report it as exactly that: the PR URL, CI status, and "no Copilot review was
+  requested on this PR, so it is unreviewed". That is a stop condition, not an
+  approval — never report it as a completed loop. Do not request a review from
+  Copilot yourself; if the repository did not ask for one, a human decides
+  whether this PR needs it.
 - **Pending request** → go to step 3 and wait for it (`BEFORE` reviews present).
 - **Completed review already present** → go to step 3, but only skip the wait if
   that review is **current** (see 3a).

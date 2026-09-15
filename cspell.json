@@ -133,6 +133,7 @@
     "uint32",
     "uint8",
     "unread",
+    "unreviewed",
     "unsub",
     "Unsub",
     "WCAG",
