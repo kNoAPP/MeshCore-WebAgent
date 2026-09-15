@@ -183,9 +183,11 @@ A non-zero exit here means stop and tell the user — do not keep waiting, and d
 not read the verdict, because the newest review is one you have already handled.
 
 Otherwise read the verdict on the newest Copilot review. **Re-run the
-`headRefOid` query above first** — a push can land while you are waiting, and a
-review that is no longer `current` is not usable no matter what it says. Copilot
-leads the body with one of `🟢 Approved`, `🟢 Approval recommended`,
+`headRefOid` query above first** — a push can land while you are waiting. If the
+arrived review reports `current: false`, do not read its verdict at all: drive
+CI green on the new head (step 1), go to 3d, reset `BEFORE` to the Copilot
+review count as it stands then, and come back to the arrival loop. Otherwise
+Copilot leads the body with one of `🟢 Approved`, `🟢 Approval recommended`,
 `🟡 Changes recommended`, or `🔵 Needs a closer look`:
 
 ```bash
@@ -242,9 +244,14 @@ description does not describe an earlier version of the change.
 
 ### 3d. Request a re-review
 
-Copilot does not re-review a push on its own:
+Copilot does not re-review a push on its own. Take the baseline **before**
+sending the request — Copilot can answer within seconds, and a count taken
+afterwards would already include the new review, leaving 3a waiting for a number
+it has passed:
 
 ```bash
+BEFORE=$(gh pr view "$PR" --json reviews \
+  --jq '[.reviews[] | select(.author.login | test("copilot"; "i"))] | length')
 gh pr edit "$PR" --add-reviewer @copilot
 ```
 
@@ -255,7 +262,7 @@ the new input. If two consecutive same-head rounds bring no new findings and no
 approval, stop and hand back to the user rather than requesting a third — that
 is a disagreement, not a loop that will converge.
 
-Then return to step 3a with `BEFORE` set to the review count you just observed.
+Then return to step 3a and wait for a count greater than that `BEFORE`.
 
 ## Exit condition
 
@@ -271,25 +278,28 @@ When it reports `APPROVED` and current, the unresolved thread count must be
 **zero** before you report success:
 
 ```bash
-gh api graphql -f query='
-  query($owner:String!,$repo:String!,$pr:Int!){
+gh api graphql --paginate -f query='
+  query($owner:String!,$repo:String!,$pr:Int!,$endCursor:String){
     repository(owner:$owner,name:$repo){
       pullRequest(number:$pr){
-        reviewThreads(first:100){ nodes{ id isResolved } }
+        reviewThreads(first:100, after:$endCursor){
+          nodes{ id isResolved }
+          pageInfo{ hasNextPage endCursor }
+        }
       }
     }
   }' -f owner=kNoAPP -f repo=MeshCore-WebAgent -F pr="$PR" \
   --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length'
 ```
 
-If that count is non-zero, a thread was added or reopened after step 3b. Go back
+`--paginate` needs the `$endCursor` variable and the `pageInfo` block to walk
+every page; without them a full page of resolved threads is indistinguishable
+from none. Sum the per-page counts it prints — every one must be zero.
+
+If the count is non-zero, a thread was added or reopened after step 3b. Go back
 to 3b and work through it. If resolving it changes code, the approval is now
 stale: re-validate, push, and re-request the review rather than reporting a
 green PR against an old commit.
-
-That query reads one page. If it ever returns exactly 100 threads, page through
-the rest with the `pageInfo`/`endCursor` cursor before trusting the count — an
-unresolved thread on page two is still unresolved.
 
 Only with `APPROVED`, current, and zero unresolved threads do you report the PR
 URL, the CI status, and a summary of what was resolved.

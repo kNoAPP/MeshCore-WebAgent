@@ -205,11 +205,12 @@ or exit condition here.
 
 It ends the ticket one of two ways: approved with zero unresolved threads
 (done), or any of that skill's stop conditions — CI it cannot get green, a
-review timeout, the iteration cap, the two-consecutive-same-head rule, or no
-Copilot review being requested at all (a draft PR gets none). A stop condition
-is never "done": name which one it was and set the ticket aside for the user.
-Call the PR **unreviewed** only in that last case, when no Copilot review exists
-— the others stopped with review feedback already on the record.
+review timeout, the iteration cap, the two-consecutive-same-head rule, or
+**neither a Copilot request nor a Copilot review** being present (a draft PR
+gets neither). A stop condition is never "done": name which one it was and set
+the ticket aside for the user. Call the PR **unreviewed** only in that last
+case, when no Copilot review exists — the others stopped with review feedback
+already on the record.
 
 ## 7. Next ticket
 

@@ -42,10 +42,10 @@ to justify bypassing one.
 - Once the PR is open, follow the `copilot-review-loop` skill: drive GitHub
   Actions to green, then resolve the Copilot review until the newest review
   approves the current head. That skill also defines the legitimate non-approval
-  endings — a draft PR, neither a Copilot request nor a Copilot review present,
-  a review timeout, two consecutive same-head rounds with nothing new, and the
-  iteration cap — and reaching one of those is a documented stop, not a failure
-  to follow this rule.
+  endings — CI it cannot get green, a draft PR, neither a Copilot request nor a
+  Copilot review present, a review timeout, two consecutive same-head rounds
+  with nothing new, and the iteration cap — and reaching one of those is a
+  documented stop, not a failure to follow this rule.
 
 ## Validate locally before you push
 
