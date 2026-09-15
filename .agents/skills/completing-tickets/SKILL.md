@@ -204,18 +204,20 @@ current head. That skill is authoritative — do not re-derive its waits, retrie
 or exit condition here.
 
 It ends the ticket one of two ways: approved with zero unresolved threads
-(done), or a stop condition — a CI failure you cannot fix, the sixth-iteration
-cap, or no Copilot review being requested at all (including a draft PR, where
-none is). A stop condition is never "done": report what happened, say the PR is
-unreviewed, and set the ticket aside for the user.
+(done), or any of that skill's stop conditions — CI it cannot get green, a
+review timeout, the iteration cap, the two-consecutive-same-head rule, or no
+Copilot review being requested at all (a draft PR gets none). A stop condition
+is never "done": name which one it was and set the ticket aside for the user.
+Call the PR **unreviewed** only in that last case, when no Copilot review exists
+— the others stopped with review feedback already on the record.
 
 ## 7. Next ticket
 
 If more tickets remain in the run, go back to step 1 for the next one, starting
 from a freshly pulled `develop` on a new branch. Do not begin it until the
-current ticket has reached its exit condition (approved, or stopped at a
-guardrail or iteration cap) — a ticket that stalled is reported and set aside,
-not left running alongside the next one.
+current ticket has reached one of the `copilot-review-loop` exit conditions —
+the approval, or any of its stop conditions — and a ticket that stopped is
+reported and set aside, not left running alongside the next one.
 
 When every ticket has finished, post a single roll-up: issue number, PR URL, CI
 status, review outcome, and anything left open, one line each.

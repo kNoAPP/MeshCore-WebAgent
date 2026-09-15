@@ -96,6 +96,11 @@ BEFORE=$(gh pr view "$PR" --json reviews \
 gh pr view "$PR" --json reviewRequests,reviews
 ```
 
+If `BEFORE` is non-zero, also run the `headRefOid` query from 3a now. A review
+that is **already current** is counted in `BEFORE`, so 3a's arrival loop would
+wait twenty minutes for a review that is already in hand — read its verdict
+directly instead of entering that loop.
+
 Copilot appears as `Copilot` / `copilot-pull-request-reviewer[bot]` in
 `reviewRequests` (pending) or as `copilot-pull-request-reviewer` in the author
 of a `reviews` entry (completed).
@@ -146,8 +151,10 @@ this loop caps at six rounds. If a PR ever accumulates more than 100 reviews,
 page the connection instead of trusting the window.) Skip the wait only when
 step 2 found a completed review with `current: true` that you have not read; go
 straight to the verdict below. Only a review that exists and reports
-`current: false` is stale: ignore its verdict, request a re-review (step 3d),
-and wait.
+`current: false` is stale, which means a push landed after it: go back to step 1
+and drive CI green on the new head **before** requesting the re-review (step 3d)
+— otherwise the loop can end on an approval of a head whose checks were never
+confirmed.
 
 Otherwise a review takes a few minutes. Wait with a single blocking command
 instead of polling repeatedly, and make the timeout a real failure:
