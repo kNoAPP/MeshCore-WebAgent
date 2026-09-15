@@ -150,11 +150,14 @@ wait case, not a stale review. (The `last:100` window is exhaustive in practice;
 this loop caps at six rounds. If a PR ever accumulates more than 100 reviews,
 page the connection instead of trusting the window.) Skip the wait only when
 step 2 found a completed review with `current: true` that you have not read; go
-straight to the verdict below. Only a review that exists and reports
-`current: false` is stale, which means a push landed after it: go back to step 1
-and drive CI green on the new head **before** requesting the re-review (step 3d)
-— otherwise the loop can end on an approval of a head whose checks were never
-confirmed.
+straight to the verdict below.
+
+Only a review that exists and reports `current: false` is stale, which means a
+push landed after it. Handle that case in this order, or the loop traps itself
+on the same stale review: drive CI green on the new head (step 1), **then go
+straight to 3d** and request the re-review, reset `BEFORE` to the current
+Copilot review count, and come back here to wait. Do not re-enter step 2 — it
+would find the same stale review and send you round again.
 
 Otherwise a review takes a few minutes. Wait with a single blocking command
 instead of polling repeatedly, and make the timeout a real failure:
@@ -193,7 +196,8 @@ needs them handled.
 suppressed comments you have not handled, the loop is over.** Jump straight to
 the exit condition below — do not run steps 3b–3d, and in particular do not
 request another review. If it approves but raises suppressed findings, work them
-through 3b first; only a round that changes code needs 3c and 3d.
+through 3b and then continue to 3d as usual; only **3c** is conditional on a
+round having produced a code change.
 
 ### 3b. Resolve the feedback
 
