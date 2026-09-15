@@ -41,12 +41,17 @@ before working in that area:
 | `code-style`                | Writing or reviewing any source file (incl. comments) |
 | `commits`                   | Writing commit messages or naming branches            |
 | `completing-tickets`        | Delivering a GitHub Issue end to end                  |
+| `copilot-review-loop`       | Any PR: driving CI green and Copilot to approval      |
 | `protocol`                  | Touching anything in `lib/meshcore/`                  |
 | `pull-requests`             | Preparing or describing a pull request                |
 | `resolving-review-feedback` | Resolving or responding to PR review feedback         |
 
 ## Key Conventions
 
+- **Never commit to `develop`** — it is the protected default branch. Every
+  change, however small, goes on a feature branch and lands through a pull
+  request. Never commit, push, or force-push to `develop` directly, even to fix
+  a typo or a formatting nit.
 - **TypeScript strict mode** — no `any`, no `// @ts-ignore` without explanation.
 - **State changes go through Zustand actions** in `store/meshStore.ts`, not
   local component state, and never `useEffect` for state that belongs in

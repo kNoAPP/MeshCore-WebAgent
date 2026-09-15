@@ -9,12 +9,26 @@ description: >
 license: Proprietary. See LICENSE for complete terms.
 metadata:
   author: kNoAPP
-  version: '1.2.0'
+  version: '1.3.0'
 ---
 
 # Commit Conventions
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/).
+
+## Never commit to `develop`
+
+`develop` is the protected default branch and only ever advances by merging a
+pull request. Before the first commit of any change, confirm you are not on it:
+
+```bash
+git rev-parse --abbrev-ref HEAD   # must not be "develop"
+```
+
+If you already committed to a local `develop`, move the work onto a branch
+(`git switch -c <handle>/none-<type>-<desc>`) and reset `develop` back to
+`origin/develop` before pushing anything. Never push or force-push to `develop`,
+and never commit there "just this once" for a typo or formatting fix.
 
 ## Format
 

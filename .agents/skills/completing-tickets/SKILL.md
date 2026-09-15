@@ -4,27 +4,90 @@
 
 name: completing-tickets
 description: >
-  End-to-end workflow for delivering a GitHub Issue: read the ticket, implement
-  it on a feature branch, open a PR, drive GitHub Actions to green, and loop on
-  Copilot code review. Use when asked to "complete a ticket", "complete an
-  issue", "do this ticket", or "take this issue" with a link to a GitHub Issue.
+  End-to-end workflow for delivering one or more GitHub Issues: pick or read the
+  tickets, implement each on its own feature branch, open a PR, drive GitHub
+  Actions to green, and loop on Copilot code review. Use when asked to "complete
+  a ticket", "complete N tickets", "complete an issue", "do this ticket", or
+  "take this issue", with or without a link to a GitHub Issue.
 license: Proprietary. See LICENSE for complete terms.
 metadata:
   author: kNoAPP
-  version: '1.0.0'
+  version: '1.3.0'
 ---
 
 # Completing a Ticket
 
-Triggered by a request like _"complete this ticket: <issue link>"_. The goal is
-a merge-ready pull request: the issue's work implemented, CI green, and every
-Copilot code review comment resolved.
+Triggered by a request like _"complete this ticket: <issue link>"_ or _"complete
+three tickets"_. The goal is a merge-ready pull request per ticket: the issue's
+work implemented, CI green, and every Copilot code review comment resolved.
 
 Run the whole flow without stopping to ask for approval between steps. Stop only
 at the guardrails listed at the end, or at one of the exit and failure
-conditions the steps below define — unresolvable ambiguity in the issue, no
-Copilot review requested, a CI or review timeout, and the iteration cap all end
-the run early.
+conditions the steps below define — unresolvable ambiguity in the issue ends the
+run early, as does any stop condition in the `copilot-review-loop` skill, which
+owns everything from "PR opened" to "approved".
+
+## 0. Scope the request
+
+"Ticket" always means a **GitHub Issue** in `kNoAPP/MeshCore-WebAgent`. A count
+in the request — "complete a ticket", "complete two tickets", "knock out five
+tickets" — is a count of issues to deliver, and the same rules apply when the
+count is one.
+
+**If the user named the tickets** (links, `#41`, or unambiguous titles), work
+exactly those and nothing else.
+
+**If the user gave only a count**, choose that many yourself from the open
+issues:
+
+```bash
+gh issue list --repo kNoAPP/MeshCore-WebAgent --state open --limit 100 \
+  --json number,title,labels,assignees,milestone,createdAt,url
+```
+
+Skip anything already assigned, already linked to an open PR, blocked on another
+issue, or labelled as needing a product decision. Prefer small, self-contained,
+well-specified issues, and prefer ones whose files do not overlap. Tell the user
+which issues you picked and why **before** you start implementing — that is a
+report, not a request for approval; keep going.
+
+### One ticket at a time
+
+Unless the user explicitly asks for parallel work, deliver the tickets
+**sequentially**: there is at most one physical MeshCore radio attached, and two
+concurrent runs would fight over it, over the dev server, and over the working
+tree.
+
+- Finish a ticket end to end — steps 1–8, through Copilot approval — before
+  starting the next one.
+- Every ticket gets **its own branch off fresh `develop`** and **its own PR**.
+  Never stack two issues onto one branch or one PR.
+- Subagents are still welcome **within** a ticket (research, code search, log
+  digging). What is forbidden is handing whole tickets to subagents to run at
+  the same time.
+
+## Pre-flight: is a radio attached?
+
+Before starting the first ticket, check once whether a physical MeshCore radio
+is reachable from the webapp, using the chrome-devtools MCP server:
+
+1. Start the dev server (`npm run dev`) and open `http://localhost:3000`.
+2. Take a snapshot of the connect screen. A granted Web Serial device shows as a
+   direct **"Connect to Espressif 303A:1001"**-style button rather than the
+   generic picker.
+3. If it is there, click it and confirm the app reaches a connected state
+   (sidebar contacts, Stats page populated).
+
+**If a radio is available**, treat hardware verification as part of the
+definition of done for every ticket in the run: exercise the changed behavior
+against the radio and state what you verified in the PR. Read
+`/memories/repo/hardware-testing.md` first — it covers reaching store state from
+the page, injecting synthetic inbound frames, and the reload-before-reconnect
+rule after any source edit.
+
+**If no radio is available**, say so once, carry on without it, and note in each
+PR what still needs hardware confirmation. Never block a ticket on missing
+hardware.
 
 ## 1. Read the entire issue
 
@@ -88,25 +151,23 @@ git switch -c kNoAPP/41-feat-wifi-reconnect
 - There is no automated test suite. For behavior you cannot verify with
   `type-check` and `build` alone, exercise it in `npm run dev` and say in the PR
   what you checked and what still needs a radio to confirm.
+- If the pre-flight found a radio, verify the change against it before opening
+  the PR, and record the result in the PR description.
+- If the change touches the UI, capture the before/after pair while you still
+  have both states available — see _Before/after images for UI changes_ in the
+  `pull-requests` skill.
 
 ## 4. Validate locally
 
-Run all five checks — CI runs the same ones, and fixing failures locally is far
-faster than round-tripping through Actions:
-
-```bash
-npm run spell-check && npm run format:check && npm run lint \
-  && npm run type-check && npm run build
-```
-
-`npm run format` auto-fixes formatting. New product terms belong in
-`cspell.json`, not in a `cspell:ignore` comment.
+Run the five checks from the `pull-requests` skill before you push. Fix what
+they report; do not push a red tree hoping CI disagrees.
 
 ## 5. Commit and open the PR
 
 Commit per the `commits` skill, push, then open the PR per the `pull-requests`
-skill: base `develop`, Conventional Commits title, PR template filled out, and
-the issue linked so it closes on merge.
+skill: base `develop`, Conventional Commits title, PR template filled out,
+before/after images for any UI change, and the issue linked so it closes on
+merge.
 
 ```bash
 git push -u origin HEAD
@@ -120,224 +181,49 @@ applicable box under **Type of Change** without deleting the others, and leave
 the guidance comments in place. `@kNoAPP` is requested automatically via
 CODEOWNERS — do not add a human reviewer yourself.
 
-## 6. Drive GitHub Actions to green
+## 6. Get CI green and the review approved
 
-```bash
-PR=$(gh pr view --json number --jq .number)
-gh pr checks "$PR" --watch --fail-fast
-```
+Hand off to the **`copilot-review-loop`** skill, which owns everything from here
+to an approved PR: watching GitHub Actions, waiting for the Copilot review,
+resolving its feedback, and re-requesting until the newest review approves the
+current head. That skill is authoritative — do not re-derive its waits, retries,
+or exit condition here.
 
-This blocks until the checks finish — run it once rather than polling.
+It ends the ticket one of three ways: approved with zero unresolved threads
+(done), no Copilot review requested at all (done — report the PR URL), or a stop
+condition such as a CI failure you cannot fix or the sixth-iteration cap (report
+and set the ticket aside).
 
-When run immediately after a push or PR creation, it can exit non-zero with
-`no checks reported`, because Actions has not registered the check runs yet.
-That is a startup race, not a failure — retry a few times before believing it,
-and fail loudly if the retries run out:
+## 7. Next ticket
 
-```bash
-CI_OK=0
-for _ in $(seq 1 10); do
-  if OUT=$(gh pr checks "$PR" --watch --fail-fast 2>&1); then CI_OK=1; break; fi
-  echo "$OUT" | grep -q 'no checks reported' || break
-  sleep 10
-done
-[ "$CI_OK" -eq 1 ] || { echo "$OUT"; exit 1; }
-```
+If more tickets remain in the run, go back to step 1 for the next one, starting
+from a freshly pulled `develop` on a new branch. Do not begin it until the
+current ticket has reached its exit condition (approved, or stopped at a
+guardrail or iteration cap) — a ticket that stalled is reported and set aside,
+not left running alongside the next one.
 
-`CI_OK` must be 1 before you go anywhere near step 7 — both a real check failure
-and ten exhausted startup retries leave it at 0, and neither counts as green.
+When every ticket has finished, post a single roll-up: issue number, PR URL, CI
+status, review outcome, and anything left open, one line each.
 
-On a genuine failure, pull the failing logs, fix the cause, push, and watch
-again:
+## 8. Offer a guided tour
 
-```bash
-gh run view <run-id> --log-failed
-```
+After the last ticket's review loop is done, ask the user whether they would
+like a **tour of the work**. If they decline, you are finished.
 
-Fix the underlying problem. Never disable a check, add a blanket lint
-suppression, or push with `--no-verify` to get green. Note that the PR title
-lint runs on `pull_request_target`, so a bad title is fixed with
-`gh pr edit "$PR" --title …`, not with a commit.
+If they accept, walk them through the PRs in the order you delivered them:
 
-## 7. Decide whether the Copilot loop applies
-
-Once CI is green, check whether the repository auto-requested a review from
-GitHub Copilot on this PR. Capture the baseline **first**, then inspect the
-state — a review landing between the two calls would otherwise be counted in
-`BEFORE` while still looking pending, sending step 8a into a wait for a review
-that already arrived:
-
-```bash
-# Baseline first.
-BEFORE=$(gh pr view "$PR" --json reviews \
-  --jq '[.reviews[] | select(.author.login | test("copilot"; "i"))] | length')
-
-gh pr view "$PR" --json reviewRequests,reviews
-```
-
-Copilot appears as `Copilot` / `copilot-pull-request-reviewer[bot]` in
-`reviewRequests` (pending) or as `copilot-pull-request-reviewer` in the author
-of a `reviews` entry (completed).
-
-- **No Copilot request and no Copilot review** → you are done. Report the PR URL
-  and stop. Do not request a review from Copilot yourself.
-- **Pending request** → go to step 8 and wait for it (`BEFORE` reviews present).
-- **Completed review already present** → go to step 8, but only skip the wait if
-  that review is **current** (see 8a).
-
-A request can sit pending for several minutes before the review appears, so an
-empty `reviews` list right after opening the PR does not mean Copilot was never
-asked — check `reviewRequests` too.
-
-Note that automatic review is not requested on draft PRs.
-
-## 8. The Copilot review loop
-
-Repeat until the exit condition below is met.
-
-### 8a. Wait for the review to land
-
-A review is only usable if it reviewed the **current** head commit. Copilot can
-finish while step 6 is still pushing CI fixes, which leaves a review — possibly
-an `APPROVED` one — that never saw your latest code:
-
-```bash
-gh api graphql -f query='
-  query($owner:String!,$repo:String!,$pr:Int!){
-    repository(owner:$owner,name:$repo){
-      pullRequest(number:$pr){
-        headRefOid
-        reviews(last:20){ nodes{ author{login} state commit{oid} } }
-      }
-    }
-  }' -f owner=kNoAPP -f repo=MeshCore-WebAgent -F pr="$PR" \
-  --jq '.data.repository.pullRequest
-        | .headRefOid as $head
-        | [.reviews.nodes[] | select(.author.login | test("copilot"; "i"))] | last
-        | {state, current: (.commit.oid == $head)}'
-```
-
-Skip the wait only when step 7 found a completed review with `current: true`
-that you have not read — go straight to the verdict below. If `current` is
-`false`, the review is stale: ignore its verdict, request a re-review (step 8d),
-and wait.
-
-Otherwise a review takes a few minutes. Wait with a single blocking command
-instead of polling repeatedly, and make the timeout a real failure:
-
-```bash
-ARRIVED=0
-for _ in $(seq 1 80); do
-  COUNT=$(gh pr view "$PR" --json reviews \
-    --jq '[.reviews[] | select(.author.login | test("copilot"; "i"))] | length')
-  if [ "$COUNT" -gt "$BEFORE" ]; then ARRIVED=1; break; fi
-  sleep 15
-done
-[ "$ARRIVED" -eq 1 ] || { echo "no new Copilot review after twenty minutes"; exit 1; }
-```
-
-A non-zero exit here means stop and tell the user — do not keep waiting, and do
-not read the verdict, because the newest review is one you have already handled.
-
-Otherwise read the verdict on the newest Copilot review. Copilot leads the body
-with one of `🟢 Approved`, `🟢 Approval recommended`, `🟡 Changes recommended`,
-or `🔵 Needs a closer look`:
-
-```bash
-gh pr view "$PR" --json reviews \
-  --jq '[.reviews[] | select(.author.login | test("copilot"; "i"))] | last | {state, verdict: (.body | split("\n")[0])}'
-```
-
-**If `state` is `APPROVED` and the review is current, the loop is over.** Jump
-straight to the exit condition below — do not run steps 8b–8d, and in particular
-do not request another review.
-
-Otherwise the review body also lists **suppressed comments** that never became
-threads. Read them — they are real feedback and are often the substantive
-points:
-
-```bash
-gh pr view "$PR" --json reviews \
-  --jq '[.reviews[] | select(.author.login | test("copilot"; "i"))] | last | .body'
-```
-
-### 8b. Resolve the feedback
-
-Follow the **`resolving-review-feedback`** skill for every unresolved thread.
-That skill is authoritative here: evaluate each comment on its merits, change
-the code only where the feedback is correct, reply on the thread explaining what
-you did or why you declined, and resolve the thread.
-
-Give the **suppressed comments** the same treatment. They carry no thread, so
-there is nothing to reply to or resolve — judge each one, apply the valid ones,
-and record which you declined and why in a single PR comment
-(`gh pr comment "$PR" --body-file …`). Skipping them means Copilot raises them
-again on every re-review, which is what stalls the loop.
-
-Copilot is frequently wrong about intentional patterns in this repository —
-browser-only assumptions, the deliberate absence of a backend, per-radio
-encrypted preferences instead of `localStorage`, and the no-compatibility-shim
-rule are all common false positives. Declining with a clear reply is a valid
-resolution — do not change working code just to silence a bot.
-
-### 8c. Re-validate and push
-
-Only if a thread or suppressed comment actually led to a code change: re-run all
-five checks from step 4, commit, and push, then drive CI to green again with the
-same no-checks retry as step 6. A round where every point was declined produces
-no commit — that is normal, and running an unconditional commit against a clean
-tree just fails.
-
-### 8d. Request a re-review
-
-Copilot does not re-review a push on its own:
-
-```bash
-gh pr edit "$PR" --add-reviewer @copilot
-```
-
-Return to step 8a with `BEFORE` set to the review count you just observed.
-
-### Exit condition
-
-The loop ends when the **newest** Copilot review has `state: "APPROVED"` **and**
-reviewed the current head commit — use the `headRefOid` query from 8a.
-
-Test the last review, not the set — an approval from an earlier iteration stays
-in `reviews` forever, so counting approvals would end the loop even when the
-latest review asks for changes. Check the commit too, or an approval of an
-earlier push would end the loop over code Copilot never saw.
-
-When it reports `APPROVED` and current, the unresolved thread count must be
-**zero** before you report success:
-
-```bash
-gh api graphql -f query='
-  query($owner:String!,$repo:String!,$pr:Int!){
-    repository(owner:$owner,name:$repo){
-      pullRequest(number:$pr){
-        reviewThreads(first:100){ nodes{ id isResolved } }
-      }
-    }
-  }' -f owner=kNoAPP -f repo=MeshCore-WebAgent -F pr="$PR" \
-  --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length'
-```
-
-If that count is non-zero, a thread was added or reopened after step 8b. Go back
-to 8b and work through it. If resolving it changes code, the approval is now
-stale: re-validate, push, and re-request the review rather than reporting a
-green PR against an old commit.
-
-Only with `APPROVED`, current, and zero unresolved threads do you report the PR
-URL, the CI status, and a summary of what was resolved.
-
-Anything other than `APPROVED` — `COMMENTED` with `🟡 Changes recommended`,
-`🔵 Needs a closer look`, or even `🟢 Approval recommended` — is not an
-approval. Keep looping.
-
-If you reach a **sixth** iteration, stop and hand back to the user with a
-summary of what Copilot keeps flagging — a loop that long usually means a
-disagreement that needs a human decision.
+- One PR at a time, and within a PR one change at a time — the problem the issue
+  described, what you changed, the files and lines involved (linked), and the
+  before/after images where there are any.
+- **Stop after each step and wait for the user to say continue.** Do not run the
+  whole tour in one message, and do not chain steps because the previous one
+  looked uncontroversial.
+- If the user gives feedback at a step, treat it as the new requirement: apply
+  it on that PR's branch, re-validate, push, and confirm the change before
+  moving on. Any substantive edit puts the PR back through the
+  `copilot-review-loop` skill — CI green again, and a re-review if Copilot had
+  already approved.
+- Resume the tour where you left off once the feedback is handled.
 
 ## Guardrails
 
@@ -347,6 +233,9 @@ Stop and ask the user before:
 - Force-pushing, rewriting published history, or touching another branch.
 - Changing anything outside the issue's scope, including unrelated dependency
   bumps.
+- Working more than one ticket at a time, or delegating whole tickets to
+  parallel subagents, unless the user explicitly asked for it.
+- Combining two issues into one branch or one PR.
 - Making a product decision the issue does not settle.
 - Adding a backend, server-side code, or anything else on the _What to Avoid_
   list in [`AGENTS.md`](../../../AGENTS.md).
