@@ -70,12 +70,17 @@ PR titles must also follow this format — CI will reject non-conforming titles.
 
 ## Pull Request Process
 
+`develop` is protected: every change lands through a pull request, and nothing
+is ever committed or pushed to `develop` directly.
+
 1. Fork the repo and create your branch from `develop` (the default branch)
 2. Make your changes with all five checks passing (spell-check, format check,
    lint, type-check, build)
 3. Fill out the PR template completely — replace each `None` placeholder if
    applicable and leave the guidance comments in place
-4. Open the PR against `develop`; `@kNoAPP` is requested automatically via
+4. If the change alters the UI in any perceivable way, put **before and after**
+   screenshots in the Description
+5. Open the PR against `develop`; `@kNoAPP` is requested automatically via
    CODEOWNERS
 
 First-time contributors are welcome to add themselves to the
