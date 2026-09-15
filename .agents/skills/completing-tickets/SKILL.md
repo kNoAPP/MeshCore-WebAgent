@@ -229,7 +229,8 @@ If they accept, walk them through the PRs in the order you delivered them:
 
 Stop and ask the user before:
 
-- Merging the PR — this workflow never merges. It ends at "ready for review".
+- Merging the PR — this workflow never merges. It ends at an approved PR, ready
+  for a human to merge.
 - Force-pushing, rewriting published history, or touching another branch.
 - Changing anything outside the issue's scope, including unrelated dependency
   bumps.

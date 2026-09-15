@@ -136,10 +136,11 @@ gh api graphql -f query='
         | {state, current: (.commit.oid == $head)}'
 ```
 
-Skip the wait only when step 2 found a completed review with `current: true`
-that you have not read — go straight to the verdict below. If `current` is
-`false`, the review is stale: ignore its verdict, request a re-review (step 3d),
-and wait.
+The query returns `null` when Copilot has not reviewed this PR yet — that is the
+normal wait case, not a stale review. Skip the wait only when step 2 found a
+completed review with `current: true` that you have not read; go straight to the
+verdict below. Only a **non-null** review with `current: false` is stale: ignore
+its verdict, request a re-review (step 3d), and wait.
 
 Otherwise a review takes a few minutes. Wait with a single blocking command
 instead of polling repeatedly, and make the timeout a real failure:
@@ -158,27 +159,27 @@ done
 A non-zero exit here means stop and tell the user — do not keep waiting, and do
 not read the verdict, because the newest review is one you have already handled.
 
-Otherwise read the verdict on the newest Copilot review. Copilot leads the body
-with one of `🟢 Approved`, `🟢 Approval recommended`, `🟡 Changes recommended`,
-or `🔵 Needs a closer look`:
+Otherwise read the verdict on the newest Copilot review. **Re-run the
+`headRefOid` query above first** — a push can land while you are waiting, and a
+review that is no longer `current` is not usable no matter what it says. Copilot
+leads the body with one of `🟢 Approved`, `🟢 Approval recommended`,
+`🟡 Changes recommended`, or `🔵 Needs a closer look`:
 
 ```bash
 gh pr view "$PR" --json reviews \
-  --jq '[.reviews[] | select(.author.login | test("copilot"; "i"))] | last | {state, verdict: (.body | split("\n")[0])}'
+  --jq '[.reviews[] | select(.author.login | test("copilot"; "i"))] | last | {state, verdict: (.body | split("\n")[0]), body}'
 ```
 
-**If `state` is `APPROVED` and the review is current, the loop is over.** Jump
-straight to the exit condition below — do not run steps 3b–3d, and in particular
-do not request another review.
+Read the **body** on every round, including an approving one. Copilot lists
+**suppressed comments** there that never became threads, and they are often the
+substantive findings — an `APPROVED` verdict with suppressed findings still
+needs them handled.
 
-Otherwise the review body also lists **suppressed comments** that never became
-threads. Read them — they are real feedback and are often the substantive
-points:
-
-```bash
-gh pr view "$PR" --json reviews \
-  --jq '[.reviews[] | select(.author.login | test("copilot"; "i"))] | last | .body'
-```
+**If `state` is `APPROVED`, the review is current, and the body carries no
+suppressed comments you have not handled, the loop is over.** Jump straight to
+the exit condition below — do not run steps 3b–3d, and in particular do not
+request another review. If it approves but raises suppressed findings, work them
+through 3b first; only a round that changes code needs 3c and 3d.
 
 ### 3b. Resolve the feedback
 
@@ -257,6 +258,10 @@ to 3b and work through it. If resolving it changes code, the approval is now
 stale: re-validate, push, and re-request the review rather than reporting a
 green PR against an old commit.
 
+That query reads one page. If it ever returns exactly 100 threads, page through
+the rest with the `pageInfo`/`endCursor` cursor before trusting the count — an
+unresolved thread on page two is still unresolved.
+
 Only with `APPROVED`, current, and zero unresolved threads do you report the PR
 URL, the CI status, and a summary of what was resolved.
 
@@ -274,7 +279,9 @@ Stop and ask the user before:
 
 - Merging the PR — this loop never merges. It ends at "approved, ready to
   merge".
-- Force-pushing, rewriting published history, or touching another branch.
+- Force-pushing or rewriting published history.
+- Committing to a branch other than the PR's own, apart from the `assets/pr-N`
+  screenshot branch the `pull-requests` skill defines.
 - Disabling, skipping, or suppressing a check to get CI green.
 - Making a code change outside the PR's scope because a review comment asked for
   it.

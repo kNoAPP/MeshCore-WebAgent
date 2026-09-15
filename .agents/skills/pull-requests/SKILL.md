@@ -77,17 +77,21 @@ Capture the pair with the chrome-devtools MCP server:
 Frame both shots identically so the diff is obvious, one pair per distinct
 surface you changed, and write them to a scratch path such as `.git/shots/`.
 
-Host them on a throwaway asset branch so nothing ships in the diff:
+Host them on a throwaway asset branch so nothing ships in the diff. Build it in
+a separate worktree — an orphan branch in the current worktree leaves every
+tracked file untracked and can strand you there:
 
 ```bash
 SHOT_BRANCH=assets/pr-$PR
-git switch --orphan "$SHOT_BRANCH"
-git rm -rf --cached . >/dev/null 2>&1 || true
-cp .git/shots/*.png .
-git add ./*.png && git commit -m "chore: pr $PR screenshots"
-git push -u origin "$SHOT_BRANCH"
-git switch -
+git worktree add --orphan -b "$SHOT_BRANCH" ../shots-worktree
+cp .git/shots/*.png ../shots-worktree/
+git -C ../shots-worktree add ./*.png
+git -C ../shots-worktree commit -m "chore: pr $PR screenshots"
+git -C ../shots-worktree push -u origin "$SHOT_BRANCH"
+git worktree remove ../shots-worktree
 ```
+
+Your PR branch stays checked out and untouched throughout.
 
 Then reference them from the body file and re-upload the whole body with
 `gh pr edit "$PR" --body-file .git/PR_BODY.md`:
