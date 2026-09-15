@@ -6,7 +6,13 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronUp } from 'lucide-react';
-import { LEGEND_CATEGORIES, MARKER_STYLES, shapeSvg } from '@/lib/map/markers';
+import {
+  FAVORITE_OUTLINE,
+  FAVORITE_OUTLINE_WIDTH,
+  LEGEND_CATEGORIES,
+  MARKER_STYLES,
+  shapeSvg,
+} from '@/lib/map/markers';
 
 /**
  * A collapsible key, pinned to a map's bottom-right corner, pairing each node
@@ -53,6 +59,24 @@ export function MapLegend({ children }: { children?: ReactNode }) {
                 </li>
               );
             })}
+            <li className='flex items-center gap-2 text-xs whitespace-nowrap'>
+              {/* Drawn without a fill: the gold ring is an overlay on whichever
+                  category shape the favorited node already has. */}
+              <span
+                className='flex h-3.5 w-3.5 shrink-0 items-center justify-center'
+                aria-hidden='true'
+                dangerouslySetInnerHTML={{
+                  __html: shapeSvg(
+                    'circle',
+                    'none',
+                    14,
+                    FAVORITE_OUTLINE,
+                    FAVORITE_OUTLINE_WIDTH,
+                  ),
+                }}
+              />
+              {t('map.legend.favorite')}
+            </li>
           </ul>
           {children}
         </>

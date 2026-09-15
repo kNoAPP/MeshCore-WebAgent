@@ -845,6 +845,7 @@
       "repeater": "Repeater",
       "roomServer": "Room Server",
       "sensor": "Sensor",
+      "favorite": "Favorite (any type)",
       "favoritesOnly": "Favorites only"
     }
   },
