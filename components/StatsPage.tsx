@@ -238,6 +238,7 @@ export function StatsPage() {
   ): React.ReactNode => (
     <HintToken
       label={formatRatePercent(airSecs, uptimeSecs)}
+      align='right'
       title={
         uptimeSecs != null
           ? `${formatAirtime(airSecs)} / ${formatUptime(uptimeSecs)}`

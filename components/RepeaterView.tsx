@@ -580,6 +580,7 @@ function StatusDashboard({
       <span className={exceeded !== null ? 'text-red' : undefined}>
         <HintToken
           label={formatRatePercent(airSecs, uptimeSecs)}
+          align='right'
           title={
             airSecs != null && uptimeSecs != null
               ? `${formatAirtime(airSecs)} / ${formatUptime(uptimeSecs)}`
