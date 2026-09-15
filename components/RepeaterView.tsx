@@ -558,6 +558,15 @@ function StatusDashboard({
     fmt: (n: number) => string,
   ): [string, string][] => (value == null ? [] : [[label, fmt(value)]]);
 
+  // Same rule for a derived row, so a percentage is never left stranded above
+  // an `opt` that dropped the counter it was computed from.
+  const derived = (
+    label: string,
+    inputs: (number | undefined)[],
+    value: () => React.ReactNode,
+  ): [string, React.ReactNode][] =>
+    inputs.some((n) => n == null) ? [] : [[label, value()]];
+
   // Airtime only means something against the uptime it accrued over — that
   // ratio is the duty cycle regulators cap. The raw pair stays reachable as a
   // hint, and a TX figure past the node's own configured budget is flagged.
@@ -673,14 +682,21 @@ function StatusDashboard({
               s.totalRxAirTimeSecs,
               formatAirtime,
             ),
-            [
+            ...derived(
               t('repeaterAdmin.txDutyCycle'),
-              dutyCycle(s.totalAirTimeSecs, s.totalUpTimeSecs, dutyCycleLimit),
-            ],
-            [
+              [s.totalAirTimeSecs, s.totalUpTimeSecs],
+              () =>
+                dutyCycle(
+                  s.totalAirTimeSecs,
+                  s.totalUpTimeSecs,
+                  dutyCycleLimit,
+                ),
+            ),
+            ...derived(
               t('repeaterAdmin.rxDutyCycle'),
-              dutyCycle(s.totalRxAirTimeSecs, s.totalUpTimeSecs),
-            ],
+              [s.totalRxAirTimeSecs, s.totalUpTimeSecs],
+              () => dutyCycle(s.totalRxAirTimeSecs, s.totalUpTimeSecs),
+            ),
           ]
         : null,
     },
@@ -708,21 +724,24 @@ function StatusDashboard({
             ...opt(t('repeaterAdmin.directTx'), s.nSentDirect, num),
             ...opt(t('repeaterAdmin.directRx'), s.nRecvDirect, num),
             ...opt(t('repeaterAdmin.floodDups'), s.nFloodDups, num),
-            [
+            ...derived(
               t('repeaterAdmin.floodDupRate'),
-              formatRatePercent(s.nFloodDups, s.nRecvFlood),
-            ],
+              [s.nFloodDups, s.nRecvFlood],
+              () => formatRatePercent(s.nFloodDups, s.nRecvFlood),
+            ),
             ...opt(t('repeaterAdmin.directDups'), s.nDirectDups, num),
             ...opt(t('repeaterAdmin.rxErrors'), s.nRecvErrors, num),
-            [
+            ...derived(
               t('repeaterAdmin.rxErrorRate'),
-              formatRatePercent(
-                s.nRecvErrors,
-                s.nRecvErrors == null || s.nPacketsRecv == null
-                  ? undefined
-                  : s.nRecvErrors + s.nPacketsRecv,
-              ),
-            ],
+              [s.nRecvErrors, s.nPacketsRecv],
+              () =>
+                formatRatePercent(
+                  s.nRecvErrors,
+                  s.nRecvErrors == null || s.nPacketsRecv == null
+                    ? undefined
+                    : s.nRecvErrors + s.nPacketsRecv,
+                ),
+            ),
           ]
         : null,
     },
