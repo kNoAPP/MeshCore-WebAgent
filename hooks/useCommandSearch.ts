@@ -12,26 +12,40 @@ import {
   directConvoId,
   repeaterConvoId,
   roomConvoId,
+  isAuthedLogin,
 } from '@/store/meshStore';
-import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
-import type { ActiveConvo } from '@/types/meshcore';
+import {
+  ADV_TYPE_REPEATER,
+  ADV_TYPE_ROOM,
+  FAVORITE_FLAG,
+  NO_PATH,
+} from '@/lib/meshcore/constants';
+import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
+import { SUPPORTED_UNIT_SYSTEMS } from '@/lib/units/config';
+import type { ActiveConvo, Contact } from '@/types/meshcore';
 import {
   buildAdvertRecords,
   buildChannelRecords,
   buildContactRecords,
   buildMessageRecords,
+  ACTION_FUSE_OPTIONS,
+  ACTION_TARGETS,
   ADVERT_FUSE_OPTIONS,
   CHANNEL_FUSE_OPTIONS,
   CONTACT_FUSE_OPTIONS,
+  CONTACT_VERBS,
   MESSAGE_FUSE_OPTIONS,
   PAGE_FUSE_OPTIONS,
   PAGE_TARGETS,
+  type ActionRecord,
   type AdvertRecord,
   type ChannelRecord,
   type CommandResult,
   type ContactRecord,
+  type ContactVerb,
   type MessageRecord,
   type PageRecord,
+  type PaletteAction,
 } from '@/lib/search/commandSearch';
 
 // Bounded so a huge history stays responsive.
@@ -45,10 +59,18 @@ const RECENT_LIMIT = 6;
 /** A titled block of results the palette renders as one section. */
 export interface CommandGroup {
   /** Stable key and heading discriminator. */
-  key: 'recent' | 'messages' | 'contacts' | 'adverts' | 'channels' | 'pages';
+  key:
+    | 'recent'
+    | 'actions'
+    | 'messages'
+    | 'contacts'
+    | 'adverts'
+    | 'channels'
+    | 'pages';
   /** i18n key for the group heading. */
   headingKey:
     | 'command.group.recent'
+    | 'command.group.actions'
     | 'command.group.messages'
     | 'command.group.contacts'
     | 'command.group.adverts'
@@ -70,6 +92,50 @@ function messageHint(record: MessageRecord): string {
     : record.convo.label;
 }
 
+// A verb the target UI would render disabled has nothing to offer here: a
+// contact with no stored path cannot have one reset, and one that has never
+// advertised a fix (the firmware writes 0 for an unset coordinate) is not on
+// the map to jump to.
+function verbApplies(verb: ContactVerb, contact: Contact): boolean {
+  if (verb === 'route') return contact.outPathLen !== NO_PATH;
+  if (verb === 'map') return !!contact.advLat && !!contact.advLon;
+  return true;
+}
+
+function contactVerbLabelKey(
+  verb: ContactVerb,
+  contact: Contact,
+): `command.action.contact_${ContactVerb | 'unfavorite'}` {
+  if (verb === 'favorite' && (contact.flags & FAVORITE_FLAG) !== 0) {
+    return 'command.action.contact_unfavorite';
+  }
+  return `command.action.contact_${verb}`;
+}
+
+function contactVerbRun(verb: ContactVerb, prefix: string): PaletteAction {
+  switch (verb) {
+    case 'favorite':
+      return { kind: 'contactFavorite', prefix };
+    case 'route':
+      return { kind: 'contactResetRoute', prefix };
+    case 'share':
+      return { kind: 'contactShare', prefix };
+    case 'map':
+      return { kind: 'contactMap', prefix };
+  }
+}
+
+function actionResult(record: ActionRecord): CommandResult {
+  return {
+    kind: 'action',
+    id: record.id,
+    primary: record.label,
+    secondary: record.hint,
+    destructive: record.destructive,
+    action: record.action,
+  };
+}
+
 /**
  * Builds a memoized Fuse index over the store's messages, contacts, channels,
  * and static navigation targets, and returns ranked results grouped by kind for
@@ -86,6 +152,10 @@ export function useCommandSearch(query: string): CommandGroup[] {
   const contacts = useMeshStore((s) => s.contacts);
   const channels = useMeshStore((s) => s.channels);
   const advertCache = useMeshStore((s) => s.advertCache);
+  const locale = useMeshStore((s) => s.locale);
+  const unitSystem = useMeshStore((s) => s.unitSystem);
+  const activeConvo = useMeshStore((s) => s.activeConvo);
+  const adminSessions = useMeshStore((s) => s.adminSessions);
 
   // Rebuild indexes only when the underlying slices (or language, which drives
   // fallback labels) change — not on every keystroke.
@@ -203,6 +273,118 @@ export function useCommandSearch(query: string): CommandGroup[] {
     [pageRecords],
   );
 
+  // The radio-wide verbs, which are also what the empty-query launcher offers.
+  const radioActionRecords = useMemo<ActionRecord[]>(
+    () =>
+      ACTION_TARGETS.map((target) => ({
+        id: `action:${target.id}`,
+        label: t(`command.action.${target.id}`),
+        keywords: t(`command.actionKeywords.${target.id}`),
+        destructive: 'destructive' in target ? target.destructive : undefined,
+        action: { type: 'run', run: target.run },
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [language],
+  );
+
+  // Switching to the value that is already active is a no-op, so only the
+  // alternatives are offered.
+  const displayActionRecords = useMemo<ActionRecord[]>(() => {
+    const records: ActionRecord[] = [];
+    for (const l of SUPPORTED_LOCALES) {
+      if (l === locale) continue;
+      records.push({
+        id: `action:locale:${l}`,
+        label: t('command.action.setLanguage', { language: LOCALE_NAMES[l] }),
+        keywords: t('command.actionKeywords.setLanguage'),
+        action: { type: 'run', run: { kind: 'setLocale', locale: l } },
+      });
+    }
+    for (const u of SUPPORTED_UNIT_SYSTEMS) {
+      if (u === unitSystem) continue;
+      records.push({
+        id: `action:units:${u}`,
+        label: t('command.action.setUnits', {
+          units: t(`settings.units_${u}`),
+        }),
+        keywords: t('command.actionKeywords.setUnits'),
+        action: { type: 'run', run: { kind: 'setUnitSystem', unitSystem: u } },
+      });
+    }
+    return records;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale, unitSystem, language]);
+
+  // One row per contact per applicable verb, so "reset route on Gold-Saddle"
+  // ranks as a single result instead of needing the Manage modal.
+  const contactActionRecords = useMemo<ActionRecord[]>(() => {
+    const records: ActionRecord[] = [];
+    for (const contact of Object.values(contacts)) {
+      const name = contact.name || contact.pubkeyPrefix.slice(0, 8);
+      for (const verb of CONTACT_VERBS) {
+        if (!verbApplies(verb, contact)) continue;
+        records.push({
+          id: `action:contact:${verb}:${contact.pubkeyPrefix}`,
+          label: t(contactVerbLabelKey(verb, contact), { name }),
+          keywords: t(`command.actionKeywords.contact_${verb}`),
+          hint: name,
+          action: {
+            type: 'run',
+            run: contactVerbRun(verb, contact.pubkeyPrefix),
+          },
+        });
+      }
+    }
+    return records;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contacts, language]);
+
+  // Scoped to the repeater/room admin session that is actually open — these
+  // verbs have no meaning without one, and the target UI hides them too.
+  const repeaterActionRecords = useMemo<ActionRecord[]>(() => {
+    if (activeConvo?.kind !== 'repeater' && activeConvo?.kind !== 'room') {
+      return [];
+    }
+    const prefix = String(activeConvo.rawId);
+    if (!isAuthedLogin(adminSessions[prefix]?.login)) return [];
+    return [
+      {
+        id: `action:repeater:status:${prefix}`,
+        label: t('command.action.repeaterStatus'),
+        keywords: t('command.actionKeywords.repeaterStatus'),
+        hint: activeConvo.label,
+        action: { type: 'run', run: { kind: 'repeaterStatus', prefix } },
+      },
+      {
+        id: `action:repeater:logout:${prefix}`,
+        label: t('command.action.repeaterLogOut'),
+        keywords: t('command.actionKeywords.repeaterLogOut'),
+        hint: activeConvo.label,
+        action: { type: 'run', run: { kind: 'repeaterLogOut', prefix } },
+      },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConvo, adminSessions, language]);
+
+  const actionRecords = useMemo(
+    () => [
+      ...radioActionRecords,
+      ...displayActionRecords,
+      ...repeaterActionRecords,
+      ...contactActionRecords,
+    ],
+    [
+      radioActionRecords,
+      displayActionRecords,
+      repeaterActionRecords,
+      contactActionRecords,
+    ],
+  );
+  const actionFuse = useMemo(
+    () => new Fuse<ActionRecord>(actionRecords, ACTION_FUSE_OPTIONS),
+    [actionRecords],
+  );
+
   // The most recently active conversations, for the empty-query launcher view.
   const recentConversations = useMemo(() => {
     const latest = new Map<string, { convo: ActiveConvo; ts: number }>();
@@ -257,6 +439,11 @@ export function useCommandSearch(query: string): CommandGroup[] {
           })),
         });
       }
+      groups.push({
+        key: 'actions',
+        headingKey: 'command.group.actions',
+        results: radioActionRecords.map(actionResult),
+      });
       groups.push({
         key: 'pages',
         headingKey: 'command.group.pages',
@@ -342,6 +529,17 @@ export function useCommandSearch(query: string): CommandGroup[] {
       });
     }
 
+    const actionResults = actionFuse
+      .search(trimmed, { limit: GROUP_LIMIT })
+      .map<CommandResult>((r) => actionResult(r.item));
+    if (actionResults.length) {
+      groups.push({
+        key: 'actions',
+        headingKey: 'command.group.actions',
+        results: actionResults,
+      });
+    }
+
     const pageResults = pageFuse
       .search(trimmed, { limit: GROUP_LIMIT })
       .map<CommandResult>((r) => ({
@@ -365,8 +563,10 @@ export function useCommandSearch(query: string): CommandGroup[] {
     contactFuse,
     advertFuse,
     channelFuse,
+    actionFuse,
     pageFuse,
     pageRecords,
+    radioActionRecords,
     recentConversations,
   ]);
 }

@@ -564,7 +564,11 @@ interface MeshState {
    * repeater's config tab. Both reuse the one-shot {@link pendingLocation}.
    */
   locationPickReturn: AppView;
-  managePanel: { kind: 'contact' | 'channel' | 'advert'; id: string } | null;
+  managePanel: {
+    kind: 'contact' | 'channel' | 'advert';
+    id: string;
+    share?: boolean;
+  } | null;
   autoAddOpen: boolean;
   addChannelOpen: boolean;
   addContactOpen: boolean;
@@ -659,6 +663,8 @@ interface MeshActions {
    */
   setDraft: (id: string, text: string) => void;
   markRead: (id: string) => void;
+  /** Clears the unread flag on every conversation at once. */
+  markAllRead: () => void;
   restoreHistory: (persisted: Record<string, Message[]>) => void;
   /**
    * Raises a toast. Pass `convo` to make the banner open that conversation
@@ -691,7 +697,12 @@ interface MeshActions {
   /** Clears the one-shot {@link MeshState.pendingLocation} after it's read. */
   clearPendingLocation: () => void;
   setManagePanel: (
-    panel: { kind: 'contact' | 'channel' | 'advert'; id: string } | null,
+    panel: {
+      kind: 'contact' | 'channel' | 'advert';
+      id: string;
+      /** Open a contact straight on its share sub-page. */
+      share?: boolean;
+    } | null,
   ) => void;
   setAutoAddOpen: (open: boolean) => void;
   setAddChannelOpen: (open: boolean) => void;
@@ -1080,6 +1091,23 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
           [id]: msgs.map((m) => ({ ...m, _unread: false })),
         },
       };
+    }),
+
+  markAllRead: () =>
+    set((state) => {
+      const next: Record<string, Message[]> = {};
+      let cleared = false;
+      for (const [id, msgs] of Object.entries(state.msgHistory)) {
+        if (!msgs.some((m) => m._unread)) {
+          next[id] = msgs;
+          continue;
+        }
+        next[id] = msgs.map((m) => (m._unread ? { ...m, _unread: false } : m));
+        cleared = true;
+      }
+      // Nothing was unread: returning the same object keeps every subscriber
+      // (the title, the sidebar badges) from re-running for no change.
+      return cleared ? { msgHistory: next } : {};
     }),
 
   showToast: (text, variant = '', convo) => {
