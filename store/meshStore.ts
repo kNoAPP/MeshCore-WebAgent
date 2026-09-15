@@ -351,6 +351,12 @@ export interface AdminSession {
    */
   token: number;
   status?: RepeaterStatus;
+  /**
+   * Unix epoch seconds, from *this computer's* clock, when {@link status} was
+   * read — the dashboard refreshes on a manual button, so the values carry no
+   * age of their own.
+   */
+  statusAt?: number;
   cli: CliLine[];
   /**
    * How many CLI commands are outstanding for this repeater — queued or
@@ -397,6 +403,12 @@ interface MeshState {
    * each counter did between the last two reads. Null until a second read.
    */
   prevDeviceStats: StatsResult | null;
+  /**
+   * Unix epoch seconds, from *this computer's* clock, when {@link deviceStats}
+   * was read. The cards refresh on a manual button, so without it there is no
+   * way to tell a live reading from one taken an hour ago.
+   */
+  deviceStatsAt: number | null;
   deviceClock: { time: number; skew: number } | null;
   /**
    * The Stats page's own battery/storage snapshot (including `null` when the
@@ -717,7 +729,18 @@ interface MeshActions {
   /** Sets a repeater admin session's login state (creates it if new). */
   setAdminLogin: (prefix: string, login: AdminLoginState) => void;
   /** Stores the latest decoded status for a repeater's admin session. */
-  setRepeaterStatus: (prefix: string, status: RepeaterStatus) => void;
+  /**
+   * Records a repeater's status reply against its admin session, stamping
+   * {@link AdminSession.statusAt}.
+   *
+   * @param token - the {@link AdminSession.token} the request was issued
+   * under; the reply is dropped when the session has since been replaced.
+   */
+  setRepeaterStatus: (
+    prefix: string,
+    status: RepeaterStatus,
+    token?: number,
+  ) => void;
   /** Caches the last-read neighbors list for a repeater's admin session. */
   setRepeaterNeighbors: (prefix: string, neighbors: Neighbor[]) => void;
   /** Merges loaded/confirmed Config values into a repeater's session cache. */
@@ -753,6 +776,7 @@ const initialState: MeshState = {
   syncProgress: null,
   deviceStats: null,
   prevDeviceStats: null,
+  deviceStatsAt: null,
   deviceClock: null,
   deviceBattery: null,
   contacts: {},
@@ -848,6 +872,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       deviceStats,
       // A null write ends the link session, so there is nothing to compare to.
       prevDeviceStats: deviceStats ? state.deviceStats : null,
+      deviceStatsAt: deviceStats ? Math.floor(Date.now() / 1000) : null,
     })),
   setDeviceClock: (deviceClock) => set({ deviceClock }),
   setDeviceBattery: (deviceBattery) => set({ deviceBattery }),
@@ -1188,18 +1213,26 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         },
       };
     }),
-  setRepeaterStatus: (prefix, status) => {
+  setRepeaterStatus: (prefix, status, token) => {
     const { adminSessions } = get();
     const session = adminSessions[prefix];
     // Status belongs to a live, authenticated session. If a late reply lands
     // after log-out (session gone) or before login completes, drop it rather
     // than resurrecting a logged-out session with stale status that would then
-    // leak into the next login. Return before `set` so no listeners are woken.
+    // leak into the next login. A reply whose issuing session has since been
+    // replaced by a re-login is dropped for the same reason: it is not this
+    // session's status, and `statusAt` would date it to now. Return before
+    // `set` so no listeners are woken.
     if (!isAuthedLogin(session?.login)) return;
+    if (token !== undefined && session?.token !== token) return;
     set({
       adminSessions: {
         ...adminSessions,
-        [prefix]: { ...session, status },
+        [prefix]: {
+          ...session,
+          status,
+          statusAt: Math.floor(Date.now() / 1000),
+        },
       },
     });
   },

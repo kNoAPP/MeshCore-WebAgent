@@ -1673,11 +1673,16 @@ export function useMeshCore() {
   const repeaterStatus = useCallback(
     async (contact: Contact) => {
       if (!canTransmit(client)) return;
+      // The session this request belongs to. A log-out and re-login between the
+      // send and the reply mints a new token, and the old snapshot must not
+      // land on the new session — it would read as freshly updated.
+      const token =
+        useMeshStore.getState().adminSessions[contact.pubkeyPrefix]?.token;
       try {
         const status = await client.requestStatus(contact);
         // Skip a stale update if the session dropped mid-request.
         if (!canTransmit(client)) return;
-        setRepeaterStatus(contact.pubkeyPrefix, status);
+        setRepeaterStatus(contact.pubkeyPrefix, status, token);
       } catch (err) {
         // A disconnect rejects the in-flight request; its teardown owns the
         // user-facing toast, so suppress this stale operation error.

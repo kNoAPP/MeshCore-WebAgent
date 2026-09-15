@@ -30,17 +30,39 @@ export function formatDateTime(timestamp: number): string {
   });
 }
 
+// Absolute fallback for ages a day counter no longer describes usefully.
+function formatDate(timestamp: number): string {
+  return new Date(timestamp * 1000).toLocaleDateString(i18n.language, {
+    dateStyle: 'medium',
+  });
+}
+
+// How far a timestamp may sit in the future before it is reported as a skewed
+// clock rather than as a fresh sighting. Advert timestamps are the *sender's*
+// clock, and MeshCore nodes routinely run without a synchronized RTC.
+const CLOCK_SKEW_TOLERANCE_SECS = 60;
+
+/** Ages at or past this are rendered as an absolute date, not a day count. */
+const ABSOLUTE_DATE_AFTER_SECS = 30 * 86400;
+
 /**
  * Formats a Unix epoch-seconds timestamp as a relative age (`just now`,
- * `5m ago`, `2h ago`, `3d ago`).
+ * `5m ago`, `2h ago`, `3d ago`). A timestamp more than a minute in the future
+ * is a skewed sender clock, not a fresh sighting, so it reads as a clock-skew
+ * notice carrying the absolute timestamp instead of `just now`; an age of 30
+ * days or more likewise falls back to an absolute locale date rather than an
+ * unbounded day count.
  */
 export function formatRelative(timestamp: number): string {
   const secs = Math.floor(Date.now() / 1000) - timestamp;
+  if (secs < -CLOCK_SKEW_TOLERANCE_SECS)
+    return i18n.t('relative.clockAhead', { date: formatDateTime(timestamp) });
   if (secs < 60) return i18n.t('relative.justNow');
   if (secs < 3600)
     return i18n.t('relative.minutes', { count: Math.floor(secs / 60) });
   if (secs < 86400)
     return i18n.t('relative.hours', { count: Math.floor(secs / 3600) });
+  if (secs >= ABSOLUTE_DATE_AFTER_SECS) return formatDate(timestamp);
   return i18n.t('relative.days', { count: Math.floor(secs / 86400) });
 }
 
@@ -197,9 +219,42 @@ export function formatStorage(usedKB: number, totalKB: number): string {
   return i18n.t('units.kb', { value: `${used}/${total}` });
 }
 
-/** Formats a whole percentage, e.g. `73%`. */
-export function formatPercent(value: number): string {
+/**
+ * Formats a percentage value (already 0–100), e.g. `73%`.
+ *
+ * @param digits - fraction digits to render; the default rounds to a whole
+ * percent, which is what the battery/storage meters want.
+ */
+export function formatPercent(value: number, digits = 0): string {
   return i18n.t('units.percent', {
-    value: Math.round(value).toLocaleString(i18n.language),
+    value: value.toLocaleString(i18n.language, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }),
   });
+}
+
+/**
+ * Stands in for a derived figure whose inputs leave it undefined. An em dash is
+ * locale-neutral, so it is not translated.
+ */
+export const NO_VALUE = '—';
+
+/**
+ * Formats `part / whole` as a percentage — the figures the firmware's raw
+ * counters only imply: duty cycle against uptime, receive errors against
+ * packets received, flood duplicates against floods heard.
+ *
+ * @returns {@link NO_VALUE} when the ratio is undefined, rather than `NaN` or
+ * `Infinity`: a node that just booted reports zero uptime, a counter the
+ * firmware left out is not a zero, and a non-finite operand is not a reading.
+ */
+export function formatRatePercent(
+  part: number | undefined,
+  whole: number | undefined,
+  digits = 2,
+): string {
+  if (!Number.isFinite(part) || !Number.isFinite(whole)) return NO_VALUE;
+  if (part == null || whole == null || whole <= 0) return NO_VALUE;
+  return formatPercent((part / whole) * 100, digits);
 }

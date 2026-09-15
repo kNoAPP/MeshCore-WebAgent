@@ -16,6 +16,7 @@ import dynamic from 'next/dynamic';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useClockTick } from '@/hooks/useClockTick';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { parseNeighborsReply, type Neighbor } from '@/lib/meshcore/repeaterCli';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
@@ -30,6 +31,7 @@ import {
   formatAirtime,
   formatDbm,
   formatPercent,
+  formatRatePercent,
   formatRelative,
   formatSnr,
   formatUptime,
@@ -37,6 +39,7 @@ import {
 } from '@/lib/i18n/format';
 import { ADV_ICON, formatPubkey } from '@/lib/utils';
 import { ChatArea } from './ChatArea';
+import { HintToken } from './MessageBubble';
 import { RouteChip } from './RouteChip';
 import { StatCard } from './StatCard';
 import { RefreshButton } from './RefreshButton';
@@ -108,6 +111,12 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   const login = session?.login ?? 'loggedOut';
   const authed = isAuthedLogin(login);
   const prefix = contact.pubkeyPrefix;
+  // The node's own transmit budget, once the Config tab has read it. Only used
+  // to flag a TX duty cycle that has already run past it, so anything the
+  // firmware hasn't answered with a positive number simply means no flag —
+  // note `Number('')` is `0`, which would otherwise flag every node.
+  const configuredDuty = Number(session?.config?.dutycycle ?? NaN);
+  const dutyCycleLimit = configuredDuty > 0 ? configuredDuty : undefined;
 
   // Which tabs this session may see. A room's post feed comes first and is
   // open to every logged-in role (a read-only member may read, just not post).
@@ -264,6 +273,8 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
             {activeTab === 'status' && (
               <StatusDashboard
                 status={session?.status}
+                statusAt={session?.statusAt}
+                dutyCycleLimit={dutyCycleLimit}
                 onRefresh={() => repeaterStatus(contact)}
               />
             )}
@@ -491,12 +502,24 @@ function LoginGate({
 
 function StatusDashboard({
   status,
+  statusAt,
+  dutyCycleLimit,
   onRefresh,
 }: {
   status?: RepeaterStatus;
+  /** Unix epoch seconds this snapshot was read, from this computer's clock. */
+  statusAt?: number;
+  /**
+   * The node's configured transmit budget as a percentage, once the Config tab
+   * has read it. Used only to flag a TX duty cycle that has run past it.
+   */
+  dutyCycleLimit?: number;
   onRefresh: () => Promise<void>;
 }) {
   const { t, i18n } = useTranslation();
+  // The freshness label is derived from the wall clock, so it needs its own
+  // re-render to keep aging while the tab sits open.
+  useClockTick();
   // Skeletons only when there's no cached status; a cached snapshot (kept in
   // the admin session) renders immediately so returning to the tab stays
   // populated.
@@ -527,8 +550,10 @@ function StatusDashboard({
   }, [refresh]);
 
   const num = (n: number) => n.toLocaleString(i18n.language);
-  // Shared responsive layout for the stat cards (loading and loaded).
-  const gridClass = 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
+  // Shared responsive layout for the stat cards (loading and loaded). Wrapping
+  // flex rather than a fixed column count: a short final row grows to fill the
+  // width instead of leaving dead cells.
+  const gridClass = 'flex flex-wrap items-start gap-4';
   const s = status;
   // Include a row only when the firmware reported that field.
   const opt = (
@@ -537,6 +562,63 @@ function StatusDashboard({
     fmt: (n: number) => string,
   ): [string, string][] => (value == null ? [] : [[label, fmt(value)]]);
 
+  // Same rule for a derived row, so a percentage is never left stranded above
+  // an `opt` that dropped the counter it was computed from.
+  const derived = (
+    label: string,
+    inputs: (number | undefined)[],
+    value: () => React.ReactNode,
+  ): [string, React.ReactNode][] =>
+    inputs.some((n) => n == null) ? [] : [[label, value()]];
+
+  // Airtime only means something against the uptime it accrued over — that
+  // ratio is the duty cycle regulators cap. The raw pair stays reachable as a
+  // hint, and a TX figure past the node's own configured budget is flagged.
+  const dutyCycle = (
+    airSecs: number | undefined,
+    uptimeSecs: number | undefined,
+    limitPercent?: number,
+  ): React.ReactNode => {
+    // The limit itself when it has been exceeded, so the flag and the text that
+    // explains it are driven by one value.
+    const exceeded =
+      airSecs != null &&
+      uptimeSecs != null &&
+      uptimeSecs > 0 &&
+      limitPercent != null &&
+      (airSecs / uptimeSecs) * 100 > limitPercent
+        ? limitPercent
+        : null;
+    return (
+      <span className={exceeded !== null ? 'text-red' : undefined}>
+        <HintToken
+          label={formatRatePercent(airSecs, uptimeSecs)}
+          align='right'
+          title={
+            airSecs != null && uptimeSecs != null
+              ? `${formatAirtime(airSecs)} / ${formatUptime(uptimeSecs)}`
+              : undefined
+          }
+        />
+        {/* The red is a reinforcement, not the message: the state has to
+            survive a reader who cannot perceive it. */}
+        {exceeded !== null && (
+          <span className='sr-only'>
+            {' '}
+            {t('repeaterAdmin.overDutyCycle', {
+              // The setting is fractional (0.5 steps), so a 1.5 % budget must
+              // not be announced as 2 %, which would contradict the flag.
+              limit: formatPercent(
+                exceeded,
+                Number.isInteger(exceeded) ? 0 : 1,
+              ),
+            })}
+          </span>
+        )}
+      </span>
+    );
+  };
+
   // One descriptor per card: `labels` drives the loading skeleton (one shimmer
   // row per label) and `rows` the loaded values (dropping unreported fields) —
   // the same shape the Stats page uses so the layout doesn't shift.
@@ -544,7 +626,7 @@ function StatusDashboard({
     title: string;
     labels: string[];
     meter?: { label: string; percent: number; text: string };
-    rows: [string, string][] | null;
+    rows: [string, React.ReactNode][] | null;
   }[] = [
     {
       title: t('repeaterAdmin.card.power'),
@@ -586,7 +668,12 @@ function StatusDashboard({
     },
     {
       title: t('repeaterAdmin.card.airtime'),
-      labels: [t('repeaterAdmin.txAirtime'), t('repeaterAdmin.rxAirtime')],
+      labels: [
+        t('repeaterAdmin.txAirtime'),
+        t('repeaterAdmin.rxAirtime'),
+        t('repeaterAdmin.txDutyCycle'),
+        t('repeaterAdmin.rxDutyCycle'),
+      ],
       rows: s
         ? [
             ...opt(
@@ -598,6 +685,21 @@ function StatusDashboard({
               t('repeaterAdmin.rxAirtime'),
               s.totalRxAirTimeSecs,
               formatAirtime,
+            ),
+            ...derived(
+              t('repeaterAdmin.txDutyCycle'),
+              [s.totalAirTimeSecs, s.totalUpTimeSecs],
+              () =>
+                dutyCycle(
+                  s.totalAirTimeSecs,
+                  s.totalUpTimeSecs,
+                  dutyCycleLimit,
+                ),
+            ),
+            ...derived(
+              t('repeaterAdmin.rxDutyCycle'),
+              [s.totalRxAirTimeSecs, s.totalUpTimeSecs],
+              () => dutyCycle(s.totalRxAirTimeSecs, s.totalUpTimeSecs),
             ),
           ]
         : null,
@@ -612,8 +714,10 @@ function StatusDashboard({
         t('repeaterAdmin.directTx'),
         t('repeaterAdmin.directRx'),
         t('repeaterAdmin.floodDups'),
+        t('repeaterAdmin.floodDupRate'),
         t('repeaterAdmin.directDups'),
         t('repeaterAdmin.rxErrors'),
+        t('repeaterAdmin.rxErrorRate'),
       ],
       rows: s
         ? [
@@ -624,8 +728,24 @@ function StatusDashboard({
             ...opt(t('repeaterAdmin.directTx'), s.nSentDirect, num),
             ...opt(t('repeaterAdmin.directRx'), s.nRecvDirect, num),
             ...opt(t('repeaterAdmin.floodDups'), s.nFloodDups, num),
+            ...derived(
+              t('repeaterAdmin.floodDupRate'),
+              [s.nFloodDups, s.nRecvFlood],
+              () => formatRatePercent(s.nFloodDups, s.nRecvFlood),
+            ),
             ...opt(t('repeaterAdmin.directDups'), s.nDirectDups, num),
             ...opt(t('repeaterAdmin.rxErrors'), s.nRecvErrors, num),
+            ...derived(
+              t('repeaterAdmin.rxErrorRate'),
+              [s.nRecvErrors, s.nPacketsRecv],
+              () =>
+                formatRatePercent(
+                  s.nRecvErrors,
+                  s.nRecvErrors == null || s.nPacketsRecv == null
+                    ? undefined
+                    : s.nRecvErrors + s.nPacketsRecv,
+                ),
+            ),
           ]
         : null,
     },
@@ -633,19 +753,27 @@ function StatusDashboard({
 
   return (
     <div className='mx-auto w-full max-w-6xl space-y-4'>
-      <div className='flex justify-end'>
+      <div className='flex items-center justify-end gap-3'>
+        {statusAt != null && !loading && (
+          <span className='text-xs text-text2'>
+            {t('repeaterAdmin.lastUpdated', {
+              time: formatRelative(statusAt),
+            })}
+          </span>
+        )}
         <RefreshButton onClick={() => void refresh()} busy={loading} />
       </div>
 
       {loading ? (
         <div className={gridClass}>
           {cards.map(({ title: cardTitle, labels }) => (
-            <StatCard
-              key={cardTitle}
-              title={cardTitle}
-              loading
-              rows={labels.map((label) => [label, ''])}
-            />
+            <div key={cardTitle} className='min-w-full flex-1 sm:min-w-72'>
+              <StatCard
+                title={cardTitle}
+                loading
+                rows={labels.map((label) => [label, ''])}
+              />
+            </div>
           ))}
         </div>
       ) : status ? (
@@ -653,12 +781,9 @@ function StatusDashboard({
           {cards
             .filter((c) => c.rows && c.rows.length > 0)
             .map(({ title: cardTitle, rows, meter }) => (
-              <StatCard
-                key={cardTitle}
-                title={cardTitle}
-                rows={rows ?? []}
-                meter={meter}
-              />
+              <div key={cardTitle} className='min-w-full flex-1 sm:min-w-72'>
+                <StatCard title={cardTitle} rows={rows ?? []} meter={meter} />
+              </div>
             ))}
         </div>
       ) : (
@@ -698,22 +823,19 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   // shared rather than repeated per consumer.
   const rows = useMemo(() => {
     const anchor = repeaterAnchorNode(contact);
-    return (neighbors ?? []).map((neighbor) => {
+    return (neighbors ?? []).flatMap((neighbor) => {
       const { identity, node } = resolveNeighbor(
         neighbor.prefix,
         contacts,
         advertCache,
       );
-      return {
-        neighbor,
-        node: identity,
-        // The neighbor's own fix, not whether the map can draw it: the caption
-        // counts what we know about them, and a repeater with no advertised
-        // position of its own does not make their locations unknown. A neighbor
-        // resolving back to the anchor is the self-edge `buildNeighborMap`
-        // drops, so it is not one of them.
-        located: node !== null && node.key !== anchor?.key,
-      };
+      // A neighbor resolving back to the repeater itself is a self-edge
+      // `buildNeighborMap` drops. Dropping it here too keeps the table, the
+      // map and the coverage count describing the same set.
+      if (node !== null && node.key === anchor?.key) return [];
+      // Their own fix, not whether the map can draw it: a repeater with no
+      // advertised position does not make its neighbors' locations unknown.
+      return [{ neighbor, node: identity, located: node !== null }];
     });
   }, [contact, neighbors, contacts, advertCache]);
 
@@ -906,6 +1028,9 @@ function NeighborsList({ rows }: { rows: NeighborRow[] }) {
   const setManagePanel = useMeshStore((s) => s.setManagePanel);
   const connected = useMeshStore((s) => s.status === 'connected');
   const { addDiscoveredContact } = useMeshCore();
+  // Nothing else re-renders this between refreshes, so without a tick the
+  // ages below would freeze at whatever they read when the tab opened.
+  useClockTick();
 
   return (
     <table

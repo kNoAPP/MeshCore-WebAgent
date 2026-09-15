@@ -6,11 +6,13 @@
 import type { ReactNode } from 'react';
 
 /**
- * A titled card rendering `[label, value]` rows for one stats group. A row may
- * carry an optional third element — an action node (e.g. a button) shown after
- * the value. When `note` is set, the card shows that muted line instead of rows
- * — used to render a section the device didn't report. When `loading` is set,
- * the labels render normally but each value is replaced by a shimmer block.
+ * A titled card rendering `[label, value]` rows for one stats group. A value
+ * may be a node rather than a string, for a derived figure that carries a hint
+ * or its own emphasis. A row may also carry an optional third element — an
+ * action node (e.g. a button) shown after the value. When `note` is set, the
+ * card shows that muted line instead of rows — used to render a section the
+ * device didn't report. When `loading` is set, the labels render normally but
+ * each value is replaced by a shimmer block.
  *
  * `meter` renders a labelled bar above the rows for a value that is already a
  * percentage (battery, storage), where a bar reads at a glance and `"73%"` does
@@ -27,7 +29,7 @@ export function StatCard({
   loading = false,
 }: {
   title: string;
-  rows?: [string, string, ReactNode?][];
+  rows?: [string, ReactNode, ReactNode?][];
   note?: string;
   /** A 0–100 percentage plus its label and already-formatted display text. */
   meter?: { label: string; percent: number; text: string };

@@ -17,6 +17,7 @@ import {
   formatPubkey,
   fromHex,
   parseContactUri,
+  sortByHeardAge,
 } from '@/lib/utils';
 import {
   ADV_TYPE_REPEATER,
@@ -130,18 +131,19 @@ export function AddContactModal() {
 
   const hint = t(MODES.find((m) => m.id === mode)!.hintKey);
   // Discovered nodes come from the browser advert cache (persisted across
-  // sessions), narrowed by the search box and ordered by most recently heard so
-  // the freshest nodes surface first.
+  // sessions), narrowed by the search box and ordered freshest first. The
+  // ordering runs on the offset from now rather than the raw advert timestamp,
+  // so a node whose clock runs ahead cannot hold the top of the list forever.
   const cachedAdverts = Object.values(advertCache);
   const discoverTerm = discoverQuery.trim().toLowerCase();
-  const heard = cachedAdverts
-    .filter(
+  const heard = sortByHeardAge(
+    cachedAdverts.filter(
       (a) =>
         !discoverTerm ||
         a.name.toLowerCase().includes(discoverTerm) ||
         a.pubkeyPrefix.toLowerCase().includes(discoverTerm),
-    )
-    .sort((a, b) => b.lastHeard - a.lastHeard);
+    ),
+  );
 
   return (
     <ModalShell
@@ -245,7 +247,7 @@ export function AddContactModal() {
                             <div className='truncate text-sm'>
                               {a.name || a.pubkeyPrefix.slice(0, 8)}
                             </div>
-                            <div className='truncate text-xs text-text2'>
+                            <div className='text-xs break-all text-text2'>
                               {t(
                                 ADV_LABEL_KEY[
                                   a.advType as keyof typeof ADV_LABEL_KEY

@@ -11,6 +11,7 @@ import { useMeshStore, channelConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
 import { CopyButton } from './CopyButton';
+import { HintToken } from './MessageBubble';
 import { ShareCard } from './ShareCard';
 import {
   ADV_ICON,
@@ -25,7 +26,11 @@ import {
   formatLatLon,
   formatPubkey,
 } from '@/lib/utils';
-import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
+import {
+  formatDateTime,
+  formatDistanceBearing,
+  formatRelative,
+} from '@/lib/i18n/format';
 import {
   ADV_TYPE_REPEATER,
   FAVORITE_FLAG,
@@ -144,6 +149,7 @@ function ManagePanelView() {
           <DetailRow
             label={t('manage.lastAdvert')}
             value={formatRelative(advert.lastHeard)}
+            hint={formatDateTime(advert.lastHeard)}
           />
           {location && (
             <DetailRow label={t('manage.location')} value={location} />
@@ -231,6 +237,11 @@ function ManagePanelView() {
                 contact.lastAdvert
                   ? formatRelative(contact.lastAdvert)
                   : t('common.unknown')
+              }
+              hint={
+                contact.lastAdvert
+                  ? formatDateTime(contact.lastAdvert)
+                  : undefined
               }
             />
             {location && (
@@ -455,11 +466,13 @@ function routeLabel(t: TFunction, contact: Contact): string {
 function DetailRow({
   label,
   value,
+  hint,
   mono,
   copy,
 }: {
   label: string;
   value: string;
+  hint?: string;
   mono?: boolean;
   copy?: string;
 }) {
@@ -467,7 +480,7 @@ function DetailRow({
     <div className='flex items-center gap-3 text-sm'>
       <span className='w-24 shrink-0 text-text2'>{label}</span>
       <span className={`flex-1 break-all ${mono ? 'font-mono text-xs' : ''}`}>
-        {value}
+        <HintToken label={value} title={hint} />
       </span>
       {copy && <CopyButton value={copy} />}
     </div>
