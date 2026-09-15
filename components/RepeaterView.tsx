@@ -48,9 +48,9 @@ import type {
   RepeaterStatus,
 } from '@/types/meshcore';
 
-// Leaflet and the neighbors map are loaded only when a located repeater with
-// locatable neighbors opens the tab, keeping the initial bundle lean. `ssr:
-// false` skips it during the static export, since Leaflet needs the DOM.
+// Leaflet and the neighbors map are loaded only when a located repeater opens
+// the tab, keeping the initial bundle lean. `ssr: false` skips it during the
+// static export, since Leaflet needs the DOM.
 const NeighborsMap = dynamic(
   () => import('./NeighborsMap').then((m) => ({ default: m.NeighborsMap })),
   { ssr: false },
@@ -707,10 +707,12 @@ function NeighborsTab({ contact }: { contact: Contact }) {
       return {
         neighbor,
         node: identity,
-        // Mirror `buildNeighborMap`: without an anchor nothing is drawn, and a
-        // neighbor resolving back to the anchor is a self-edge it drops — so
-        // neither may be counted as shown.
-        mappable: anchor !== null && node !== null && node.key !== anchor.key,
+        // The neighbor's own fix, not whether the map can draw it: the caption
+        // counts what we know about them, and a repeater with no advertised
+        // position of its own does not make their locations unknown. A neighbor
+        // resolving back to the anchor is the self-edge `buildNeighborMap`
+        // drops, so it is not one of them.
+        located: node !== null && node.key !== anchor?.key,
       };
     });
   }, [contact, neighbors, contacts, advertCache]);
@@ -719,7 +721,7 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   // on a ring rather than dropped, so any neighbor at all is worth drawing once
   // the repeater itself is located.
   const anchored = repeaterAnchorNode(contact) !== null;
-  const locatedCount = rows.filter((r) => r.mappable).length;
+  const locatedCount = rows.filter((r) => r.located).length;
   const total = rows.length;
 
   const [loading, setLoading] = useState(false);

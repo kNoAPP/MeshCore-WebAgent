@@ -107,11 +107,13 @@ function buildNeighborMap(
 
 /**
  * A spatial view of a repeater's recently-heard neighbors: the repeater at the
- * center, each locatable neighbor plotted with its category marker, and an
- * SNR-labeled link between them. Reuses {@link BaseLeafletMap} and the shared
- * marker styling/legend so it matches the Map page. Loaded via `dynamic` with
- * `ssr: false` (Leaflet needs the DOM); render only when the repeater is
- * located and at least one neighbor can be placed.
+ * center, each located neighbor plotted with its category marker, and an
+ * SNR-labeled link between them. Neighbors with no known position are parked on
+ * a ring around the anchor rather than dropped, so a repeater whose neighbors
+ * are all unlocated still gets a map. Reuses {@link BaseLeafletMap} and the
+ * shared marker styling/legend so it matches the Map page. Loaded via `dynamic`
+ * with `ssr: false` (Leaflet needs the DOM); render only when the repeater
+ * itself is located.
  */
 export function NeighborsMap({
   contact,
