@@ -265,13 +265,19 @@ function metaParts(
  * A short label with an optional explanation. Focusable and linked via
  * `aria-describedby`, so the detail is announced by screen readers and
  * reachable without a mouse; without a `title` it is just the label.
+ *
+ * @param align - which edge of the token the tooltip is pinned to. Pass
+ *   `right` when the token ends a right-aligned row, or the tooltip opens
+ *   off-screen.
  */
 export function HintToken({
   label,
   title,
+  align = 'left',
 }: {
   label: string;
   title?: string;
+  align?: 'left' | 'right';
 }): React.ReactNode {
   const tooltipId = useId();
   if (!title) return label;
@@ -285,9 +291,11 @@ export function HintToken({
       <span
         id={tooltipId}
         role='tooltip'
-        className='pointer-events-none absolute bottom-full left-0 z-20 mb-1 hidden w-max max-w-60
+        className={`pointer-events-none absolute bottom-full z-20 mb-1 hidden w-max max-w-60
           rounded-md border border-border bg-surface2 px-2 py-1 font-mono text-text
-          shadow-pop group-hover/path:block group-focus/path:block'
+          shadow-pop group-hover/path:block group-focus/path:block ${
+            align === 'right' ? 'right-0' : 'left-0'
+          }`}
       >
         {title}
       </span>

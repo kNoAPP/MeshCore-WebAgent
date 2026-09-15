@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
+import { useClockTick } from '@/hooks/useClockTick';
 import type { StatsResult, BatteryInfo } from '@/types/meshcore';
 import { CLOCK_SKEW_THRESHOLD_SECS } from '@/lib/meshcore/client';
 import {
@@ -14,12 +15,16 @@ import {
   formatDbm,
   formatKilobytes,
   formatPercent,
+  formatRatePercent,
+  formatRelative,
   formatSkew,
   formatSnr,
   formatUptime,
   formatVoltage,
+  NO_VALUE,
 } from '@/lib/i18n/format';
 import { StatCard } from './StatCard';
+import { HintToken } from './MessageBubble';
 import { RefreshButton } from './RefreshButton';
 import { fmtNum } from '@/lib/utils';
 
@@ -191,11 +196,17 @@ export function StatsPage() {
   // the previous read and its lifetime rate per hour, both derived from data
   // already on hand — the previous snapshot the store keeps and `uptimeSecs`.
   const prev = useMeshStore((s) => s.prevDeviceStats)?.packets;
+  const statsAt = useMeshStore((s) => s.deviceStatsAt);
+  // The freshness label is derived from the wall clock, so it needs its own
+  // re-render to keep aging while the page sits open.
+  useClockTick();
   const uptimeHours = (stats?.core?.uptimeSecs ?? 0) / 3600;
   const counter = (
-    value: number,
+    value: number | null | undefined,
     previous: number | null | undefined,
-  ): [string, React.ReactNode?] => {
+  ): [React.ReactNode, React.ReactNode?] => {
+    // A counter this firmware doesn't report is not a zero.
+    if (value == null) return [NO_VALUE];
     const delta = previous != null ? value - previous : 0;
     const parts: string[] = [];
     if (delta > 0) {
@@ -218,6 +229,24 @@ export function StatsPage() {
     ];
   };
 
+  // Airtime only means something against the uptime it accrued over — that
+  // ratio is the duty cycle regulators cap. The raw pair stays reachable as a
+  // hint so the derived figure is checkable.
+  const dutyCycle = (
+    airSecs: number,
+    uptimeSecs: number | undefined,
+  ): React.ReactNode => (
+    <HintToken
+      label={formatRatePercent(airSecs, uptimeSecs)}
+      align='right'
+      title={
+        uptimeSecs != null
+          ? `${formatAirtime(airSecs)} / ${formatUptime(uptimeSecs)}`
+          : undefined
+      }
+    />
+  );
+
   // One descriptor per card, in display order. `labels` lists every row label
   // and drives both the loading skeleton (one shimmer row per label) and the
   // row order; `rows` is the populated data, or null when the device didn't
@@ -228,7 +257,7 @@ export function StatsPage() {
     title: string;
     labels: string[];
     meter?: { label: string; percent: number; text: string };
-    rows: [string, string, React.ReactNode?][] | null;
+    rows: [string, React.ReactNode, React.ReactNode?][] | null;
   }[] = [
     {
       title: t('stats.card.storageBattery'),
@@ -324,6 +353,8 @@ export function StatsPage() {
         t('stats.lastSnr'),
         t('stats.txAirtime'),
         t('stats.rxAirtime'),
+        t('stats.txDutyCycle'),
+        t('stats.rxDutyCycle'),
       ],
       rows: stats?.radio
         ? [
@@ -332,6 +363,14 @@ export function StatsPage() {
             [t('stats.lastSnr'), formatSnr(stats.radio.lastSnr)],
             [t('stats.txAirtime'), formatAirtime(stats.radio.txAirSecs)],
             [t('stats.rxAirtime'), formatAirtime(stats.radio.rxAirSecs)],
+            [
+              t('stats.txDutyCycle'),
+              dutyCycle(stats.radio.txAirSecs, stats.core?.uptimeSecs),
+            ],
+            [
+              t('stats.rxDutyCycle'),
+              dutyCycle(stats.radio.rxAirSecs, stats.core?.uptimeSecs),
+            ],
           ]
         : null,
     },
@@ -344,6 +383,8 @@ export function StatsPage() {
         t('stats.floodRx'),
         t('stats.directTx'),
         t('stats.directRx'),
+        t('stats.rxErrors'),
+        t('stats.rxErrorRate'),
       ],
       rows: stats?.packets
         ? [
@@ -365,14 +406,22 @@ export function StatsPage() {
               t('stats.directRx'),
               ...counter(stats.packets.directRx, prev?.directRx),
             ],
-            ...(stats.packets.recvErrors != null
-              ? ([
-                  [
-                    t('stats.rxErrors'),
-                    ...counter(stats.packets.recvErrors, prev?.recvErrors),
-                  ],
-                ] as [string, string, React.ReactNode?][])
-              : []),
+            // Both error rows are always present, so the loaded card matches
+            // its skeleton: older firmware omits the counter, and the em dash
+            // says so rather than dropping a row.
+            [
+              t('stats.rxErrors'),
+              ...counter(stats.packets.recvErrors, prev?.recvErrors),
+            ],
+            [
+              t('stats.rxErrorRate'),
+              formatRatePercent(
+                stats.packets.recvErrors ?? undefined,
+                stats.packets.recvErrors == null
+                  ? undefined
+                  : stats.packets.recv + stats.packets.recvErrors,
+              ),
+            ],
           ]
         : null,
     },
@@ -382,35 +431,46 @@ export function StatsPage() {
     <div className='flex flex-1 flex-col overflow-y-auto p-7'>
       <div className='mx-auto w-full max-w-6xl'>
         {/* Header */}
-        <div className='mb-5 flex items-center justify-between'>
+        <div className='mb-5 flex items-center justify-between gap-3'>
           <h2 className='text-base font-bold'>{t('stats.title')}</h2>
-          <RefreshButton onClick={refresh} busy={loading} />
+          <div className='flex items-center gap-3'>
+            {statsAt !== null && !loading && (
+              <span className='text-xs text-text2'>
+                {t('stats.lastUpdated', { time: formatRelative(statsAt) })}
+              </span>
+            )}
+            <RefreshButton onClick={refresh} busy={loading} />
+          </div>
         </div>
 
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
-          {cards.map(({ title, labels, rows, meter }) =>
-            loading ? (
+        {/* Wrapping flex rather than a fixed column count: a short final row
+            grows to fill the width instead of leaving dead cells. */}
+        <div className='flex flex-wrap items-start gap-4'>
+          {cards.map(({ title, labels, rows, meter }) => {
+            const card = loading ? (
               <StatCard
-                key={title}
                 title={title}
                 loading
                 rows={labels.map((label) => [label, ''])}
               />
             ) : rows ? (
-              <StatCard key={title} title={title} rows={rows} meter={meter} />
+              <StatCard title={title} rows={rows} meter={meter} />
             ) : (
               // Keep the slot once a fetch has landed (matching the other
-              // cards) so the grid doesn't reflow when a section resolves to no
-              // readable data.
+              // cards) so the layout doesn't reflow when a section resolves to
+              // no readable data.
               fetched && (
-                <StatCard
-                  key={title}
-                  title={title}
-                  note={t('stats.notReported')}
-                />
+                <StatCard title={title} note={t('stats.notReported')} />
               )
-            ),
-          )}
+            );
+            return (
+              card && (
+                <div key={title} className='min-w-full flex-1 sm:min-w-72'>
+                  {card}
+                </div>
+              )
+            );
+          })}
         </div>
 
         {!loading &&

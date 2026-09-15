@@ -219,9 +219,42 @@ export function formatStorage(usedKB: number, totalKB: number): string {
   return i18n.t('units.kb', { value: `${used}/${total}` });
 }
 
-/** Formats a whole percentage, e.g. `73%`. */
-export function formatPercent(value: number): string {
+/**
+ * Formats a percentage value (already 0–100), e.g. `73%`.
+ *
+ * @param digits - fraction digits to render; the default rounds to a whole
+ * percent, which is what the battery/storage meters want.
+ */
+export function formatPercent(value: number, digits = 0): string {
   return i18n.t('units.percent', {
-    value: Math.round(value).toLocaleString(i18n.language),
+    value: value.toLocaleString(i18n.language, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }),
   });
+}
+
+/**
+ * Stands in for a derived figure whose inputs leave it undefined. An em dash is
+ * locale-neutral, so it is not translated.
+ */
+export const NO_VALUE = '—';
+
+/**
+ * Formats `part / whole` as a percentage — the figures the firmware's raw
+ * counters only imply: duty cycle against uptime, receive errors against
+ * packets received, flood duplicates against floods heard.
+ *
+ * @returns {@link NO_VALUE} when the ratio is undefined, rather than `NaN` or
+ * `Infinity`: a node that just booted reports zero uptime, a counter the
+ * firmware left out is not a zero, and a non-finite operand is not a reading.
+ */
+export function formatRatePercent(
+  part: number | undefined,
+  whole: number | undefined,
+  digits = 2,
+): string {
+  if (!Number.isFinite(part) || !Number.isFinite(whole)) return NO_VALUE;
+  if (part == null || whole == null || whole <= 0) return NO_VALUE;
+  return formatPercent((part / whole) * 100, digits);
 }
