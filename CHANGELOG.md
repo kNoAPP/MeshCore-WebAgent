@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.28.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.27.0...v1.28.0) (2026-09-15)
+
+
+### Features
+
+* **repeater:** map every neighbor, not just the located ones ([#306](https://github.com/kNoAPP/MeshCore-WebAgent/issues/306)) ([440b3ec](https://github.com/kNoAPP/MeshCore-WebAgent/commit/440b3ec6350bd8657f0f57592738072fd0c3a476))
+* **stats:** derive duty cycle and error rates from the raw counters ([#307](https://github.com/kNoAPP/MeshCore-WebAgent/issues/307)) ([d72a0a9](https://github.com/kNoAPP/MeshCore-WebAgent/commit/d72a0a9e3357484c467dbe93c382945bd54fdde6))
+
+
+### Bug Fixes
+
+* **format:** report clock-skewed advert timestamps as their own state ([#303](https://github.com/kNoAPP/MeshCore-WebAgent/issues/303)) ([9b1d193](https://github.com/kNoAPP/MeshCore-WebAgent/commit/9b1d1936ece400701d33314264f93fe4a36708a8))
+* **map:** declutter permanent edge labels instead of stacking them ([#305](https://github.com/kNoAPP/MeshCore-WebAgent/issues/305)) ([c77cb18](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c77cb189a4e0bc4085ca496198618f6f55b6d057))
+* **map:** document the favorite ring in the map legend ([#304](https://github.com/kNoAPP/MeshCore-WebAgent/issues/304)) ([6ebb5f5](https://github.com/kNoAPP/MeshCore-WebAgent/commit/6ebb5f5801b10b2b7773270bf1cfe0444baf6806))
+
 ## [1.27.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.26.0...v1.27.0) (2026-09-14)
 
 
