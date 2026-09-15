@@ -32,6 +32,7 @@ would throw the work away:
 ```bash
 git switch -c <handle>/none-<type>-<desc>   # the commits now live here
 git switch develop
+git fetch origin develop                    # or the reset target may be stale
 git reset --hard origin/develop             # discards develop's local commits
 git switch -                                # back to the work branch
 ```
