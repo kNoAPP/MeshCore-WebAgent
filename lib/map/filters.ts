@@ -44,6 +44,13 @@ export const DEFAULT_MAP_FILTERS: MapFilters = {
   heardWithinDays: null,
 };
 
+/** Every field of {@link MapFilters}, for handling them one at a time. */
+export const MAP_FILTER_KEYS = [
+  'favoritesOnly',
+  'categories',
+  'heardWithinDays',
+] as const satisfies readonly (keyof MapFilters)[];
+
 /**
  * Normalizes an arbitrary (persisted or corrupt) value into valid
  * {@link MapFilters}, so a tampered or half-written blob can only ever produce

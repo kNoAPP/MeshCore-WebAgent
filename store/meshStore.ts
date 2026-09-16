@@ -50,6 +50,7 @@ import {
 import { normalizeMapPrefs, type MapPrefs } from '@/lib/map/config';
 import {
   DEFAULT_MAP_FILTERS,
+  MAP_FILTER_KEYS,
   normalizeMapFilters,
   type MapFilters,
 } from '@/lib/map/filters';
@@ -909,9 +910,11 @@ let toastSeq = 0;
 // come back as a different radio on a shared endpoint, so an untouched value
 // is the previous radio's viewport and must not survive into this one's blob.
 let mapPrefsTouched = false;
-// The same rule for the map's filters, which the user can change in the window
-// between `connected` and the preferences blob arriving.
-let mapFiltersTouched = false;
+// The same rule for the map's filters, but per field: the controls are spread
+// across two legends, so a user who moves one slider before the blob lands must
+// not have that stand in for the whole object and discard the incoming radio's
+// saved categories and favorites.
+const mapFiltersTouched = new Set<keyof MapFilters>();
 
 /**
  * The global Zustand store: connection state, mirrored mesh data, conversation
@@ -931,7 +934,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // last radio left behind stops counting as something to preserve.
     if (status === 'connecting' || status === 'reconnecting') {
       mapPrefsTouched = false;
-      mapFiltersTouched = false;
+      mapFiltersTouched.clear();
     }
     set(
       status === 'connecting' || status === 'reconnecting'
@@ -986,7 +989,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   },
 
   setMapFilters: (mapFilters) => {
-    mapFiltersTouched = true;
+    const prev = get().mapFilters;
+    for (const key of MAP_FILTER_KEYS) {
+      if (mapFilters[key] !== prev[key]) mapFiltersTouched.add(key);
+    }
     set({ mapFilters });
   },
 
@@ -1021,8 +1027,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // that left.
     const keepMapPrefs = mapPrefsTouched;
     mapPrefsTouched = false;
-    const keepMapFilters = mapFiltersTouched;
-    mapFiltersTouched = false;
+    const keptFilters = new Set(mapFiltersTouched);
+    mapFiltersTouched.clear();
+    const storedFilters = normalizeMapFilters(p.mapFilters);
     set((state) => ({
       unitSystem: normalizeUnitSystem(p.unitSystem),
       contactView: normalizeContactView(p.contactView),
@@ -1030,9 +1037,19 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       automationEnabled:
         typeof p.automationEnabled === 'boolean' ? p.automationEnabled : false,
       mapPrefs: keepMapPrefs ? state.mapPrefs : normalizeMapPrefs(p.mapPrefs),
-      mapFilters: keepMapFilters
-        ? state.mapFilters
-        : normalizeMapFilters(p.mapFilters),
+      // Field by field, so an untouched one still adopts this radio's stored
+      // value instead of inheriting the default (or the last radio's choice).
+      mapFilters: {
+        favoritesOnly: keptFilters.has('favoritesOnly')
+          ? state.mapFilters.favoritesOnly
+          : storedFilters.favoritesOnly,
+        categories: keptFilters.has('categories')
+          ? state.mapFilters.categories
+          : storedFilters.categories,
+        heardWithinDays: keptFilters.has('heardWithinDays')
+          ? state.mapFilters.heardWithinDays
+          : storedFilters.heardWithinDays,
+      },
       aiPref: normalizeAiPref(p.aiPref),
       notifyPref: normalizeNotifyPref(p.notifyPref),
       showFullPublicKeys:

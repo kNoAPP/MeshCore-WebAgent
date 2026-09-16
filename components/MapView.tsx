@@ -324,13 +324,14 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
         renderPopup={mapPicking ? undefined : renderNodePopup}
         openNodeKey={openKey}
         onOpenNodeChange={setOpenKey}
-        onMoveEnd={(center, zoom) => {
+        onMoveEnd={(center, zoom, programmatic) => {
           // `mapPrefs` is null until the *user* moves the map, so our own
-          // framing must not persist itself as a saved viewport.
-          if (framing.current) {
-            framing.current = false;
-            return;
-          }
+          // framing must not persist itself as a saved viewport. The flag is
+          // still consumed by a map-made move, which is the same framing
+          // carried on by the cluster opening under it.
+          const ours = framing.current;
+          framing.current = false;
+          if (ours || programmatic) return;
           userMoved.current = true;
           useMeshStore.getState().setMapPrefs({ center, zoom });
         }}

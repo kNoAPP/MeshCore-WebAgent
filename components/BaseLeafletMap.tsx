@@ -52,6 +52,11 @@ const WORLD_BOUNDS: L.LatLngBoundsExpression = [
 // `app/globals.css` stacks the popups with.
 const POPUP_PANE = 'meshcore-popup';
 
+// How long a cluster reveal may keep moving the map before its moves count as
+// the user's again. A backstop only: the reveal clears the flag itself when it
+// finishes, and this covers the case where the marker never becomes visible.
+const REVEAL_SETTLE_MS = 2_000;
+
 // The deepest zoom that still has tiles to draw. `detectRetina` costs the tile
 // layer one level on a hi-DPI display — Leaflet halves the tile size and
 // decrements the layer's own `maxZoom` — so a map ceiling of `MAP_MAX_ZOOM`
@@ -104,8 +109,16 @@ export interface BaseLeafletMapProps {
    * space, and a map without clustering is expected to plot a bounded set.
    */
   labels?: boolean;
-  /** Invoked after each pan/zoom, for callers that persist the viewport. */
-  onMoveEnd?: (center: [number, number], zoom: number) => void;
+  /**
+   * Invoked after each pan/zoom, for callers that persist the viewport.
+   * `programmatic` marks a move the map made of its own accord — opening a
+   * cluster to reveal a selected node — which is not the user choosing a view.
+   */
+  onMoveEnd?: (
+    center: [number, number],
+    zoom: number,
+    programmatic: boolean,
+  ) => void;
   /**
    * Receives the Leaflet map on creation and `null` on teardown, so a wrapper
    * can wire imperative behavior (e.g. click-to-place picking) against it.
@@ -242,6 +255,9 @@ export function BaseLeafletMap({
   // eviction — which drops focus to `document.body` *before* Leaflet reports
   // the close, so by then there is nothing left to read it off the DOM.
   const popupHadFocusRef = useRef(false);
+  // Set while `zoomToShowLayer` is moving the map to reveal a selected marker.
+  const revealingRef = useRef(false);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closePopup = useCallback(() => setPopupKey(null), [setPopupKey]);
   // Only when focus is still inside the popup being closed: a close that came
   // from clicking the map (or from opening another marker's popup) has already
@@ -356,8 +372,14 @@ export function BaseLeafletMap({
         autoPanned = false;
         return;
       }
+      // Leaflet runs handlers in registration order, so this one still sees the
+      // reveal in progress: the plugin's own `moveend` listener runs after it.
       const c = map.getCenter();
-      onMoveEndRef.current?.([c.lat, c.lng], map.getZoom());
+      onMoveEndRef.current?.(
+        [c.lat, c.lng],
+        map.getZoom(),
+        revealingRef.current,
+      );
     };
     map.on('moveend', onMove);
 
@@ -397,6 +419,9 @@ export function BaseLeafletMap({
       map.off('popupclose', onPopupClose);
       map.off('click', onMapClick);
       map.off('resize', clampMinZoom);
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+      revealingRef.current = false;
       map.remove();
       mapRef.current = null;
       edgeLayerRef.current = null;
@@ -578,7 +603,24 @@ export function BaseLeafletMap({
     const group = clusterGroupRef.current;
     const marker = markersRef.current.get(popupKey);
     if (group && marker && group.hasLayer(marker)) {
-      group.zoomToShowLayer(marker, () => {});
+      // The pan/zoom this performs is the map answering a selection, not the
+      // user moving, so it must not be persisted as a viewport. Cleared by the
+      // callback, and by a timer in case the marker never becomes visible.
+      revealingRef.current = true;
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = setTimeout(() => {
+        revealingRef.current = false;
+        revealTimerRef.current = null;
+      }, REVEAL_SETTLE_MS);
+      group.zoomToShowLayer(marker, () => {
+        if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+        revealTimerRef.current = null;
+        revealingRef.current = false;
+        // Fanning a cluster out moves its markers onto spider legs, so the
+        // popup has to follow this one there rather than stay at the
+        // coordinate the whole cluster collapsed to.
+        if (popupRef.current === popup) popup.setLatLng(marker.getLatLng());
+      });
     }
   }, [popupKey, popupHost]);
 
@@ -607,9 +649,11 @@ export function BaseLeafletMap({
       return;
     }
     const at = popup.getLatLng();
-    if (at && (at.lat !== popupNode.lat || at.lng !== popupNode.lon)) {
-      popup.setLatLng([popupNode.lat, popupNode.lon]);
-    }
+    // The marker's own position, not the node's: a fanned-out cluster parks it
+    // on a spider leg, and the popup belongs where the marker actually is.
+    const marker = markersRef.current.get(popupKey)?.getLatLng();
+    const target = marker ?? L.latLng(popupNode.lat, popupNode.lon);
+    if (at && !at.equals(target)) popup.setLatLng(target);
   }, [popupKey, popupNode]);
 
   // Leaflet only listens for Escape while the *map container* holds focus, so
