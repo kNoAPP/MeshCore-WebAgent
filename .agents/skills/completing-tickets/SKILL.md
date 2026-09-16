@@ -187,8 +187,15 @@ merge.
 git push -u origin HEAD
 gh pr create --base develop \
   --title "feat(transport): add wifi auto-reconnect" \
-  --body-file .git/PR_BODY.md
+  --body-file .git/PR_BODY.md \
+  --attach .git/shots/before-sidebar.png \
+  --attach .git/shots/after-sidebar.png
 ```
+
+Drop the `--attach` flags when the ticket changed no UI. When it did, every
+screenshot the body references must be attached in the same command, or the
+local paths ship unresolved and the description renders broken images — see
+_Before/after images for UI changes_ in the `pull-requests` skill.
 
 Put `Closes #<issue>` in the template's **Issues** section, tick every
 applicable box under **Type of Change** without deleting the others, and leave
@@ -251,8 +258,7 @@ Stop and ask the user before:
   for a human to merge.
 - Force-pushing or rewriting published history.
 - Committing to a branch other than the one for the ticket in hand — starting
-  the next ticket's branch at step 7, and the `assets/pr-N` screenshot branch
-  the `pull-requests` skill defines, are both the workflow, not exceptions.
+  the next ticket's branch at step 7 is the workflow, not an exception.
 - Changing anything outside the issue's scope, including unrelated dependency
   bumps.
 - Working more than one ticket at a time, or delegating whole tickets to

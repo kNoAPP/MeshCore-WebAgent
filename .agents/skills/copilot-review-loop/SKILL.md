@@ -319,8 +319,7 @@ Stop and ask the user before:
 - Merging the PR — this loop never merges. It ends at "approved, ready to
   merge".
 - Force-pushing or rewriting published history.
-- Committing to a branch other than the PR's own, apart from the `assets/pr-N`
-  screenshot branch the `pull-requests` skill defines.
+- Committing to a branch other than the PR's own.
 - Disabling, skipping, or suppressing a check to get CI green.
 - Making a code change outside the PR's scope because a review comment asked for
   it.
