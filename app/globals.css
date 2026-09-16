@@ -398,8 +398,10 @@ html {
   box-shadow: 0 0 8px var(--accent);
 }
 /* Cached adverts (discovered nodes not held in the radio's contact table) are
- * faded to read as secondary next to solid, radio-backed contacts. */
-.map-marker-cached {
+ * faded to read as secondary next to solid, radio-backed contacts. The glyph
+ * only: fading the wrapper would take the name label with it, and 11px text at
+ * half opacity misses 4.5:1 on the light basemap. */
+.map-marker-cached > svg {
   opacity: 0.5;
 }
 /* Neighbors with no known position. Parked on a ring around their anchor, so
