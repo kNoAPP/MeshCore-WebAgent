@@ -125,12 +125,15 @@ export function collectMapNodes(
   contacts: Record<string, Contact>,
   adverts: Record<string, Advert>,
   selfPrefix?: string,
+  // Every node in this set is measured against the same instant. Callers that
+  // re-render on a clock tick pass theirs, so which of a node's two timestamps
+  // counts as freshest advances with the age filter reading it rather than
+  // freezing at whenever the contact table last changed.
+  nowSecs: number = Math.floor(Date.now() / 1000),
 ): MapNode[] {
   const nodes: MapNode[] = [];
   const seen = new Set<string>();
   if (selfPrefix) seen.add(selfPrefix);
-  // Read once, so every node in this set is measured against the same instant.
-  const nowSecs = Math.floor(Date.now() / 1000);
 
   for (const contact of Object.values(contacts)) {
     if (seen.has(contact.pubkeyPrefix)) continue;

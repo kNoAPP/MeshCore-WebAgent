@@ -56,12 +56,12 @@ export function MapNodePopup({
   const { toggleFavorite } = useMeshCore();
   // The last-advert age is read off the wall clock, so it needs a tick of its
   // own to keep ageing while the map sits idle behind the popup.
-  useClockTick();
+  const nowSecs = useClockTick();
 
   const name = contact?.name || advert?.name || node.name;
   // The same clock-clamped choice the node list and the age filter make, so
   // selecting a row can't change the age the node appears to have.
-  const lastHeard = freshestHeard(contact, advert);
+  const lastHeard = freshestHeard(contact, advert, nowSecs);
   // Taken as a pair, the way `contactCoords` reads it: `0` is the firmware's
   // unset coordinate, and a half-set contact position falls through to the
   // cached advert whole rather than pairing one field from each record — which

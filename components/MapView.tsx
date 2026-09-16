@@ -69,17 +69,32 @@ export function MapView() {
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const contacts = useMeshStore((s) => s.contacts);
   const advertCache = useMeshStore((s) => s.advertCache);
+  // One clock for the whole page. The "heard within" window is measured
+  // against the wall clock, so it needs a tick of its own: without one a node
+  // would stay plotted after it crossed the selected boundary, until some
+  // unrelated store change happened to rebuild the set. Collecting the nodes
+  // against the same instant keeps the merged last-heard the filter reads in
+  // step with the filter itself.
+  const nowSecs = useClockTick();
 
   const self = useMemo(() => selfMapNode(selfInfo), [selfInfo]);
   const nodes = useMemo(
-    () => collectMapNodes(contacts, advertCache, self?.pubkeyPrefix),
-    [contacts, advertCache, self?.pubkeyPrefix],
+    () => collectMapNodes(contacts, advertCache, self?.pubkeyPrefix, nowSecs),
+    [contacts, advertCache, self?.pubkeyPrefix, nowSecs],
   );
 
-  return <MapPage self={self} nodes={nodes} />;
+  return <MapPage self={self} nodes={nodes} nowSecs={nowSecs} />;
 }
 
-function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
+function MapPage({
+  self,
+  nodes,
+  nowSecs,
+}: {
+  self: MapNode | null;
+  nodes: MapNode[];
+  nowSecs: number;
+}) {
   const { t } = useTranslation();
   const mapPicking = useMeshStore((s) => s.mapPicking);
 
@@ -87,11 +102,6 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   // session; the node list's collapsed state stays transient UI.
   const filters = useMeshStore((s) => s.mapFilters);
   const setFilters = useMeshStore((s) => s.setMapFilters);
-  // The "heard within" window is measured against the wall clock, so it needs a
-  // tick of its own: without one a node would stay plotted after it crossed the
-  // selected boundary, until some unrelated store change happened to rebuild
-  // the set.
-  const nowSecs = useClockTick();
 
   // The nodes actually eligible for plotting, after the filters. The marker
   // layer, the node list and every piece of framing derive from this, so none
