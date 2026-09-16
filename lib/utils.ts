@@ -61,6 +61,18 @@ export function splitChannelMessage(text: string): {
   return { sender: text.slice(0, colonIdx), body: text.slice(colonIdx + 2) };
 }
 
+/**
+ * Whether a message body at-mentions this radio. Mentions are written as
+ * `@[Node name]` — the bracketed form the composer inserts — and matched
+ * case-insensitively against the radio's own name.
+ *
+ * @param body - Message text with any channel `sender: ` prefix removed.
+ */
+export function mentionsSelf(body: string, deviceName: string): boolean {
+  if (deviceName.length === 0) return false;
+  return body.toLowerCase().includes(`@[${deviceName.toLowerCase()}]`);
+}
+
 /** UTF-8 byte length of a string — what the radio measures text against. */
 export function utf8ByteLength(text: string): number {
   return utf8.encode(text).length;

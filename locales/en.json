@@ -86,6 +86,11 @@
     "device": "{{device}} · MeshCore Companion",
     "deviceUnread": "({{unread}}) {{device}} · MeshCore Companion"
   },
+  "notify": {
+    "titleIn": "{{sender}} in {{convo}}",
+    "testTitle": "MeshCore Companion",
+    "testBody": "Notifications are on. New messages will look like this."
+  },
   "command": {
     "title": "Find anything",
     "search": "Search",
@@ -114,6 +119,7 @@
       "identity": "Identity",
       "location": "Location",
       "display": "Display settings",
+      "notifications": "Notification settings",
       "ai": "AI settings",
       "automation": "Automation",
       "danger": "Device actions"
@@ -128,6 +134,7 @@
       "identity": "identity public key node name",
       "location": "location coordinates gps position",
       "display": "display units metric imperial distance measurement",
+      "notifications": "notifications alerts desktop sound tone mentions unread background",
       "ai": "ai llm api key anthropic claude assistant",
       "automation": "automation rules automate agent triggers tasks",
       "danger": "reboot restart device actions danger"
@@ -285,6 +292,7 @@
       "radio": "Radio",
       "location": "Location",
       "display": "Display",
+      "notifications": "Notifications",
       "ai": "AI",
       "automation": "Automation",
       "danger": "Device actions"
@@ -346,6 +354,23 @@
     "reboot": "Reboot device",
     "rebootConfirm": "Reboot the radio now?",
     "rebootConfirmAction": "Reboot",
+    "notify": {
+      "hint": "Desktop notifications name the sender and repeat the message text, so anyone who can see your screen can read them. They only appear while this tab is in the background, and stay off until you turn them on.",
+      "mode": "Notify me about",
+      "mode_off": "Nothing",
+      "mode_mentions": "Direct messages and mentions",
+      "mode_all": "Every message",
+      "sound": "Play a sound",
+      "permission": "Browser permission",
+      "permissionGranted": "Allowed",
+      "permissionDenied": "Blocked",
+      "permissionDefault": "Not requested",
+      "permissionUnsupported": "Unavailable",
+      "allow": "Allow notifications",
+      "test": "Test notification",
+      "deniedHint": "This browser is blocking notifications for this site. Allow them in the browser's site settings to turn them on here. The unread count in the tab title still works.",
+      "unsupportedHint": "This browser can't show desktop notifications. The unread count in the tab title is the fallback."
+    },
     "ai": {
       "hint": "Bring your own LLM API key to power in-browser AI features. Your key is used only for direct requests to the provider — it is never sent to any other server.",
       "provider": "Provider",

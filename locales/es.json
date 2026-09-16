@@ -87,6 +87,11 @@
     "device": "{{device}} · MeshCore Companion",
     "deviceUnread": "({{unread}}) {{device}} · MeshCore Companion"
   },
+  "notify": {
+    "titleIn": "{{sender}} en {{convo}}",
+    "testTitle": "MeshCore Companion",
+    "testBody": "Las notificaciones están activadas. Así se verán los mensajes nuevos."
+  },
   "command": {
     "title": "Buscar cualquier cosa",
     "search": "Buscar",
@@ -115,6 +120,7 @@
       "identity": "Identidad",
       "location": "Ubicación",
       "display": "Ajustes de pantalla",
+      "notifications": "Ajustes de notificaciones",
       "ai": "Ajustes de IA",
       "automation": "Automatización",
       "danger": "Acciones del dispositivo"
@@ -129,6 +135,7 @@
       "identity": "identidad clave pública nombre de nodo",
       "location": "ubicación coordenadas gps posición",
       "display": "pantalla unidades métrico imperial distancia medida",
+      "notifications": "notificaciones avisos escritorio sonido tono menciones sin leer segundo plano",
       "ai": "ia llm clave api anthropic claude asistente",
       "automation": "automatización reglas automatizar agente disparadores tareas",
       "danger": "reiniciar dispositivo acciones peligro"
@@ -286,6 +293,7 @@
       "radio": "Radio",
       "location": "Ubicación",
       "display": "Pantalla",
+      "notifications": "Notificaciones",
       "ai": "IA",
       "automation": "Automatización",
       "danger": "Acciones del dispositivo"
@@ -347,6 +355,23 @@
     "reboot": "Reiniciar dispositivo",
     "rebootConfirm": "¿Reiniciar la radio ahora?",
     "rebootConfirmAction": "Reiniciar",
+    "notify": {
+      "hint": "Las notificaciones de escritorio indican quién envía el mensaje y repiten su texto, así que cualquiera que vea tu pantalla podrá leerlas. Solo aparecen mientras esta pestaña está en segundo plano y permanecen desactivadas hasta que las actives.",
+      "mode": "Notificarme sobre",
+      "mode_off": "Nada",
+      "mode_mentions": "Mensajes directos y menciones",
+      "mode_all": "Todos los mensajes",
+      "sound": "Reproducir un sonido",
+      "permission": "Permiso del navegador",
+      "permissionGranted": "Permitido",
+      "permissionDenied": "Bloqueado",
+      "permissionDefault": "Sin solicitar",
+      "permissionUnsupported": "No disponible",
+      "allow": "Permitir notificaciones",
+      "test": "Notificación de prueba",
+      "deniedHint": "Este navegador está bloqueando las notificaciones de este sitio. Permítelas en los ajustes del sitio del navegador para activarlas aquí. El contador de no leídos en el título de la pestaña sigue funcionando.",
+      "unsupportedHint": "Este navegador no puede mostrar notificaciones de escritorio. El contador de no leídos en el título de la pestaña es la alternativa."
+    },
     "ai": {
       "hint": "Usa tu propia clave de API de LLM para las funciones de IA en el navegador. Tu clave solo se usa para solicitudes directas al proveedor — nunca se envía a ningún otro servidor.",
       "provider": "Proveedor",

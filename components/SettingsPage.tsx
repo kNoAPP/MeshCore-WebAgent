@@ -33,6 +33,7 @@ import { SaveStatusChip, useSaveStatus } from './SaveStatus';
 import { Select } from './Select';
 import { SwitchTrack } from './Switch';
 import { AiSettingsBody } from './AiSettings';
+import { NotificationSettingsBody } from './NotificationSettings';
 import { AutomationSettingsBody } from './AutomationPanel';
 import { SUPPORTED_UNIT_SYSTEMS } from '@/lib/units/config';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
@@ -206,6 +207,14 @@ export function SettingsPage() {
             <LocationCard />
 
             <DisplayCard />
+
+            <Card
+              title={t('settings.section.notifications')}
+              className='md:col-span-2 xl:col-span-1'
+              section='notifications'
+            >
+              <NotificationSettingsBody />
+            </Card>
 
             <Card
               title={t('settings.section.ai')}

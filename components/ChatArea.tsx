@@ -24,6 +24,7 @@ import {
   formatPubkey,
   isPublicChannelSecret,
   splitChannelMessage,
+  mentionsSelf,
 } from '@/lib/utils';
 import { formatDateDivider } from '@/lib/i18n/format';
 import { flashTarget } from '@/lib/ui/flash';
@@ -820,10 +821,7 @@ export function ChatArea() {
                 : msg.text;
 
             const mentioned =
-              !msg.own &&
-              !msg.system &&
-              deviceName.length > 0 &&
-              bodyText.toLowerCase().includes(`@[${deviceName.toLowerCase()}]`);
+              !msg.own && !msg.system && mentionsSelf(bodyText, deviceName);
 
             const dividerTs = dayDividers[i];
 

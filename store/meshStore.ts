@@ -49,6 +49,11 @@ import {
 } from '@/lib/units/config';
 import { normalizeMapPrefs, type MapPrefs } from '@/lib/map/config';
 import { DEFAULT_AI_PREF, normalizeAiPref, type AiPref } from '@/lib/ai/pref';
+import {
+  DEFAULT_NOTIFY_PREF,
+  normalizeNotifyPref,
+  type NotifyPref,
+} from '@/lib/notify/pref';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
 
 const AUDIT_LOG_LIMIT = 200;
@@ -113,6 +118,7 @@ export const SETTINGS_SECTIONS = [
   'identity',
   'location',
   'display',
+  'notifications',
   'ai',
   'automation',
   'danger',
@@ -215,6 +221,7 @@ export interface RadioPreferences {
   automationEnabled: boolean;
   mapPrefs: MapPrefs | null;
   aiPref: AiPref;
+  notifyPref: NotifyPref;
   showFullPublicKeys: boolean;
 }
 
@@ -527,6 +534,8 @@ interface MeshState {
   showFullPublicKeys: boolean;
   /** Provider/model the AI settings picker last selected (never the key). */
   aiPref: AiPref;
+  /** Desktop notification scope and sound choice for this radio. */
+  notifyPref: NotifyPref;
   /** Persisted viewport, or `null` until the user first pans/zooms the map. */
   mapPrefs: MapPrefs | null;
   /**
@@ -670,6 +679,7 @@ interface MeshActions {
   setUnitSystem: (unitSystem: UnitSystem) => void;
   setShowFullPublicKeys: (showFullPublicKeys: boolean) => void;
   setAiPref: (aiPref: AiPref) => void;
+  setNotifyPref: (pref: NotifyPref) => void;
   setMapPrefs: (prefs: MapPrefs) => void;
   /**
    * Folds a decrypted per-radio preferences blob into the store on connect,
@@ -839,6 +849,7 @@ const initialState: MeshState = {
   unitSystem: DEFAULT_UNIT_SYSTEM,
   showFullPublicKeys: false,
   aiPref: DEFAULT_AI_PREF,
+  notifyPref: DEFAULT_NOTIFY_PREF,
   mapPrefs: null,
   prefsHydrated: false,
   toast: null,
@@ -965,6 +976,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setAiPref: (aiPref) => set({ aiPref }),
 
+  setNotifyPref: (notifyPref) => set({ notifyPref }),
+
   restorePreferences: (raw) => {
     const p = (
       typeof raw === 'object' && raw !== null ? raw : {}
@@ -986,6 +999,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         typeof p.automationEnabled === 'boolean' ? p.automationEnabled : false,
       mapPrefs: keepMapPrefs ? state.mapPrefs : normalizeMapPrefs(p.mapPrefs),
       aiPref: normalizeAiPref(p.aiPref),
+      notifyPref: normalizeNotifyPref(p.notifyPref),
       showFullPublicKeys:
         typeof p.showFullPublicKeys === 'boolean'
           ? p.showFullPublicKeys
@@ -1451,6 +1465,7 @@ export function selectPreferences(
     automationEnabled: state.automationEnabled,
     mapPrefs: state.mapPrefs,
     aiPref: state.aiPref,
+    notifyPref: state.notifyPref,
     showFullPublicKeys: state.showFullPublicKeys,
   };
 }
