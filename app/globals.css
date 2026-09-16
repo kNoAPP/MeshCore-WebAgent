@@ -372,6 +372,34 @@ html {
 .meshcore-map .leaflet-tooltip-top::before {
   border-top-color: var(--surface);
 }
+/* Marker popups. Leaflet's own rules are single-class, so the container scope
+ * is enough to win except for the close button, which it selects through
+ * `.leaflet-container a` — that one takes the container class to outweigh. */
+.meshcore-map .leaflet-popup-content-wrapper,
+.meshcore-map .leaflet-popup-tip {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+}
+.meshcore-map .leaflet-popup-content-wrapper {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.meshcore-map .leaflet-popup-content {
+  /* Leaflet's default margin leaves no room for the close button and fights
+     the body's own padding; the content supplies its own spacing instead. */
+  margin: 10px 12px;
+  font: inherit;
+  line-height: inherit;
+}
+.meshcore-map .leaflet-container a.leaflet-popup-close-button {
+  color: var(--text2);
+  padding: 6px 6px 0 0;
+}
+.meshcore-map .leaflet-container a.leaflet-popup-close-button:hover {
+  color: var(--text);
+  background: transparent;
+}
 /* Repeater→neighbor link lines. The class beats Leaflet's default `stroke`
  * attribute (specificity 0), so the color follows the theme accent. */
 .meshcore-map .meshcore-edge {

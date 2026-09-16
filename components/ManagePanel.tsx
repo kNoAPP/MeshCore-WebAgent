@@ -6,7 +6,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Eye } from 'lucide-react';
-import type { TFunction } from 'i18next';
 import { useMeshStore, channelConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { ModalShell } from './ModalShell';
@@ -30,6 +29,7 @@ import {
   formatDateTime,
   formatDistanceBearing,
   formatRelative,
+  formatRoute,
 } from '@/lib/i18n/format';
 import {
   ADV_TYPE_REPEATER,
@@ -222,7 +222,7 @@ function ManagePanelView() {
             />
             <DetailRow
               label={t('manage.route')}
-              value={routeLabel(t, contact)}
+              value={formatRoute(contact.outPathLen)}
             />
             {hasRoute && contact.path.length > 0 && (
               <DetailRow
@@ -455,12 +455,6 @@ function ConfirmRow({
       </div>
     </div>
   );
-}
-
-function routeLabel(t: TFunction, contact: Contact): string {
-  if (contact.outPathLen === NO_PATH) return t('route.noRouteFloods');
-  if (contact.outPathLen === 0) return t('route.directHops');
-  return t('route.hops', { count: contact.outPathLen });
 }
 
 function DetailRow({

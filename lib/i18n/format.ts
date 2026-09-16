@@ -3,6 +3,7 @@
 
 import i18n from '@/lib/i18n';
 import { bearingDeg, compassKey, haversineKm, microToDeg } from '@/lib/utils';
+import { NO_PATH } from '@/lib/meshcore/constants';
 import {
   DEFAULT_UNIT_SYSTEM,
   MILES_PER_KM,
@@ -129,6 +130,19 @@ export function formatDistanceBearing(
       compass: i18n.t(compassKey(bearing)),
     },
   );
+}
+
+/**
+ * Formats a contact's stored outbound route as a label: no route at all (so
+ * the radio floods), a direct hop, or the hop count of the stored path.
+ *
+ * @param outPathLen - `Contact.outPathLen`, where {@link NO_PATH} means the
+ * radio holds no route for this contact.
+ */
+export function formatRoute(outPathLen: number): string {
+  if (outPathLen === NO_PATH) return i18n.t('route.noRouteFloods');
+  if (outPathLen === 0) return i18n.t('route.directHops');
+  return i18n.t('route.hops', { count: outPathLen });
 }
 
 /** Formats `value` with a fixed number of fraction digits in the active locale

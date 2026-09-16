@@ -862,6 +862,11 @@
       "confirm": "Confirmer la position",
       "cancel": "Annuler"
     },
+    "popup": {
+      "message": "Message",
+      "manage": "Gérer…",
+      "details": "Détails…"
+    },
     "legend": {
       "title": "Légende",
       "companion": "Compagnon",

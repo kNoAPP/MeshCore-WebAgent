@@ -862,6 +862,11 @@
       "confirm": "Standort bestätigen",
       "cancel": "Abbrechen"
     },
+    "popup": {
+      "message": "Nachricht",
+      "manage": "Verwalten…",
+      "details": "Details…"
+    },
     "legend": {
       "title": "Legende",
       "companion": "Begleiter",

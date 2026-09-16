@@ -3,7 +3,14 @@
 
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -18,7 +25,9 @@ import type { MapEdge, MapNode } from '@/lib/map/nodes';
 import {
   MAP_EDGE_OPACITY,
   MAP_EDGE_WEIGHT,
+  MAP_MARKER_SIZE_PX,
   MAP_MAX_ZOOM,
+  MAP_POPUP_MAX_WIDTH_PX,
   TILE_ATTRIBUTION,
   TILE_URLS,
   type StartView,
@@ -50,6 +59,13 @@ export interface BaseLeafletMapProps {
    * inert (the Map page passes `undefined` while in location-pick mode).
    */
   onNodeClick?: (node: MapNode) => void;
+  /**
+   * Renders the body of a popup anchored to the clicked marker. When supplied
+   * it *replaces* {@link onNodeClick} as the click behavior — markers stay
+   * interactive, but the click opens the popup instead. `close` dismisses it,
+   * for an action that navigates away from the map.
+   */
+  renderPopup?: (node: MapNode, close: () => void) => ReactNode;
   /** Invoked after each pan/zoom, for callers that persist the viewport. */
   onMoveEnd?: (center: [number, number], zoom: number) => void;
   /**
@@ -90,6 +106,7 @@ export function BaseLeafletMap({
   edges,
   startView,
   onNodeClick,
+  renderPopup,
   onMoveEnd,
   onMapReady,
   children,
@@ -111,16 +128,40 @@ export function BaseLeafletMap({
   const edgeSigRef = useRef<string>('');
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   // Held in refs so their identity churn never re-runs the create effect (which
-  // would tear down and rebuild the whole map). `clickable` still feeds the
+  // would tear down and rebuild the whole map). `interactive` still feeds the
   // marker signature so wiring toggles when a handler is added/removed.
   const onNodeClickRef = useRef(onNodeClick);
+  const renderPopupRef = useRef(renderPopup);
   const onMoveEndRef = useRef(onMoveEnd);
   const onMapReadyRef = useRef(onMapReady);
   useEffect(() => {
     onNodeClickRef.current = onNodeClick;
+    renderPopupRef.current = renderPopup;
     onMoveEndRef.current = onMoveEnd;
     onMapReadyRef.current = onMapReady;
   });
+
+  // The node whose popup is open, or null. The popup body is React, rendered
+  // through a portal into this detached host, which Leaflet then adopts as the
+  // popup's content — so the body keeps the app's store, theme and i18n
+  // instead of being assembled as an HTML string.
+  const [popupNode, setPopupNode] = useState<MapNode | null>(null);
+  const [popupHost] = useState(() => document.createElement('div'));
+  // The marker element the open popup was launched from, so a keyboard close
+  // hands focus back to it rather than dropping it on the document.
+  const popupSourceRef = useRef<HTMLElement | null>(null);
+  const closePopup = useCallback(() => setPopupNode(null), []);
+  // Only when focus is still inside the popup being closed: a close that came
+  // from clicking the map (or from opening another marker's popup) has already
+  // put focus where the user meant it to go.
+  const restorePopupFocus = useCallback(() => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || !active.closest('.leaflet-popup')) {
+      return;
+    }
+    const source = popupSourceRef.current;
+    if (source?.isConnected) source.focus();
+  }, []);
 
   // Create the map once per opening viewport.
   useEffect(() => {
@@ -170,7 +211,20 @@ export function BaseLeafletMap({
       },
     ).addTo(map);
 
+    // Leaflet fires this only when a popup actually had to shift the map to
+    // fit on screen, so the move that follows is ours. Swallowing it keeps a
+    // caller that persists the viewport from recording a marker click as a pan.
+    let autoPanned = false;
+    const onAutoPan = () => {
+      autoPanned = true;
+    };
+    map.on('autopanstart', onAutoPan);
+
     const onMove = () => {
+      if (autoPanned) {
+        autoPanned = false;
+        return;
+      }
       const c = map.getCenter();
       onMoveEndRef.current?.([c.lat, c.lng], map.getZoom());
     };
@@ -180,12 +234,22 @@ export function BaseLeafletMap({
     onZoom();
     map.on('zoomend', onZoom);
 
+    // Fires before Leaflet detaches the popup, so focus can still be read out
+    // of it — covering the close button and any Leaflet-initiated close.
+    const onPopupClose = () => {
+      restorePopupFocus();
+      setPopupNode(null);
+    };
+    map.on('popupclose', onPopupClose);
+
     onMapReadyRef.current?.(map);
 
     return () => {
       onMapReadyRef.current?.(null);
       map.off('moveend', onMove);
+      map.off('autopanstart', onAutoPan);
       map.off('zoomend', onZoom);
+      map.off('popupclose', onPopupClose);
       map.off('resize', clampMinZoom);
       map.remove();
       mapRef.current = null;
@@ -193,7 +257,7 @@ export function BaseLeafletMap({
       edgeLayerRef.current = null;
       tileLayerRef.current = null;
     };
-  }, [startView]);
+  }, [startView, restorePopupFocus]);
 
   // Point the single tile layer at the active theme's CARTO style; light/dark
   // just swaps the URL template, avoiding a remove/re-add flash.
@@ -206,7 +270,7 @@ export function BaseLeafletMap({
   // so skip the DOM rebuild when nothing actually plotted changed — a refresh
   // that only bumps `lastHeard`, or touches an off-map node, moves no marker
   // and must not churn the layer.
-  const clickable = onNodeClick != null;
+  const clickable = onNodeClick != null || renderPopup != null;
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
@@ -245,12 +309,59 @@ export function BaseLeafletMap({
       });
       marker.bindTooltip(escapeHtml(name), { direction: 'top' });
       if (!inert) {
-        marker.on('click', () => onNodeClickRef.current?.(node));
+        marker.on('click', () => {
+          if (!renderPopupRef.current) {
+            onNodeClickRef.current?.(node);
+            return;
+          }
+          popupSourceRef.current = marker.getElement() ?? null;
+          setPopupNode(node);
+        });
       }
       marker.addTo(layer);
     }
     // `startView` recreates the map with empty layers, so it has to refill.
   }, [nodes, t, clickable, startView]);
+
+  // Open the popup for the clicked node, anchored at its coordinates. It is
+  // added to the map rather than bound to the marker, so the frequent marker
+  // rebuilds a busy advert cache causes can't close it mid-read. Leaflet closes
+  // the previous popup as this one opens, and clearing the node closes the
+  // last one — whether that came from an action or from `popupclose` itself.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!popupNode) {
+      map.closePopup();
+      return;
+    }
+    L.popup({
+      className: 'meshcore-popup',
+      maxWidth: MAP_POPUP_MAX_WIDTH_PX,
+      // Clear of the marker's own glyph, so the tip points at it rather than
+      // covering it.
+      offset: [0, -MAP_MARKER_SIZE_PX / 2],
+      autoPanPadding: [24, 24],
+    })
+      .setLatLng([popupNode.lat, popupNode.lon])
+      .setContent(popupHost)
+      .openOn(map);
+  }, [popupNode, popupHost]);
+
+  // Leaflet only listens for Escape while the *map container* holds focus, so
+  // a popup whose own button is focused could not be dismissed from the
+  // keyboard. React unmounts the body before Leaflet reports the close, so the
+  // focus handover has to happen here rather than in `popupclose`.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      restorePopupFocus();
+      setPopupNode(null);
+    };
+    popupHost.addEventListener('keydown', onKeyDown);
+    return () => popupHost.removeEventListener('keydown', onKeyDown);
+  }, [popupHost, restorePopupFocus]);
 
   // Rebuild link polylines when the edge set changes, guarded by a signature so
   // an unrelated node refresh doesn't churn the layer. The zoom is part of that
@@ -313,6 +424,9 @@ export function BaseLeafletMap({
   return (
     <div className='meshcore-map relative isolate flex-1'>
       <div ref={containerRef} className='absolute inset-0' />
+      {popupNode &&
+        renderPopup &&
+        createPortal(renderPopup(popupNode, closePopup), popupHost)}
       {children}
     </div>
   );

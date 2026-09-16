@@ -862,6 +862,11 @@
       "confirm": "Confirmar ubicación",
       "cancel": "Cancelar"
     },
+    "popup": {
+      "message": "Mensaje",
+      "manage": "Gestionar…",
+      "details": "Detalles…"
+    },
     "legend": {
       "title": "Leyenda",
       "companion": "Compañero",
