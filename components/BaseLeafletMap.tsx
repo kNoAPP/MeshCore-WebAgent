@@ -128,38 +128,53 @@ export function BaseLeafletMap({
   const edgeSigRef = useRef<string>('');
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   // Held in refs so their identity churn never re-runs the create effect (which
-  // would tear down and rebuild the whole map). `interactive` still feeds the
+  // would tear down and rebuild the whole map). `clickable` still feeds the
   // marker signature so wiring toggles when a handler is added/removed.
   const onNodeClickRef = useRef(onNodeClick);
   const renderPopupRef = useRef(renderPopup);
   const onMoveEndRef = useRef(onMoveEnd);
   const onMapReadyRef = useRef(onMapReady);
+  // The plotted markers by node key, so the open popup can find the live
+  // marker for a node after a rebuild has replaced the element it came from.
+  const markersRef = useRef(new Map<string, L.Marker>());
+  const nodesRef = useRef(nodes);
   useEffect(() => {
     onNodeClickRef.current = onNodeClick;
     renderPopupRef.current = renderPopup;
     onMoveEndRef.current = onMoveEnd;
     onMapReadyRef.current = onMapReady;
+    nodesRef.current = nodes;
   });
 
-  // The node whose popup is open, or null. The popup body is React, rendered
-  // through a portal into this detached host, which Leaflet then adopts as the
-  // popup's content — so the body keeps the app's store, theme and i18n
-  // instead of being assembled as an HTML string.
-  const [popupNode, setPopupNode] = useState<MapNode | null>(null);
+  // The key of the node whose popup is open, or null. Keyed rather than held
+  // as a snapshot so the body always renders the node as it stands now: a
+  // fresh advert can move it, and a node dropped from the plotted set takes
+  // its popup with it. The body itself is React, portalled into this detached
+  // host that Leaflet adopts as the popup's content — so it keeps the app's
+  // store, theme and i18n instead of being assembled as an HTML string.
+  const [popupKey, setPopupKey] = useState<string | null>(null);
   const [popupHost] = useState(() => document.createElement('div'));
-  // The marker element the open popup was launched from, so a keyboard close
-  // hands focus back to it rather than dropping it on the document.
-  const popupSourceRef = useRef<HTMLElement | null>(null);
-  const closePopup = useCallback(() => setPopupNode(null), []);
+  const popupNode =
+    popupKey == null ? null : (nodes.find((n) => n.key === popupKey) ?? null);
+  // The popup this component opened, and the node it belongs to. Leaflet
+  // reports the *old* popup closing while a new one opens, so the close
+  // handler has to tell them apart or switching markers would dismiss the
+  // popup that was just opened.
+  const popupRef = useRef<L.Popup | null>(null);
+  const popupKeyRef = useRef<string | null>(null);
+  const closePopup = useCallback(() => setPopupKey(null), []);
   // Only when focus is still inside the popup being closed: a close that came
   // from clicking the map (or from opening another marker's popup) has already
-  // put focus where the user meant it to go.
+  // put focus where the user meant it to go. The marker is looked up live,
+  // because a rebuild between opening and closing replaces its element.
   const restorePopupFocus = useCallback(() => {
     const active = document.activeElement;
     if (!(active instanceof HTMLElement) || !active.closest('.leaflet-popup')) {
       return;
     }
-    const source = popupSourceRef.current;
+    const key = popupKeyRef.current;
+    const source =
+      key == null ? null : markersRef.current.get(key)?.getElement();
     if (source?.isConnected) source.focus();
   }, []);
 
@@ -235,12 +250,25 @@ export function BaseLeafletMap({
     map.on('zoomend', onZoom);
 
     // Fires before Leaflet detaches the popup, so focus can still be read out
-    // of it — covering the close button and any Leaflet-initiated close.
-    const onPopupClose = () => {
+    // of it. A popup being replaced by the next one is not ours any more, and
+    // clearing the state for it would close the popup just opened.
+    const onPopupClose = (e: L.PopupEvent) => {
+      if (e.popup !== popupRef.current) return;
+      popupRef.current = null;
       restorePopupFocus();
-      setPopupNode(null);
+      popupKeyRef.current = null;
+      setPopupKey(null);
     };
     map.on('popupclose', onPopupClose);
+
+    // Dismissing on a map click is ours rather than Leaflet's `closeOnClick`:
+    // that one runs off a synthetic `preclick` which bubbles even from a
+    // marker whose events do not, so re-clicking the open marker would close
+    // the popup and then re-select the node it is already showing — leaving
+    // the state pointing at a popup that is no longer on screen. A click that
+    // reaches the map is, by definition, not on a marker.
+    const onMapClick = () => setPopupKey(null);
+    map.on('click', onMapClick);
 
     onMapReadyRef.current?.(map);
 
@@ -250,6 +278,7 @@ export function BaseLeafletMap({
       map.off('autopanstart', onAutoPan);
       map.off('zoomend', onZoom);
       map.off('popupclose', onPopupClose);
+      map.off('click', onMapClick);
       map.off('resize', clampMinZoom);
       map.remove();
       mapRef.current = null;
@@ -287,6 +316,7 @@ export function BaseLeafletMap({
     markerSigRef.current = fullSig;
 
     layer.clearLayers();
+    markersRef.current.clear();
     for (const node of nodes) {
       // A node parked on the unplaced ring sits at an invented coordinate and
       // is known only by its prefix, so there is nothing for a click to open.
@@ -314,39 +344,66 @@ export function BaseLeafletMap({
             onNodeClickRef.current?.(node);
             return;
           }
-          popupSourceRef.current = marker.getElement() ?? null;
-          setPopupNode(node);
+          setPopupKey(node.key);
         });
       }
       marker.addTo(layer);
+      markersRef.current.set(node.key, marker);
     }
     // `startView` recreates the map with empty layers, so it has to refill.
   }, [nodes, t, clickable, startView]);
 
   // Open the popup for the clicked node, anchored at its coordinates. It is
-  // added to the map rather than bound to the marker, so the frequent marker
-  // rebuilds a busy advert cache causes can't close it mid-read. Leaflet closes
-  // the previous popup as this one opens, and clearing the node closes the
-  // last one — whether that came from an action or from `popupclose` itself.
+  // added to the map rather than bound to the marker, so a marker rebuild —
+  // which a busy advert cache triggers constantly — cannot close it mid-read.
+  // Keyed on the node alone: the anchor is kept current by the effect below,
+  // so a live update moves the popup instead of reopening it.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (!popupNode) {
-      map.closePopup();
+    if (popupKey == null) {
+      if (popupRef.current) map.closePopup(popupRef.current);
       return;
     }
-    L.popup({
+    const node = nodesRef.current.find((n) => n.key === popupKey);
+    if (!node) return;
+    const popup = L.popup({
       className: 'meshcore-popup',
       maxWidth: MAP_POPUP_MAX_WIDTH_PX,
       // Clear of the marker's own glyph, so the tip points at it rather than
       // covering it.
       offset: [0, -MAP_MARKER_SIZE_PX / 2],
       autoPanPadding: [24, 24],
+      closeOnClick: false,
     })
-      .setLatLng([popupNode.lat, popupNode.lon])
-      .setContent(popupHost)
-      .openOn(map);
-  }, [popupNode, popupHost]);
+      .setLatLng([node.lat, node.lon])
+      .setContent(popupHost);
+    // Claimed before opening: `openOn` closes the popup already showing, and
+    // the close handler decides whose close that was by this reference.
+    popupRef.current = popup;
+    popupKeyRef.current = popupKey;
+    popup.openOn(map);
+  }, [popupKey, popupHost]);
+
+  // Follow the live node: a fresh advert can move it out from under its own
+  // popup, and a node that leaves the plotted set entirely (a filter change,
+  // a cache eviction) takes its popup with it rather than anchoring it to
+  // empty terrain.
+  useEffect(() => {
+    if (popupKey == null) return;
+    const popup = popupRef.current;
+    if (!popup) return;
+    // Gone from the plotted set: close it through Leaflet, which reports the
+    // close back and clears the state from there.
+    if (!popupNode) {
+      mapRef.current?.closePopup(popup);
+      return;
+    }
+    const at = popup.getLatLng();
+    if (at && (at.lat !== popupNode.lat || at.lng !== popupNode.lon)) {
+      popup.setLatLng([popupNode.lat, popupNode.lon]);
+    }
+  }, [popupKey, popupNode]);
 
   // Leaflet only listens for Escape while the *map container* holds focus, so
   // a popup whose own button is focused could not be dismissed from the
@@ -357,7 +414,7 @@ export function BaseLeafletMap({
       if (e.key !== 'Escape') return;
       e.stopPropagation();
       restorePopupFocus();
-      setPopupNode(null);
+      setPopupKey(null);
     };
     popupHost.addEventListener('keydown', onKeyDown);
     return () => popupHost.removeEventListener('keydown', onKeyDown);

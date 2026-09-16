@@ -54,13 +54,18 @@ export function MapNodePopup({
   const unitSystem = useMeshStore((s) => s.unitSystem);
   const { toggleFavorite } = useMeshCore();
 
-  const name = node.name;
-  const lastHeard = contact ? contact.lastAdvert : advert?.lastHeard;
+  const name = contact?.name || advert?.name || node.name;
+  const lastHeard = contact?.lastAdvert || advert?.lastHeard;
+  // `0` is the firmware's unset coordinate, so it has to fall through to the
+  // other record the same way a missing field does — a saved contact that has
+  // never advertised a position is plotted from its cached advert.
+  const advLat = contact?.advLat || advert?.advLat;
+  const advLon = contact?.advLon || advert?.advLon;
   const distance = formatDistanceBearing(
     selfInfo?.advLat,
     selfInfo?.advLon,
-    contact?.advLat ?? advert?.advLat,
-    contact?.advLon ?? advert?.advLon,
+    advLat,
+    advLon,
     unitSystem,
   );
   const isFav = contact ? (contact.flags & FAVORITE_FLAG) !== 0 : false;
@@ -80,10 +85,11 @@ export function MapNodePopup({
           ? roomConvoId(contact.pubkeyPrefix)
           : directConvoId(contact.pubkeyPrefix);
     onClose();
-    // Ordered: `openConvo` only marks a conversation read once it is actually
-    // on screen, which the chat view has to be showing for.
-    useMeshStore.getState().setView('chat');
+    // Selected before the view switch, the way the palette and URL routes do
+    // it: `setView` catches up whichever conversation is open at that moment,
+    // so switching first would mark the *previous* one read.
     openConvo({ kind, id, rawId: contact.pubkeyPrefix, label: name });
+    useMeshStore.getState().setView('chat');
   };
 
   const openManage = () => {
