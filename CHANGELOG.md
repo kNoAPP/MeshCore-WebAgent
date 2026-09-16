@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.29.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.28.0...v1.29.0) (2026-09-16)
+
+
+### Features
+
+* **map:** open a marker popup instead of the full-screen modal ([#314](https://github.com/kNoAPP/MeshCore-WebAgent/issues/314)) ([a3fc428](https://github.com/kNoAPP/MeshCore-WebAgent/commit/a3fc4281f5886152220f9d4e6a7fb196fa9b7adf))
+* **protocol:** support node telemetry requests ([#318](https://github.com/kNoAPP/MeshCore-WebAgent/issues/318)) ([f005138](https://github.com/kNoAPP/MeshCore-WebAgent/commit/f005138cd45b0c506b33ad662ec39d36dc2b3b4b))
+* **ui:** give the repeater console history, completion, help and guards ([#317](https://github.com/kNoAPP/MeshCore-WebAgent/issues/317)) ([f6bf5e3](https://github.com/kNoAPP/MeshCore-WebAgent/commit/f6bf5e325a4cf68c59bae7e2ae5ac0382bed900e))
+* **ui:** notify for background DMs and mentions ([#319](https://github.com/kNoAPP/MeshCore-WebAgent/issues/319)) ([5d28005](https://github.com/kNoAPP/MeshCore-WebAgent/commit/5d280058c24094570aa85a90b824f0e8341a4fb0))
+
 ## [1.28.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.27.0...v1.28.0) (2026-09-15)
 
 
