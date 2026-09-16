@@ -88,14 +88,23 @@ export function showNotification({
   onClick?: () => void;
 }): boolean {
   if (notifyPermission() !== 'granted') return false;
-  const notification = new Notification(title, {
-    body,
-    tag,
-    icon: NOTIFY_ICON,
-    // The tone is ours to play (and its own preference), so the platform's
-    // default sound must not fire on top of it for a replacing notification.
-    silent: true,
-  });
+  let notification: Notification;
+  try {
+    notification = new Notification(title, {
+      body,
+      tag,
+      icon: NOTIFY_ICON,
+      // The tone is ours to play (and its own preference), so the platform's
+      // default sound must not fire on top of it for a replacing notification.
+      silent: true,
+    });
+  } catch {
+    // Exposing the API and granting it is not the same as supporting it: the
+    // constructor throws outright on platforms that only allow a
+    // service-worker notification. Fall back to silence rather than letting
+    // this escape the message callback.
+    return false;
+  }
   notification.onclick = () => {
     window.focus();
     onClick?.();
@@ -105,8 +114,7 @@ export function showNotification({
 }
 
 // One context for the tab: browsers cap how many can exist, and a new one per
-// tone would leak them. Created on first use because constructing it before a
-// user gesture starts it suspended.
+// tone would leak them.
 let audioCtx: AudioContext | null = null;
 
 /** Beep pitches in Hz, played as a short rising two-note chirp. */
@@ -116,39 +124,62 @@ const TONE_STEP_SECS = 0.09;
 /** Peak gain — audible over other audio without being startling. */
 const TONE_GAIN = 0.12;
 
+function audioContext(): AudioContext | null {
+  if (typeof window === 'undefined' || !('AudioContext' in window)) return null;
+  audioCtx ??= new AudioContext();
+  return audioCtx;
+}
+
+/**
+ * Creates and unblocks the tone's audio context. Call this from the click that
+ * opts into sound: the autoplay policy starts a context suspended until the
+ * page has been interacted with, and the first real tone is scheduled from a
+ * message callback, which is no gesture at all.
+ */
+export function primeNotifyTone(): void {
+  const ctx = audioContext();
+  if (ctx && ctx.state !== 'running') void ctx.resume().catch(() => {});
+}
+
 /**
  * Plays the built-in notification tone. Synthesized rather than shipped as an
  * audio file so it adds nothing to the static export. Silently does nothing
- * where Web Audio is unavailable or the context is blocked.
+ * where Web Audio is unavailable or the context stays blocked.
  */
 export function playNotifyTone(): void {
-  if (typeof window === 'undefined' || !('AudioContext' in window)) return;
-  try {
-    audioCtx ??= new AudioContext();
-    const ctx = audioCtx;
-    // Autoplay policy can leave the context suspended until a gesture; the
-    // resume is fire-and-forget because this tone is not worth waiting on.
-    if (ctx.state === 'suspended') void ctx.resume();
-    const gain = ctx.createGain();
-    gain.connect(ctx.destination);
-    const start = ctx.currentTime;
-    const end = start + TONE_STEPS.length * TONE_STEP_SECS;
-    gain.gain.setValueAtTime(TONE_GAIN, start);
-    // Ramp to silence rather than stopping at full amplitude, which clicks.
-    gain.gain.exponentialRampToValueAtTime(0.0001, end);
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    TONE_STEPS.forEach((hz, i) => {
-      osc.frequency.setValueAtTime(hz, start + i * TONE_STEP_SECS);
-    });
-    osc.connect(gain);
-    osc.start(start);
-    osc.stop(end);
-    osc.onended = () => {
-      osc.disconnect();
-      gain.disconnect();
-    };
-  } catch {
-    // A browser that refuses to build the graph just gets no tone.
+  const ctx = audioContext();
+  if (!ctx) return;
+  if (ctx.state === 'running') {
+    emitTone(ctx);
+    return;
   }
+  // Suspended because nothing has primed it yet. A resume from here is only
+  // granted once the page has been interacted with at all, so play on success
+  // and stay quiet on rejection rather than scheduling into dead time.
+  ctx
+    .resume()
+    .then(() => emitTone(ctx))
+    .catch(() => {});
+}
+
+function emitTone(ctx: AudioContext): void {
+  const gain = ctx.createGain();
+  gain.connect(ctx.destination);
+  const start = ctx.currentTime;
+  const end = start + TONE_STEPS.length * TONE_STEP_SECS;
+  gain.gain.setValueAtTime(TONE_GAIN, start);
+  // Ramp to silence rather than stopping at full amplitude, which clicks.
+  gain.gain.exponentialRampToValueAtTime(0.0001, end);
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  TONE_STEPS.forEach((hz, i) => {
+    osc.frequency.setValueAtTime(hz, start + i * TONE_STEP_SECS);
+  });
+  osc.connect(gain);
+  osc.start(start);
+  osc.stop(end);
+  osc.onended = () => {
+    osc.disconnect();
+    gain.disconnect();
+  };
 }

@@ -9,6 +9,7 @@ import { useMeshStore } from '@/store/meshStore';
 import {
   notifyPermission,
   playNotifyTone,
+  primeNotifyTone,
   requestNotifyPermission,
   showNotification,
   subscribeNotifyPermission,
@@ -62,9 +63,19 @@ export function NotificationSettingsBody() {
     if (mode !== 'off' && permission === 'default') {
       void requestNotifyPermission();
     }
+    if (mode !== 'off' && pref.sound) primeNotifyTone();
+  };
+
+  const toggleSound = () => {
+    const sound = !pref.sound;
+    setNotifyPref({ ...pref, sound });
+    // The first real tone is scheduled from a message callback, which carries
+    // no user activation; unblock the audio context here, where there is one.
+    if (sound) primeNotifyTone();
   };
 
   const test = () => {
+    primeNotifyTone();
     showNotification({
       title: t('notify.testTitle'),
       body: t('notify.testBody'),
@@ -97,7 +108,7 @@ export function NotificationSettingsBody() {
         role='switch'
         aria-checked={pref.sound}
         disabled={blocked || pref.mode === 'off'}
-        onClick={() => setNotifyPref({ ...pref, sound: !pref.sound })}
+        onClick={toggleSound}
         className='flex w-full items-center justify-between gap-3 border-b border-border py-1.5 text-left text-xs text-text disabled:cursor-not-allowed disabled:opacity-50'
       >
         <span className='text-text2'>{t('settings.notify.sound')}</span>

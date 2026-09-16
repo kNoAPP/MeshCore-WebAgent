@@ -391,6 +391,7 @@ function notifyArrival(convo: ActiveConvo, sender: string, body: string): void {
   ) {
     return;
   }
+  const client = state.client;
   const shown = showNotification({
     title:
       convo.kind === 'direct'
@@ -401,6 +402,11 @@ function notifyArrival(convo: ActiveConvo, sender: string, body: string): void {
     body: body.replace(/@\[([^\]]+)\]/g, '@$1'),
     tag: convo.id,
     onClick: () => {
+      // The banner outlives the session it was raised in, and a conversation
+      // id names a channel slot or a key prefix rather than a radio — opening
+      // it after a disconnect or against a different radio would select a
+      // thread the user never had.
+      if (useMeshStore.getState().client !== client) return;
       openConvo(convo);
       useMeshStore.getState().setView('chat');
     },
