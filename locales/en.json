@@ -1009,6 +1009,7 @@
     },
     "filters": {
       "types": "Node types",
+      "toggleType": "Show or hide {{type}} nodes",
       "heardWithin": "Heard within",
       "anyAge": "Any age",
       "days_one": "{{count}} day",

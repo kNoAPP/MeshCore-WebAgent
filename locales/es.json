@@ -1010,6 +1010,7 @@
     },
     "filters": {
       "types": "Tipos de nodo",
+      "toggleType": "Mostrar u ocultar los nodos de tipo {{type}}",
       "heardWithin": "Escuchado hace",
       "anyAge": "Cualquier antigüedad",
       "days_one": "{{count}} día",

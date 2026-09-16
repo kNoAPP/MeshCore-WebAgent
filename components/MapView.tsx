@@ -14,6 +14,7 @@ import {
   DEFAULT_MAP_FILTERS,
   filterMapNodes,
   filtersActive,
+  toggleCategory,
   type MapFilters,
 } from '@/lib/map/filters';
 import {
@@ -413,7 +414,13 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
             </div>
           </div>
         )}
-        <MapLegend>
+        <MapLegend
+          categories={{
+            active: filters.categories,
+            onToggle: (category) =>
+              setFilters((f) => toggleCategory(f, category)),
+          }}
+        >
           <MapFilterControls filters={filters} onChange={setFilters} />
         </MapLegend>
       </BaseLeafletMap>

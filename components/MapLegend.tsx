@@ -13,6 +13,14 @@ import {
   MARKER_STYLES,
   shapeSvg,
 } from '@/lib/map/markers';
+import type { ContactCategory } from '@/lib/utils';
+
+/** Makes the category rows a filter as well as a key. */
+export interface LegendCategoryFilter {
+  /** Categories currently plotted; the rest render dimmed. */
+  active: ContactCategory[];
+  onToggle: (category: ContactCategory) => void;
+}
 
 /**
  * A collapsible key, pinned to a map's bottom-right corner, pairing each node
@@ -20,10 +28,21 @@ import {
  * the Neighbors map so their swatches never drift. Collapsed state is transient
  * UI, so it lives in local component state rather than the store.
  *
+ * @param categories - when supplied, each category row doubles as its own
+ *   filter toggle. The swatch that documents a category is the obvious control
+ *   for hiding it, and folding the two together keeps one list where there
+ *   would otherwise be a key and a duplicate row of filter chips. Omit it for a
+ *   map that only needs the key.
  * @param children - optional extra rows (e.g. the Map page's favorites-only
  *   switch) rendered below the categories, inside the collapsible body.
  */
-export function MapLegend({ children }: { children?: ReactNode }) {
+export function MapLegend({
+  categories,
+  children,
+}: {
+  categories?: LegendCategoryFilter;
+  children?: ReactNode;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(true);
 
@@ -40,40 +59,56 @@ export function MapLegend({ children }: { children?: ReactNode }) {
       </button>
       {open && (
         <>
-          <ul className='flex flex-col gap-1.5 px-2.5 pt-0.5 pb-2'>
+          <ul
+            className='flex flex-col gap-1.5 px-2.5 pt-0.5 pb-2'
+            role={categories ? 'group' : undefined}
+            aria-label={categories ? t('map.filters.types') : undefined}
+          >
             {LEGEND_CATEGORIES.map((category) => {
               const style = MARKER_STYLES[category];
+              const label = t(style.labelKey);
+              const swatch = shapeSvg(style.shape, style.color, 14);
+              if (!categories) {
+                return (
+                  <li
+                    key={category}
+                    className='flex items-center gap-2 text-xs whitespace-nowrap'
+                  >
+                    <Swatch html={swatch} />
+                    {label}
+                  </li>
+                );
+              }
+              const on = categories.active.includes(category);
               return (
-                <li
-                  key={category}
-                  className='flex items-center gap-2 text-xs whitespace-nowrap'
-                >
-                  <span
-                    className='flex h-3.5 w-3.5 shrink-0 items-center justify-center'
-                    aria-hidden='true'
-                    dangerouslySetInnerHTML={{
-                      __html: shapeSvg(style.shape, style.color, 14),
-                    }}
-                  />
-                  {t(style.labelKey)}
+                <li key={category}>
+                  <button
+                    type='button'
+                    aria-pressed={on}
+                    onClick={() => categories.onToggle(category)}
+                    title={t('map.filters.toggleType', { type: label })}
+                    className={`focus-inset flex w-full items-center gap-2 text-xs whitespace-nowrap hover:text-accent ${
+                      on ? '' : 'text-text2'
+                    }`}
+                  >
+                    <Swatch html={swatch} dim={!on} />
+                    {label}
+                  </button>
                 </li>
               );
             })}
             <li className='flex items-center gap-2 text-xs whitespace-nowrap'>
               {/* Drawn without a fill: the gold ring is an overlay on whichever
-                  category shape the favorited node already has. */}
-              <span
-                className='flex h-3.5 w-3.5 shrink-0 items-center justify-center'
-                aria-hidden='true'
-                dangerouslySetInnerHTML={{
-                  __html: shapeSvg(
-                    'circle',
-                    'none',
-                    14,
-                    FAVORITE_OUTLINE,
-                    FAVORITE_OUTLINE_WIDTH,
-                  ),
-                }}
+                  category shape the favorited node already has. Informational
+                  only — the switch below filters on it. */}
+              <Swatch
+                html={shapeSvg(
+                  'circle',
+                  'none',
+                  14,
+                  FAVORITE_OUTLINE,
+                  FAVORITE_OUTLINE_WIDTH,
+                )}
               />
               {t('map.legend.favorite')}
             </li>
@@ -82,6 +117,18 @@ export function MapLegend({ children }: { children?: ReactNode }) {
         </>
       )}
     </div>
+  );
+}
+
+function Swatch({ html, dim }: { html: string; dim?: boolean }) {
+  return (
+    <span
+      className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center ${
+        dim ? 'opacity-40' : ''
+      }`}
+      aria-hidden='true'
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
 

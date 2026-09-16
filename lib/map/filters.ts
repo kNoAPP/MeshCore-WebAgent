@@ -54,6 +54,26 @@ export function filtersActive(filters: MapFilters): boolean {
 }
 
 /**
+ * {@link filters} with {@link category} flipped. The set is rebuilt in legend
+ * order rather than appended to, so which categories are on never depends on
+ * the order they were clicked in.
+ */
+export function toggleCategory(
+  filters: MapFilters,
+  category: ContactCategory,
+): MapFilters {
+  const on = filters.categories.includes(category);
+  return {
+    ...filters,
+    categories: on
+      ? filters.categories.filter((c) => c !== category)
+      : LEGEND_CATEGORIES.filter(
+          (c) => c === category || filters.categories.includes(c),
+        ),
+  };
+}
+
+/**
  * The subset of {@link nodes} that {@link filters} leaves visible. Age is
  * measured with `heardAgeSecs` against {@link nowSecs}, so a node whose RTC
  * runs ahead is judged by how far off it is rather than passing every window;

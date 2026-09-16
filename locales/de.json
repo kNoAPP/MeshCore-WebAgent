@@ -1010,6 +1010,7 @@
     },
     "filters": {
       "types": "Knotentypen",
+      "toggleType": "{{type}}-Knoten ein- oder ausblenden",
       "heardWithin": "Gehört innerhalb",
       "anyAge": "Beliebiges Alter",
       "days_one": "{{count}} Tag",
