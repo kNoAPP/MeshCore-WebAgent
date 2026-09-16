@@ -464,12 +464,16 @@ export function BaseLeafletMap({
   // that only bumps `lastHeard`, or touches an off-map node, moves no marker
   // and must not churn the layer.
   const clickable = onNodeClick != null || renderPopup != null;
-  // Which markers carry their name: every one from `MAP_LABEL_MIN_ZOOM` up,
-  // only the favorites below it. A boolean-per-mode rather than the raw zoom,
-  // so the rebuild happens on the crossing and not on every wheel notch.
+  // Which markers carry their name. A marker is only ever in the DOM when it is
+  // drawn on its own, so with clustering on there is always room for a label:
+  // anything closer than `MAP_CLUSTER_RADIUS_PX` to another node has collapsed
+  // into a count glyph instead. Without clustering nothing separates them, so
+  // the zoom threshold stands in for that and only favorites are named below
+  // it. A mode rather than the raw zoom, so the rebuild happens on the crossing
+  // and not on every wheel notch.
   const labelMode = !labels
     ? 'none'
-    : zoom >= MAP_LABEL_MIN_ZOOM
+    : cluster || zoom >= MAP_LABEL_MIN_ZOOM
       ? 'all'
       : 'favorites';
   useEffect(() => {
