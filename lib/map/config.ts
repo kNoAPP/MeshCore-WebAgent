@@ -63,13 +63,6 @@ export const MAP_CLUSTER_SIZES_PX: readonly {
 ];
 
 /**
- * Zoom at or above which every marker is labeled with its node name. Below it
- * only favorites are labeled, so a regional view names the nodes the operator
- * cares about without turning the rest into a wall of text.
- */
-export const MAP_LABEL_MIN_ZOOM = 12;
-
-/**
  * Zoom a node is framed at when it is picked from the node list, unless the map
  * is already closer in — close enough to separate it from its neighbors
  * without losing the surrounding mesh.

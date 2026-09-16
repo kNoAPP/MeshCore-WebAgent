@@ -14,7 +14,8 @@ import {
 } from '@/lib/map/nodes';
 import type { StartView } from '@/lib/map/config';
 import { formatSnr } from '@/lib/i18n/format';
-import { destinationPoint, haversineKm } from '@/lib/utils';
+import { LEGEND_CATEGORIES } from '@/lib/map/markers';
+import { contactCategory, destinationPoint, haversineKm } from '@/lib/utils';
 import type { Neighbor } from '@/lib/meshcore/repeaterCli';
 import type { Advert, Contact } from '@/types/meshcore';
 import { BaseLeafletMap } from './BaseLeafletMap';
@@ -137,6 +138,20 @@ export function NeighborsMap({
     [contact, neighbors, contacts, adverts, i18n.language],
   );
   const unplacedCount = nodes.filter((n) => n.positionUnknown).length;
+  // A `neighbors` reply is whatever the repeater last heard advertise, so the
+  // mix is not known ahead of time; listing only what is actually plotted keeps
+  // the key to the handful of shapes on screen. Unplaced nodes are excluded —
+  // their `advType` is as unknown as their position, and the note below
+  // explains them instead.
+  const listed = useMemo(() => {
+    const present = new Set(
+      nodes
+        .filter((n) => !n.positionUnknown)
+        .map((n) => contactCategory(n.advType)),
+    );
+    return LEGEND_CATEGORIES.filter((c) => present.has(c));
+  }, [nodes]);
+  const anyFavorite = nodes.some((n) => n.favorite);
 
   // Capture the opening viewport once, framing the initial node set; later
   // refreshes update the markers in place without yanking the viewport.
@@ -150,6 +165,10 @@ export function NeighborsMap({
         nodes={nodes}
         edges={edges}
         startView={startView}
+        // Named in place, the same as the Map page. Clustering stays off: a
+        // collapsed endpoint would detach an SNR link from the node it belongs
+        // to, and a repeater reports at most eight neighbors anyway.
+        labels
         onNodeClick={(node) => {
           // The anchor is the repeater already open in this admin view, so only
           // neighbor markers (always contacts/adverts, never self) open a
@@ -164,7 +183,7 @@ export function NeighborsMap({
             .setManagePanel({ kind: node.kind, id: node.pubkeyPrefix });
         }}
       >
-        <MapLegend>
+        <MapLegend listed={listed} showFavorite={anyFavorite}>
           {unplacedCount > 0 && (
             // Capped so it wraps instead of stretching the whole legend to the
             // width of one long line.

@@ -33,14 +33,23 @@ export interface LegendCategoryFilter {
  *   for hiding it, and folding the two together keeps one list where there
  *   would otherwise be a key and a duplicate row of filter chips. Omit it for a
  *   map that only needs the key.
+ * @param listed - categories to show a row for; defaults to all of them. Only
+ *   meaningful without {@link categories}, since a filterable row that is not
+ *   listed could never be switched back on.
+ * @param showFavorite - whether to explain the gold favorite ring. Drop it on a
+ *   map where nothing is favorited.
  * @param children - optional extra rows (e.g. the Map page's favorites-only
  *   switch) rendered below the categories, inside the collapsible body.
  */
 export function MapLegend({
   categories,
+  listed = LEGEND_CATEGORIES,
+  showFavorite = true,
   children,
 }: {
   categories?: LegendCategoryFilter;
+  listed?: ContactCategory[];
+  showFavorite?: boolean;
   children?: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -64,7 +73,7 @@ export function MapLegend({
             role={categories ? 'group' : undefined}
             aria-label={categories ? t('map.filters.types') : undefined}
           >
-            {LEGEND_CATEGORIES.map((category) => {
+            {(categories ? LEGEND_CATEGORIES : listed).map((category) => {
               const style = MARKER_STYLES[category];
               const label = t(style.labelKey);
               const swatch = shapeSvg(style.shape, style.color, 14);
@@ -97,21 +106,23 @@ export function MapLegend({
                 </li>
               );
             })}
-            <li className='flex items-center gap-2 text-xs whitespace-nowrap'>
-              {/* Drawn without a fill: the gold ring is an overlay on whichever
-                  category shape the favorited node already has. Informational
-                  only — the switch below filters on it. */}
-              <Swatch
-                html={shapeSvg(
-                  'circle',
-                  'none',
-                  14,
-                  FAVORITE_OUTLINE,
-                  FAVORITE_OUTLINE_WIDTH,
-                )}
-              />
-              {t('map.legend.favorite')}
-            </li>
+            {showFavorite && (
+              <li className='flex items-center gap-2 text-xs whitespace-nowrap'>
+                {/* Drawn without a fill: the gold ring is an overlay on
+                    whichever category shape the favorited node already has.
+                    Informational only — the switch below filters on it. */}
+                <Swatch
+                  html={shapeSvg(
+                    'circle',
+                    'none',
+                    14,
+                    FAVORITE_OUTLINE,
+                    FAVORITE_OUTLINE_WIDTH,
+                  )}
+                />
+                {t('map.legend.favorite')}
+              </li>
+            )}
           </ul>
           {children}
         </>

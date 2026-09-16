@@ -33,7 +33,6 @@ import {
   MAP_CLUSTER_RADIUS_PX,
   MAP_EDGE_OPACITY,
   MAP_EDGE_WEIGHT,
-  MAP_LABEL_MIN_ZOOM,
   MAP_MARKER_SIZE_PX,
   MAP_MAX_ZOOM,
   MAP_POPUP_MAX_WIDTH_PX,
@@ -105,8 +104,9 @@ export interface BaseLeafletMapProps {
    */
   cluster?: boolean;
   /**
-   * Draw each node's name beside its marker, from
-   * {@link MAP_LABEL_MIN_ZOOM} up (favorites at every zoom).
+   * Draw each node's name beside its marker. Density is the caller's problem:
+   * a clustered map only ever draws a marker that has already won its own
+   * space, and a map without clustering is expected to plot a bounded set.
    */
   labels?: boolean;
   /** Invoked after each pan/zoom, for callers that persist the viewport. */
@@ -464,18 +464,12 @@ export function BaseLeafletMap({
   // that only bumps `lastHeard`, or touches an off-map node, moves no marker
   // and must not churn the layer.
   const clickable = onNodeClick != null || renderPopup != null;
-  // Which markers carry their name. A marker is only ever in the DOM when it is
-  // drawn on its own, so with clustering on there is always room for a label:
-  // anything closer than `MAP_CLUSTER_RADIUS_PX` to another node has collapsed
-  // into a count glyph instead. Without clustering nothing separates them, so
-  // the zoom threshold stands in for that and only favorites are named below
-  // it. A mode rather than the raw zoom, so the rebuild happens on the crossing
-  // and not on every wheel notch.
-  const labelMode = !labels
-    ? 'none'
-    : cluster || zoom >= MAP_LABEL_MIN_ZOOM
-      ? 'all'
-      : 'favorites';
+  // Whether a name is still worth offering on hover. Clustering guarantees a
+  // drawn marker has won its own space, so its label is legible and a tooltip
+  // would only repeat what is already beside it. Nothing guarantees that
+  // without clustering, where two labels can overlap into each other, so the
+  // tooltip stays as the way to read an occluded one.
+  const hoverName = !labels || !cluster;
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
@@ -487,8 +481,8 @@ export function BaseLeafletMap({
       .join('|');
     // `t` (locale) drives the self tooltip and `clickable` gates click wiring,
     // so both belong in the signature that decides whether a rebuild is needed,
-    // as does the label mode the zoom has settled on.
-    const fullSig = `${clickable ? 'click' : ''}|${labelMode}|${t('map.self')}|${sig}`;
+    // as does whether the markers are carrying their names.
+    const fullSig = `${clickable ? 'click' : ''}|${labels ? 'label' : ''}|${hoverName ? 'hover' : ''}|${t('map.self')}|${sig}`;
     if (fullSig === markerSigRef.current) return;
     markerSigRef.current = fullSig;
 
@@ -504,10 +498,8 @@ export function BaseLeafletMap({
         !node.positionUnknown
       );
       const name = node.kind === 'self' ? t('map.self') : node.name;
-      const labeled =
-        labelMode === 'all' || (labelMode === 'favorites' && node.favorite);
       const marker = L.marker([node.lat, node.lon], {
-        icon: nodeIcon(node, labeled ? name : undefined),
+        icon: nodeIcon(node, labels ? name : undefined),
         // An inert marker (location-pick mode, or the self node) would
         // otherwise swallow the click the map needs to place the pin, and
         // would be a dead stop for the keyboard.
@@ -517,14 +509,12 @@ export function BaseLeafletMap({
         // makes of an interactive marker. A labeled marker already carries its
         // name as text, so the button is named from its contents instead and a
         // native tooltip would only repeat what is on screen.
-        title: inert || labeled ? undefined : name,
+        title: inert || labels ? undefined : name,
       }) as NodeMarker;
       // Read back by the cluster glyph, which colors itself after its
       // children when they all share a category.
       marker.meshNode = node;
-      // The name is either drawn beside the glyph or offered on hover, never
-      // both.
-      if (!labeled) marker.bindTooltip(escapeHtml(name), { direction: 'top' });
+      if (hoverName) marker.bindTooltip(escapeHtml(name), { direction: 'top' });
       if (!inert) {
         marker.on('click', () => {
           if (!renderPopupRef.current) {
@@ -548,7 +538,7 @@ export function BaseLeafletMap({
     else for (const marker of markers) marker.addTo(layer);
     // `startView` recreates the map with empty layers, and `cluster` swaps the
     // marker layer for an empty one of the other kind, so both have to refill.
-  }, [nodes, t, clickable, labelMode, cluster, startView, setPopupKey]);
+  }, [nodes, t, clickable, labels, hoverName, cluster, startView, setPopupKey]);
 
   // Open the popup for the selected node, anchored at its coordinates. It is
   // added to the map rather than bound to the marker, so a marker rebuild —
