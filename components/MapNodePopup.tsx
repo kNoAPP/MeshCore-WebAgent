@@ -55,7 +55,11 @@ export function MapNodePopup({
   const { toggleFavorite } = useMeshCore();
 
   const name = contact?.name || advert?.name || node.name;
-  const lastHeard = contact?.lastAdvert || advert?.lastHeard;
+  // The newer of the two, not whichever record happens to carry a value: the
+  // advert cache is written the moment a push advert lands, while the contact
+  // table is re-synced on a debounce behind it.
+  const lastHeard =
+    Math.max(contact?.lastAdvert ?? 0, advert?.lastHeard ?? 0) || undefined;
   // Taken as a pair, the way `contactCoords` reads it: `0` is the firmware's
   // unset coordinate, and a half-set contact position falls through to the
   // cached advert whole rather than pairing one field from each record — which
