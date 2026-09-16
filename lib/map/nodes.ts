@@ -1,7 +1,7 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-import { microToDeg } from '@/lib/utils';
+import { heardAgeSecs, microToDeg } from '@/lib/utils';
 import { FAVORITE_FLAG } from '@/lib/meshcore/constants';
 import type { Advert, Contact, SelfInfo } from '@/types/meshcore';
 
@@ -63,12 +63,23 @@ export interface MapEdge {
 
 type DegCoords = { lat: number; lon: number } | null;
 
-// The newer of the two records, not whichever happens to carry a value: the
-// advert cache is written the moment a push advert lands, while the contact
-// table is re-synced on a debounce behind it. `0` means neither knows.
-function lastHeardOf(contact?: Contact, advert?: Advert): number | undefined {
-  return (
-    Math.max(contact?.lastAdvert ?? 0, advert?.lastHeard ?? 0) || undefined
+// The freshest of the two records. Not `Math.max`: these are the *sender's*
+// clocks, so a contact row still holding a future timestamp would outrank the
+// advert that just corrected it, and the node would then fail every "heard
+// within" window. Ranking by clock-clamped age is the rule `sortByHeardAge` and
+// `mergeAdvertCache` already apply. `0`/missing means the record has no
+// timestamp at all.
+function lastHeardOf(
+  nowSecs: number,
+  contact?: Contact,
+  advert?: Advert,
+): number | undefined {
+  const known = [contact?.lastAdvert, advert?.lastHeard].filter(
+    (t): t is number => typeof t === 'number' && t > 0,
+  );
+  if (known.length === 0) return undefined;
+  return known.reduce((best, t) =>
+    heardAgeSecs(t, nowSecs) < heardAgeSecs(best, nowSecs) ? t : best,
   );
 }
 
@@ -120,6 +131,8 @@ export function collectMapNodes(
   const nodes: MapNode[] = [];
   const seen = new Set<string>();
   if (selfPrefix) seen.add(selfPrefix);
+  // Read once, so every node in this set is measured against the same instant.
+  const nowSecs = Math.floor(Date.now() / 1000);
 
   for (const contact of Object.values(contacts)) {
     if (seen.has(contact.pubkeyPrefix)) continue;
@@ -135,7 +148,7 @@ export function collectMapNodes(
       lon: coords.lon,
       kind: 'contact',
       favorite: (contact.flags & FAVORITE_FLAG) !== 0,
-      lastHeard: lastHeardOf(contact, adverts[contact.pubkeyPrefix]),
+      lastHeard: lastHeardOf(nowSecs, contact, adverts[contact.pubkeyPrefix]),
     });
   }
 

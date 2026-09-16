@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Crosshair, Maximize } from 'lucide-react';
 import L from 'leaflet';
 import { useMeshStore } from '@/store/meshStore';
+import { useClockTick } from '@/hooks/useClockTick';
 import { collectMapNodes, selfMapNode, type MapNode } from '@/lib/map/nodes';
 import {
   DEFAULT_MAP_FILTERS,
@@ -28,7 +29,6 @@ import { MapFilterControls } from './MapFilterControls';
 import { MapLegend } from './MapLegend';
 import { MapNodeList } from './MapNodeList';
 import { MapNodePopup } from './MapNodePopup';
-
 function pickIcon(): L.DivIcon {
   const size = MAP_MARKER_SIZE_PX;
   return L.divIcon({
@@ -189,22 +189,34 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   // The node whose popup is open, owned here rather than by the map, so the
   // node list can open one for a node the user never clicked.
   const [openKey, setOpenKey] = useState<string | null>(null);
+  // The "heard within" window is measured against the wall clock, so it needs a
+  // tick of its own: without one a node would stay plotted after it crossed the
+  // selected boundary, until some unrelated store change happened to rebuild
+  // the set.
+  const nowSecs = useClockTick();
 
   // The nodes actually eligible for plotting, after the filters. Both the
   // marker layer and the node list derive from this, so their counts never
   // disagree.
   const visible = useMemo(
-    () => filterMapNodes(nodes, filters),
-    [nodes, filters],
+    () => filterMapNodes(nodes, filters, nowSecs),
+    [nodes, filters, nowSecs],
   );
 
   const total = visible.length + (self ? 1 : 0);
   const capped = total > MAX_MAP_MARKERS;
-  // Self first so it survives the cap, then the visible set, trimmed to the
-  // DOM-node budget the base map plots.
+  // Trimmed to the marker budget, with a slot reserved for this node's own
+  // marker. The node list takes the same trimmed set: a row the map is not
+  // plotting could be framed but never opened, and its count would disagree
+  // with the cap notice.
+  const listed = useMemo(
+    () => visible.slice(0, MAX_MAP_MARKERS - (self ? 1 : 0)),
+    [visible, self],
+  );
+  // Self first so it survives the cap.
   const plotted = useMemo(
-    () => (self ? [self, ...visible] : visible).slice(0, MAX_MAP_MARKERS),
-    [self, visible],
+    () => (self ? [self, ...listed] : listed),
+    [self, listed],
   );
 
   // Location-pick mode: place/move a draggable pin on map clicks and pre-seed
@@ -288,7 +300,7 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     <>
       {!mapPicking && (
         <MapNodeList
-          nodes={visible}
+          nodes={listed}
           self={self}
           selectedKey={openKey}
           onSelect={focusNode}
@@ -339,10 +351,10 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
             </div>
           )}
         </div>
-        {/* `visible`, not `plotted`: this node's own marker is prepended to
+        {/* `listed`, not `plotted`: this node's own marker is prepended to
             `plotted` regardless of the filters, so a located self would hide
             the empty state even with no peers left to show. */}
-        {visible.length === 0 && !mapPicking && (
+        {listed.length === 0 && !mapPicking && (
           <div className='pointer-events-none absolute inset-0 z-1000 flex items-center justify-center p-6'>
             <p className='pointer-events-auto max-w-sm rounded-card border border-border bg-surface/95 px-4 py-3 text-center text-sm text-text2 backdrop-blur'>
               {t(

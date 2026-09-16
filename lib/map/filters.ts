@@ -55,16 +55,21 @@ export function filtersActive(filters: MapFilters): boolean {
 
 /**
  * The subset of {@link nodes} that {@link filters} leaves visible. Age is
- * measured with `heardAgeSecs` against one captured clock, so a node whose RTC
+ * measured with `heardAgeSecs` against {@link nowSecs}, so a node whose RTC
  * runs ahead is judged by how far off it is rather than passing every window;
  * a node neither store carries a timestamp for is *not* claimed to have been
  * heard recently, so a window excludes it.
+ *
+ * @param nowSecs - the reference clock in epoch seconds. Taken as a parameter
+ * rather than read here, so the caller decides when the window advances — read
+ * internally, an age filter would freeze at whatever `Date.now()` said the last
+ * time the node set happened to change.
  */
 export function filterMapNodes(
   nodes: MapNode[],
   filters: MapFilters,
+  nowSecs: number,
 ): MapNode[] {
-  const nowSecs = Math.floor(Date.now() / 1000);
   const maxAgeSecs =
     filters.heardWithinDays === null ? null : filters.heardWithinDays * 86400;
   const categories = new Set(filters.categories);

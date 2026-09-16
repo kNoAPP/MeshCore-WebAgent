@@ -234,20 +234,27 @@ export function BaseLeafletMap({
   // the node it was captured for, because a popup opened from outside the map
   // has no click of its own and must not inherit the last one's anchor.
   const popupAnchorRef = useRef<{ key: string; at: L.LatLng } | null>(null);
+  // Whatever held focus when the popup opened. A node picked from the node list
+  // can still be inside a collapsed cluster, and a clustered marker has no
+  // element to hand focus back to, so the opener is the fallback target.
+  const popupOpenerRef = useRef<HTMLElement | null>(null);
   const closePopup = useCallback(() => setPopupKey(null), [setPopupKey]);
   // Only when focus is still inside the popup being closed: a close that came
   // from clicking the map (or from opening another marker's popup) has already
   // put focus where the user meant it to go. The marker is looked up live,
-  // because a rebuild between opening and closing replaces its element.
+  // because a rebuild between opening and closing replaces its element; when it
+  // has no element at all — clustered away, or filtered out — focus goes back
+  // to whatever opened the popup instead of falling to the document.
   const restorePopupFocus = useCallback(() => {
     const active = document.activeElement;
     if (!(active instanceof HTMLElement) || !active.closest('.leaflet-popup')) {
       return;
     }
     const key = popupKeyRef.current;
-    const source =
+    const marker =
       key == null ? null : markersRef.current.get(key)?.getElement();
-    if (source?.isConnected) source.focus();
+    const target = marker?.isConnected ? marker : popupOpenerRef.current;
+    if (target?.isConnected) target.focus();
   }, []);
 
   // Create the map once per opening viewport.
@@ -306,7 +313,13 @@ export function BaseLeafletMap({
         maxClusterRadius: MAP_CLUSTER_RADIUS_PX,
         showCoverageOnHover: false,
         iconCreateFunction: clusterIcon,
-        chunkedLoading: true,
+        // Not chunked: `addLayers` would spread the batch over `setTimeout`
+        // continuations that `clearLayers()` does not cancel, so a rebuild
+        // landing mid-batch (a filter change, the label threshold, a fresh
+        // advert) would let the previous generation insert stale markers into
+        // the layer that was just emptied. `MAX_MAP_MARKERS` keeps the
+        // synchronous pass bounded.
+        chunkedLoading: false,
       });
       clusterGroupRef.current = group;
       markerLayerRef.current = group;
@@ -478,8 +491,8 @@ export function BaseLeafletMap({
       markers.push(marker);
       markersRef.current.set(node.key, marker);
     }
-    // The cluster group indexes a whole batch in one pass (and chunks the work
-    // across frames); a plain group has no such path, so it takes them singly.
+    // The cluster group indexes a whole batch in one pass; a plain group has no
+    // such path, so it takes them singly.
     const group = clusterGroupRef.current;
     if (group) group.addLayers(markers);
     else for (const marker of markers) marker.addTo(layer);
@@ -508,8 +521,13 @@ export function BaseLeafletMap({
           : null;
     if (popupKey == null || !anchor) {
       if (popupRef.current) map.closePopup(popupRef.current);
+      popupOpenerRef.current = null;
       return;
     }
+    // Read before the popup is attached, so it is still whatever the user acted
+    // on — a marker, or the node list row that selected this node.
+    const opener = document.activeElement;
+    popupOpenerRef.current = opener instanceof HTMLElement ? opener : null;
     const popup = L.popup({
       className: 'meshcore-popup',
       maxWidth: MAP_POPUP_MAX_WIDTH_PX,
