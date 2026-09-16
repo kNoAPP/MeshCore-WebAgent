@@ -87,6 +87,11 @@
     "device": "{{device}} · MeshCore Companion",
     "deviceUnread": "({{unread}}) {{device}} · MeshCore Companion"
   },
+  "notify": {
+    "titleIn": "{{sender}} dans {{convo}}",
+    "testTitle": "MeshCore Companion",
+    "testBody": "Les notifications sont activées. Voici à quoi ressembleront les nouveaux messages."
+  },
   "command": {
     "title": "Tout trouver",
     "search": "Rechercher",
@@ -115,6 +120,7 @@
       "identity": "Identité",
       "location": "Emplacement",
       "display": "Paramètres d'affichage",
+      "notifications": "Paramètres de notification",
       "ai": "Paramètres IA",
       "automation": "Automatisation",
       "danger": "Actions de l'appareil"
@@ -129,6 +135,7 @@
       "identity": "identité clé publique nom de nœud",
       "location": "emplacement coordonnées gps position",
       "display": "affichage unités métrique impérial distance mesure",
+      "notifications": "notifications alertes bureau son tonalité mentions non lus arrière-plan",
       "ai": "ia llm clé api anthropic claude assistant",
       "automation": "automatisation règles automatiser agent déclencheurs tâches",
       "danger": "redémarrer appareil actions danger"
@@ -286,6 +293,7 @@
       "radio": "Radio",
       "location": "Localisation",
       "display": "Affichage",
+      "notifications": "Notifications",
       "ai": "IA",
       "automation": "Automatisation",
       "danger": "Actions de l'appareil"
@@ -347,6 +355,23 @@
     "reboot": "Redémarrer l'appareil",
     "rebootConfirm": "Redémarrer la radio maintenant ?",
     "rebootConfirmAction": "Redémarrer",
+    "notify": {
+      "hint": "Les notifications du bureau indiquent l'expéditeur et reprennent le texte du message : toute personne qui voit votre écran peut les lire. Elles n'apparaissent que lorsque cet onglet est en arrière-plan et restent désactivées tant que vous ne les activez pas.",
+      "mode": "Me notifier pour",
+      "mode_off": "Rien",
+      "mode_mentions": "Messages directs et mentions",
+      "mode_all": "Tous les messages",
+      "sound": "Jouer un son",
+      "permission": "Autorisation du navigateur",
+      "permissionGranted": "Autorisé",
+      "permissionDenied": "Bloqué",
+      "permissionDefault": "Non demandé",
+      "permissionUnsupported": "Indisponible",
+      "allow": "Autoriser les notifications",
+      "test": "Notification de test",
+      "deniedHint": "Ce navigateur bloque les notifications pour ce site. Autorisez-les dans les paramètres du site pour les activer ici. Le compteur de non-lus dans le titre de l'onglet reste disponible.",
+      "unsupportedHint": "Ce navigateur ne peut pas afficher de notifications du bureau. Le compteur de non-lus dans le titre de l'onglet sert de solution de repli."
+    },
     "ai": {
       "hint": "Utilisez votre propre clé API LLM pour alimenter les fonctions d'IA dans le navigateur. Votre clé sert uniquement aux requêtes directes vers le fournisseur — elle n'est jamais envoyée à un autre serveur.",
       "provider": "Fournisseur",

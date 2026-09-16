@@ -16,6 +16,7 @@ import {
   channelConvoId,
   directConvoId,
   roomConvoId,
+  openConvo,
   selectPreferences,
   isConvoVisible,
   isAuthedLogin,
@@ -60,7 +61,9 @@ import {
   bytesEqual,
   truncateUtf8,
   splitChannelMessage,
+  mentionsSelf,
 } from '@/lib/utils';
+import { showNotification, playNotifyTone } from '@/lib/notify';
 import i18n from '@/lib/i18n';
 import type {
   ActiveConvo,
@@ -368,6 +371,41 @@ function flushPreferences(client: MeshCoreClient | null): void {
       selectPreferences(useMeshStore.getState()),
     );
   }
+}
+
+// A message that landed unread raises a desktop notification when the tab
+// isn't the one the user is looking at, the radio's notification preference
+// covers it, and permission has been granted. The visibility test is the same
+// `isConvoVisible` the unread flag uses, so a notification and the unread
+// badge can never disagree; `windowFocused` additionally keeps a message that
+// merely arrived on another *page* of a focused tab quiet, where the toast is
+// already the right cue.
+function notifyArrival(convo: ActiveConvo, sender: string, body: string): void {
+  const state = useMeshStore.getState();
+  const { mode, sound } = state.notifyPref;
+  if (mode === 'off' || state.windowFocused) return;
+  if (
+    mode === 'mentions' &&
+    convo.kind !== 'direct' &&
+    !mentionsSelf(body, state.deviceName)
+  ) {
+    return;
+  }
+  const shown = showNotification({
+    title:
+      convo.kind === 'direct'
+        ? sender
+        : i18n.t('notify.titleIn', { sender, convo: convo.label }),
+    // Unwrap `@[Name]` to `@Name`, matching how the bubble renders a mention —
+    // the notification body is plain text and can't style the token.
+    body: body.replace(/@\[([^\]]+)\]/g, '@$1'),
+    tag: convo.id,
+    onClick: () => {
+      openConvo(convo);
+      useMeshStore.getState().setView('chat');
+    },
+  });
+  if (shown && sound) playNotifyTone();
 }
 
 // Maps a connect/sync failure to a stable code the connect screen resolves to
@@ -1045,7 +1083,13 @@ export function useMeshCore() {
               const chName =
                 c.channels[msg.channelIdx]?.name ||
                 i18n.t('common.channelName', { index: msg.channelIdx });
-              const sender = splitChannelMessage(msg.text).sender;
+              const { sender, body } = splitChannelMessage(msg.text);
+              const convo: ActiveConvo = {
+                kind: 'channel',
+                id,
+                rawId: msg.channelIdx,
+                label: chName,
+              };
               showToast(
                 sender
                   ? i18n.t('toast.newMessageInFrom', {
@@ -1054,12 +1098,12 @@ export function useMeshCore() {
                     })
                   : i18n.t('toast.newMessageIn', { channel: chName }),
                 '',
-                {
-                  kind: 'channel',
-                  id,
-                  rawId: msg.channelIdx,
-                  label: chName,
-                },
+                convo,
+              );
+              notifyArrival(
+                convo,
+                sender || i18n.t('common.unknown'),
+                sender ? body : msg.text,
               );
             }
             // Emit after the store update so subscribers see a settled world.
@@ -1101,18 +1145,20 @@ export function useMeshCore() {
             addMessage(id, enriched);
             if (!visible && state.status === 'connected') {
               const room = contact?.name || prefix.slice(0, 8);
+              const convo: ActiveConvo = {
+                kind: isRoom ? 'room' : 'direct',
+                id,
+                rawId: prefix,
+                label: isRoom ? room : sender,
+              };
               showToast(
                 isRoom
                   ? i18n.t('toast.newPostIn', { room })
                   : i18n.t('toast.newMessageFrom', { sender }),
                 '',
-                {
-                  kind: isRoom ? 'room' : 'direct',
-                  id,
-                  rawId: prefix,
-                  label: isRoom ? room : sender,
-                },
+                convo,
               );
+              notifyArrival(convo, sender, msg.text);
             }
             emit({ type: 'message', msg: enriched });
           }
@@ -1284,6 +1330,7 @@ export function useMeshCore() {
               state.automationEnabled === prev.automationEnabled &&
               state.mapPrefs === prev.mapPrefs &&
               state.aiPref === prev.aiPref &&
+              state.notifyPref === prev.notifyPref &&
               state.showFullPublicKeys === prev.showFullPublicKeys
             ) {
               return;
