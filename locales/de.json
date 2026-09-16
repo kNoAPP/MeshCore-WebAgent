@@ -1033,8 +1033,8 @@
     },
     "popup": {
       "message": "Nachricht",
-      "manage": "Verwalten…",
-      "details": "Details…"
+      "manage": "Verwalten",
+      "more": "Mehr…"
     },
     "legend": {
       "title": "Legende",

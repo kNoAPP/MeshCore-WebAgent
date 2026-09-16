@@ -1032,8 +1032,8 @@
     },
     "popup": {
       "message": "Message",
-      "manage": "Manage…",
-      "details": "Details…"
+      "manage": "Manage",
+      "more": "More…"
     },
     "legend": {
       "title": "Legend",

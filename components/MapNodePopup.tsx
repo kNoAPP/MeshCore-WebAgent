@@ -80,8 +80,12 @@ export function MapNodePopup({
     unitSystem,
   );
   const isFav = contact ? (contact.flags & FAVORITE_FLAG) !== 0 : false;
+  // A repeater has no transcript: selecting it opens the admin view, the same
+  // as from the sidebar or the palette. The action is labeled after where it
+  // goes rather than after the button next to it.
+  const isRepeater = contact?.advType === ADV_TYPE_REPEATER;
 
-  const openChat = () => {
+  const openContact = () => {
     if (!contact) return;
     const kind =
       contact.advType === ADV_TYPE_REPEATER
@@ -155,7 +159,10 @@ export function MapNodePopup({
       </dl>
       <div className='flex flex-wrap items-center gap-1 border-t border-border pt-2'>
         {contact && (
-          <PopupAction onClick={openChat} label={t('map.popup.message')} />
+          <PopupAction
+            onClick={openContact}
+            label={isRepeater ? t('map.popup.manage') : t('map.popup.message')}
+          />
         )}
         {contact && (
           <PopupAction
@@ -163,10 +170,7 @@ export function MapNodePopup({
             label={isFav ? t('manage.unfavorite') : t('manage.favorite')}
           />
         )}
-        <PopupAction
-          onClick={openManage}
-          label={contact ? t('map.popup.manage') : t('map.popup.details')}
-        />
+        <PopupAction onClick={openManage} label={t('map.popup.more')} />
       </div>
     </div>
   );
