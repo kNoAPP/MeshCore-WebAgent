@@ -419,7 +419,9 @@ function ConsolePrompt({
                   i === active ? 'bg-surface text-accent' : 'text-text'
                 }`}
               >
-                <span className='font-mono text-xs'>{c.syntax}</span>
+                <span className='shrink-0 font-mono text-xs whitespace-nowrap'>
+                  {c.syntax}
+                </span>
                 <span className='truncate text-[11px] text-text2'>
                   {t(c.helpKey)}
                 </span>
