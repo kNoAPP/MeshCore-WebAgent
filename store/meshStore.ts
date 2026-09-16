@@ -48,6 +48,12 @@ import {
   type UnitSystem,
 } from '@/lib/units/config';
 import { normalizeMapPrefs, type MapPrefs } from '@/lib/map/config';
+import {
+  DEFAULT_MAP_FILTERS,
+  MAP_FILTER_KEYS,
+  normalizeMapFilters,
+  type MapFilters,
+} from '@/lib/map/filters';
 import { DEFAULT_AI_PREF, normalizeAiPref, type AiPref } from '@/lib/ai/pref';
 import {
   DEFAULT_NOTIFY_PREF,
@@ -220,6 +226,7 @@ export interface RadioPreferences {
   autoAddConfig: AutoAddConfig;
   automationEnabled: boolean;
   mapPrefs: MapPrefs | null;
+  mapFilters: MapFilters;
   aiPref: AiPref;
   notifyPref: NotifyPref;
   showFullPublicKeys: boolean;
@@ -538,6 +545,8 @@ interface MeshState {
   notifyPref: NotifyPref;
   /** Persisted viewport, or `null` until the user first pans/zooms the map. */
   mapPrefs: MapPrefs | null;
+  /** Which node types, ages and favorites the map is plotting. */
+  mapFilters: MapFilters;
   /**
    * True once this radio's preferences blob has been read. The session reports
    * `connected` before that read finishes, so a `null` preference means "not
@@ -685,6 +694,7 @@ interface MeshActions {
   setAiPref: (aiPref: AiPref) => void;
   setNotifyPref: (pref: NotifyPref) => void;
   setMapPrefs: (prefs: MapPrefs) => void;
+  setMapFilters: (filters: MapFilters) => void;
   /**
    * Folds a decrypted per-radio preferences blob into the store on connect,
    * normalizing every field so a corrupt or partial record falls back to
@@ -862,6 +872,7 @@ const initialState: MeshState = {
   aiPref: DEFAULT_AI_PREF,
   notifyPref: DEFAULT_NOTIFY_PREF,
   mapPrefs: null,
+  mapFilters: DEFAULT_MAP_FILTERS,
   prefsHydrated: false,
   toast: null,
   updateAvailable: false,
@@ -899,6 +910,11 @@ let toastSeq = 0;
 // come back as a different radio on a shared endpoint, so an untouched value
 // is the previous radio's viewport and must not survive into this one's blob.
 let mapPrefsTouched = false;
+// The same rule for the map's filters, but per field: the controls are spread
+// across two legends, so a user who moves one slider before the blob lands must
+// not have that stand in for the whole object and discard the incoming radio's
+// saved categories and favorites.
+const mapFiltersTouched = new Set<keyof MapFilters>();
 
 /**
  * The global Zustand store: connection state, mirrored mesh data, conversation
@@ -918,6 +934,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // last radio left behind stops counting as something to preserve.
     if (status === 'connecting' || status === 'reconnecting') {
       mapPrefsTouched = false;
+      mapFiltersTouched.clear();
     }
     set(
       status === 'connecting' || status === 'reconnecting'
@@ -971,6 +988,14 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({ mapPrefs });
   },
 
+  setMapFilters: (mapFilters) => {
+    const prev = get().mapFilters;
+    for (const key of MAP_FILTER_KEYS) {
+      if (mapFilters[key] !== prev[key]) mapFiltersTouched.add(key);
+    }
+    set({ mapFilters });
+  },
+
   setTheme: (theme) => {
     if (typeof window !== 'undefined') {
       try {
@@ -1002,6 +1027,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // that left.
     const keepMapPrefs = mapPrefsTouched;
     mapPrefsTouched = false;
+    const keptFilters = new Set(mapFiltersTouched);
+    mapFiltersTouched.clear();
+    const storedFilters = normalizeMapFilters(p.mapFilters);
     set((state) => ({
       unitSystem: normalizeUnitSystem(p.unitSystem),
       contactView: normalizeContactView(p.contactView),
@@ -1009,6 +1037,19 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       automationEnabled:
         typeof p.automationEnabled === 'boolean' ? p.automationEnabled : false,
       mapPrefs: keepMapPrefs ? state.mapPrefs : normalizeMapPrefs(p.mapPrefs),
+      // Field by field, so an untouched one still adopts this radio's stored
+      // value instead of inheriting the default (or the last radio's choice).
+      mapFilters: {
+        favoritesOnly: keptFilters.has('favoritesOnly')
+          ? state.mapFilters.favoritesOnly
+          : storedFilters.favoritesOnly,
+        categories: keptFilters.has('categories')
+          ? state.mapFilters.categories
+          : storedFilters.categories,
+        heardWithinDays: keptFilters.has('heardWithinDays')
+          ? state.mapFilters.heardWithinDays
+          : storedFilters.heardWithinDays,
+      },
       aiPref: normalizeAiPref(p.aiPref),
       notifyPref: normalizeNotifyPref(p.notifyPref),
       showFullPublicKeys:
@@ -1492,6 +1533,7 @@ export function selectPreferences(
     autoAddConfig: state.autoAddConfig,
     automationEnabled: state.automationEnabled,
     mapPrefs: state.mapPrefs,
+    mapFilters: state.mapFilters,
     aiPref: state.aiPref,
     notifyPref: state.notifyPref,
     showFullPublicKeys: state.showFullPublicKeys,

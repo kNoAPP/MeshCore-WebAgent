@@ -33,12 +33,41 @@ export const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 /**
- * Upper bound on plotted markers, so a busy mesh can't stall the renderer. Each
- * marker is a plain Leaflet `divIcon` (one DOM node), so this is effectively a
- * DOM-node budget; beyond a few thousand, prefer marker clustering over a
- * higher cap.
+ * Upper bound on plotted markers, so a busy mesh can't stall the renderer.
+ * Markers are clustered, so only the visible clusters and their expanded
+ * children are in the DOM at once; this remains a ceiling on how many nodes the
+ * cluster index is asked to hold.
  */
 export const MAX_MAP_MARKERS = 2000;
+
+/**
+ * Radius, in pixels, within which markers collapse into a single cluster
+ * glyph. Leaflet's plugin default is 80, which swallows neighboring towns at
+ * regional zoom; a tighter radius keeps distinct sites distinct while still
+ * unpicking the dense clots a real mesh produces.
+ */
+export const MAP_CLUSTER_RADIUS_PX = 50;
+
+/**
+ * Diameter, in pixels, of a cluster glyph, chosen by how many nodes it holds
+ * (`maxCount` is inclusive, and the last entry is the open-ended bucket). A
+ * cluster of three should not shout as loudly as a cluster of two hundred.
+ */
+export const MAP_CLUSTER_SIZES_PX: readonly {
+  maxCount: number;
+  size: number;
+}[] = [
+  { maxCount: 9, size: 30 },
+  { maxCount: 99, size: 36 },
+  { maxCount: Infinity, size: 44 },
+];
+
+/**
+ * Zoom a node is framed at when it is picked from the node list, unless the map
+ * is already closer in — close enough to separate it from its neighbors
+ * without losing the surrounding mesh.
+ */
+export const MAP_FOCUS_ZOOM = 13;
 
 /**
  * Edge length, in pixels, of a node marker (the colored shape and its square

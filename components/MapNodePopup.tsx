@@ -25,7 +25,7 @@ import {
   ADV_TYPE_ROOM,
   FAVORITE_FLAG,
 } from '@/lib/meshcore/constants';
-import type { MapNode } from '@/lib/map/nodes';
+import { freshestHeard, type MapNode } from '@/lib/map/nodes';
 
 /**
  * The body of the popup anchored to a clicked map marker: the spatial facts
@@ -56,14 +56,12 @@ export function MapNodePopup({
   const { toggleFavorite } = useMeshCore();
   // The last-advert age is read off the wall clock, so it needs a tick of its
   // own to keep ageing while the map sits idle behind the popup.
-  useClockTick();
+  const nowSecs = useClockTick();
 
   const name = contact?.name || advert?.name || node.name;
-  // The newer of the two, not whichever record happens to carry a value: the
-  // advert cache is written the moment a push advert lands, while the contact
-  // table is re-synced on a debounce behind it.
-  const lastHeard =
-    Math.max(contact?.lastAdvert ?? 0, advert?.lastHeard ?? 0) || undefined;
+  // The same clock-clamped choice the node list and the age filter make, so
+  // selecting a row can't change the age the node appears to have.
+  const lastHeard = freshestHeard(contact, advert, nowSecs);
   // Taken as a pair, the way `contactCoords` reads it: `0` is the firmware's
   // unset coordinate, and a half-set contact position falls through to the
   // cached advert whole rather than pairing one field from each record — which
@@ -82,8 +80,12 @@ export function MapNodePopup({
     unitSystem,
   );
   const isFav = contact ? (contact.flags & FAVORITE_FLAG) !== 0 : false;
+  // A repeater has no transcript: selecting it opens the admin view, the same
+  // as from the sidebar or the palette. The action is labeled after where it
+  // goes rather than after the button next to it.
+  const isRepeater = contact?.advType === ADV_TYPE_REPEATER;
 
-  const openChat = () => {
+  const openContact = () => {
     if (!contact) return;
     const kind =
       contact.advType === ADV_TYPE_REPEATER
@@ -157,7 +159,10 @@ export function MapNodePopup({
       </dl>
       <div className='flex flex-wrap items-center gap-1 border-t border-border pt-2'>
         {contact && (
-          <PopupAction onClick={openChat} label={t('map.popup.message')} />
+          <PopupAction
+            onClick={openContact}
+            label={isRepeater ? t('map.popup.manage') : t('map.popup.message')}
+          />
         )}
         {contact && (
           <PopupAction
@@ -165,14 +170,20 @@ export function MapNodePopup({
             label={isFav ? t('manage.unfavorite') : t('manage.favorite')}
           />
         )}
-        <PopupAction
-          onClick={openManage}
-          label={contact ? t('map.popup.manage') : t('map.popup.details')}
-        />
+        <PopupAction onClick={openManage} label={t('map.popup.more')} />
       </div>
     </div>
   );
 }
+
+/**
+ * `renderPopup` for {@link BaseLeafletMap}, shared by every map that opens a
+ * node popup so they can't drift apart on what a marker click does. Defined at
+ * module scope, so its identity is stable across renders.
+ */
+export const renderNodePopup = (node: MapNode, close: () => void) => (
+  <MapNodePopup node={node} onClose={close} />
+);
 
 function PopupRow({
   label,

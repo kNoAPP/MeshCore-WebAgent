@@ -743,8 +743,10 @@
       "colSnr": "SNR",
       "colLastHeard": "Dernière écoute",
       "addNode": "Ajouter {{name}} comme contact",
-      "unplacedLegend_one": "Tirets : {{count}} voisin sans position connue, placé arbitrairement sur l'anneau.",
-      "unplacedLegend_other": "Tirets : {{count}} voisins sans position connue, placés arbitrairement sur l'anneau.",
+      "unplacedLegend_one": "{{count}} voisin n'a pas de position connue et n'est pas affiché.",
+      "unplacedLegend_other": "{{count}} voisins n'ont pas de position connue et ne sont pas affichés.",
+      "hiddenByAge_one": "{{count}} voisin a été entendu il y a plus longtemps que la période ci-dessus.",
+      "hiddenByAge_other": "{{count}} voisins ont été entendus il y a plus longtemps que la période ci-dessus.",
       "noLocation": "Des voisins ont été entendus, mais aucun n’a pu être placé sur la carte — aucun emplacement connu.",
       "noAnchor": "Ce répéteur n’a pas d’emplacement annoncé, ses voisins ne peuvent donc pas être affichés sur la carte."
     },
@@ -994,18 +996,47 @@
   "map": {
     "self": "Ce nœud",
     "markerCap": "Affichage de {{shown}} sur {{total}} nœuds",
+    "cluster_one": "Groupe de {{count}} nœud",
+    "cluster_other": "Groupe de {{count}} nœuds",
     "empty": "Aucun nœud n'a encore annoncé de position. Les positions arrivent avec les annonces : la carte se remplira à mesure que le réseau sera entendu.",
     "emptyPeers": "Aucun autre nœud n'a encore annoncé de position. Les positions arrivent avec les annonces : la carte se remplira à mesure que le réseau sera entendu.",
-    "emptyFavorites": "Aucun de tes favoris n'a encore de position.",
+    "emptyFiltered": "Aucun nœud ne correspond aux filtres actuels.",
     "pick": {
       "hint": "Cliquez sur la carte pour définir la position de cette radio.",
       "confirm": "Confirmer la position",
       "cancel": "Annuler"
     },
+    "frame": {
+      "fitAll": "Cadrer tous les nœuds",
+      "centerSelf": "Centrer sur mon nœud"
+    },
+    "filters": {
+      "types": "Types de nœud",
+      "toggleType": "Afficher ou masquer les nœuds {{type}}",
+      "heardWithin": "Entendu depuis",
+      "anyAge": "Tout âge",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours"
+    },
+    "nodeList": {
+      "title": "Nœuds",
+      "show": "Afficher la liste des nœuds",
+      "hide": "Masquer la liste des nœuds",
+      "search": "Rechercher des nœuds",
+      "sort": "Trier les nœuds",
+      "sortName": "Nom (A–Z)",
+      "sortHeard": "Entendus récemment",
+      "sortDistance": "Distance",
+      "count_one": "{{count}} nœud dans la liste",
+      "count_other": "{{count}} nœuds dans la liste",
+      "countFiltered": "{{shown}} nœuds sur {{total}} dans la liste",
+      "noMatches": "Aucun nœud ne correspond à votre recherche.",
+      "empty": "Aucun autre nœud n'est actuellement dans la liste."
+    },
     "popup": {
       "message": "Message",
-      "manage": "Gérer…",
-      "details": "Détails…"
+      "manage": "Gérer",
+      "more": "Plus…"
     },
     "legend": {
       "title": "Légende",

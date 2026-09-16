@@ -181,7 +181,12 @@ label[for] {
   --map-sensor: var(--yellow);
   --map-outline: #ffffff;
   --map-favorite: #fbbf24;
-  --map-unplaced: #94a3b8;
+  /* Ring color for a cluster holding more than one category. Neutral on
+     purpose: the accent is already `--map-user`, so reusing it would make a
+     mixed cluster indistinguishable from an all-companion one. This one tone
+     clears 3:1 against the cluster's `--surface` fill in both themes, so
+     unlike the other map colors it is not overridden below. */
+  --map-cluster-mixed: #64748b;
   --map-shadow: rgb(0 0 0 / 0.5);
 }
 
@@ -221,7 +226,6 @@ label[for] {
      have to darken or they vanish into the tiles. */
   --map-outline: #1a1d27;
   --map-favorite: #a16207;
-  --map-unplaced: #64748b;
   --map-shadow: rgb(15 17 23 / 0.3);
 }
 
@@ -328,11 +332,62 @@ html {
   font: inherit;
 }
 .map-marker {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
   filter: drop-shadow(0 1px 2px var(--map-shadow));
+}
+/* The node name beside its glyph. Absolutely positioned so it never shifts the
+ * marker off its coordinate, and non-interactive so a label overlapping a
+ * neighboring marker can't steal its click. The halo is what keeps it legible
+ * over both basemaps and over other markers. */
+.map-marker-label {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 4px);
+  display: block;
+  max-width: 10rem;
+  overflow: hidden;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  text-overflow: ellipsis;
+  text-shadow:
+    0 0 3px var(--bg),
+    0 0 3px var(--bg),
+    0 0 3px var(--bg);
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* A collapsed cluster of markers. The ring is set per cluster (the shared
+ * category's color, or a neutral when they disagree) by `clusterIcon`. The
+ * count sits on `--surface` rather than on that color: the ring already carries
+ * the category, and text on a saturated fill would drop under 4.5:1 for half
+ * the palette. */
+.map-cluster {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border: 3px solid var(--map-cluster-color);
+  border-radius: 9999px;
+  background: var(--surface);
+  box-shadow: 0 1px 4px var(--map-shadow);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+/* The legs drawn to each marker of an expanded cluster; Leaflet's own rule
+ * hard-codes a near-black stroke that vanishes on the dark basemap. */
+.meshcore-map .leaflet-cluster-spider-leg {
+  stroke: var(--accent);
 }
 .map-marker-self {
   box-sizing: border-box;
@@ -342,14 +397,11 @@ html {
   box-shadow: 0 0 8px var(--accent);
 }
 /* Cached adverts (discovered nodes not held in the radio's contact table) are
- * faded to read as secondary next to solid, radio-backed contacts. */
-.map-marker-cached {
+ * faded to read as secondary next to solid, radio-backed contacts. The glyph
+ * only: fading the wrapper would take the name label with it, and 11px text at
+ * half opacity misses 4.5:1 on the light basemap. */
+.map-marker-cached > svg {
   opacity: 0.5;
-}
-/* Neighbors with no known position. Parked on a ring around their anchor, so
- * they must not carry the drop-shadow that makes a marker read as planted. */
-.map-marker-unplaced {
-  filter: none;
 }
 .meshcore-map .leaflet-bar a,
 .meshcore-map .leaflet-bar a:hover {

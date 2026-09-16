@@ -5,10 +5,16 @@
 
 import { useEffect, useRef, useState, type RefObject } from 'react';
 
-// Tabbable candidates inside a dialog. `[tabindex="-1"]` is excluded on
-// purpose: it marks programmatically-focusable elements such as the dialog
-// container itself, which must never be a Tab stop.
-const TABBABLE =
+/**
+ * Tabbable candidates inside a surface that takes focus of its own — a dialog,
+ * or the map's node popup. `[tabindex="-1"]` is excluded on purpose: it marks
+ * programmatically-focusable elements such as the dialog container itself,
+ * which must never be a Tab stop.
+ *
+ * Used both to move focus to the first control on open and, in a trap, to find
+ * the ends of the cycle.
+ */
+export const TABBABLE =
   'a[href], button:not([disabled]), input:not([disabled]), ' +
   'select:not([disabled]), textarea:not([disabled]), ' +
   '[tabindex]:not([tabindex="-1"])';

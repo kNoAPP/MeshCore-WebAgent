@@ -743,8 +743,10 @@
       "colSnr": "SNR",
       "colLastHeard": "Última escucha",
       "addNode": "Añadir {{name}} como contacto",
-      "unplacedLegend_one": "Discontinuo: {{count}} vecino sin ubicación conocida, colocado en el anillo de forma arbitraria.",
-      "unplacedLegend_other": "Discontinuo: {{count}} vecinos sin ubicación conocida, colocados en el anillo de forma arbitraria.",
+      "unplacedLegend_one": "{{count}} vecino no tiene una ubicación conocida y no se muestra.",
+      "unplacedLegend_other": "{{count}} vecinos no tienen una ubicación conocida y no se muestran.",
+      "hiddenByAge_one": "{{count}} vecino se escuchó hace más tiempo que el intervalo de arriba.",
+      "hiddenByAge_other": "{{count}} vecinos se escucharon hace más tiempo que el intervalo de arriba.",
       "noLocation": "Se escucharon vecinos, pero ninguno pudo ubicarse en el mapa: no tienen una ubicación conocida.",
       "noAnchor": "Este repetidor no tiene una ubicación anunciada, por lo que sus vecinos no pueden mostrarse en el mapa."
     },
@@ -994,18 +996,47 @@
   "map": {
     "self": "Este nodo",
     "markerCap": "Mostrando {{shown}} de {{total}} nodos",
+    "cluster_one": "Grupo de {{count}} nodo",
+    "cluster_other": "Grupo de {{count}} nodos",
     "empty": "Ningún nodo ha anunciado todavía su ubicación. Las ubicaciones llegan con los anuncios, así que esto se irá llenando a medida que se escuche la malla.",
     "emptyPeers": "Ningún otro nodo ha anunciado todavía su ubicación. Las ubicaciones llegan con los anuncios, así que esto se irá llenando a medida que se escuche la malla.",
-    "emptyFavorites": "Ninguno de tus favoritos tiene ubicación todavía.",
+    "emptyFiltered": "Ningún nodo coincide con los filtros actuales.",
     "pick": {
       "hint": "Haz clic en el mapa para establecer la ubicación de esta radio.",
       "confirm": "Confirmar ubicación",
       "cancel": "Cancelar"
     },
+    "frame": {
+      "fitAll": "Encuadrar todos los nodos",
+      "centerSelf": "Centrar en mi nodo"
+    },
+    "filters": {
+      "types": "Tipos de nodo",
+      "toggleType": "Mostrar u ocultar los nodos de tipo {{type}}",
+      "heardWithin": "Escuchado hace",
+      "anyAge": "Cualquier antigüedad",
+      "days_one": "{{count}} día",
+      "days_other": "{{count}} días"
+    },
+    "nodeList": {
+      "title": "Nodos",
+      "show": "Mostrar la lista de nodos",
+      "hide": "Ocultar la lista de nodos",
+      "search": "Buscar nodos",
+      "sort": "Ordenar nodos",
+      "sortName": "Nombre (A–Z)",
+      "sortHeard": "Escuchados recientemente",
+      "sortDistance": "Distancia",
+      "count_one": "{{count}} nodo en la lista",
+      "count_other": "{{count}} nodos en la lista",
+      "countFiltered": "{{shown}} de {{total}} nodos en la lista",
+      "noMatches": "Ningún nodo coincide con tu búsqueda.",
+      "empty": "Ahora mismo no hay ningún otro nodo en la lista."
+    },
     "popup": {
       "message": "Mensaje",
-      "manage": "Gestionar…",
-      "details": "Detalles…"
+      "manage": "Gestionar",
+      "more": "Más…"
     },
     "legend": {
       "title": "Leyenda",

@@ -743,8 +743,10 @@
       "colSnr": "SNR",
       "colLastHeard": "Zuletzt gehört",
       "addNode": "{{name}} als Kontakt hinzufügen",
-      "unplacedLegend_one": "Gestrichelt: {{count}} Nachbar ohne bekannten Standort, willkürlich auf dem Ring platziert.",
-      "unplacedLegend_other": "Gestrichelt: {{count}} Nachbarn ohne bekannten Standort, willkürlich auf dem Ring platziert.",
+      "unplacedLegend_one": "{{count}} Nachbar hat keinen bekannten Standort und wird nicht angezeigt.",
+      "unplacedLegend_other": "{{count}} Nachbarn haben keinen bekannten Standort und werden nicht angezeigt.",
+      "hiddenByAge_one": "{{count}} Nachbar wurde vor längerer Zeit als im Zeitfenster oben gehört.",
+      "hiddenByAge_other": "{{count}} Nachbarn wurden vor längerer Zeit als im Zeitfenster oben gehört.",
       "noLocation": "Nachbarn wurden gehört, aber keiner konnte auf der Karte platziert werden — kein bekannter Standort.",
       "noAnchor": "Dieser Repeater hat keinen angekündigten Standort, daher können seine Nachbarn nicht auf der Karte angezeigt werden."
     },
@@ -994,18 +996,47 @@
   "map": {
     "self": "Dieser Knoten",
     "markerCap": "{{shown}} von {{total}} Knoten werden angezeigt",
+    "cluster_one": "Gruppe mit {{count}} Knoten",
+    "cluster_other": "Gruppe mit {{count}} Knoten",
     "empty": "Noch hat kein Knoten einen Standort gesendet. Standorte kommen mit Adverts, das füllt sich also, sobald das Mesh gehört wird.",
     "emptyPeers": "Noch hat kein anderer Knoten einen Standort gesendet. Standorte kommen mit Adverts, das füllt sich also, sobald das Mesh gehört wird.",
-    "emptyFavorites": "Keiner deiner Favoriten hat bisher einen Standort.",
+    "emptyFiltered": "Kein Knoten entspricht den aktuellen Filtern.",
     "pick": {
       "hint": "Klicke auf die Karte, um den Standort dieses Funkgeräts festzulegen.",
       "confirm": "Standort bestätigen",
       "cancel": "Abbrechen"
     },
+    "frame": {
+      "fitAll": "Alle Knoten einpassen",
+      "centerSelf": "Auf meinen Knoten zentrieren"
+    },
+    "filters": {
+      "types": "Knotentypen",
+      "toggleType": "{{type}}-Knoten ein- oder ausblenden",
+      "heardWithin": "Gehört innerhalb",
+      "anyAge": "Beliebiges Alter",
+      "days_one": "{{count}} Tag",
+      "days_other": "{{count}} Tage"
+    },
+    "nodeList": {
+      "title": "Knoten",
+      "show": "Knotenliste anzeigen",
+      "hide": "Knotenliste ausblenden",
+      "search": "Knoten suchen",
+      "sort": "Knoten sortieren",
+      "sortName": "Name (A–Z)",
+      "sortHeard": "Zuletzt gehört",
+      "sortDistance": "Entfernung",
+      "count_one": "{{count}} Knoten aufgeführt",
+      "count_other": "{{count}} Knoten aufgeführt",
+      "countFiltered": "{{shown}} von {{total}} Knoten aufgeführt",
+      "noMatches": "Kein Knoten entspricht deiner Suche.",
+      "empty": "Derzeit ist kein anderer Knoten aufgeführt."
+    },
     "popup": {
       "message": "Nachricht",
-      "manage": "Verwalten…",
-      "details": "Details…"
+      "manage": "Verwalten",
+      "more": "Mehr…"
     },
     "legend": {
       "title": "Legende",
