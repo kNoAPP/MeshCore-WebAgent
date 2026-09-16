@@ -13,10 +13,9 @@ const TABBABLE =
   'select:not([disabled]), textarea:not([disabled]), ' +
   '[tabindex]:not([tabindex="-1"])';
 
-// The opener of every mounted dialog, innermost last. Read during the render of
-// a dialog raised *from* another one — the command palette running an action
-// that opens a modal — so the new dialog can inherit the opener instead of
-// capturing a node the closing dialog is about to take with it.
+// The page-level opener behind each mounted dialog chain, innermost last. Read
+// during the render of a dialog raised from inside another one, so it has
+// somewhere to put focus if that other dialog turns out to be closing.
 const openers: Element[] = [];
 
 /**
@@ -36,11 +35,14 @@ export function useFocusTrap<T extends HTMLElement>(
 ): void {
   // Captured during the first render, before any child effect can move focus
   // into the dialog, so it is the opener that gets focus back on close.
-  const [restoreTo] = useState<Element | null>(() => {
+  const [restoreTo] = useState<Element | null>(() => document.activeElement);
+  // Where to go instead when the opener does not outlive this dialog: raising
+  // one dialog *from* another can replace it rather than stack on it (a command
+  // palette action that opens a modal closes the palette in the same commit),
+  // which leaves the captured element detached. Nested dialogs whose opener is
+  // still on screen never reach this.
+  const [outerOpener] = useState<Element | null>(() => {
     const active = document.activeElement;
-    // Raised from inside another dialog, whose content is unmounted in the
-    // same commit: restoring to it later would focus a detached node and drop
-    // focus to the document, so inherit that dialog's own opener.
     if (active?.closest('[role="dialog"]')) {
       return openers[openers.length - 1] ?? null;
     }
@@ -54,7 +56,7 @@ export function useFocusTrap<T extends HTMLElement>(
 
     cancelAnimationFrame(restoreFrame.current);
     if (!container.contains(document.activeElement)) container.focus();
-    if (restoreTo) openers.push(restoreTo);
+    if (outerOpener) openers.push(outerOpener);
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
@@ -83,16 +85,18 @@ export function useFocusTrap<T extends HTMLElement>(
     container.addEventListener('keydown', onKeyDown);
     return () => {
       container.removeEventListener('keydown', onKeyDown);
-      const at = restoreTo ? openers.lastIndexOf(restoreTo) : -1;
+      const at = outerOpener ? openers.lastIndexOf(outerOpener) : -1;
       if (at !== -1) openers.splice(at, 1);
       // The background is still `inert` while this cleanup runs — React has
       // not re-rendered without the dialog yet — and focusing into an inert
       // subtree is a no-op, so hand the restore to the next frame.
       restoreFrame.current = requestAnimationFrame(() => {
-        if (restoreTo instanceof HTMLElement && restoreTo.isConnected) {
-          restoreTo.focus();
-        }
+        const target =
+          restoreTo instanceof HTMLElement && restoreTo.isConnected
+            ? restoreTo
+            : outerOpener;
+        if (target instanceof HTMLElement && target.isConnected) target.focus();
       });
     };
-  }, [ref, restoreTo]);
+  }, [ref, restoreTo, outerOpener]);
 }

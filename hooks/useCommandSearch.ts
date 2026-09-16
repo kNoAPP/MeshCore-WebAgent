@@ -342,12 +342,15 @@ export function useCommandSearch(query: string): CommandGroup[] {
   }, [contacts, language]);
 
   // Scoped to the repeater/room admin session that is actually open — these
-  // verbs have no meaning without one, and the target UI hides them too.
+  // verbs have no meaning without one, and the target UI hides them too. The
+  // open conversation can outlive its contact (an eviction the repeater view
+  // handles), and both verbs need the contact itself, so require it here.
   const repeaterActionRecords = useMemo<ActionRecord[]>(() => {
     if (activeConvo?.kind !== 'repeater' && activeConvo?.kind !== 'room') {
       return [];
     }
     const prefix = String(activeConvo.rawId);
+    if (!contacts[prefix]) return [];
     if (!isAuthedLogin(adminSessions[prefix]?.login)) return [];
     return [
       {
@@ -366,7 +369,7 @@ export function useCommandSearch(query: string): CommandGroup[] {
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConvo, adminSessions, language]);
+  }, [activeConvo, adminSessions, contacts, language]);
 
   const actionRecords = useMemo(
     () => [
