@@ -96,8 +96,15 @@ export function MapNodePopup({
     onClose();
     // Selected before the view switch, the way the palette and URL routes do
     // it: `setView` catches up whichever conversation is open at that moment,
-    // so switching first would mark the *previous* one read.
-    openConvo({ kind, id, rawId: contact.pubkeyPrefix, label: name });
+    // so switching first would mark the *previous* one read. The label follows
+    // `Sidebar`'s fallback rather than the heading's, so the chat header and
+    // the sidebar row can't disagree about an unnamed contact.
+    openConvo({
+      kind,
+      id,
+      rawId: contact.pubkeyPrefix,
+      label: contact.name || contact.pubkeyPrefix.slice(0, 8),
+    });
     useMeshStore.getState().setView('chat');
   };
 

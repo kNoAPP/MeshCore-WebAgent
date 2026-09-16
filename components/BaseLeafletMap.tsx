@@ -137,13 +137,11 @@ export function BaseLeafletMap({
   // The plotted markers by node key, so the open popup can find the live
   // marker for a node after a rebuild has replaced the element it came from.
   const markersRef = useRef(new Map<string, L.Marker>());
-  const nodesRef = useRef(nodes);
   useEffect(() => {
     onNodeClickRef.current = onNodeClick;
     renderPopupRef.current = renderPopup;
     onMoveEndRef.current = onMoveEnd;
     onMapReadyRef.current = onMapReady;
-    nodesRef.current = nodes;
   });
 
   // The key of the node whose popup is open, or null. Keyed rather than held
@@ -162,6 +160,9 @@ export function BaseLeafletMap({
   // popup that was just opened.
   const popupRef = useRef<L.Popup | null>(null);
   const popupKeyRef = useRef<string | null>(null);
+  // Where the popup opens: the clicked marker's position, captured by the
+  // click itself so the anchor never depends on a later lookup.
+  const popupAnchorRef = useRef<L.LatLng | null>(null);
   const closePopup = useCallback(() => setPopupKey(null), []);
   // Only when focus is still inside the popup being closed: a close that came
   // from clicking the map (or from opening another marker's popup) has already
@@ -344,6 +345,10 @@ export function BaseLeafletMap({
             onNodeClickRef.current?.(node);
             return;
           }
+          // The marker's own position, so the popup always has an anchor even
+          // if this node leaves the plotted set in the same batch as the
+          // click. The effect below takes over keeping it current.
+          popupAnchorRef.current = marker.getLatLng();
           setPopupKey(node.key);
         });
       }
@@ -361,12 +366,11 @@ export function BaseLeafletMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (popupKey == null) {
+    const anchor = popupAnchorRef.current;
+    if (popupKey == null || !anchor) {
       if (popupRef.current) map.closePopup(popupRef.current);
       return;
     }
-    const node = nodesRef.current.find((n) => n.key === popupKey);
-    if (!node) return;
     const popup = L.popup({
       className: 'meshcore-popup',
       maxWidth: MAP_POPUP_MAX_WIDTH_PX,
@@ -376,7 +380,7 @@ export function BaseLeafletMap({
       autoPanPadding: [24, 24],
       closeOnClick: false,
     })
-      .setLatLng([node.lat, node.lon])
+      .setLatLng(anchor)
       .setContent(popupHost);
     // Claimed before opening: `openOn` closes the popup already showing, and
     // the close handler decides whose close that was by this reference.
@@ -384,6 +388,16 @@ export function BaseLeafletMap({
     popupKeyRef.current = popupKey;
     popup.openOn(map);
   }, [popupKey, popupHost]);
+
+  // Leaflet names its close button `Close popup` in English and never
+  // retranslates it, so it is relabeled here — on open, and again whenever the
+  // language changes under an open popup.
+  useEffect(() => {
+    popupRef.current
+      ?.getElement()
+      ?.querySelector('.leaflet-popup-close-button')
+      ?.setAttribute('aria-label', t('common.close'));
+  }, [popupKey, t]);
 
   // Follow the live node: a fresh advert can move it out from under its own
   // popup, and a node that leaves the plotted set entirely (a filter change,
