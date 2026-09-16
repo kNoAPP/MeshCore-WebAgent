@@ -17,6 +17,7 @@ import type {
   RawRxPacket,
   RepeaterStatus,
   RepeaterAccess,
+  NodeTelemetry,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import { MeshConnectError } from './errors';
@@ -61,6 +62,7 @@ import {
   buildReboot,
   buildSendLogin,
   buildSendStatusReq,
+  buildSendTelemetryReq,
 } from './frames';
 import {
   parseSelfInfo,
@@ -83,6 +85,7 @@ import {
   parseCurrentTime,
   parseStatusResponse,
   parseLoginPush,
+  parseTelemetryResponse,
 } from './parsers';
 import { sortByHeardAge, toHex } from '@/lib/utils';
 
@@ -146,7 +149,8 @@ interface PendingCmd {
 }
 
 // A caller awaiting an asynchronous push (PUSH_LOGIN_SUCCESS /
-// PUSH_STATUS_RESPONSE) that the radio delivers well after its SENT receipt.
+// PUSH_STATUS_RESPONSE / PUSH_TELEMETRY_RESPONSE) that the radio delivers well
+// after its SENT receipt.
 // Keyed by the target node's 6-byte pubkey prefix so concurrent requests to
 // different repeaters never cross-talk. `timer` is armed only once the SENT
 // receipt reveals the estimated round-trip, so it is null between registration
@@ -236,12 +240,14 @@ export class MeshCoreClient {
   // its request by the target's 6-byte pubkey prefix (hex).
   private loginWaiters = new Map<string, PushWaiter<RepeaterAccess | null>>();
   private statusWaiters = new Map<string, PushWaiter<RepeaterStatus>>();
-  // Serializes the full login/status handshake (the SENT receipt *and* the
-  // async push that follows). Current firmware retains only one pending remote
-  // request and clears it on each CMD_SEND_LOGIN/CMD_SEND_STATUS_REQ, so
-  // overlapping requests — even to different nodes — would cancel each other
-  // radio-side and leave the earlier waiter to time out. Each operation runs to
-  // completion (or failure) before the next begins.
+  private telemetryWaiters = new Map<string, PushWaiter<NodeTelemetry>>();
+  // Serializes the full login/status/telemetry handshake (the SENT receipt
+  // *and* the async push that follows). Current firmware retains only one
+  // pending remote request and clears it on each request command
+  // (`clearPendingReqs`), so overlapping requests — even to different nodes —
+  // would cancel each other radio-side and leave the earlier waiter to time
+  // out. Each operation runs to completion (or failure) before the next
+  // begins.
   private remoteChain: Promise<unknown> = Promise.resolve();
   // Serializes command/response exchanges: each cmd() waits for the previous to
   // settle before sending. The radio handles one exchange at a time, so this
@@ -564,6 +570,18 @@ export class MeshCoreClient {
         this.settlePush(this.statusWaiters, status.pubkeyPrefix, status);
       return;
     }
+    if (type === RESP.PUSH_TELEMETRY_RESPONSE) {
+      // A node answered a telemetry request; resolve the matching waiter with
+      // its decoded readings.
+      const telemetry = parseTelemetryResponse(d);
+      if (telemetry)
+        this.settlePush(
+          this.telemetryWaiters,
+          telemetry.pubkeyPrefix,
+          telemetry,
+        );
+      return;
+    }
 
     if (this.collectingContacts) {
       if (type === RESP.CONTACTS_START) {
@@ -875,6 +893,23 @@ export class MeshCoreClient {
       this.statusWaiters,
       contact.pubkeyBytes,
       buildSendStatusReq(contact.pubkeyBytes),
+    );
+  }
+
+  /**
+   * Requests a node's sensor telemetry. Same `SENT` → async-push handshake as
+   * {@link requestStatus}, resolving the {@link NodeTelemetry} decoded from
+   * `PUSH_TELEMETRY_RESPONSE`, but open to any node — no login required.
+   *
+   * @remarks The target's own `telemetry_mode` permissions decide what it
+   * discloses, so a successful request can still resolve with no readings.
+   * @throws if the radio answers `ERR`, or no telemetry push arrives in time.
+   */
+  async requestTelemetry(contact: Contact): Promise<NodeTelemetry> {
+    return this.remoteRequest(
+      this.telemetryWaiters,
+      contact.pubkeyBytes,
+      buildSendTelemetryReq(contact.pubkeyBytes),
     );
   }
 
@@ -1485,9 +1520,9 @@ export class MeshCoreClient {
     return promise;
   }
 
-  // Resolves the login/status waiter matching an inbound push's pubkey prefix.
-  // A push with no pending waiter is dropped (a stray or duplicate reply),
-  // mirroring meshcore.js.
+  // Resolves the login/status/telemetry waiter matching an inbound push's
+  // pubkey prefix. A push with no pending waiter is dropped (a stray or
+  // duplicate reply), mirroring meshcore.js.
   //
   // Matching is best-effort by prefix only: the wire push carries nothing that
   // ties it to a specific request instance. If a request times out (or a push
@@ -1507,11 +1542,12 @@ export class MeshCoreClient {
     w.resolve(value);
   }
 
-  // Rejects every pending login/status push waiter on teardown so callers
-  // awaiting a repeater reply unwind with the link error instead of hanging
-  // until their derived timeout.
+  // Rejects every pending login/status/telemetry push waiter on teardown so
+  // callers awaiting a remote reply unwind with the link error instead of
+  // hanging until their derived timeout.
   private rejectPushWaiters(err: Error): void {
-    for (const waiters of [this.loginWaiters, this.statusWaiters]) {
+    const all = [this.loginWaiters, this.statusWaiters, this.telemetryWaiters];
+    for (const waiters of all) {
       for (const w of waiters.values()) {
         if (w.timer) clearTimeout(w.timer);
         w.reject(err);

@@ -28,7 +28,41 @@
   "units": {
     "dbm": "{{value}} dBm",
     "kb": "{{value}} KB",
-    "percent": "{{value}}%"
+    "percent": "{{value}}%",
+    "celsius": "{{value}} °C",
+    "fahrenheit": "{{value}} °F",
+    "meters": "{{value}} m",
+    "feet": "{{value}} ft",
+    "watts": "{{value}} W",
+    "hectopascals": "{{value}} hPa",
+    "lux": "{{value}} lx"
+  },
+  "telemetry": {
+    "title": "Telemetry",
+    "prompt": "Ask this node for its sensor readings.",
+    "offline": "Connect to a radio to read telemetry.",
+    "reading": "Reading telemetry…",
+    "none": "This node reported no readings.",
+    "lastRead": "Read {{time}}",
+    "channelSelf": "Node",
+    "channel": "Sensor {{index}}",
+    "on": "On",
+    "off": "Off",
+    "kind": {
+      "digitalInput": "Digital input",
+      "digitalOutput": "Digital output",
+      "luminosity": "Luminosity",
+      "presence": "Presence",
+      "temperature": "Temperature",
+      "humidity": "Humidity",
+      "pressure": "Pressure",
+      "voltage": "Voltage",
+      "current": "Current",
+      "percentage": "Level",
+      "altitude": "Altitude",
+      "power": "Power",
+      "gps": "Position"
+    }
   },
   "header": {
     "connecting": "Connecting…",
@@ -568,6 +602,7 @@
     "tabs": {
       "posts": "Posts",
       "status": "Status",
+      "telemetry": "Telemetry",
       "config": "Config",
       "neighbors": "Neighbors",
       "console": "Console"
@@ -1095,6 +1130,7 @@
     "rebootFailed": "Failed to reboot: {{error}}",
     "repeaterLoginFailed": "Login failed: {{error}}",
     "repeaterStatusFailed": "Failed to fetch status: {{error}}",
+    "telemetryFailed": "Failed to fetch telemetry: {{error}}",
     "repeaterCliFailed": "Failed to send command: {{error}}",
     "repeaterCliNoReply": "Command sent, but the node didn't reply in time.",
     "repeaterConfigError": "Node rejected the change: {{error}}",

@@ -12,6 +12,7 @@ import { ModalShell } from './ModalShell';
 import { CopyButton } from './CopyButton';
 import { HintToken } from './MessageBubble';
 import { ShareCard } from './ShareCard';
+import { TelemetryPanel } from './TelemetryPanel';
 import {
   ADV_ICON,
   ADV_LABEL_KEY,
@@ -250,6 +251,13 @@ function ManagePanelView() {
             {distance && (
               <DetailRow label={t('manage.distance')} value={distance} />
             )}
+          </div>
+
+          <div className='mt-6 border-t border-border pt-4'>
+            <h3 className='mb-2 text-sm font-semibold text-text'>
+              {t('telemetry.title')}
+            </h3>
+            <TelemetryPanel contact={contact} />
           </div>
 
           {confirming ? (

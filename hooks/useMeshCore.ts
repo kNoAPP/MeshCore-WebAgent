@@ -955,6 +955,7 @@ export function useMeshCore() {
     addCliPending,
     setAdminLogin,
     setRepeaterStatus,
+    setNodeTelemetry,
     setActiveConvo,
     setDraft,
     showToast,
@@ -1699,6 +1700,33 @@ export function useMeshCore() {
   );
 
   /**
+   * Requests a node's sensor telemetry and caches the decoded readings. Open
+   * to any contact — unlike {@link repeaterStatus} it needs no admin login.
+   */
+  const requestTelemetry = useCallback(
+    async (contact: Contact) => {
+      if (!canTransmit(client)) return;
+      try {
+        const telemetry = await client.requestTelemetry(contact);
+        // Skip a stale update if the link dropped mid-request.
+        if (!canTransmit(client)) return;
+        setNodeTelemetry(contact.pubkeyPrefix, telemetry.readings);
+      } catch (err) {
+        // A disconnect rejects the in-flight request; its teardown owns the
+        // user-facing toast, so suppress this stale operation error.
+        if (!canTransmit(client)) return;
+        showToast(
+          i18n.t('toast.telemetryFailed', {
+            error: (err as Error).message,
+          }),
+          'error',
+        );
+      }
+    },
+    [client, setNodeTelemetry, showToast],
+  );
+
+  /**
    * Sends a CLI command to a repeater and resolves with its reply text, for the
    * structured Config editor's `get`/`set` round-trips. Echoes the sent line to
    * the transcript (so the console tab sees it too), then registers the waiter
@@ -2385,6 +2413,7 @@ export function useMeshCore() {
     toggleFavorite,
     repeaterLogin,
     repeaterStatus,
+    requestTelemetry,
     repeaterCli,
     repeaterCliRequest,
     clearRepeaterCli,

@@ -15,6 +15,7 @@ import type {
   RawRxPacket,
   RepeaterStatus,
   RepeaterAccess,
+  NodeTelemetry,
 } from '@/types/meshcore';
 import {
   ROUTE_TYPE_FLOOD,
@@ -24,6 +25,7 @@ import {
   PERM_ACL_ADMIN,
   PERM_ACL_READ_WRITE,
 } from './constants';
+import { decodeCayenneLpp } from './cayenneLpp';
 import { toHex } from '@/lib/utils';
 
 // Decoders for inbound frame payloads → typed objects. Each takes the full
@@ -504,6 +506,27 @@ export function parseStatusResponse(d: Uint8Array): RepeaterStatus | null {
   if (d.length >= 60) status.totalRxAirTimeSecs = v.getUint32(56, true);
   if (d.length >= 64) status.nRecvErrors = v.getUint32(60, true);
   return status;
+}
+
+/**
+ * Parses a `PUSH_TELEMETRY_RESPONSE` (`0x8b`) into a node's decoded sensor
+ * readings.
+ *
+ * @remarks
+ * Frame: `[code] reserved(1) pubkey_prefix(6) <CayenneLPP blob>`. The blob is
+ * big-endian, unlike the little-endian structs elsewhere in this protocol, and
+ * is decoded by {@link decodeCayenneLpp}. A frame carrying only the prefix is
+ * a legitimate empty answer from a node whose telemetry permissions disclose
+ * nothing, so it yields an empty `readings` rather than null.
+ * @returns null only if the frame is too short to identify the node it came
+ * from.
+ */
+export function parseTelemetryResponse(d: Uint8Array): NodeTelemetry | null {
+  if (d.length < 8) return null;
+  return {
+    pubkeyPrefix: hexBytes(d, 2, 8),
+    readings: decodeCayenneLpp(d.subarray(8)),
+  };
 }
 
 /**

@@ -18,6 +18,7 @@ import type {
   SyncProgress,
   RepeaterStatus,
   RepeaterAccess,
+  TelemetryReading,
   StatsResult,
   TransportKind,
 } from '@/types/meshcore';
@@ -393,6 +394,20 @@ export interface AdminSession {
   neighbors?: Neighbor[];
 }
 
+/**
+ * One node's last telemetry reply. Unlike {@link AdminSession} this needs no
+ * login, so it is keyed by node rather than by session and survives a logout.
+ */
+export interface TelemetrySnapshot {
+  /** Decoded readings in wire order; empty when the node disclosed none. */
+  readings: TelemetryReading[];
+  /**
+   * Unix epoch seconds, from *this computer's* clock, when the reply arrived —
+   * the reply carries no timestamp, and reads only happen on a manual refresh.
+   */
+  readAt: number;
+}
+
 interface MeshState {
   // Connection
   client: MeshCoreClient | null;
@@ -619,6 +634,12 @@ interface MeshState {
    * to `{}` on disconnect.
    */
   adminSessions: Record<string, AdminSession>;
+  /**
+   * The last telemetry reply from each node, keyed by `pubkeyPrefix`, so the
+   * panel stays populated between refreshes instead of blanking. Ephemeral
+   * in-memory state (never persisted); reset to `{}` on disconnect.
+   */
+  telemetry: Record<string, TelemetrySnapshot>;
 }
 
 interface MeshActions {
@@ -781,6 +802,8 @@ interface MeshActions {
   clearCliLog: (prefix: string) => void;
   /** Drops a repeater's admin session entirely (e.g. on log out). */
   resetAdminSession: (prefix: string) => void;
+  /** Caches a node's decoded telemetry reply, stamped with the read time. */
+  setNodeTelemetry: (prefix: string, readings: TelemetryReading[]) => void;
   reset: () => void;
 }
 
@@ -843,6 +866,7 @@ const initialState: MeshState = {
   stagedActions: [],
   auditLog: [],
   adminSessions: {},
+  telemetry: {},
 };
 
 let toastSeq = 0;
@@ -1352,6 +1376,16 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       delete adminSessions[prefix];
       return { adminSessions };
     }),
+
+  setNodeTelemetry: (prefix, readings) =>
+    set((state) => ({
+      telemetry: {
+        ...state.telemetry,
+        // This computer's clock, not the node's: the reply carries no
+        // timestamp of its own, and the panel only ages it relatively.
+        [prefix]: { readings, readAt: Math.floor(Date.now() / 1000) },
+      },
+    })),
 
   reset: () =>
     set({

@@ -276,6 +276,53 @@ export interface RepeaterStatus {
 }
 
 /**
+ * The scalar quantities the CayenneLPP decoder surfaces, each in its SI base
+ * unit: `voltage` volts, `current` amps, `temperature` °C, `humidity` and
+ * `percentage` percent, `pressure` hPa, `luminosity` lux, `power` watts,
+ * `altitude` meters. `presence` and the two digital kinds are 0/1 flags.
+ */
+export type TelemetryScalarKind =
+  | 'digitalInput'
+  | 'digitalOutput'
+  | 'luminosity'
+  | 'presence'
+  | 'temperature'
+  | 'humidity'
+  | 'pressure'
+  | 'voltage'
+  | 'current'
+  | 'percentage'
+  | 'altitude'
+  | 'power';
+
+/**
+ * One decoded CayenneLPP record. `channel` is the node's LPP data channel — `1`
+ * (`TELEM_CHANNEL_SELF`) is the node itself, higher channels are its attached
+ * sensors — so a node with two thermometers reports the same `kind` twice.
+ */
+export type TelemetryReading =
+  | { channel: number; kind: TelemetryScalarKind; value: number }
+  | {
+      channel: number;
+      kind: 'gps';
+      /** Decimal degrees, to the format's 0.0001° resolution. */
+      lat: number;
+      lon: number;
+      altMeters: number;
+    };
+
+/**
+ * A node's telemetry from a `PUSH_TELEMETRY_RESPONSE` (`0x8b`), decoded by
+ * `parseTelemetryResponse`. An empty `readings` is a valid answer: the target's
+ * `telemetry_mode` permissions may disclose nothing to this requester.
+ */
+export interface NodeTelemetry {
+  /** 6-byte public-key prefix (hex) of the node that answered. */
+  pubkeyPrefix: string;
+  readings: TelemetryReading[];
+}
+
+/**
  * Access level a repeater/room server grants a login, decoded from the ACL role
  * bits of the `PUSH_LOGIN_SUCCESS` permissions byte. The server — not the
  * client — decides this from the password it accepted, so it is authoritative.

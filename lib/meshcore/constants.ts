@@ -51,6 +51,19 @@ export const CMD = {
   GET_CHANNEL_INFO: 0x1f,
   SET_CHANNEL: 0x20,
   SET_OTHER_PARAMS: 0x26,
+  /**
+   * Asks another node for its sensor telemetry:
+   * `[0x27][3 reserved][32-byte pubkey]`. The radio replies `SENT`, then
+   * pushes {@link RESP.PUSH_TELEMETRY_RESPONSE} with the node's CayenneLPP
+   * blob once it answers. Unlike {@link CMD.SEND_STATUS_REQ} this needs no
+   * login — the target decides what to disclose from its own `telemetry_mode`
+   * permissions.
+   *
+   * @see `CMD_SEND_TELEMETRY_REQ` (39) in the firmware's
+   * `examples/companion_radio/MyMesh.cpp`, which dispatches it as a
+   * `REQ_TYPE_GET_TELEMETRY_DATA` request packet.
+   */
+  SEND_TELEMETRY_REQ: 0x27,
   GET_CUSTOM_VARS: 0x28,
   SET_CUSTOM_VAR: 0x29,
   GET_STATS: 0x38,
@@ -132,6 +145,17 @@ export const RESP = {
   PUSH_STATUS_RESPONSE: 0x87,
   PUSH_LOG_RX_DATA: 0x88,
   PUSH_NEW_ADVERT: 0x8a,
+  /**
+   * Push carrying a node's telemetry in response to
+   * {@link CMD.SEND_TELEMETRY_REQ}:
+   * `[0x8b][reserved][6-byte pubkey prefix][CayenneLPP blob]`. Decoded by
+   * `parseTelemetryResponse`. The blob is **big-endian**, unlike every other
+   * field in this protocol.
+   *
+   * @see `PUSH_CODE_TELEMETRY_RESPONSE` in the firmware's
+   * `examples/companion_radio/MyMesh.cpp` (`onContactResponse`).
+   */
+  PUSH_TELEMETRY_RESPONSE: 0x8b,
   /**
    * Push announcing the radio evicted a contact: `[0x8f][32-byte pubkey]`.
    * Emitted when auto-add's "overwrite oldest" mode
@@ -367,6 +391,13 @@ export const ADV_TYPE_REPEATER = 2;
 export const ADV_TYPE_ROOM = 3;
 /** {@link Contact.advType} value for a sensor node. */
 export const ADV_TYPE_SENSOR = 4;
+/**
+ * CayenneLPP data channel a node reports its *own* readings on (battery
+ * voltage, MCU temperature); attached sensors are assigned channels above it.
+ *
+ * @see `TELEM_CHANNEL_SELF` in the firmware's `src/helpers/SensorManager.h`.
+ */
+export const TELEM_CHANNEL_SELF = 1;
 /**
  * {@link Contact.outPathLen} sentinel: no route known, so messages flood the
  * mesh.

@@ -29,7 +29,41 @@
     "dbm": "{{value}} dBm",
     "kb": "{{value}} KB",
     "percent": "{{value}} %",
-    "seconds": "s"
+    "seconds": "s",
+    "celsius": "{{value}} °C",
+    "fahrenheit": "{{value}} °F",
+    "meters": "{{value}} m",
+    "feet": "{{value}} ft",
+    "watts": "{{value}} W",
+    "hectopascals": "{{value}} hPa",
+    "lux": "{{value}} lx"
+  },
+  "telemetry": {
+    "title": "Telemetría",
+    "prompt": "Pide a este nodo sus lecturas de sensores.",
+    "offline": "Conéctate a una radio para leer la telemetría.",
+    "reading": "Leyendo telemetría…",
+    "none": "Este nodo no ha comunicado lecturas.",
+    "lastRead": "Leído {{time}}",
+    "channelSelf": "Nodo",
+    "channel": "Sensor {{index}}",
+    "on": "Activo",
+    "off": "Inactivo",
+    "kind": {
+      "digitalInput": "Entrada digital",
+      "digitalOutput": "Salida digital",
+      "luminosity": "Luminosidad",
+      "presence": "Presencia",
+      "temperature": "Temperatura",
+      "humidity": "Humedad",
+      "pressure": "Presión",
+      "voltage": "Tensión",
+      "current": "Corriente",
+      "percentage": "Nivel",
+      "altitude": "Altitud",
+      "power": "Potencia",
+      "gps": "Posición"
+    }
   },
   "header": {
     "connecting": "Conectando…",
@@ -569,6 +603,7 @@
     "tabs": {
       "posts": "Publicaciones",
       "status": "Estado",
+      "telemetry": "Telemetría",
       "config": "Configuración",
       "neighbors": "Vecinos",
       "console": "Consola"
@@ -1096,6 +1131,7 @@
     "rebootFailed": "Error al reiniciar: {{error}}",
     "repeaterLoginFailed": "Error al iniciar sesión: {{error}}",
     "repeaterStatusFailed": "Error al obtener el estado: {{error}}",
+    "telemetryFailed": "Error al obtener la telemetría: {{error}}",
     "repeaterCliFailed": "Error al enviar el comando: {{error}}",
     "repeaterCliNoReply": "Comando enviado, pero el nodo no respondió a tiempo.",
     "repeaterConfigError": "El nodo rechazó el cambio: {{error}}",

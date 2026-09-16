@@ -29,7 +29,41 @@
     "dbm": "{{value}} dBm",
     "kb": "{{value}} Ko",
     "percent": "{{value}} %",
-    "seconds": "s"
+    "seconds": "s",
+    "celsius": "{{value}} °C",
+    "fahrenheit": "{{value}} °F",
+    "meters": "{{value}} m",
+    "feet": "{{value}} ft",
+    "watts": "{{value}} W",
+    "hectopascals": "{{value}} hPa",
+    "lux": "{{value}} lx"
+  },
+  "telemetry": {
+    "title": "Télémétrie",
+    "prompt": "Demander à ce nœud ses relevés de capteurs.",
+    "offline": "Connectez-vous à une radio pour lire la télémétrie.",
+    "reading": "Lecture de la télémétrie…",
+    "none": "Ce nœud n'a communiqué aucun relevé.",
+    "lastRead": "Lu {{time}}",
+    "channelSelf": "Nœud",
+    "channel": "Capteur {{index}}",
+    "on": "Actif",
+    "off": "Inactif",
+    "kind": {
+      "digitalInput": "Entrée numérique",
+      "digitalOutput": "Sortie numérique",
+      "luminosity": "Luminosité",
+      "presence": "Présence",
+      "temperature": "Température",
+      "humidity": "Humidité",
+      "pressure": "Pression",
+      "voltage": "Tension",
+      "current": "Courant",
+      "percentage": "Niveau",
+      "altitude": "Altitude",
+      "power": "Puissance",
+      "gps": "Position"
+    }
   },
   "header": {
     "connecting": "Connexion…",
@@ -569,6 +603,7 @@
     "tabs": {
       "posts": "Publications",
       "status": "État",
+      "telemetry": "Télémétrie",
       "config": "Configuration",
       "neighbors": "Voisins",
       "console": "Console"
@@ -1096,6 +1131,7 @@
     "rebootFailed": "Échec du redémarrage : {{error}}",
     "repeaterLoginFailed": "Échec de la connexion : {{error}}",
     "repeaterStatusFailed": "Échec de la récupération du statut : {{error}}",
+    "telemetryFailed": "Échec de la récupération de la télémétrie : {{error}}",
     "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}",
     "repeaterCliNoReply": "Commande envoyée, mais le nœud n’a pas répondu à temps.",
     "repeaterConfigError": "Le nœud a rejeté la modification : {{error}}",

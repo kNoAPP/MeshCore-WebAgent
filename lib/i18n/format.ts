@@ -4,6 +4,7 @@
 import i18n from '@/lib/i18n';
 import { bearingDeg, compassKey, haversineKm, microToDeg } from '@/lib/utils';
 import { NO_PATH } from '@/lib/meshcore/constants';
+import type { TelemetryReading } from '@/types/meshcore';
 import {
   DEFAULT_UNIT_SYSTEM,
   MILES_PER_KM,
@@ -281,4 +282,63 @@ export function formatRatePercent(
   if (!Number.isFinite(part) || !Number.isFinite(whole)) return NO_VALUE;
   if (part == null || whole == null || whole <= 0) return NO_VALUE;
   return formatPercent((part / whole) * 100, digits);
+}
+
+/** Feet per meter, for rendering telemetry altitudes in imperial units. */
+const FEET_PER_METER = 3.28084;
+
+/**
+ * Formats one decoded telemetry reading as a display value with its unit.
+ *
+ * @param reading - a CayenneLPP record decoded by `decodeCayenneLpp`; the
+ * scalar kinds arrive in SI base units.
+ * @param unitSystem - measurement system for the kinds that have one
+ * (temperature, altitude); defaults to {@link DEFAULT_UNIT_SYSTEM}. Every
+ * other kind is unit-neutral.
+ * @returns the localized value, e.g. `21.4 °C` / `70.5 °F`, `62%`, `4.28 V`,
+ * or `47.6062, -122.3321` with the altitude appended for a GPS fix.
+ */
+export function formatTelemetryValue(
+  reading: TelemetryReading,
+  unitSystem: UnitSystem = DEFAULT_UNIT_SYSTEM,
+): string {
+  const imperial = unitSystem === 'imperial';
+  if (reading.kind === 'gps') {
+    // A dot decimal and no digit grouping: the pair is comma-separated, so a
+    // locale comma decimal would be ambiguous (same rule as `formatLatLon`).
+    const coords = `${reading.lat.toFixed(4)}, ${reading.lon.toFixed(4)}`;
+    const alt = imperial
+      ? i18n.t('units.feet', {
+          value: fixed(reading.altMeters * FEET_PER_METER, 0),
+        })
+      : i18n.t('units.meters', { value: fixed(reading.altMeters, 0) });
+    return `${coords} · ${alt}`;
+  }
+  const v = reading.value;
+  switch (reading.kind) {
+    case 'temperature':
+      return imperial
+        ? i18n.t('units.fahrenheit', { value: fixed(v * 1.8 + 32, 1) })
+        : i18n.t('units.celsius', { value: fixed(v, 1) });
+    case 'altitude':
+      return imperial
+        ? i18n.t('units.feet', { value: fixed(v * FEET_PER_METER, 0) })
+        : i18n.t('units.meters', { value: fixed(v, 0) });
+    case 'humidity':
+    case 'percentage':
+      return formatPercent(v, 1);
+    case 'voltage':
+      return `${fixed(v, 2)} V`;
+    case 'current':
+      return `${fixed(v, 3)} A`;
+    case 'power':
+      return i18n.t('units.watts', { value: fixed(v, 0) });
+    case 'pressure':
+      return i18n.t('units.hectopascals', { value: fixed(v, 1) });
+    case 'luminosity':
+      return i18n.t('units.lux', { value: v.toLocaleString(i18n.language) });
+    // The three flag kinds are 0/1 on the wire, so they read as a state.
+    default:
+      return i18n.t(v ? 'telemetry.on' : 'telemetry.off');
+  }
 }
