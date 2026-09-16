@@ -11,7 +11,7 @@ description: >
 license: Proprietary. See LICENSE for complete terms.
 metadata:
   author: kNoAPP
-  version: '1.5.0'
+  version: '1.6.0'
 ---
 
 # Pull Request Requirements
@@ -81,40 +81,36 @@ Capture the pair with the chrome-devtools MCP server:
 Frame both shots identically so the diff is obvious, one pair per distinct
 surface you changed, and write them to a scratch path such as `.git/shots/`.
 
-Host them on a throwaway asset branch so nothing ships in the diff. The branch
-is named after the PR, so this happens **after** `gh pr create` — capture the
-images first, open the PR, then host and link them and re-upload the body. Build
-it in a separate worktree — an orphan branch in the current worktree leaves
-every tracked file untracked and can strand you there:
+Upload them with `gh`'s `--attach` flag, which posts the files to GitHub's
+`user-attachments` CDN exactly like the web UI's drag-and-drop — no asset
+branch, no worktree, nothing in the diff. It requires **`gh` 2.99.0 or newer**
+(`gh --version`; `winget upgrade --id GitHub.cli` on Windows).
 
-```bash
-PR=$(gh pr view --json number --jq .number)
-SHOT_BRANCH=assets/pr-$PR
-# --orphan modifies `add`; the branch name comes from -b (verified, git 2.54).
-git worktree add --orphan -b "$SHOT_BRANCH" ../shots-worktree
-cp .git/shots/*.png ../shots-worktree/
-git -C ../shots-worktree add -A
-git -C ../shots-worktree commit -m "chore: add PR $PR screenshots"
-git -C ../shots-worktree push -u origin "$SHOT_BRANCH"
-git worktree remove ../shots-worktree
-```
-
-Your PR branch stays checked out and untouched throughout. To refresh the images
-later the branch already exists, so check it out instead of creating it:
-`git worktree add ../shots-worktree "$SHOT_BRANCH"`.
-
-Then reference them from the body file and re-upload the whole body with
-`gh pr edit "$PR" --body-file .git/PR_BODY.md`:
+Write the body file with ordinary **local** paths, then pass the same paths to
+`--attach`. `gh` rewrites each matching reference in place to the uploaded URL
+and keeps the alt text:
 
 ```md
-| Before                                                                                                 | After                                                                                                |
-| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| ![before](https://raw.githubusercontent.com/kNoAPP/MeshCore-WebAgent/assets/pr-123/before-sidebar.png) | ![after](https://raw.githubusercontent.com/kNoAPP/MeshCore-WebAgent/assets/pr-123/after-sidebar.png) |
+| Before                                   | After                                  |
+| ---------------------------------------- | -------------------------------------- |
+| ![before](.git/shots/before-sidebar.png) | ![after](.git/shots/after-sidebar.png) |
 ```
 
+```bash
+gh pr create --title "..." --body-file .git/PR_BODY.md \
+  --attach .git/shots/before-sidebar.png \
+  --attach .git/shots/after-sidebar.png
+```
+
+The flag also works on `gh pr edit`, `gh pr comment`, and the `gh issue`
+equivalents, so a later refresh is
+`gh pr edit "$PR" --body-file .git/PR_BODY.md --attach ...` with the body file's
+local paths restored. Any attached file the body does not reference is appended
+to the end instead.
+
 Never commit screenshots to the working branch, to `public/`, or anywhere the
-static export would pick them up. Edit the body file and re-upload it; never
-round-trip a PR body through PowerShell (see
+static export would pick them up. Always edit the body file and re-upload it;
+never round-trip a PR body through PowerShell (see
 `/memories/repo/pr-workflow-windows.md`). Open the rendered PR page afterwards
 to confirm both images load — a broken image is worse than none.
 
