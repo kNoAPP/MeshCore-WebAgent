@@ -513,14 +513,18 @@ export function BaseLeafletMap({
         // would be a dead stop for the keyboard.
         bubblingMouseEvents: inert,
         keyboard: !inert,
-        // Leaflet puts this on the container, which is what names the button
-        // it makes of an interactive marker.
-        title: inert ? undefined : name,
+        // Leaflet puts this on the container, which is what names the button it
+        // makes of an interactive marker. A labeled marker already carries its
+        // name as text, so the button is named from its contents instead and a
+        // native tooltip would only repeat what is on screen.
+        title: inert || labeled ? undefined : name,
       }) as NodeMarker;
       // Read back by the cluster glyph, which colors itself after its
       // children when they all share a category.
       marker.meshNode = node;
-      marker.bindTooltip(escapeHtml(name), { direction: 'top' });
+      // The name is either drawn beside the glyph or offered on hover, never
+      // both.
+      if (!labeled) marker.bindTooltip(escapeHtml(name), { direction: 'top' });
       if (!inert) {
         marker.on('click', () => {
           if (!renderPopupRef.current) {
