@@ -54,6 +54,10 @@ const AUDIT_LOG_LIMIT = 200;
 
 const CLI_LOG_LIMIT = 200;
 
+// Deliberately far shorter than the transcript: the console's ↑/↓ buffer is for
+// re-running the last few commands, not for auditing the session.
+const CLI_HISTORY_LIMIT = 50;
+
 // Fresh token per session, so a queued CLI command can tell whether the session
 // it was enqueued under is still the current one.
 let adminSessionSeq = 0;
@@ -358,6 +362,14 @@ export interface AdminSession {
    */
   statusAt?: number;
   cli: CliLine[];
+  /**
+   * Commands the user submitted at this repeater's console, oldest first and
+   * capped at {@link CLI_HISTORY_LIMIT}. Session state rather than console
+   * state so the ↑/↓ buffer survives switching tabs, and ephemeral like the
+   * rest of the session — a command line can carry a password, so it must not
+   * outlive the login that typed it.
+   */
+  cliHistory?: string[];
   /**
    * How many CLI commands are outstanding for this repeater — queued or
    * awaiting a reply. Session state rather than console-component state, so
@@ -747,6 +759,12 @@ interface MeshActions {
   mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
   appendCliLine: (prefix: string, line: CliLine) => void;
+  /**
+   * Records a command the user submitted at a repeater's console into its
+   * ↑/↓ history. A repeat of the newest entry is folded into it rather than
+   * stored twice, so re-running one command doesn't push the rest out.
+   */
+  pushCliHistory: (prefix: string, cmd: string) => void;
   /**
    * Adjusts a repeater's outstanding CLI command count by {@link delta} (`1`
    * when one is enqueued, `-1` when it settles). Applied only while the
@@ -1263,6 +1281,24 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
           [prefix]: {
             ...session,
             cli: [...session.cli, line].slice(-CLI_LOG_LIMIT),
+          },
+        },
+      };
+    }),
+  pushCliHistory: (prefix, cmd) =>
+    set((state) => {
+      const session = state.adminSessions[prefix];
+      // No session means no console to have typed at; a history entry would
+      // have nowhere to live and nothing to clear it.
+      if (!session) return {};
+      const history = session.cliHistory ?? [];
+      if (history[history.length - 1] === cmd) return {};
+      return {
+        adminSessions: {
+          ...state.adminSessions,
+          [prefix]: {
+            ...session,
+            cliHistory: [...history, cmd].slice(-CLI_HISTORY_LIMIT),
           },
         },
       };

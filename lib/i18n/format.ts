@@ -195,6 +195,16 @@ export function formatAirtime(secs: number): string {
 }
 
 /**
+ * Formats a command's round-trip time in milliseconds for the repeater
+ * console: whole `ms` under a second, then one-decimal `s`. Unit symbols are
+ * not translated.
+ */
+export function formatRoundTrip(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms).toLocaleString(i18n.language)} ms`;
+  return `${fixed(ms / 1000, 1)} s`;
+}
+
+/**
  * Formats a signal-to-noise ratio in dB with a locale-aware two-decimal value
  * and an explicit `+` for positive readings, e.g. `+5.25 dB` / `-3.00 dB`. The
  * `dB` symbol is not translated.
