@@ -152,6 +152,7 @@ export function useCommandSearch(query: string): CommandGroup[] {
   const unitSystem = useMeshStore((s) => s.unitSystem);
   const activeConvo = useMeshStore((s) => s.activeConvo);
   const adminSessions = useMeshStore((s) => s.adminSessions);
+  const advertising = useMeshStore((s) => s.advertising);
 
   // Rebuild indexes only when the underlying slices (or language, which drives
   // fallback labels) change — not on every keystroke.
@@ -272,7 +273,12 @@ export function useCommandSearch(query: string): CommandGroup[] {
   // The radio-wide verbs, which are also what the empty-query launcher offers.
   const radioActionRecords = useMemo<ActionRecord[]>(
     () =>
-      ACTION_TARGETS.map((target) => ({
+      ACTION_TARGETS.filter(
+        // A broadcast in flight disables the header's advertise control, and
+        // the same lock would swallow this one. Offering a row that does
+        // nothing is worse than not offering it.
+        (target) => !(advertising && target.run.kind === 'advertise'),
+      ).map((target) => ({
         id: `action:${target.id}`,
         label: t(`command.action.${target.id}`),
         keywords: t(`command.actionKeywords.${target.id}`),
@@ -280,7 +286,7 @@ export function useCommandSearch(query: string): CommandGroup[] {
         action: { type: 'run', run: target.run },
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [language],
+    [language, advertising],
   );
 
   // Switching to the value that is already active is a no-op, so only the

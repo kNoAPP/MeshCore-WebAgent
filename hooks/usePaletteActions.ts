@@ -4,10 +4,11 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useMeshStore } from '@/store/meshStore';
+import { useMeshStore, isAuthedLogin } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
 import { clearRepeaterCred } from '@/lib/meshcore/adminCreds';
+import { NO_PATH } from '@/lib/meshcore/constants';
 import type { PaletteAction } from '@/lib/search/commandSearch';
 
 /**
@@ -15,8 +16,11 @@ import type { PaletteAction } from '@/lib/search/commandSearch';
  * function the rest of the app already uses for that verb, so the command
  * palette is a second entry point and never a second implementation.
  *
- * @returns a runner that performs the action; a contact-scoped verb whose
- * contact has since left the radio's table is a no-op.
+ * Results are indexed from a snapshot, so every precondition the index checked
+ * is checked again here: a verb whose target has changed under an open palette
+ * — a removed contact, a route that has since been cleared, an admin session
+ * that has ended — is a no-op rather than a command the owning UI would no
+ * longer offer.
  */
 export function usePaletteActions(): (action: PaletteAction) => void {
   const { advertise, sending } = useAdvertise();
@@ -28,6 +32,7 @@ export function usePaletteActions(): (action: PaletteAction) => void {
     repeaterStatus,
   } = useMeshCore();
   const contacts = useMeshStore((s) => s.contacts);
+  const adminSessions = useMeshStore((s) => s.adminSessions);
   const theme = useMeshStore((s) => s.theme);
   const setTheme = useMeshStore((s) => s.setTheme);
   const setLocale = useMeshStore((s) => s.setLocale);
@@ -42,8 +47,10 @@ export function usePaletteActions(): (action: PaletteAction) => void {
     (action: PaletteAction): void => {
       switch (action.kind) {
         case 'advertise':
-          // Same busy lock the header's advertise menu gates on, so the palette
-          // can't queue a second broadcast over one still in flight.
+          // Backstop for the window between indexing and activation: the rows
+          // are already filtered out while `advertising` is set, and the
+          // header's menu is disabled, so nothing may queue a second broadcast
+          // over one still in flight.
           if (!sending) void advertise(action.flood);
           return;
         case 'disconnect':
@@ -72,7 +79,11 @@ export function usePaletteActions(): (action: PaletteAction) => void {
           return;
         case 'repeaterStatus': {
           const contact = contacts[action.prefix];
-          if (contact) void repeaterStatus(contact);
+          if (!contact) return;
+          // A status read needs the admin session the index saw; it may have
+          // ended (logged out, session reset) since.
+          if (!isAuthedLogin(adminSessions[action.prefix]?.login)) return;
+          void repeaterStatus(contact);
           return;
         }
         case 'repeaterLogOut':
@@ -81,7 +92,10 @@ export function usePaletteActions(): (action: PaletteAction) => void {
           return;
         case 'contactResetRoute': {
           const contact = contacts[action.prefix];
-          if (contact) void resetContactPath(contact);
+          // The route may have been cleared since the row was indexed, which is
+          // when the owning UI stops offering the verb.
+          if (!contact || contact.outPathLen === NO_PATH) return;
+          void resetContactPath(contact);
           return;
         }
         case 'contactFavorite': {
@@ -107,6 +121,7 @@ export function usePaletteActions(): (action: PaletteAction) => void {
       toggleFavorite,
       repeaterStatus,
       contacts,
+      adminSessions,
       theme,
       setTheme,
       setLocale,
