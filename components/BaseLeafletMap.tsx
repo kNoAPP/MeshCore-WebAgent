@@ -17,6 +17,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { useMeshStore } from '@/store/meshStore';
+import { TABBABLE } from '@/hooks/useFocusTrap';
 import {
   clusterIcon,
   escapeHtml,
@@ -593,6 +594,17 @@ export function BaseLeafletMap({
     popupRef.current = popup;
     popupKeyRef.current = popupKey;
     popup.openOn(map);
+
+    // `openOn` only mounts the popup. Without this, a node list row that opened
+    // it keeps focus, and Tab walks the rest of the list before ever reaching
+    // the popup's own actions — which sit far away in the map's popup pane.
+    // `popupOpenerRef` hands focus back to that row when the popup closes.
+    const first =
+      popupHost.querySelector<HTMLElement>(TABBABLE) ??
+      popup
+        .getElement()
+        ?.querySelector<HTMLElement>('.leaflet-popup-close-button');
+    first?.focus({ preventScroll: true });
 
     // A node selected from outside the map has no marker to click, and may
     // still be inside a collapsed cluster — leaving the popup pointing at a

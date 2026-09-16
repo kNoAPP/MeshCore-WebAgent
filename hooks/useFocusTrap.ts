@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 // Tabbable candidates inside a dialog. `[tabindex="-1"]` is excluded on
 // purpose: it marks programmatically-focusable elements such as the dialog
 // container itself, which must never be a Tab stop.
-const TABBABLE =
+export const TABBABLE =
   'a[href], button:not([disabled]), input:not([disabled]), ' +
   'select:not([disabled]), textarea:not([disabled]), ' +
   '[tabindex]:not([tabindex="-1"])';
