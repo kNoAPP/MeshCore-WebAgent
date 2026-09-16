@@ -10,10 +10,10 @@ import { LEGEND_CATEGORIES } from '@/lib/map/markers';
 import type { MapNode } from '@/lib/map/nodes';
 
 /**
- * Which of the plotted nodes the Map page is currently showing. Transient view
- * state, not a preference: it is deliberately not persisted per radio, so
- * opening the Map always starts from the whole mesh rather than from a filter
- * the operator set days ago and forgot.
+ * Which of the plotted nodes the Map page is showing. A per-radio preference:
+ * an operator who only ever cares about repeaters on one radio should not have
+ * to say so again every session, so it travels in that radio's encrypted
+ * preferences blob.
  */
 export interface MapFilters {
   /** Only favorited contacts are plotted. */
@@ -43,6 +43,34 @@ export const DEFAULT_MAP_FILTERS: MapFilters = {
   categories: LEGEND_CATEGORIES,
   heardWithinDays: null,
 };
+
+/**
+ * Normalizes an arbitrary (persisted or corrupt) value into valid
+ * {@link MapFilters}, so a tampered or half-written blob can only ever produce
+ * a filter the UI can render and undo.
+ */
+export function normalizeMapFilters(raw: unknown): MapFilters {
+  if (raw == null || typeof raw !== 'object') return DEFAULT_MAP_FILTERS;
+  const parsed = raw as Partial<MapFilters>;
+  const stored = parsed.categories;
+  const days = parsed.heardWithinDays;
+  return {
+    favoritesOnly: parsed.favoritesOnly === true,
+    // Rebuilt from the known set in legend order, so a duplicate, a junk entry
+    // or a category this build no longer has cannot survive the round trip. An
+    // empty array is a real state — every type hidden — so only a non-array
+    // falls back to showing them all.
+    categories: Array.isArray(stored)
+      ? LEGEND_CATEGORIES.filter((c) => stored.includes(c))
+      : DEFAULT_MAP_FILTERS.categories,
+    // Only the windows the slider can actually land on, or it would sit at a
+    // position that does not exist.
+    heardWithinDays:
+      typeof days === 'number' && HEARD_WITHIN_DAY_CHOICES.includes(days)
+        ? days
+        : null,
+  };
+}
 
 /** Whether {@link filters} hides anything at all. */
 export function filtersActive(filters: MapFilters): boolean {

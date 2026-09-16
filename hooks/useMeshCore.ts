@@ -1341,6 +1341,7 @@ export function useMeshCore() {
               state.autoAddConfig === prev.autoAddConfig &&
               state.automationEnabled === prev.automationEnabled &&
               state.mapPrefs === prev.mapPrefs &&
+              state.mapFilters === prev.mapFilters &&
               state.aiPref === prev.aiPref &&
               state.notifyPref === prev.notifyPref &&
               state.showFullPublicKeys === prev.showFullPublicKeys

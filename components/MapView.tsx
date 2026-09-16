@@ -11,11 +11,9 @@ import { useMeshStore } from '@/store/meshStore';
 import { useClockTick } from '@/hooks/useClockTick';
 import { collectMapNodes, selfMapNode, type MapNode } from '@/lib/map/nodes';
 import {
-  DEFAULT_MAP_FILTERS,
   filterMapNodes,
   filtersActive,
   toggleCategory,
-  type MapFilters,
 } from '@/lib/map/filters';
 import {
   DEFAULT_MAP_PREFS,
@@ -182,10 +180,10 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     [frame],
   );
 
-  // What the map is plotting. Transient view state: deliberately not persisted
-  // per radio, so opening the Map shows the whole mesh rather than a filter set
-  // days ago and forgotten.
-  const [filters, setFilters] = useState<MapFilters>(DEFAULT_MAP_FILTERS);
+  // What the map is plotting. A per-radio preference, so it survives the
+  // session; the node list's collapsed state stays transient UI.
+  const filters = useMeshStore((s) => s.mapFilters);
+  const setFilters = useMeshStore((s) => s.setMapFilters);
   const [listOpen, setListOpen] = useState(true);
   // The node list is a sibling of the map, so collapsing it (or hiding it for
   // location picking) changes the map's width. Leaflet caches the container
@@ -418,7 +416,7 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
           categories={{
             active: filters.categories,
             onToggle: (category) =>
-              setFilters((f) => toggleCategory(f, category)),
+              setFilters(toggleCategory(filters, category)),
           }}
         >
           <MapFilterControls filters={filters} onChange={setFilters} />
