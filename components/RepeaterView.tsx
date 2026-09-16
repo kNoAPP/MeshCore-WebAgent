@@ -45,6 +45,7 @@ import { StatCard } from './StatCard';
 import { RefreshButton } from './RefreshButton';
 import { RepeaterConfigTab } from './RepeaterConfigTab';
 import { RepeaterConsoleTab } from './RepeaterConsoleTab';
+import { TelemetryPanel } from './TelemetryPanel';
 import type {
   Contact,
   LoginKind,
@@ -70,7 +71,8 @@ function approxBatteryPercent(milliVolts: number): number {
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
-type RepeaterTab = 'posts' | 'status' | 'config' | 'neighbors' | 'console';
+type RepeaterTab =
+  'posts' | 'status' | 'telemetry' | 'config' | 'neighbors' | 'console';
 
 /**
  * The main-window view for a repeater or room server, shown in place of the
@@ -131,7 +133,10 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   const isRepeater = contact.advType === ADV_TYPE_REPEATER;
   const isRoom = contact.advType === ADV_TYPE_ROOM;
   const tabs = useMemo<RepeaterTab[]>(() => {
-    const list: RepeaterTab[] = isRoom ? ['posts', 'status'] : ['status'];
+    // Telemetry needs no login at all, so it sits beside Status for every role.
+    const list: RepeaterTab[] = isRoom
+      ? ['posts', 'status', 'telemetry']
+      : ['status', 'telemetry'];
     if (isAdmin) list.push('config');
     if (isAdmin && isRepeater) list.push('neighbors');
     if (isAdmin) list.push('console');
@@ -278,6 +283,11 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
                 dutyCycleLimit={dutyCycleLimit}
                 onRefresh={() => repeaterStatus(contact)}
               />
+            )}
+            {activeTab === 'telemetry' && (
+              <div className='mx-auto w-full max-w-6xl'>
+                <TelemetryPanel contact={contact} />
+              </div>
             )}
             {activeTab === 'config' && <RepeaterConfigTab contact={contact} />}
             {activeTab === 'neighbors' && <NeighborsTab contact={contact} />}

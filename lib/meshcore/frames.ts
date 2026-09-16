@@ -225,6 +225,26 @@ export function buildSendStatusReq(pubkey: Uint8Array): Uint8Array {
 }
 
 /**
+ * Builds a telemetry request for any node, as
+ * `[0x27][3 reserved][32-byte pubkey]`. Needs no login; the radio answers
+ * `SENT`, then pushes `PUSH_TELEMETRY_RESPONSE` once the target replies.
+ *
+ * @param pubkey - the target node's 32-byte public key.
+ * @remarks The three reserved bytes are not padding the firmware ignores: it
+ * gates this command on `len >= 4 + PUB_KEY_SIZE` and reads the key from
+ * offset 4, so a 33-byte frame matches neither that branch nor the `len == 4`
+ * "self telemetry" one, and is dropped without a reply.
+ * @see the `CMD_SEND_TELEMETRY_REQ` handler in the firmware's
+ * `examples/companion_radio/MyMesh.cpp`.
+ */
+export function buildSendTelemetryReq(pubkey: Uint8Array): Uint8Array {
+  const p = new Uint8Array(4 + 32);
+  p[0] = CMD.SEND_TELEMETRY_REQ;
+  p.set(pubkey.slice(0, 32), 4);
+  return p;
+}
+
+/**
  * Clears a contact's stored route so its next message floods to rediscover a
  * path.
  */

@@ -29,7 +29,41 @@
     "dbm": "{{value}} dBm",
     "kb": "{{value}} KB",
     "percent": "{{value}} %",
-    "seconds": "s"
+    "seconds": "s",
+    "celsius": "{{value}} °C",
+    "fahrenheit": "{{value}} °F",
+    "meters": "{{value}} m",
+    "feet": "{{value}} ft",
+    "watts": "{{value}} W",
+    "hectopascals": "{{value}} hPa",
+    "lux": "{{value}} lx"
+  },
+  "telemetry": {
+    "title": "Telemetrie",
+    "prompt": "Diesen Knoten nach seinen Sensorwerten fragen.",
+    "offline": "Mit einem Funkgerät verbinden, um Telemetrie zu lesen.",
+    "reading": "Telemetrie wird gelesen…",
+    "none": "Dieser Knoten hat keine Messwerte gemeldet.",
+    "lastRead": "Gelesen {{time}}",
+    "channelSelf": "Knoten",
+    "channel": "Sensor {{index}}",
+    "on": "Ein",
+    "off": "Aus",
+    "kind": {
+      "digitalInput": "Digitaleingang",
+      "digitalOutput": "Digitalausgang",
+      "luminosity": "Helligkeit",
+      "presence": "Anwesenheit",
+      "temperature": "Temperatur",
+      "humidity": "Luftfeuchtigkeit",
+      "pressure": "Luftdruck",
+      "voltage": "Spannung",
+      "current": "Stromstärke",
+      "percentage": "Füllstand",
+      "altitude": "Höhe",
+      "power": "Leistung",
+      "gps": "Position"
+    }
   },
   "header": {
     "connecting": "Verbinde…",
@@ -569,6 +603,7 @@
     "tabs": {
       "posts": "Beiträge",
       "status": "Status",
+      "telemetry": "Telemetrie",
       "config": "Konfiguration",
       "neighbors": "Nachbarn",
       "console": "Konsole"
@@ -1096,6 +1131,7 @@
     "rebootFailed": "Neustart fehlgeschlagen: {{error}}",
     "repeaterLoginFailed": "Anmeldung fehlgeschlagen: {{error}}",
     "repeaterStatusFailed": "Status konnte nicht abgerufen werden: {{error}}",
+    "telemetryFailed": "Telemetrie konnte nicht abgerufen werden: {{error}}",
     "repeaterCliFailed": "Befehl konnte nicht gesendet werden: {{error}}",
     "repeaterCliNoReply": "Befehl gesendet, aber der Knoten hat nicht rechtzeitig geantwortet.",
     "repeaterConfigError": "Knoten hat die Änderung abgelehnt: {{error}}",
