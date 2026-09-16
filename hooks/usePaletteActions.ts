@@ -16,14 +16,16 @@ import type { PaletteAction } from '@/lib/search/commandSearch';
  * function the rest of the app already uses for that verb, so the command
  * palette is a second entry point and never a second implementation.
  *
- * Results are indexed from a snapshot, so every precondition the index checked
- * is checked again here: a verb whose target has changed under an open palette
- * — a removed contact, a route that has since been cleared, an admin session
- * that has ended — is a no-op rather than a command the owning UI would no
- * longer offer.
+ * Every precondition the index checked is checked again here, against the store
+ * as it stands at dispatch rather than the render the row was built from: an
+ * action can be activated long after it was indexed, and one that opens a
+ * dialog runs later still. A verb whose target has moved on — a removed
+ * contact, a route already cleared, an admin session that has ended, a favorite
+ * flag the radio flipped — is a no-op rather than a command the owning UI would
+ * no longer offer.
  */
 export function usePaletteActions(): (action: PaletteAction) => void {
-  const { advertise, sending } = useAdvertise();
+  const { advertise } = useAdvertise();
   const {
     disconnect,
     rebootDevice,
@@ -31,27 +33,18 @@ export function usePaletteActions(): (action: PaletteAction) => void {
     toggleFavorite,
     repeaterStatus,
   } = useMeshCore();
-  const contacts = useMeshStore((s) => s.contacts);
-  const adminSessions = useMeshStore((s) => s.adminSessions);
-  const theme = useMeshStore((s) => s.theme);
-  const setTheme = useMeshStore((s) => s.setTheme);
-  const setLocale = useMeshStore((s) => s.setLocale);
-  const setUnitSystem = useMeshStore((s) => s.setUnitSystem);
-  const markAllRead = useMeshStore((s) => s.markAllRead);
-  const setAddContactOpen = useMeshStore((s) => s.setAddContactOpen);
-  const setAddChannelOpen = useMeshStore((s) => s.setAddChannelOpen);
-  const setManagePanel = useMeshStore((s) => s.setManagePanel);
-  const resetAdminSession = useMeshStore((s) => s.resetAdminSession);
 
   return useCallback(
     (action: PaletteAction): void => {
+      const state = useMeshStore.getState();
+      const contact = 'prefix' in action ? state.contacts[action.prefix] : null;
       switch (action.kind) {
         case 'advertise':
           // Backstop for the window between indexing and activation: the rows
           // are already filtered out while `advertising` is set, and the
           // header's menu is disabled, so nothing may queue a second broadcast
           // over one still in flight.
-          if (!sending) void advertise(action.flood);
+          if (!state.advertising) void advertise(action.flood);
           return;
         case 'disconnect':
           disconnect();
@@ -60,86 +53,72 @@ export function usePaletteActions(): (action: PaletteAction) => void {
           void rebootDevice();
           return;
         case 'toggleTheme':
-          setTheme(theme === 'dark' ? 'light' : 'dark');
+          state.setTheme(state.theme === 'dark' ? 'light' : 'dark');
           return;
         case 'setLocale':
-          setLocale(action.locale);
+          state.setLocale(action.locale);
           return;
         case 'setUnitSystem':
-          setUnitSystem(action.unitSystem);
+          state.setUnitSystem(action.unitSystem);
           return;
         case 'markAllRead':
-          markAllRead();
+          state.markAllRead();
           return;
         case 'addContact':
-          setAddContactOpen(true);
+          state.setAddContactOpen(true);
           return;
         case 'addChannel':
-          setAddChannelOpen(true);
+          state.setAddChannelOpen(true);
           return;
-        case 'repeaterStatus': {
-          const contact = contacts[action.prefix];
-          if (!contact) return;
+        case 'repeaterStatus':
           // A status read needs the admin session the index saw; it may have
-          // ended (logged out, session reset) since.
-          if (!isAuthedLogin(adminSessions[action.prefix]?.login)) return;
+          // ended (logged out, session reset) since. A read already running for
+          // this repeater is joined rather than queued behind.
+          if (!contact) return;
+          if (!isAuthedLogin(state.adminSessions[action.prefix]?.login)) return;
           void repeaterStatus(contact);
           return;
-        }
         case 'repeaterLogOut':
           // Only end the session the row was offered for: a re-login since
           // then is a different one, and dropping its credentials would be a
           // logout the user never asked for.
-          if (!isAuthedLogin(adminSessions[action.prefix]?.login)) return;
-          resetAdminSession(action.prefix);
+          if (!contact) return;
+          if (!isAuthedLogin(state.adminSessions[action.prefix]?.login)) return;
+          state.resetAdminSession(action.prefix);
           void clearRepeaterCred(action.prefix);
           return;
-        case 'contactResetRoute': {
-          const contact = contacts[action.prefix];
+        case 'contactResetRoute':
           // The route may have been cleared since the row was indexed, which is
           // when the owning UI stops offering the verb.
           if (!contact || contact.outPathLen === NO_PATH) return;
           void resetContactPath(contact);
           return;
-        }
-        case 'contactFavorite': {
-          const contact = contacts[action.prefix];
+        case 'contactFavorite':
           if (!contact) return;
           // Already in the state the row promised — something else set it since
           // it was indexed, and toggling now would do the opposite.
-          const favorite = (contact.flags & FAVORITE_FLAG) !== 0;
-          if (favorite === action.favorite) return;
+          if (((contact.flags & FAVORITE_FLAG) !== 0) === action.favorite) {
+            return;
+          }
           void toggleFavorite(contact);
           return;
-        }
-        case 'contactShare': {
-          const contact = contacts[action.prefix];
-          if (contact) {
-            setManagePanel({ kind: 'contact', id: action.prefix, share: true });
-          }
+        case 'contactShare':
+          if (!contact) return;
+          state.setManagePanel({
+            kind: 'contact',
+            id: action.prefix,
+            share: true,
+          });
           return;
-        }
       }
     },
     [
       advertise,
-      sending,
       disconnect,
       rebootDevice,
       resetContactPath,
       toggleFavorite,
       repeaterStatus,
-      contacts,
-      adminSessions,
-      theme,
-      setTheme,
-      setLocale,
-      setUnitSystem,
-      markAllRead,
-      setAddContactOpen,
-      setAddChannelOpen,
-      setManagePanel,
-      resetAdminSession,
     ],
   );
 }

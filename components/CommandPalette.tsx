@@ -41,8 +41,17 @@ const LISTBOX_ID = 'command-results';
 // handler, so a single `requestAnimationFrame` scheduled here would still land
 // first. Dialogs opened from `fn` then capture a restore target that outlives
 // the palette instead of its search input.
+//
+// A background tab suspends these frames indefinitely, so the callback is
+// dropped if the session it was queued for has ended — a disconnect clears the
+// open-dialog flags, and this would otherwise put one back after a reconnect.
 function afterClose(fn: () => void): void {
-  requestAnimationFrame(() => requestAnimationFrame(fn));
+  const { client } = useMeshStore.getState();
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      if (useMeshStore.getState().client === client) fn();
+    }),
+  );
 }
 
 // Must be stable across renders for `aria-activedescendant`.
