@@ -745,6 +745,8 @@
       "addNode": "{{name}} als Kontakt hinzufügen",
       "unplacedLegend_one": "{{count}} Nachbar hat keinen bekannten Standort und wird nicht angezeigt.",
       "unplacedLegend_other": "{{count}} Nachbarn haben keinen bekannten Standort und werden nicht angezeigt.",
+      "hiddenByAge_one": "{{count}} Nachbar wurde vor längerer Zeit als im Zeitfenster oben gehört.",
+      "hiddenByAge_other": "{{count}} Nachbarn wurden vor längerer Zeit als im Zeitfenster oben gehört.",
       "noLocation": "Nachbarn wurden gehört, aber keiner konnte auf der Karte platziert werden — kein bekannter Standort.",
       "noAnchor": "Dieser Repeater hat keinen angekündigten Standort, daher können seine Nachbarn nicht auf der Karte angezeigt werden."
     },

@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
+import { useClockTick } from '@/hooks/useClockTick';
 import {
   locateNeighborNode,
   repeaterAnchorNode,
@@ -15,10 +16,11 @@ import {
 import type { StartView } from '@/lib/map/config';
 import { formatSnr } from '@/lib/i18n/format';
 import { LEGEND_CATEGORIES } from '@/lib/map/markers';
-import { contactCategory } from '@/lib/utils';
+import { contactCategory, heardAgeSecs } from '@/lib/utils';
 import type { Neighbor } from '@/lib/meshcore/repeaterCli';
 import type { Advert, Contact } from '@/types/meshcore';
 import { BaseLeafletMap } from './BaseLeafletMap';
+import { HeardWithinFilter } from './HeardWithinFilter';
 import { MapLegend } from './MapLegend';
 import { renderNodePopup } from './MapNodePopup';
 
@@ -83,17 +85,36 @@ export function NeighborsMap({
 }) {
   const contacts = useMeshStore((s) => s.contacts);
   const adverts = useMeshStore((s) => s.advertCache);
+  // The same per-radio window the Map page uses: one "how recent is relevant"
+  // preference rather than two that drift apart.
+  const heardWithinDays = useMeshStore((s) => s.mapFilters.heardWithinDays);
+  // Measured against the wall clock, so the window has to keep advancing while
+  // the tab sits open on a `neighbors` reply that is no longer changing.
+  const nowSecs = useClockTick();
   // Subscribes to the locale so a language switch re-renders (and, via the
   // memo dependency below, rebuilds the localized SNR edge labels).
   const { t, i18n } = useTranslation();
 
+  // Filtered before the map is built, so a neighbor and its SNR link leave
+  // together — an edge to a node that is no longer plotted would draw to
+  // nowhere. `Neighbor.lastHeard` is this radio's clock minus the age the
+  // repeater reported, so it needs no skew allowance of its own.
+  const shown = useMemo(() => {
+    if (heardWithinDays === null) return neighbors;
+    const maxAgeSecs = heardWithinDays * 86400;
+    return neighbors.filter(
+      (n) => heardAgeSecs(n.lastHeard, nowSecs) <= maxAgeSecs,
+    );
+  }, [neighbors, heardWithinDays, nowSecs]);
+  const hiddenByAge = neighbors.length - shown.length;
+
   const { nodes, edges, unplacedCount } = useMemo(
-    () => buildNeighborMap(contact, neighbors, contacts, adverts),
+    () => buildNeighborMap(contact, shown, contacts, adverts),
     // `i18n.language` isn't referenced in the callback, but it drives the
     // localized SNR edge labels through `formatSnr`, so a locale switch must
     // rebuild the map data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [contact, neighbors, contacts, adverts, i18n.language],
+    [contact, shown, contacts, adverts, i18n.language],
   );
   // A `neighbors` reply is whatever the repeater last heard advertise, so the
   // mix is not known ahead of time; listing only what is actually plotted keeps
@@ -123,15 +144,31 @@ export function NeighborsMap({
         renderPopup={renderNodePopup}
       >
         <MapLegend listed={listed} showFavorite={anyFavorite}>
-          {unplacedCount > 0 && (
-            // Capped so it wraps instead of stretching the whole legend to the
-            // width of one long line.
-            <p className='max-w-44 border-t border-border px-2.5 py-1.5 text-xs text-balance text-text2'>
-              {t('repeaterAdmin.neighbors.unplacedLegend', {
-                count: unplacedCount,
-              })}
-            </p>
-          )}
+          <div className='flex w-44 flex-col gap-2 border-t border-border px-2.5 py-2'>
+            <HeardWithinFilter
+              value={heardWithinDays}
+              onChange={(days) =>
+                useMeshStore.getState().setMapFilters({
+                  ...useMeshStore.getState().mapFilters,
+                  heardWithinDays: days,
+                })
+              }
+            />
+            {(unplacedCount > 0 || hiddenByAge > 0) && (
+              // Capped so it wraps instead of stretching the whole legend to
+              // the width of one long line.
+              <p className='max-w-44 text-xs text-balance text-text2'>
+                {unplacedCount > 0 &&
+                  t('repeaterAdmin.neighbors.unplacedLegend', {
+                    count: unplacedCount,
+                  })}{' '}
+                {hiddenByAge > 0 &&
+                  t('repeaterAdmin.neighbors.hiddenByAge', {
+                    count: hiddenByAge,
+                  })}
+              </p>
+            )}
+          </div>
         </MapLegend>
       </BaseLeafletMap>
     </div>

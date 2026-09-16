@@ -745,6 +745,8 @@
       "addNode": "Añadir {{name}} como contacto",
       "unplacedLegend_one": "{{count}} vecino no tiene una ubicación conocida y no se muestra.",
       "unplacedLegend_other": "{{count}} vecinos no tienen una ubicación conocida y no se muestran.",
+      "hiddenByAge_one": "{{count}} vecino se escuchó hace más tiempo que el intervalo de arriba.",
+      "hiddenByAge_other": "{{count}} vecinos se escucharon hace más tiempo que el intervalo de arriba.",
       "noLocation": "Se escucharon vecinos, pero ninguno pudo ubicarse en el mapa: no tienen una ubicación conocida.",
       "noAnchor": "Este repetidor no tiene una ubicación anunciada, por lo que sus vecinos no pueden mostrarse en el mapa."
     },

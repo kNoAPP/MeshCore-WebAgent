@@ -744,6 +744,8 @@
       "addNode": "Add {{name}} as a contact",
       "unplacedLegend_one": "{{count}} neighbor has no known location and is not shown.",
       "unplacedLegend_other": "{{count}} neighbors have no known location and are not shown.",
+      "hiddenByAge_one": "{{count}} neighbor was heard longer ago than the window above.",
+      "hiddenByAge_other": "{{count}} neighbors were heard longer ago than the window above.",
       "noLocation": "Neighbors were heard, but none could be placed on the map — they have no known location.",
       "noAnchor": "This repeater has no advertised location, so its neighbors can't be shown on the map."
     },
