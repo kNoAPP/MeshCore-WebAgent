@@ -106,7 +106,9 @@ The flag also works on `gh pr edit`, `gh pr comment`, and the `gh issue`
 equivalents, so a later refresh is
 `gh pr edit "$PR" --body-file .git/PR_BODY.md --attach ...` with the body file's
 local paths restored. Any attached file the body does not reference is appended
-to the end instead.
+to the end instead; give those their alt text on the flag as
+`--attach '.git/shots/after-sidebar.png#the sidebar with the new filter row'`,
+since `gh` otherwise falls back to the bare file name.
 
 Never commit screenshots to the working branch, to `public/`, or anywhere the
 static export would pick them up. Always edit the body file and re-upload it;
