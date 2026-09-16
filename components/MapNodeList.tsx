@@ -215,7 +215,13 @@ export function MapNodeList({
       <div className='min-h-0 flex-1 overflow-y-auto pb-2'>
         {shown === 0 ? (
           <p className='px-3 py-2 text-xs text-text2'>
-            {t('map.nodeList.noMatches')}
+            {/* An empty `nodes` is the map's filters, not the search box, so
+                blaming the query would contradict the map's own empty state. */}
+            {t(
+              nodes.length === 0
+                ? 'map.nodeList.empty'
+                : 'map.nodeList.noMatches',
+            )}
           </p>
         ) : (
           groups.map((group) => (

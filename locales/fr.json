@@ -1027,7 +1027,8 @@
       "count_one": "{{count}} nœud dans la liste",
       "count_other": "{{count}} nœuds dans la liste",
       "countFiltered": "{{shown}} nœuds sur {{total}} dans la liste",
-      "noMatches": "Aucun nœud ne correspond à votre recherche."
+      "noMatches": "Aucun nœud ne correspond à votre recherche.",
+      "empty": "Aucun nœud n'est actuellement affiché."
     },
     "popup": {
       "message": "Message",

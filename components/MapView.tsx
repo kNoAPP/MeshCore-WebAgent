@@ -311,7 +311,10 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
       <BaseLeafletMap
         nodes={plotted}
         startView={startView}
-        cluster
+        // Dropped while placing a location pin: a cluster glyph is interactive
+        // and would swallow the map click the picker needs, where an individual
+        // marker is made inert and lets it through.
+        cluster={!mapPicking}
         labels
         renderPopup={mapPicking ? undefined : renderPopup}
         openNodeKey={openKey}

@@ -53,6 +53,15 @@ const WORLD_BOUNDS: L.LatLngBoundsExpression = [
 // `app/globals.css` stacks the popups with.
 const POPUP_PANE = 'meshcore-popup';
 
+// The deepest zoom that still has tiles to draw. `detectRetina` costs the tile
+// layer one level on a hi-DPI display — Leaflet halves the tile size and
+// decrements the layer's own `maxZoom` — so a map ceiling of `MAP_MAX_ZOOM`
+// would let the user zoom one step past the last level `GridLayer` will render,
+// onto a blank basemap.
+function maxTileZoom(): number {
+  return L.Browser.retina ? MAP_MAX_ZOOM - 1 : MAP_MAX_ZOOM;
+}
+
 /**
  * Props for {@link BaseLeafletMap}. The component owns only the reusable map
  * machinery — tile basemap, world bounds, min-zoom clamp, theme swap, and the
@@ -89,8 +98,10 @@ export interface BaseLeafletMapProps {
   /** Reports every open/close while the popup is controlled. */
   onOpenNodeChange?: (key: string | null) => void;
   /**
-   * Collapse overlapping markers into count glyphs that expand on click. Read
-   * once, when the map is created.
+   * Collapse overlapping markers into count glyphs that expand on click.
+   * Toggling it rebuilds the marker layer only — the map, its viewport and any
+   * open popup survive — so a caller may turn it off for a mode in which an
+   * interactive cluster glyph would be in the way.
    */
   cluster?: boolean;
   /**
@@ -159,10 +170,6 @@ export function BaseLeafletMap({
   // The same layer as `markerLayerRef` when clustering is on, kept separately
   // so the bulk `addLayers` path (which the plugin batches) is typed.
   const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
-  // Clustering is a property of the map surface, not of a render: recreating
-  // the map to honour a toggle would throw away the viewport and any open
-  // popup, so the create effect reads this rather than taking it as a dep.
-  const clusterRef = useRef(cluster);
   const edgeLayerRef = useRef<L.LayerGroup | null>(null);
   // Signatures of the currently plotted markers/edges; let the rebuild effects
   // skip work when nothing changed. Reset whenever a layer is (re)created so a
@@ -253,7 +260,15 @@ export function BaseLeafletMap({
     const key = popupKeyRef.current;
     const marker =
       key == null ? null : markersRef.current.get(key)?.getElement();
-    const target = marker?.isConnected ? marker : popupOpenerRef.current;
+    // The map container last: a filter that removes the node closes its popup
+    // and can unmount the row that opened it in the same commit, and landing on
+    // `document.body` would strand the keyboard outside the map entirely.
+    const target =
+      marker?.isConnected === true
+        ? marker
+        : popupOpenerRef.current?.isConnected === true
+          ? popupOpenerRef.current
+          : (mapRef.current?.getContainer() ?? null);
     if (target?.isConnected) target.focus();
   }, []);
 
@@ -269,7 +284,7 @@ export function BaseLeafletMap({
       // Stated on the map rather than inherited from the tile layer: the
       // cluster group reads `getMaxZoom()` when it is added, and refuses to
       // attach to a map whose ceiling is still unbounded.
-      maxZoom: MAP_MAX_ZOOM,
+      maxZoom: maxTileZoom(),
     });
     mapRef.current = map;
 
@@ -302,31 +317,9 @@ export function BaseLeafletMap({
     applyStartView(map, startView);
 
     // Edges sit under markers so a node's shape always reads on top of its
-    // links.
+    // links. The marker layer is created by its own effect below, so that
+    // clustering can be switched without tearing down the map.
     edgeLayerRef.current = L.layerGroup().addTo(map);
-    // Clustering keeps a dense mesh legible and bounds the DOM: only the
-    // visible clusters and their expanded children are rendered. Coverage
-    // polygons are off — they outline the cluster's bounding hull, which on a
-    // regional mesh sweeps across half the viewport on every hover.
-    if (clusterRef.current) {
-      const group = L.markerClusterGroup({
-        maxClusterRadius: MAP_CLUSTER_RADIUS_PX,
-        showCoverageOnHover: false,
-        iconCreateFunction: clusterIcon,
-        // Not chunked: `addLayers` would spread the batch over `setTimeout`
-        // continuations that `clearLayers()` does not cancel, so a rebuild
-        // landing mid-batch (a filter change, the label threshold, a fresh
-        // advert) would let the previous generation insert stale markers into
-        // the layer that was just emptied. `MAX_MAP_MARKERS` keeps the
-        // synchronous pass bounded.
-        chunkedLoading: false,
-      });
-      clusterGroupRef.current = group;
-      markerLayerRef.current = group;
-    } else {
-      markerLayerRef.current = L.layerGroup();
-    }
-    markerLayerRef.current.addTo(map);
     // Brand-new, empty layers: force the next rebuilds rather than
     // short-circuit on a signature left over from the previous layers.
     markerSigRef.current = '';
@@ -403,12 +396,50 @@ export function BaseLeafletMap({
       map.off('resize', clampMinZoom);
       map.remove();
       mapRef.current = null;
-      markerLayerRef.current = null;
-      clusterGroupRef.current = null;
       edgeLayerRef.current = null;
       tileLayerRef.current = null;
     };
   }, [startView, restorePopupFocus]);
+
+  // The marker layer, owned separately from the map so clustering can be turned
+  // off and on — the Map page drops it while placing a location pin, because a
+  // cluster glyph is interactive and would swallow the click meant for the
+  // map — without tearing down the viewport or an open popup.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const markers = markersRef.current;
+    // Clustering keeps a dense mesh legible and bounds the DOM: only the
+    // visible clusters and their expanded children are rendered. Coverage
+    // polygons are off — they outline the cluster's bounding hull, which on a
+    // regional mesh sweeps across half the viewport on every hover.
+    const layer = cluster
+      ? L.markerClusterGroup({
+          maxClusterRadius: MAP_CLUSTER_RADIUS_PX,
+          showCoverageOnHover: false,
+          iconCreateFunction: clusterIcon,
+          // Not chunked: `addLayers` would spread the batch over `setTimeout`
+          // continuations that `clearLayers()` does not cancel, so a rebuild
+          // landing mid-batch (a filter change, the label threshold, a fresh
+          // advert) would let the previous generation insert stale markers into
+          // the layer that was just emptied. `MAX_MAP_MARKERS` keeps the
+          // synchronous pass bounded.
+          chunkedLoading: false,
+        })
+      : L.layerGroup();
+    clusterGroupRef.current = cluster ? (layer as L.MarkerClusterGroup) : null;
+    markerLayerRef.current = layer;
+    // Brand-new and empty: force the rebuild below rather than let it
+    // short-circuit on the signature left over from the previous layer.
+    markerSigRef.current = '';
+    layer.addTo(map);
+    return () => {
+      layer.remove();
+      markerLayerRef.current = null;
+      clusterGroupRef.current = null;
+      markers.clear();
+    };
+  }, [cluster, startView]);
 
   // Point the single tile layer at the active theme's CARTO style; light/dark
   // just swaps the URL template, avoiding a remove/re-add flash.
