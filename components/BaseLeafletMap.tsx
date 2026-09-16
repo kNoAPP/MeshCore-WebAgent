@@ -592,6 +592,18 @@ export function BaseLeafletMap({
     popupRef.current = popup;
     popupKeyRef.current = popupKey;
     popup.openOn(map);
+
+    // A node selected from outside the map has no marker to click, and may
+    // still be inside a collapsed cluster — leaving the popup pointing at a
+    // count glyph rather than at the node it names. Open the cluster far enough
+    // to show the marker itself (zooming in, or fanning the cluster out at the
+    // deepest zoom). A marker already on screen short-circuits, so a marker
+    // click is unaffected.
+    const group = clusterGroupRef.current;
+    const marker = markersRef.current.get(popupKey);
+    if (group && marker && group.hasLayer(marker)) {
+      group.zoomToShowLayer(marker, () => {});
+    }
   }, [popupKey, popupHost]);
 
   // Leaflet names its close button `Close popup` in English and never
