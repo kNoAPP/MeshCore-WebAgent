@@ -375,6 +375,12 @@ html {
 /* Marker popups. Leaflet's own rules are single-class, so the container scope
  * is enough to win except for the close button, which it selects through
  * `.leaflet-container a` — that one takes the container class to outweigh. */
+.meshcore-map .leaflet-pane.leaflet-popup-pane {
+  /* Leaflet stacks its popup pane at 700, below the map's own overlays (the
+     legend, the cap banner, the pick bar) at `z-1000` in the same context. The
+     popup is the surface the user just opened, so it goes over them. */
+  z-index: 1100;
+}
 .meshcore-map .leaflet-popup-content-wrapper,
 .meshcore-map .leaflet-popup-tip {
   background: var(--surface);

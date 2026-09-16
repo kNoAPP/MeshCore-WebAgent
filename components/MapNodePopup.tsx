@@ -56,16 +56,21 @@ export function MapNodePopup({
 
   const name = contact?.name || advert?.name || node.name;
   const lastHeard = contact?.lastAdvert || advert?.lastHeard;
-  // `0` is the firmware's unset coordinate, so it has to fall through to the
-  // other record the same way a missing field does — a saved contact that has
-  // never advertised a position is plotted from its cached advert.
-  const advLat = contact?.advLat || advert?.advLat;
-  const advLon = contact?.advLon || advert?.advLon;
+  // Taken as a pair, the way `contactCoords` reads it: `0` is the firmware's
+  // unset coordinate, and a half-set contact position falls through to the
+  // cached advert whole rather than pairing one field from each record — which
+  // would put the distance somewhere the marker is not.
+  const position =
+    contact?.advLat && contact.advLon
+      ? { lat: contact.advLat, lon: contact.advLon }
+      : advert?.advLat && advert.advLon
+        ? { lat: advert.advLat, lon: advert.advLon }
+        : null;
   const distance = formatDistanceBearing(
     selfInfo?.advLat,
     selfInfo?.advLon,
-    advLat,
-    advLon,
+    position?.lat,
+    position?.lon,
     unitSystem,
   );
   const isFav = contact ? (contact.flags & FAVORITE_FLAG) !== 0 : false;
