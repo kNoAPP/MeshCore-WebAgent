@@ -181,7 +181,6 @@ label[for] {
   --map-sensor: var(--yellow);
   --map-outline: #ffffff;
   --map-favorite: #fbbf24;
-  --map-unplaced: #94a3b8;
   /* Ring color for a cluster holding more than one category. Neutral on
      purpose: the accent is already `--map-user`, so reusing it would make a
      mixed cluster indistinguishable from an all-companion one. */
@@ -225,7 +224,6 @@ label[for] {
      have to darken or they vanish into the tiles. */
   --map-outline: #1a1d27;
   --map-favorite: #a16207;
-  --map-unplaced: #64748b;
   --map-cluster-mixed: #94a3b8;
   --map-shadow: rgb(15 17 23 / 0.3);
 }
@@ -403,11 +401,6 @@ html {
  * half opacity misses 4.5:1 on the light basemap. */
 .map-marker-cached > svg {
   opacity: 0.5;
-}
-/* Neighbors with no known position. Parked on a ring around their anchor, so
- * they must not carry the drop-shadow that makes a marker read as planted. */
-.map-marker-unplaced {
-  filter: none;
 }
 .meshcore-map .leaflet-bar a,
 .meshcore-map .leaflet-bar a:hover {

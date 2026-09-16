@@ -743,8 +743,8 @@
       "colSnr": "SNR",
       "colLastHeard": "Zuletzt gehört",
       "addNode": "{{name}} als Kontakt hinzufügen",
-      "unplacedLegend_one": "Gestrichelt: {{count}} Nachbar ohne bekannten Standort, willkürlich auf dem Ring platziert.",
-      "unplacedLegend_other": "Gestrichelt: {{count}} Nachbarn ohne bekannten Standort, willkürlich auf dem Ring platziert.",
+      "unplacedLegend_one": "{{count}} Nachbar hat keinen bekannten Standort und wird nicht angezeigt.",
+      "unplacedLegend_other": "{{count}} Nachbarn haben keinen bekannten Standort und werden nicht angezeigt.",
       "noLocation": "Nachbarn wurden gehört, aber keiner konnte auf der Karte platziert werden — kein bekannter Standort.",
       "noAnchor": "Dieser Repeater hat keinen angekündigten Standort, daher können seine Nachbarn nicht auf der Karte angezeigt werden."
     },

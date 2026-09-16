@@ -44,12 +44,10 @@ export type NodeMarker = L.Marker & { meshNode: MapNode };
 
 /**
  * Builds a `divIcon` for a node — category shape/color, self ringed, and a
- * gold border on favorited contacts. A node with no real position gets a
- * neutral dashed glyph instead of a category one, because its category is as
- * unknown as its location.
+ * gold border on favorited contacts.
  *
  * @param label - the node's name, rendered beside the glyph; omit to draw the
- * glyph alone. The caller decides, per zoom, which markers are worth naming.
+ * glyph alone. The caller decides which markers are worth naming.
  */
 export function nodeIcon(node: MapNode, label?: string): L.DivIcon {
   const size = MAP_MARKER_SIZE_PX;
@@ -59,18 +57,6 @@ export function nodeIcon(node: MapNode, label?: string): L.DivIcon {
     label === undefined
       ? ''
       : `<span class="map-marker-label">${escapeHtml(label)}</span>`;
-  if (node.positionUnknown) {
-    const svg =
-      `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" ` +
-      `stroke="var(--map-unplaced)" stroke-width="2.5" stroke-dasharray="4 3" ` +
-      `aria-hidden="true"><circle cx="12" cy="12" r="8.5" /></svg>`;
-    return L.divIcon({
-      html: `<div class="map-marker map-marker-unplaced" style="width:${size}px;height:${size}px">${svg}${text}</div>`,
-      className: '',
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2],
-    });
-  }
   const { shape, color } = markerStyle(node.advType);
   const cls =
     node.kind === 'self'
@@ -89,13 +75,12 @@ export function nodeIcon(node: MapNode, label?: string): L.DivIcon {
   });
 }
 
-// The one category every child shares, or `null` when they disagree — or when
-// any child is an unplaced node, whose category is as unknown as its position.
+// The one category every child shares, or `null` when they disagree.
 function commonCategory(markers: L.Marker[]): ContactCategory | null {
   let shared: ContactCategory | null = null;
   for (const marker of markers) {
     const node = (marker as NodeMarker).meshNode;
-    if (!node || node.positionUnknown) return null;
+    if (!node) return null;
     const category = contactCategory(node.advType);
     if (shared === null) shared = category;
     else if (shared !== category) return null;

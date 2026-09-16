@@ -476,7 +476,7 @@ export function BaseLeafletMap({
     const sig = nodes
       .map(
         (n) =>
-          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.positionUnknown ? 'u' : ''}:${n.name}`,
+          `${n.kind}:${n.key}:${n.lat}:${n.lon}:${n.advType}:${n.favorite ? 1 : 0}:${n.name}`,
       )
       .join('|');
     // `t` (locale) drives the self tooltip and `clickable` gates click wiring,
@@ -490,13 +490,7 @@ export function BaseLeafletMap({
     markersRef.current.clear();
     const markers: L.Marker[] = [];
     for (const node of nodes) {
-      // A node parked on the unplaced ring sits at an invented coordinate and
-      // is known only by its prefix, so there is nothing for a click to open.
-      const inert = !(
-        clickable &&
-        node.kind !== 'self' &&
-        !node.positionUnknown
-      );
+      const inert = !(clickable && node.kind !== 'self');
       const name = node.kind === 'self' ? t('map.self') : node.name;
       const marker = L.marker([node.lat, node.lon], {
         icon: nodeIcon(node, labels ? name : undefined),
@@ -672,7 +666,7 @@ export function BaseLeafletMap({
     const sig = `${labeled ? zoom : ''}|${list
       .map(
         (e) =>
-          `${e.key}:${e.from[0]},${e.from[1]}:${e.to[0]},${e.to[1]}:${e.label ?? ''}:${e.provisional ? 'p' : ''}`,
+          `${e.key}:${e.from[0]},${e.from[1]}:${e.to[0]},${e.to[1]}:${e.label ?? ''}`,
       )
       .join('|')}`;
     if (sig === edgeSigRef.current) return;
@@ -688,9 +682,6 @@ export function BaseLeafletMap({
         className: 'meshcore-edge',
         weight: MAP_EDGE_WEIGHT,
         opacity: MAP_EDGE_OPACITY,
-        // A provisional link has a real SNR but an invented bearing and
-        // length, so it is dashed to read as a connection, not a route.
-        dashArray: edge.provisional ? '4 5' : undefined,
         interactive: false,
       });
       line.addTo(layer);

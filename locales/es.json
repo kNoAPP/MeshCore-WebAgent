@@ -743,8 +743,8 @@
       "colSnr": "SNR",
       "colLastHeard": "Última escucha",
       "addNode": "Añadir {{name}} como contacto",
-      "unplacedLegend_one": "Discontinuo: {{count}} vecino sin ubicación conocida, colocado en el anillo de forma arbitraria.",
-      "unplacedLegend_other": "Discontinuo: {{count}} vecinos sin ubicación conocida, colocados en el anillo de forma arbitraria.",
+      "unplacedLegend_one": "{{count}} vecino no tiene una ubicación conocida y no se muestra.",
+      "unplacedLegend_other": "{{count}} vecinos no tienen una ubicación conocida y no se muestran.",
       "noLocation": "Se escucharon vecinos, pero ninguno pudo ubicarse en el mapa: no tienen una ubicación conocida.",
       "noAnchor": "Este repetidor no tiene una ubicación anunciada, por lo que sus vecinos no pueden mostrarse en el mapa."
     },

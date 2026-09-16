@@ -742,8 +742,8 @@
       "colSnr": "SNR",
       "colLastHeard": "Last heard",
       "addNode": "Add {{name}} as a contact",
-      "unplacedLegend_one": "Dashed: {{count}} neighbor with no known location, placed on the ring arbitrarily.",
-      "unplacedLegend_other": "Dashed: {{count}} neighbors with no known location, placed on the ring arbitrarily.",
+      "unplacedLegend_one": "{{count}} neighbor has no known location and is not shown.",
+      "unplacedLegend_other": "{{count}} neighbors have no known location and are not shown.",
       "noLocation": "Neighbors were heard, but none could be placed on the map — they have no known location.",
       "noAnchor": "This repeater has no advertised location, so its neighbors can't be shown on the map."
     },
