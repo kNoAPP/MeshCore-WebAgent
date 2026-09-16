@@ -527,8 +527,9 @@ export function BaseLeafletMap({
     const group = clusterGroupRef.current;
     if (group) group.addLayers(markers);
     else for (const marker of markers) marker.addTo(layer);
-    // `startView` recreates the map with empty layers, so it has to refill.
-  }, [nodes, t, clickable, labelMode, startView, setPopupKey]);
+    // `startView` recreates the map with empty layers, and `cluster` swaps the
+    // marker layer for an empty one of the other kind, so both have to refill.
+  }, [nodes, t, clickable, labelMode, cluster, startView, setPopupKey]);
 
   // Open the popup for the selected node, anchored at its coordinates. It is
   // added to the map rather than bound to the marker, so a marker rebuild —
@@ -542,7 +543,10 @@ export function BaseLeafletMap({
     if (!map) return;
     // The click's own anchor when this is the node that was clicked; otherwise
     // the node's current position, which is all a selection made off-map has.
+    // One-shot: left in place it would still match this key the next time the
+    // node is opened from the list, and auto-pan to where it used to be.
     const clicked = popupAnchorRef.current;
+    popupAnchorRef.current = null;
     const live = popupNodeRef.current;
     const anchor =
       clicked && clicked.key === popupKey

@@ -186,6 +186,19 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   // days ago and forgotten.
   const [filters, setFilters] = useState<MapFilters>(DEFAULT_MAP_FILTERS);
   const [listOpen, setListOpen] = useState(true);
+  // The node list is a sibling of the map, so collapsing it (or hiding it for
+  // location picking) changes the map's width. Leaflet caches the container
+  // size, and without this the tiles and the hit-testing keep using the old one
+  // until something else resizes the window. `invalidateSize` holds the
+  // geographic centre and reports the shift through `moveend`, synchronously —
+  // announced as ours first, and un-announced again if it turned out to be a
+  // no-op, so a later real pan is still persisted.
+  useEffect(() => {
+    if (!map) return;
+    framing.current = true;
+    map.invalidateSize();
+    framing.current = false;
+  }, [map, listOpen, mapPicking]);
   // The node whose popup is open, owned here rather than by the map, so the
   // node list can open one for a node the user never clicked.
   const [openKey, setOpenKey] = useState<string | null>(null);
