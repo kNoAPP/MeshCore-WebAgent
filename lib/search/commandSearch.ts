@@ -35,8 +35,23 @@ export type PaletteAction =
   | { kind: 'repeaterStatus'; prefix: string }
   | { kind: 'repeaterLogOut'; prefix: string }
   | { kind: 'contactResetRoute'; prefix: string }
-  | { kind: 'contactFavorite'; prefix: string }
+  /** `favorite` is the state the chosen row promised, not a toggle. */
+  | { kind: 'contactFavorite'; prefix: string; favorite: boolean }
   | { kind: 'contactShare'; prefix: string };
+
+/**
+ * Whether running `action` raises another dialog. Those must not be started
+ * until the palette has closed: a dialog captures its focus-restore target on
+ * its first render, so one mounted in the same commit would capture the
+ * palette's search input and lose it moments later.
+ */
+export function opensDialog(action: PaletteAction): boolean {
+  return (
+    action.kind === 'addContact' ||
+    action.kind === 'addChannel' ||
+    action.kind === 'contactShare'
+  );
+}
 
 /**
  * What selecting a result does: open a conversation (optionally scrolled to a

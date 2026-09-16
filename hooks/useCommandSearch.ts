@@ -110,10 +110,17 @@ function contactVerbLabelKey(
   return `command.action.contact_${verb}`;
 }
 
-function contactVerbRun(verb: ContactVerb, prefix: string): PaletteAction {
+function contactVerbRun(verb: ContactVerb, contact: Contact): PaletteAction {
+  const prefix = contact.pubkeyPrefix;
   switch (verb) {
     case 'favorite':
-      return { kind: 'contactFavorite', prefix };
+      // The state the row's label promised, so a flag that changes under an
+      // open palette cannot turn "Favorite" into an unfavorite.
+      return {
+        kind: 'contactFavorite',
+        prefix,
+        favorite: (contact.flags & FAVORITE_FLAG) === 0,
+      };
     case 'route':
       return { kind: 'contactResetRoute', prefix };
     case 'share':
@@ -332,7 +339,7 @@ export function useCommandSearch(query: string): CommandGroup[] {
           hint: name,
           action: {
             type: 'run',
-            run: contactVerbRun(verb, contact.pubkeyPrefix),
+            run: contactVerbRun(verb, contact),
           },
         });
       }
@@ -341,14 +348,14 @@ export function useCommandSearch(query: string): CommandGroup[] {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts, language]);
 
-  // Scoped to the repeater/room admin session that is actually open — these
-  // verbs have no meaning without one, and the target UI hides them too. The
-  // open conversation can outlive its contact (an eviction the repeater view
+  // Scoped to the repeater admin session that is actually open — these verbs
+  // have no meaning without one, and the target UI hides them too. Rooms are
+  // excluded: they share the admin view but not this vocabulary, and a room
+  // administrator should not be offered "Refresh repeater status". The open
+  // conversation can outlive its contact (an eviction the repeater view
   // handles), and both verbs need the contact itself, so require it here.
   const repeaterActionRecords = useMemo<ActionRecord[]>(() => {
-    if (activeConvo?.kind !== 'repeater' && activeConvo?.kind !== 'room') {
-      return [];
-    }
+    if (activeConvo?.kind !== 'repeater') return [];
     const prefix = String(activeConvo.rawId);
     if (!contacts[prefix]) return [];
     if (!isAuthedLogin(adminSessions[prefix]?.login)) return [];

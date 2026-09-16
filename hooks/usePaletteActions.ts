@@ -8,7 +8,7 @@ import { useMeshStore, isAuthedLogin } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
 import { clearRepeaterCred } from '@/lib/meshcore/adminCreds';
-import { NO_PATH } from '@/lib/meshcore/constants';
+import { FAVORITE_FLAG, NO_PATH } from '@/lib/meshcore/constants';
 import type { PaletteAction } from '@/lib/search/commandSearch';
 
 /**
@@ -87,6 +87,10 @@ export function usePaletteActions(): (action: PaletteAction) => void {
           return;
         }
         case 'repeaterLogOut':
+          // Only end the session the row was offered for: a re-login since
+          // then is a different one, and dropping its credentials would be a
+          // logout the user never asked for.
+          if (!isAuthedLogin(adminSessions[action.prefix]?.login)) return;
           resetAdminSession(action.prefix);
           void clearRepeaterCred(action.prefix);
           return;
@@ -100,7 +104,12 @@ export function usePaletteActions(): (action: PaletteAction) => void {
         }
         case 'contactFavorite': {
           const contact = contacts[action.prefix];
-          if (contact) void toggleFavorite(contact);
+          if (!contact) return;
+          // Already in the state the row promised — something else set it since
+          // it was indexed, and toggling now would do the opposite.
+          const favorite = (contact.flags & FAVORITE_FLAG) !== 0;
+          if (favorite === action.favorite) return;
+          void toggleFavorite(contact);
           return;
         }
         case 'contactShare': {

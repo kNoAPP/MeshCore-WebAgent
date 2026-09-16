@@ -18,6 +18,7 @@ import {
 import { useMeshStore, openConvo } from '@/store/meshStore';
 import { formatRelative } from '@/lib/i18n/format';
 import type { CommandKind, CommandResult } from '@/lib/search/commandSearch';
+import { opensDialog } from '@/lib/search/commandSearch';
 import { useCommandSearch } from '@/hooks/useCommandSearch';
 import { usePaletteActions } from '@/hooks/usePaletteActions';
 import { ConfirmRow } from './ConfirmRow';
@@ -33,6 +34,16 @@ const KIND_ICON: Record<CommandKind, typeof Search> = {
 };
 
 const LISTBOX_ID = 'command-results';
+
+// Runs `fn` once this dialog has unmounted and `useFocusTrap` has put focus
+// back on whatever opened the palette. Two frames because that restore is
+// itself deferred by a frame: React commits the close after this event
+// handler, so a single `requestAnimationFrame` scheduled here would still land
+// first. Dialogs opened from `fn` then capture a restore target that outlives
+// the palette instead of its search input.
+function afterClose(fn: () => void): void {
+  requestAnimationFrame(() => requestAnimationFrame(fn));
+}
 
 // Must be stable across renders for `aria-activedescendant`.
 const optionId = (i: number): string => `command-option-${i}`;
@@ -172,14 +183,15 @@ export function CommandPalette(): React.ReactElement {
         setPending(result);
         return;
       }
-      runAction(action.run);
+      if (opensDialog(action.run)) afterClose(() => runAction(action.run));
+      else runAction(action.run);
     } else if (action.type === 'page') {
       if (action.section) openSettingsSection(action.section);
       else setView(action.view);
     } else if (action.type === 'advert') {
       // Cached adverts open the same detail popup as the map marker, from which
       // the node can be viewed or added as a contact.
-      setManagePanel({ kind: 'advert', id: action.prefix });
+      afterClose(() => setManagePanel({ kind: 'advert', id: action.prefix }));
     } else {
       // Open first, then switch: `setView('chat')` catches the *then*-open
       // conversation up on its unread backlog, and the one being left behind
