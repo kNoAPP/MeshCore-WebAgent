@@ -11,6 +11,7 @@ import { useMeshCore } from '@/hooks/useMeshCore';
 import {
   isDestructiveCommand,
   matchConsoleCommands,
+  normalizeCommandLine,
   parseHelpCommand,
   searchConsoleCommands,
   type ConsoleCommand,
@@ -128,7 +129,7 @@ export function RepeaterConsoleTab({ contact }: { contact: Contact }) {
       </span>
 
       <ConsolePrompt
-        nodeName={contact.name}
+        nodeName={contact.name || contact.pubkeyPrefix.slice(0, 8)}
         history={history ?? []}
         onRun={run}
       />
@@ -284,6 +285,7 @@ function ConsolePrompt({
   const listboxId = useId();
   const optionId = (i: number) => `${listboxId}-option-${i}`;
   const inputRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
 
   const [input, setInput] = useState('');
   const [index, setIndex] = useState(0);
@@ -307,6 +309,13 @@ function ConsolePrompt({
     const el = inputRef.current;
     el?.setSelectionRange(el.value.length, el.value.length);
   }, [caretSeq]);
+
+  // The confirm bar sits before the prompt in the DOM, so without this Tab from
+  // the input would skip past it to Send. Focusing the confirming action also
+  // makes the alert the screen reader's next stop.
+  useEffect(() => {
+    if (confirming !== null) confirmRef.current?.focus();
+  }, [confirming]);
 
   const suggestions = useMemo(() => matchConsoleCommands(input), [input]);
   const open = !dismissed && suggestions.length > 0;
@@ -352,12 +361,19 @@ function ConsolePrompt({
     setDismissed(false);
     setRecalled(null);
     setConfirming(null);
+    // Confirming unmounts the button that was focused, so hand the prompt back.
+    inputRef.current?.focus();
     onRun(cmd);
   };
 
+  const cancelConfirm = () => {
+    setConfirming(null);
+    inputRef.current?.focus();
+  };
+
   const send = () => {
-    const cmd = input.trim();
-    if (cmd === '') return;
+    const cmd = normalizeCommandLine(input);
+    if (cmd.trim() === '') return;
     // A verb that reconfigures, reboots or wipes the node gets one deliberate
     // second look: the node may be several hops away, where a mistake can only
     // be undone in person.
@@ -371,7 +387,7 @@ function ConsolePrompt({
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       if (open) setDismissed(true);
-      else if (confirming) setConfirming(null);
+      else if (confirming) cancelConfirm();
       return;
     }
     if (e.key === 'Tab' && open) {
@@ -432,7 +448,13 @@ function ConsolePrompt({
       )}
 
       {confirming && (
-        <div className='flex items-center justify-between gap-3 rounded-md border border-red px-3 py-2'>
+        <div
+          role='alert'
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') cancelConfirm();
+          }}
+          className='flex items-center justify-between gap-3 rounded-md border border-red px-3 py-2'
+        >
           <span className='text-xs text-text2'>
             {t('repeaterAdmin.console.confirm.prompt', {
               cmd: confirming,
@@ -442,13 +464,14 @@ function ConsolePrompt({
           <div className='flex shrink-0 gap-2'>
             <button
               type='button'
-              onClick={() => setConfirming(null)}
+              onClick={cancelConfirm}
               className='rounded-md px-3 py-1.5 text-xs text-text hover:bg-surface'
             >
               {t('common.cancel')}
             </button>
             <button
               type='button'
+              ref={confirmRef}
               onClick={() => submit(confirming)}
               className='rounded-md bg-red-solid px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-hover'
             >
@@ -473,14 +496,16 @@ function ConsolePrompt({
           value={input}
           onChange={(e) => edit(e.target.value)}
           onKeyDown={onKeyDown}
+          role='combobox'
           aria-autocomplete='list'
           aria-controls={open ? listboxId : undefined}
+          aria-expanded={open}
           aria-activedescendant={open ? optionId(active) : undefined}
           placeholder={t('repeaterAdmin.console.placeholder')}
           className='flex-1 rounded-md border border-border-control bg-surface px-2.5 py-1.5 font-mono text-sm text-text outline-none focus:border-accent'
         />
-        {/* A native input can't carry aria-expanded here, so this live status
-            announces the popover and how to take a suggestion instead. */}
+        {/* `aria-expanded` announces that the popover is there; this says how
+            many entries it holds and which key takes one. */}
         <span className='sr-only' role='status'>
           {open
             ? t('repeaterAdmin.console.suggestionCount', {

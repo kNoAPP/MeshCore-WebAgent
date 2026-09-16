@@ -102,6 +102,26 @@ const DESTRUCTIVE_VERBS: readonly string[] = [
 ];
 
 /**
+ * The one verb whose argument may legitimately be blank: the firmware reads
+ * everything after `neighbor.remove ` as the prefix to match, and a lone space
+ * is the documented way to say "every neighbor".
+ */
+const ALL_NEIGHBORS_VERB = 'neighbor.remove';
+
+/**
+ * Normalizes a typed command line for transmission. Trims the surrounding
+ * whitespace, except for the single trailing space that turns
+ * `neighbor.remove` into its documented remove-every-neighbor form — trimming
+ * that would silently send a different command than the one the user typed.
+ */
+export function normalizeCommandLine(line: string): string {
+  const trimmed = line.trim();
+  return trimmed === ALL_NEIGHBORS_VERB && /\s$/.test(line)
+    ? `${trimmed} `
+    : trimmed;
+}
+
+/**
  * `true` when a typed command line's verb is one the console confirms before
  * sending. Matches the first whitespace-delimited token only, so `setperm` and
  * a node named `erase` in `set name erase` are judged by the verb alone.
