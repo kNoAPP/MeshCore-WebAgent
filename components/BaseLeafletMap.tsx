@@ -40,6 +40,10 @@ const WORLD_BOUNDS: L.LatLngBoundsExpression = [
   [85.05112878, 180],
 ];
 
+// Leaflet names a pane's element `leaflet-<name>-pane`, which is what
+// `app/globals.css` stacks the popups with.
+const POPUP_PANE = 'meshcore-popup';
+
 /**
  * Props for {@link BaseLeafletMap}. The component owns only the reusable map
  * machinery — tile basemap, world bounds, min-zoom clamp, theme swap, and the
@@ -191,6 +195,21 @@ export function BaseLeafletMap({
     });
     mapRef.current = map;
 
+    // Popups get their own pane, attached to the map *container* instead of
+    // the default one inside `.leaflet-map-pane`. That pane carries both a
+    // transform and a `z-index`, so it is a stacking context of its own and
+    // nothing inside it can outrank the overlays the page stacks over the map
+    // (the legend, the marker-cap banner) — a popup near one of them would be
+    // painted underneath. Out here the pane's own `z-index` counts, and
+    // mirroring the map pane's transform keeps the popup tracking a drag.
+    const popupPane = map.createPane(POPUP_PANE, map.getContainer());
+    const mapPane = map.getPane('mapPane');
+    const syncPopupPane = () => {
+      if (mapPane) popupPane.style.transform = mapPane.style.transform;
+    };
+    syncPopupPane();
+    map.on('move zoom viewreset zoomanim', syncPopupPane);
+
     // Never let the viewport show blank space around the world: the minimum
     // zoom is the smallest level at which the world still covers the whole
     // container, recomputed whenever the container resizes.
@@ -276,6 +295,7 @@ export function BaseLeafletMap({
     return () => {
       onMapReadyRef.current?.(null);
       map.off('moveend', onMove);
+      map.off('move zoom viewreset zoomanim', syncPopupPane);
       map.off('autopanstart', onAutoPan);
       map.off('zoomend', onZoom);
       map.off('popupclose', onPopupClose);
@@ -379,6 +399,7 @@ export function BaseLeafletMap({
       offset: [0, -MAP_MARKER_SIZE_PX / 2],
       autoPanPadding: [24, 24],
       closeOnClick: false,
+      pane: POPUP_PANE,
     })
       .setLatLng(anchor)
       .setContent(popupHost);

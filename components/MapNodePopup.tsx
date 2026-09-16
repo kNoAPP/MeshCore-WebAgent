@@ -12,6 +12,7 @@ import {
   useMeshStore,
 } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useClockTick } from '@/hooks/useClockTick';
 import { ADV_ICON, ADV_LABEL_KEY } from '@/lib/utils';
 import {
   formatDateTime,
@@ -53,6 +54,9 @@ export function MapNodePopup({
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const unitSystem = useMeshStore((s) => s.unitSystem);
   const { toggleFavorite } = useMeshCore();
+  // The last-advert age is read off the wall clock, so it needs a tick of its
+  // own to keep ageing while the map sits idle behind the popup.
+  useClockTick();
 
   const name = contact?.name || advert?.name || node.name;
   // The newer of the two, not whichever record happens to carry a value: the
