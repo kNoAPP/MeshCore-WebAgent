@@ -1024,9 +1024,9 @@
       "sortName": "Name (A–Z)",
       "sortHeard": "Zuletzt gehört",
       "sortDistance": "Entfernung",
-      "count_one": "{{count}} Knoten auf der Karte",
-      "count_other": "{{count}} Knoten auf der Karte",
-      "countFiltered": "{{shown}} von {{total}} Knoten angezeigt",
+      "count_one": "{{count}} Knoten aufgeführt",
+      "count_other": "{{count}} Knoten aufgeführt",
+      "countFiltered": "{{shown}} von {{total}} Knoten aufgeführt",
       "noMatches": "Kein Knoten entspricht deiner Suche."
     },
     "popup": {

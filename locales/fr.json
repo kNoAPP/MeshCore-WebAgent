@@ -1024,9 +1024,9 @@
       "sortName": "Nom (A–Z)",
       "sortHeard": "Entendus récemment",
       "sortDistance": "Distance",
-      "count_one": "{{count}} nœud sur la carte",
-      "count_other": "{{count}} nœuds sur la carte",
-      "countFiltered": "{{shown}} nœuds sur {{total}} affichés",
+      "count_one": "{{count}} nœud dans la liste",
+      "count_other": "{{count}} nœuds dans la liste",
+      "countFiltered": "{{shown}} nœuds sur {{total}} dans la liste",
       "noMatches": "Aucun nœud ne correspond à votre recherche."
     },
     "popup": {

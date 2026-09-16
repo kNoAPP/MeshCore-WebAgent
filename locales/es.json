@@ -1024,9 +1024,9 @@
       "sortName": "Nombre (A–Z)",
       "sortHeard": "Escuchados recientemente",
       "sortDistance": "Distancia",
-      "count_one": "{{count}} nodo en el mapa",
-      "count_other": "{{count}} nodos en el mapa",
-      "countFiltered": "Mostrando {{shown}} de {{total}} nodos",
+      "count_one": "{{count}} nodo en la lista",
+      "count_other": "{{count}} nodos en la lista",
+      "countFiltered": "{{shown}} de {{total}} nodos en la lista",
       "noMatches": "Ningún nodo coincide con tu búsqueda."
     },
     "popup": {

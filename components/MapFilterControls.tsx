@@ -70,9 +70,7 @@ export function MapFilterControls({
                 aria-pressed={on}
                 onClick={() => toggleCategory(category)}
                 className={`focus-inset flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] whitespace-nowrap ${
-                  on
-                    ? 'border-accent-solid text-text'
-                    : 'border-border text-text2'
+                  on ? 'border-accent text-text' : 'border-border text-text2'
                 }`}
               >
                 <span

@@ -1023,9 +1023,9 @@
       "sortName": "Name (A–Z)",
       "sortHeard": "Heard recently",
       "sortDistance": "Distance",
-      "count_one": "{{count}} node on the map",
-      "count_other": "{{count}} nodes on the map",
-      "countFiltered": "{{shown}} of {{total}} nodes shown",
+      "count_one": "{{count}} node listed",
+      "count_other": "{{count}} nodes listed",
+      "countFiltered": "{{shown}} of {{total}} nodes listed",
       "noMatches": "No node matches your search."
     },
     "popup": {

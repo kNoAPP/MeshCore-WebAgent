@@ -202,8 +202,9 @@ export function MapNodeList({
         />
       </div>
       <p className='px-3 pb-2 text-[11px] text-text2'>
-        {/* The search narrows the list, not the markers, so a filtered count
-            says what it is a count of rather than claiming the map shrank. */}
+        {/* A count of list rows, not of markers: the search narrows the list
+            and not the map, and this node's own marker is plotted without ever
+            appearing here. The copy says "listed" for exactly that reason. */}
         {shown === nodes.length
           ? t('map.nodeList.count', { count: shown })
           : t('map.nodeList.countFiltered', {
