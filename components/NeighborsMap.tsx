@@ -20,6 +20,7 @@ import type { Neighbor } from '@/lib/meshcore/repeaterCli';
 import type { Advert, Contact } from '@/types/meshcore';
 import { BaseLeafletMap } from './BaseLeafletMap';
 import { MapLegend } from './MapLegend';
+import { renderNodePopup } from './MapNodePopup';
 
 // A neighbor resolving to the same stored node (or to the anchor itself) is
 // drawn once. One that resolves to nothing is counted but not drawn: the
@@ -119,19 +120,7 @@ export function NeighborsMap({
         // collapsed endpoint would detach an SNR link from the node it belongs
         // to, and a repeater reports at most eight neighbors anyway.
         labels
-        onNodeClick={(node) => {
-          // The anchor is the repeater already open in this admin view, so only
-          // neighbor markers (always contacts/adverts, never self) open a
-          // manage panel.
-          if (
-            node.kind === 'self' ||
-            node.pubkeyPrefix === contact.pubkeyPrefix
-          )
-            return;
-          useMeshStore
-            .getState()
-            .setManagePanel({ kind: node.kind, id: node.pubkeyPrefix });
-        }}
+        renderPopup={renderNodePopup}
       >
         <MapLegend listed={listed} showFavorite={anyFavorite}>
           {unplacedCount > 0 && (

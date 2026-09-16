@@ -27,7 +27,7 @@ import { BaseLeafletMap, applyStartView } from './BaseLeafletMap';
 import { MapFilterControls } from './MapFilterControls';
 import { MapLegend } from './MapLegend';
 import { MapNodeList } from './MapNodeList';
-import { MapNodePopup } from './MapNodePopup';
+import { renderNodePopup } from './MapNodePopup';
 function pickIcon(): L.DivIcon {
   const size = MAP_MARKER_SIZE_PX;
   return L.divIcon({
@@ -273,13 +273,6 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     };
   }, [map, mapPicking]);
 
-  const renderPopup = useCallback(
-    (node: MapNode, close: () => void) => (
-      <MapNodePopup node={node} onClose={close} />
-    ),
-    [],
-  );
-
   // Picking a node by name: frame the map on it, then open its popup. Zooming
   // in only when the map is further out keeps a deliberate close-up intact, and
   // the popup opens even while the node is still inside a collapsed cluster.
@@ -328,7 +321,7 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
         // marker is made inert and lets it through.
         cluster={!mapPicking}
         labels
-        renderPopup={mapPicking ? undefined : renderPopup}
+        renderPopup={mapPicking ? undefined : renderNodePopup}
         openNodeKey={openKey}
         onOpenNodeChange={setOpenKey}
         onMoveEnd={(center, zoom) => {

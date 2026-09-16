@@ -176,6 +176,15 @@ export function MapNodePopup({
   );
 }
 
+/**
+ * `renderPopup` for {@link BaseLeafletMap}, shared by every map that opens a
+ * node popup so they can't drift apart on what a marker click does. Defined at
+ * module scope, so its identity is stable across renders.
+ */
+export const renderNodePopup = (node: MapNode, close: () => void) => (
+  <MapNodePopup node={node} onClose={close} />
+);
+
 function PopupRow({
   label,
   value,

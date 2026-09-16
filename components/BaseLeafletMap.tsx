@@ -76,15 +76,10 @@ export interface BaseLeafletMapProps {
   /** The opening viewport, captured once by the caller (a stable value). */
   startView: StartView;
   /**
-   * Invoked when a non-self node's marker is clicked. When omitted, markers are
-   * inert (the Map page passes `undefined` while in location-pick mode).
-   */
-  onNodeClick?: (node: MapNode) => void;
-  /**
-   * Renders the body of a popup anchored to the clicked marker. When supplied
-   * it *replaces* {@link onNodeClick} as the click behavior — markers stay
-   * interactive, but the click opens the popup instead. `close` dismisses it,
-   * for an action that navigates away from the map.
+   * Renders the body of a popup anchored to the clicked marker. When omitted,
+   * markers are inert — the Map page drops it while placing a location pin, so
+   * the click reaches the map instead. `close` dismisses the popup, for an
+   * action that navigates away from the map.
    */
   renderPopup?: (node: MapNode, close: () => void) => ReactNode;
   /**
@@ -148,7 +143,6 @@ export function BaseLeafletMap({
   nodes,
   edges,
   startView,
-  onNodeClick,
   renderPopup,
   openNodeKey,
   onOpenNodeChange,
@@ -180,7 +174,6 @@ export function BaseLeafletMap({
   // Held in refs so their identity churn never re-runs the create effect (which
   // would tear down and rebuild the whole map). `clickable` still feeds the
   // marker signature so wiring toggles when a handler is added/removed.
-  const onNodeClickRef = useRef(onNodeClick);
   const renderPopupRef = useRef(renderPopup);
   const onMoveEndRef = useRef(onMoveEnd);
   const onMapReadyRef = useRef(onMapReady);
@@ -188,7 +181,6 @@ export function BaseLeafletMap({
   // marker for a node after a rebuild has replaced the element it came from.
   const markersRef = useRef(new Map<string, L.Marker>());
   useEffect(() => {
-    onNodeClickRef.current = onNodeClick;
     renderPopupRef.current = renderPopup;
     onMoveEndRef.current = onMoveEnd;
     onMapReadyRef.current = onMapReady;
@@ -463,13 +455,9 @@ export function BaseLeafletMap({
   // so skip the DOM rebuild when nothing actually plotted changed — a refresh
   // that only bumps `lastHeard`, or touches an off-map node, moves no marker
   // and must not churn the layer.
-  const clickable = onNodeClick != null || renderPopup != null;
-  // Whether a name is still worth offering on hover. Clustering guarantees a
-  // drawn marker has won its own space, so its label is legible and a tooltip
-  // would only repeat what is already beside it. Nothing guarantees that
-  // without clustering, where two labels can overlap into each other, so the
-  // tooltip stays as the way to read an occluded one.
-  const hoverName = !labels || !cluster;
+  const clickable = renderPopup != null;
+  // The name is either drawn beside the glyph or offered on hover, never both.
+  const hoverName = !labels;
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
@@ -511,10 +499,6 @@ export function BaseLeafletMap({
       if (hoverName) marker.bindTooltip(escapeHtml(name), { direction: 'top' });
       if (!inert) {
         marker.on('click', () => {
-          if (!renderPopupRef.current) {
-            onNodeClickRef.current?.(node);
-            return;
-          }
           // The marker's own position, so the popup always has an anchor even
           // if this node leaves the plotted set in the same batch as the
           // click. The effect below takes over keeping it current.
