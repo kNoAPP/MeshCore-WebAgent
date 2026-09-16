@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useMeshStore } from '@/store/meshStore';
@@ -76,6 +76,22 @@ export function MapNodeList({
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<NodeSort>('name');
   const searchId = useId();
+  // The collapsed rail and the open panel each have their own toggle, so React
+  // swaps one element for the other and the keyboard would be left on the body.
+  // Focus moves to whichever one replaced it, but only when the toggle itself
+  // made the change: the map also collapses this list to pick a location, and
+  // stealing focus for that would drag the operator out of the pick controls.
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+  const setOpen = (next: boolean) => {
+    restoreFocus.current = true;
+    onOpenChange(next);
+  };
+  useEffect(() => {
+    if (!restoreFocus.current) return;
+    restoreFocus.current = false;
+    toggleRef.current?.focus();
+  }, [open]);
 
   const groups = useMemo<NodeGroup[]>(() => {
     const needle = query.trim().toLowerCase();
@@ -140,7 +156,8 @@ export function MapNodeList({
       <div className='flex shrink-0 flex-col border-r border-border bg-surface p-1.5'>
         <button
           type='button'
-          onClick={() => onOpenChange(true)}
+          ref={toggleRef}
+          onClick={() => setOpen(true)}
           aria-expanded={false}
           className='focus-inset rounded-md p-1.5 text-text2 hover:text-accent'
           title={t('map.nodeList.show')}
@@ -163,7 +180,8 @@ export function MapNodeList({
         </h2>
         <button
           type='button'
-          onClick={() => onOpenChange(false)}
+          ref={toggleRef}
+          onClick={() => setOpen(false)}
           aria-expanded={true}
           className='focus-inset rounded-md p-1 text-text2 hover:text-accent'
           title={t('map.nodeList.hide')}
