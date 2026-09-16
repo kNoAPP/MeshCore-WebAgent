@@ -13,7 +13,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import dynamic from 'next/dynamic';
-import { Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useClockTick } from '@/hooks/useClockTick';
@@ -44,6 +44,7 @@ import { RouteChip } from './RouteChip';
 import { StatCard } from './StatCard';
 import { RefreshButton } from './RefreshButton';
 import { RepeaterConfigTab } from './RepeaterConfigTab';
+import { RepeaterConsoleTab } from './RepeaterConsoleTab';
 import type {
   Contact,
   LoginKind,
@@ -280,7 +281,9 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
             )}
             {activeTab === 'config' && <RepeaterConfigTab contact={contact} />}
             {activeTab === 'neighbors' && <NeighborsTab contact={contact} />}
-            {activeTab === 'console' && <ConsoleTab contact={contact} />}
+            {activeTab === 'console' && (
+              <RepeaterConsoleTab contact={contact} />
+            )}
           </div>
         </>
       ) : (
@@ -1110,129 +1113,5 @@ function NeighborsList({ rows }: { rows: NeighborRow[] }) {
         })}
       </tbody>
     </table>
-  );
-}
-
-// The console's "still waiting" glyph, shared by the in-line and standalone
-// placements.
-const PENDING_DOT_CLASS =
-  'ml-2 inline-block h-2.5 w-2.5 animate-spin rounded-full border border-text2 border-t-transparent align-middle';
-
-// Admin-only: current repeater/room firmware answers remote `CLI_DATA` only
-// for an admin client, so a guest would get no reply.
-function ConsoleTab({ contact }: { contact: Contact }) {
-  const { t } = useTranslation();
-  const { repeaterCli } = useMeshCore();
-  const prefix = contact.pubkeyPrefix;
-  const log = useMeshStore((s) => s.adminSessions[prefix]?.cli);
-  const clearCliLog = useMeshStore((s) => s.clearCliLog);
-  // Outstanding round trips are tracked in the session, not here, so switching
-  // tabs and back while a slow command is in flight keeps the indicator.
-  const cliPending = useMeshStore(
-    (s) => s.adminSessions[prefix]?.cliPending ?? 0,
-  );
-  const [input, setInput] = useState('');
-  const endRef = useRef<HTMLDivElement>(null);
-
-  // Keep the newest line in view as the transcript grows.
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' });
-  }, [log]);
-
-  const send = () => {
-    const cmd = input.trim();
-    if (cmd === '') return;
-    setInput('');
-    // Every outcome lands in the transcript — the reply, or a muted note when
-    // the node stays silent — so there is nothing to report here.
-    void repeaterCli(contact, cmd);
-  };
-
-  const lines = log ?? [];
-  // The indicator belongs on the newest command, which is not always the newest
-  // line: a reply or timeout note for an earlier command can land after it.
-  const lastOwn = lines.findLastIndex((l) => l.own);
-
-  return (
-    <div className='flex h-full w-full flex-col gap-3'>
-      <div className='relative flex-1 overflow-hidden rounded-lg border border-border bg-surface'>
-        <button
-          onClick={() => clearCliLog(prefix)}
-          disabled={lines.length === 0}
-          aria-label={t('repeaterAdmin.console.clear')}
-          title={t('repeaterAdmin.console.clear')}
-          className='absolute top-2 right-2 z-10 rounded-md border border-border-control bg-surface p-1.5 text-text2 hover:bg-surface2 hover:text-text disabled:opacity-50 disabled:hover:bg-surface disabled:hover:text-text2'
-        >
-          <Trash2 size={14} />
-        </button>
-
-        <div
-          role='log'
-          aria-live='polite'
-          aria-label={t('repeaterAdmin.console.transcriptLabel')}
-          className='h-full overflow-y-auto p-3 font-mono text-xs'
-        >
-          {lines.length === 0 && cliPending === 0 ? (
-            <p className='text-text2'>{t('repeaterAdmin.console.empty')}</p>
-          ) : (
-            lines.map((line, i) => (
-              <div
-                key={i}
-                className={
-                  line.note
-                    ? 'wrap-break-word whitespace-pre-wrap text-text2 italic'
-                    : line.own
-                      ? 'wrap-break-word whitespace-pre-wrap text-accent'
-                      : 'wrap-break-word whitespace-pre-wrap text-text'
-                }
-              >
-                {line.own ? `> ${line.text}` : line.text}
-                {cliPending > 0 && i === lastOwn && (
-                  <span aria-hidden className={PENDING_DOT_CLASS} />
-                )}
-              </div>
-            ))
-          )}
-          {/* Clearing the transcript mid-round-trip leaves no own line to hang
-              the indicator on, so it falls back to a standalone row. Hidden
-              from assistive tech, which gets the live-region status below. */}
-          {cliPending > 0 && lastOwn === -1 && (
-            <div aria-hidden className='text-text2 italic'>
-              {t('repeaterAdmin.console.waiting')}
-              <span className={PENDING_DOT_CLASS} />
-            </div>
-          )}
-          <div ref={endRef} />
-        </div>
-      </div>
-      <span role='status' aria-live='polite' className='sr-only'>
-        {cliPending > 0 ? t('repeaterAdmin.console.waiting') : ''}
-      </span>
-
-      <form
-        className='flex gap-2'
-        onSubmit={(e) => {
-          e.preventDefault();
-          send();
-        }}
-      >
-        <input
-          type='text'
-          autoComplete='off'
-          aria-label={t('repeaterAdmin.console.inputLabel')}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={t('repeaterAdmin.console.placeholder')}
-          className='flex-1 rounded-md border border-border-control bg-surface px-2.5 py-1.5 font-mono text-sm text-text outline-none focus:border-accent'
-        />
-        <button
-          type='submit'
-          disabled={input.trim() === ''}
-          className='rounded-md bg-accent-solid px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
-        >
-          {t('repeaterAdmin.console.send')}
-        </button>
-      </form>
-    </div>
   );
 }

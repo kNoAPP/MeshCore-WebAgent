@@ -651,13 +651,56 @@
       "noAnchor": "This repeater has no advertised location, so its neighbors can't be shown on the map."
     },
     "console": {
-      "empty": "No output yet. Send a command to get started.",
+      "empty": "No output yet. Send a command to get started, or press the ? button for the command list.",
       "transcriptLabel": "Console output",
       "inputLabel": "Command",
-      "placeholder": "Type a command (e.g. ver, get radio)",
+      "placeholder": "Type a command — Tab completes, ↑ recalls, help lists everything",
       "send": "Send",
       "clear": "Clear",
-      "waiting": "Waiting for a reply…"
+      "waiting": "Waiting for a reply…",
+      "roundTripLabel": "Round-trip time",
+      "suggestionsLabel": "Command suggestions",
+      "suggestionCount_one": "{{count}} command matches. Press Tab to complete it.",
+      "suggestionCount_other": "{{count}} commands match. Press Tab to complete the highlighted one.",
+      "confirm": {
+        "prompt": "Send “{{cmd}}” to {{name}}? It changes the node, and you may only be able to undo it in person.",
+        "send": "Send anyway"
+      },
+      "help": {
+        "title": "Commands",
+        "open": "Command help",
+        "close": "Close help",
+        "intro": "Nothing here is sent until you press Send. At the prompt, Tab completes the highlighted command, ↑ and ↓ recall earlier ones, and Esc dismisses the suggestions.",
+        "empty": "No command matches “{{filter}}”.",
+        "verbs": {
+          "help": "Shows this list, filtered to the commands whose syntax contains the text you pass.",
+          "ver": "Reports the firmware version the node is running.",
+          "board": "Reports the hardware the firmware was built for.",
+          "clock": "Reports the node's current time, in UTC.",
+          "clockSync": "Sets the node's clock from this computer's.",
+          "time": "Sets the node's clock to a specific Unix epoch time.",
+          "advert": "Sends one advert across the whole mesh. Everyone who hears it pays airtime for it.",
+          "advertZeroHop": "Sends one advert to direct neighbors only, so it is never repeated.",
+          "neighbors": "Lists the eight nodes this repeater heard advertise most recently.",
+          "neighborRemove": "Forgets every neighbor whose public key starts with the given prefix. A bare space matches all of them.",
+          "discoverNeighbors": "Asks direct neighbors to identify themselves.",
+          "clearStats": "Resets the node's packet and airtime counters to zero.",
+          "logStart": "Begins capturing a receive log to the node's storage.",
+          "logStop": "Stops capturing the receive log.",
+          "logErase": "Deletes the captured receive log from the node's storage.",
+          "getRole": "Reports whether the node is a repeater, room server or sensor.",
+          "getPublicKey": "Reports the node's public key.",
+          "getOwnerInfo": "Reports the free-text owner information the node carries.",
+          "setOwnerInfo": "Sets the free-text owner information. A “|” starts a new line.",
+          "password": "Changes the admin password, and admits anyone already using it to the admin list.",
+          "powersaving": "Reports or sets whether the node sleeps between transmissions.",
+          "setperm": "Grants a companion guest (0), read-only (1), read-write (2) or admin (3) access. Omit the level to revoke it.",
+          "startOta": "Puts the node into over-the-air firmware update mode.",
+          "reboot": "Restarts the node. It answers nothing and is unreachable until it comes back.",
+          "poweroff": "Shuts the node down. It stays off until someone power-cycles it in person.",
+          "erase": "Factory-resets the node, wiping its identity and every setting. The firmware accepts this over serial only."
+        }
+      }
     },
     "config": {
       "readingField": "Reading…",

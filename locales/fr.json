@@ -652,13 +652,56 @@
       "noAnchor": "Ce répéteur n’a pas d’emplacement annoncé, ses voisins ne peuvent donc pas être affichés sur la carte."
     },
     "console": {
-      "empty": "Aucune sortie pour l’instant. Envoyez une commande pour commencer.",
+      "empty": "Aucune sortie pour l’instant. Envoyez une commande pour commencer, ou ouvrez la liste des commandes avec le bouton ?.",
       "transcriptLabel": "Sortie de la console",
       "inputLabel": "Commande",
-      "placeholder": "Saisir une commande (ex. ver, get radio)",
+      "placeholder": "Saisir une commande — Tab complète, ↑ rappelle, help liste tout",
       "send": "Envoyer",
       "clear": "Effacer",
-      "waiting": "En attente d’une réponse…"
+      "waiting": "En attente d’une réponse…",
+      "roundTripLabel": "Temps d’aller-retour",
+      "suggestionsLabel": "Suggestions de commandes",
+      "suggestionCount_one": "{{count}} commande correspond. Appuyez sur Tab pour la compléter.",
+      "suggestionCount_other": "{{count}} commandes correspondent. Appuyez sur Tab pour compléter celle qui est en surbrillance.",
+      "confirm": {
+        "prompt": "Envoyer « {{cmd}} » à {{name}} ? Cette commande modifie le nœud, et vous ne pourrez peut-être l’annuler que sur place.",
+        "send": "Envoyer quand même"
+      },
+      "help": {
+        "title": "Commandes",
+        "open": "Aide sur les commandes",
+        "close": "Fermer l’aide",
+        "intro": "Rien n’est envoyé ici tant que vous n’appuyez pas sur Envoyer. À l’invite, Tab complète la commande en surbrillance, ↑ et ↓ rappellent les précédentes, et Échap masque les suggestions.",
+        "empty": "Aucune commande ne correspond à « {{filter}} ».",
+        "verbs": {
+          "help": "Affiche cette liste, filtrée sur les commandes dont la syntaxe contient le texte fourni.",
+          "ver": "Indique la version du micrologiciel du nœud.",
+          "board": "Indique le matériel pour lequel le micrologiciel a été compilé.",
+          "clock": "Indique l’heure courante du nœud, en UTC.",
+          "clockSync": "Règle l’horloge du nœud sur celle de cet ordinateur.",
+          "time": "Règle l’horloge du nœud sur une heure Unix précise.",
+          "advert": "Envoie une annonce à tout le maillage. Tous ceux qui l’entendent en paient le temps d’antenne.",
+          "advertZeroHop": "Envoie une annonce aux seuls voisins directs, elle n’est donc jamais relayée.",
+          "neighbors": "Liste les huit nœuds dont ce répéteur a entendu l’annonce le plus récemment.",
+          "neighborRemove": "Oublie tout voisin dont la clé publique commence par le préfixe donné. Une simple espace les vise tous.",
+          "discoverNeighbors": "Demande aux voisins directs de s’identifier.",
+          "clearStats": "Remet à zéro les compteurs de paquets et de temps d’antenne du nœud.",
+          "logStart": "Commence à enregistrer un journal de réception dans la mémoire du nœud.",
+          "logStop": "Arrête l’enregistrement du journal de réception.",
+          "logErase": "Supprime le journal de réception enregistré dans la mémoire du nœud.",
+          "getRole": "Indique si le nœud est un répéteur, un serveur de salon ou un capteur.",
+          "getPublicKey": "Indique la clé publique du nœud.",
+          "getOwnerInfo": "Indique le texte libre d’information sur le propriétaire porté par le nœud.",
+          "setOwnerInfo": "Définit le texte libre d’information sur le propriétaire. Un « | » commence une nouvelle ligne.",
+          "password": "Change le mot de passe d’administration et ajoute à la liste d’administrateurs quiconque l’utilise déjà.",
+          "powersaving": "Indique ou définit si le nœud dort entre deux émissions.",
+          "setperm": "Accorde à un companion un accès invité (0), lecture seule (1), lecture-écriture (2) ou administrateur (3). Omettez le niveau pour le révoquer.",
+          "startOta": "Met le nœud en mode de mise à jour du micrologiciel par radio.",
+          "reboot": "Redémarre le nœud. Il ne répond plus et reste injoignable jusqu’à son retour.",
+          "poweroff": "Éteint le nœud. Il reste éteint tant que personne ne le rallume sur place.",
+          "erase": "Réinitialise le nœud en usine, effaçant son identité et tous ses réglages. Le micrologiciel ne l’accepte que par liaison série."
+        }
+      }
     },
     "config": {
       "readingField": "Lecture…",

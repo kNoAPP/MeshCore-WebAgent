@@ -652,13 +652,56 @@
       "noAnchor": "Este repetidor no tiene una ubicación anunciada, por lo que sus vecinos no pueden mostrarse en el mapa."
     },
     "console": {
-      "empty": "Aún no hay salida. Envía un comando para empezar.",
+      "empty": "Aún no hay salida. Envía un comando para empezar, o pulsa el botón ? para ver la lista de comandos.",
       "transcriptLabel": "Salida de la consola",
       "inputLabel": "Comando",
-      "placeholder": "Escribe un comando (p. ej. ver, get radio)",
+      "placeholder": "Escribe un comando — Tab completa, ↑ recupera, help lo lista todo",
       "send": "Enviar",
       "clear": "Limpiar",
-      "waiting": "Esperando respuesta…"
+      "waiting": "Esperando respuesta…",
+      "roundTripLabel": "Tiempo de ida y vuelta",
+      "suggestionsLabel": "Sugerencias de comandos",
+      "suggestionCount_one": "{{count}} comando coincide. Pulsa Tab para completarlo.",
+      "suggestionCount_other": "{{count}} comandos coinciden. Pulsa Tab para completar el resaltado.",
+      "confirm": {
+        "prompt": "¿Enviar «{{cmd}}» a {{name}}? Cambia el nodo y puede que solo puedas deshacerlo en persona.",
+        "send": "Enviar igualmente"
+      },
+      "help": {
+        "title": "Comandos",
+        "open": "Ayuda de comandos",
+        "close": "Cerrar la ayuda",
+        "intro": "Nada de esto se envía hasta que pulses Enviar. En el indicador, Tab completa el comando resaltado, ↑ y ↓ recuperan los anteriores y Esc oculta las sugerencias.",
+        "empty": "Ningún comando coincide con «{{filter}}».",
+        "verbs": {
+          "help": "Muestra esta lista, filtrada a los comandos cuya sintaxis contiene el texto indicado.",
+          "ver": "Indica la versión de firmware que ejecuta el nodo.",
+          "board": "Indica el hardware para el que se compiló el firmware.",
+          "clock": "Indica la hora actual del nodo, en UTC.",
+          "clockSync": "Ajusta el reloj del nodo al de este ordenador.",
+          "time": "Ajusta el reloj del nodo a una hora Unix concreta.",
+          "advert": "Envía un anuncio a toda la malla. Todos los que lo oyen pagan tiempo de aire por él.",
+          "advertZeroHop": "Envía un anuncio solo a los vecinos directos, así que nunca se repite.",
+          "neighbors": "Lista los ocho nodos cuyo anuncio oyó este repetidor más recientemente.",
+          "neighborRemove": "Olvida todo vecino cuya clave pública empiece por el prefijo indicado. Un espacio solo los abarca todos.",
+          "discoverNeighbors": "Pide a los vecinos directos que se identifiquen.",
+          "clearStats": "Pone a cero los contadores de paquetes y tiempo de aire del nodo.",
+          "logStart": "Empieza a capturar un registro de recepción en el almacenamiento del nodo.",
+          "logStop": "Detiene la captura del registro de recepción.",
+          "logErase": "Borra el registro de recepción capturado del almacenamiento del nodo.",
+          "getRole": "Indica si el nodo es repetidor, servidor de sala o sensor.",
+          "getPublicKey": "Indica la clave pública del nodo.",
+          "getOwnerInfo": "Indica el texto libre de información del propietario que lleva el nodo.",
+          "setOwnerInfo": "Define el texto libre de información del propietario. Un «|» inicia una línea nueva.",
+          "password": "Cambia la contraseña de administrador y añade a la lista de administradores a quien ya la use.",
+          "powersaving": "Indica o define si el nodo duerme entre transmisiones.",
+          "setperm": "Concede a un companion acceso de invitado (0), solo lectura (1), lectura y escritura (2) o administrador (3). Omite el nivel para revocarlo.",
+          "startOta": "Pone el nodo en modo de actualización de firmware por radio.",
+          "reboot": "Reinicia el nodo. No responde y queda inalcanzable hasta que vuelve.",
+          "poweroff": "Apaga el nodo. Seguirá apagado hasta que alguien lo encienda en persona.",
+          "erase": "Restablece el nodo de fábrica, borrando su identidad y todos sus ajustes. El firmware solo lo acepta por serie."
+        }
+      }
     },
     "config": {
       "readingField": "Leyendo…",

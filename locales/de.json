@@ -652,13 +652,56 @@
       "noAnchor": "Dieser Repeater hat keinen angekündigten Standort, daher können seine Nachbarn nicht auf der Karte angezeigt werden."
     },
     "console": {
-      "empty": "Noch keine Ausgabe. Senden Sie einen Befehl, um zu beginnen.",
+      "empty": "Noch keine Ausgabe. Senden Sie einen Befehl, um zu beginnen, oder öffnen Sie mit der Schaltfläche ? die Befehlsliste.",
       "transcriptLabel": "Konsolenausgabe",
       "inputLabel": "Befehl",
-      "placeholder": "Befehl eingeben (z. B. ver, get radio)",
+      "placeholder": "Befehl eingeben — Tab vervollständigt, ↑ ruft ab, help listet alles auf",
       "send": "Senden",
       "clear": "Leeren",
-      "waiting": "Warte auf Antwort…"
+      "waiting": "Warte auf Antwort…",
+      "roundTripLabel": "Umlaufzeit",
+      "suggestionsLabel": "Befehlsvorschläge",
+      "suggestionCount_one": "{{count}} Befehl passt. Drücken Sie Tab, um ihn zu vervollständigen.",
+      "suggestionCount_other": "{{count}} Befehle passen. Drücken Sie Tab, um den hervorgehobenen zu vervollständigen.",
+      "confirm": {
+        "prompt": "„{{cmd}}“ an {{name}} senden? Der Befehl verändert den Knoten und lässt sich unter Umständen nur vor Ort rückgängig machen.",
+        "send": "Trotzdem senden"
+      },
+      "help": {
+        "title": "Befehle",
+        "open": "Befehlshilfe",
+        "close": "Hilfe schließen",
+        "intro": "Hier wird nichts gesendet, bis Sie auf Senden klicken. An der Eingabe vervollständigt Tab den hervorgehobenen Befehl, ↑ und ↓ rufen frühere Befehle ab, und Esc blendet die Vorschläge aus.",
+        "empty": "Kein Befehl passt zu „{{filter}}“.",
+        "verbs": {
+          "help": "Zeigt diese Liste, gefiltert auf die Befehle, deren Syntax den übergebenen Text enthält.",
+          "ver": "Meldet die Firmware-Version des Knotens.",
+          "board": "Meldet die Hardware, für die die Firmware gebaut wurde.",
+          "clock": "Meldet die aktuelle Zeit des Knotens in UTC.",
+          "clockSync": "Stellt die Uhr des Knotens nach der dieses Computers.",
+          "time": "Stellt die Uhr des Knotens auf eine bestimmte Unix-Epoch-Zeit.",
+          "advert": "Sendet eine Ankündigung ins gesamte Mesh. Alle, die sie hören, zahlen dafür Sendezeit.",
+          "advertZeroHop": "Sendet eine Ankündigung nur an direkte Nachbarn, sie wird also nie weitergeleitet.",
+          "neighbors": "Listet die acht Knoten auf, deren Ankündigung dieser Repeater zuletzt gehört hat.",
+          "neighborRemove": "Vergisst jeden Nachbarn, dessen öffentlicher Schlüssel mit dem angegebenen Präfix beginnt. Ein einzelnes Leerzeichen trifft auf alle zu.",
+          "discoverNeighbors": "Fordert direkte Nachbarn auf, sich zu identifizieren.",
+          "clearStats": "Setzt die Paket- und Sendezeitzähler des Knotens auf null zurück.",
+          "logStart": "Beginnt, ein Empfangsprotokoll im Speicher des Knotens aufzuzeichnen.",
+          "logStop": "Beendet die Aufzeichnung des Empfangsprotokolls.",
+          "logErase": "Löscht das aufgezeichnete Empfangsprotokoll aus dem Speicher des Knotens.",
+          "getRole": "Meldet, ob der Knoten ein Repeater, Room-Server oder Sensor ist.",
+          "getPublicKey": "Meldet den öffentlichen Schlüssel des Knotens.",
+          "getOwnerInfo": "Meldet die freie Besitzerinformation des Knotens.",
+          "setOwnerInfo": "Setzt die freie Besitzerinformation. Ein „|“ beginnt eine neue Zeile.",
+          "password": "Ändert das Admin-Passwort und nimmt jeden, der es bereits verwendet, in die Admin-Liste auf.",
+          "powersaving": "Meldet oder setzt, ob der Knoten zwischen Sendungen schläft.",
+          "setperm": "Gewährt einem Companion Gast- (0), Lese- (1), Schreib- (2) oder Admin-Zugriff (3). Ohne Stufe wird der Zugriff entzogen.",
+          "startOta": "Versetzt den Knoten in den Modus für Firmware-Updates über Funk.",
+          "reboot": "Startet den Knoten neu. Er antwortet nicht und ist bis zur Rückkehr nicht erreichbar.",
+          "poweroff": "Schaltet den Knoten aus. Er bleibt aus, bis ihn jemand vor Ort wieder einschaltet.",
+          "erase": "Setzt den Knoten auf Werkseinstellungen zurück und löscht Identität und alle Einstellungen. Die Firmware akzeptiert dies nur über die serielle Schnittstelle."
+        }
+      }
     },
     "config": {
       "readingField": "Wird gelesen…",
