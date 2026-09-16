@@ -217,6 +217,11 @@ const contactFailures = new Map<string, { route: string; count: number }>();
 // one is running joins it instead of queuing a second RESET_PATH for the same
 // route — `client.contacts` only shows the cleared path once the radio answers.
 const pathResets = new Map<string, Promise<void>>();
+// The status read in flight for a repeater, if any. Every entry point — the
+// admin dashboard's Refresh button and the command palette — joins the running
+// one rather than queuing a second exchange behind it: remote admin is slow and
+// lossy, and two reads of the same thing only take the link away from the user.
+const statusRequests = new Map<string, Promise<void>>();
 // The resolver awaiting a CLI reply from each repeater, keyed by pubkeyPrefix.
 //
 // MeshCore gives remote-admin CLI replies no correlation id of any kind: the
@@ -442,6 +447,7 @@ function clearDeliveryState(): void {
   deliveryCycles.clear();
   contactFailures.clear();
   pathResets.clear();
+  statusRequests.clear();
 }
 
 // Rejects and drops every outstanding CLI request. Called on session teardown
@@ -1723,31 +1729,45 @@ export function useMeshCore() {
     [client, setAdminLogin, showToast],
   );
 
-  /** Requests a repeater's live status and stores it on its admin session. */
+  /**
+   * Requests a repeater's live status and stores it on its admin session.
+   *
+   * @returns the read in flight for this repeater — a second call while one is
+   * running joins it instead of starting another, so every caller's spinner
+   * follows the same exchange.
+   */
   const repeaterStatus = useCallback(
-    async (contact: Contact) => {
-      if (!canTransmit(client)) return;
+    (contact: Contact): Promise<void> => {
+      if (!canTransmit(client)) return Promise.resolve();
+      const prefix = contact.pubkeyPrefix;
+      const running = statusRequests.get(prefix);
+      if (running) return running;
       // The session this request belongs to. A log-out and re-login between the
       // send and the reply mints a new token, and the old snapshot must not
       // land on the new session — it would read as freshly updated.
-      const token =
-        useMeshStore.getState().adminSessions[contact.pubkeyPrefix]?.token;
-      try {
-        const status = await client.requestStatus(contact);
-        // Skip a stale update if the session dropped mid-request.
-        if (!canTransmit(client)) return;
-        setRepeaterStatus(contact.pubkeyPrefix, status, token);
-      } catch (err) {
-        // A disconnect rejects the in-flight request; its teardown owns the
-        // user-facing toast, so suppress this stale operation error.
-        if (!canTransmit(client)) return;
-        showToast(
-          i18n.t('toast.repeaterStatusFailed', {
-            error: (err as Error).message,
-          }),
-          'error',
-        );
-      }
+      const token = useMeshStore.getState().adminSessions[prefix]?.token;
+      const request = (async () => {
+        try {
+          const status = await client.requestStatus(contact);
+          // Skip a stale update if the session dropped mid-request.
+          if (!canTransmit(client)) return;
+          setRepeaterStatus(prefix, status, token);
+        } catch (err) {
+          // A disconnect rejects the in-flight request; its teardown owns the
+          // user-facing toast, so suppress this stale operation error.
+          if (!canTransmit(client)) return;
+          showToast(
+            i18n.t('toast.repeaterStatusFailed', {
+              error: (err as Error).message,
+            }),
+            'error',
+          );
+        }
+      })().finally(() => {
+        statusRequests.delete(prefix);
+      });
+      statusRequests.set(prefix, request);
+      return request;
     },
     [client, setRepeaterStatus, showToast],
   );
