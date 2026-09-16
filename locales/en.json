@@ -1027,7 +1027,7 @@
       "count_other": "{{count}} nodes listed",
       "countFiltered": "{{shown}} of {{total}} nodes listed",
       "noMatches": "No node matches your search.",
-      "empty": "No node is plotted right now."
+      "empty": "No other node is listed right now."
     },
     "popup": {
       "message": "Message",

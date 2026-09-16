@@ -245,6 +245,11 @@ export function BaseLeafletMap({
   // can still be inside a collapsed cluster, and a clustered marker has no
   // element to hand focus back to, so the opener is the fallback target.
   const popupOpenerRef = useRef<HTMLElement | null>(null);
+  // Whether focus has been inside the open popup. React unmounts the body as
+  // soon as the node leaves the plotted set — an age tick, a filter, a cache
+  // eviction — which drops focus to `document.body` *before* Leaflet reports
+  // the close, so by then there is nothing left to read it off the DOM.
+  const popupHadFocusRef = useRef(false);
   const closePopup = useCallback(() => setPopupKey(null), [setPopupKey]);
   // Only when focus is still inside the popup being closed: a close that came
   // from clicking the map (or from opening another marker's popup) has already
@@ -254,9 +259,15 @@ export function BaseLeafletMap({
   // to whatever opened the popup instead of falling to the document.
   const restorePopupFocus = useCallback(() => {
     const active = document.activeElement;
-    if (!(active instanceof HTMLElement) || !active.closest('.leaflet-popup')) {
-      return;
-    }
+    const inside =
+      active instanceof HTMLElement && active.closest('.leaflet-popup') != null;
+    // Either focus is still in the popup, or it was and the body has already
+    // been unmounted out from under it. Anything else — a map click, another
+    // marker's popup — has already put focus where the user meant it to go.
+    const orphaned =
+      popupHadFocusRef.current && (active == null || active === document.body);
+    popupHadFocusRef.current = false;
+    if (!inside && !orphaned) return;
     const key = popupKeyRef.current;
     const marker =
       key == null ? null : markersRef.current.get(key)?.getElement();
@@ -563,6 +574,7 @@ export function BaseLeafletMap({
     // on — a marker, or the node list row that selected this node.
     const opener = document.activeElement;
     popupOpenerRef.current = opener instanceof HTMLElement ? opener : null;
+    popupHadFocusRef.current = false;
     const popup = L.popup({
       className: 'meshcore-popup',
       maxWidth: MAP_POPUP_MAX_WIDTH_PX,
@@ -615,16 +627,25 @@ export function BaseLeafletMap({
   // Leaflet only listens for Escape while the *map container* holds focus, so
   // a popup whose own button is focused could not be dismissed from the
   // keyboard. React unmounts the body before Leaflet reports the close, so the
-  // focus handover has to happen here rather than in `popupclose`.
+  // focus handover has to happen here rather than in `popupclose`. The same
+  // listener records that the popup has held focus at all, which is the only
+  // trace left once the body is unmounted by a node leaving the plotted set.
   useEffect(() => {
+    const onFocusIn = () => {
+      popupHadFocusRef.current = true;
+    };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       e.stopPropagation();
       restorePopupFocus();
       setPopupKey(null);
     };
+    popupHost.addEventListener('focusin', onFocusIn);
     popupHost.addEventListener('keydown', onKeyDown);
-    return () => popupHost.removeEventListener('keydown', onKeyDown);
+    return () => {
+      popupHost.removeEventListener('focusin', onFocusIn);
+      popupHost.removeEventListener('keydown', onKeyDown);
+    };
   }, [popupHost, restorePopupFocus, setPopupKey]);
 
   // Rebuild link polylines when the edge set changes, guarded by a signature so

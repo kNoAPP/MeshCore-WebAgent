@@ -216,7 +216,9 @@ export function MapNodeList({
         {shown === 0 ? (
           <p className='px-3 py-2 text-xs text-text2'>
             {/* An empty `nodes` is the map's filters, not the search box, so
-                blaming the query would contradict the map's own empty state. */}
+                blaming the query would contradict the map's own empty state.
+                The copy is list-specific: this node's own marker is plotted
+                without ever being listed here. */}
             {t(
               nodes.length === 0
                 ? 'map.nodeList.empty'

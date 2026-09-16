@@ -1028,7 +1028,7 @@
       "count_other": "{{count}} nodos en la lista",
       "countFiltered": "{{shown}} de {{total}} nodos en la lista",
       "noMatches": "Ningún nodo coincide con tu búsqueda.",
-      "empty": "Ahora mismo no hay ningún nodo en el mapa."
+      "empty": "Ahora mismo no hay ningún otro nodo en la lista."
     },
     "popup": {
       "message": "Mensaje",

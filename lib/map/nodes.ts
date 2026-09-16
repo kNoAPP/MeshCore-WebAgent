@@ -63,16 +63,25 @@ export interface MapEdge {
 
 type DegCoords = { lat: number; lon: number } | null;
 
-// The freshest of the two records. Not `Math.max`: these are the *sender's*
-// clocks, so a contact row still holding a future timestamp would outrank the
-// advert that just corrected it, and the node would then fail every "heard
-// within" window. Ranking by clock-clamped age is the rule `sortByHeardAge` and
-// `mergeAdvertCache` already apply. `0`/missing means the record has no
-// timestamp at all.
-function lastHeardOf(
-  nowSecs: number,
+/**
+ * The freshest last-advert timestamp a node has, across the contact table and
+ * the advert cache, or `undefined` when neither carries one.
+ *
+ * @remarks Not `Math.max`: these are the *sender's* clocks, so a contact row
+ * still holding a future timestamp would outrank the advert that just corrected
+ * it — and the node would then fail every "heard within" window while still
+ * reading as freshly heard. Ranking by clock-clamped age is the rule
+ * `sortByHeardAge` and `mergeAdvertCache` already apply. Every surface that
+ * shows or filters on this age shares this helper, or selecting a row would
+ * change the apparent age of the node it selects.
+ *
+ * @param nowSecs - the reference clock in epoch seconds; pass one captured
+ * value when ranking a whole set.
+ */
+export function freshestHeard(
   contact?: Contact,
   advert?: Advert,
+  nowSecs: number = Math.floor(Date.now() / 1000),
 ): number | undefined {
   const known = [contact?.lastAdvert, advert?.lastHeard].filter(
     (t): t is number => typeof t === 'number' && t > 0,
@@ -148,7 +157,7 @@ export function collectMapNodes(
       lon: coords.lon,
       kind: 'contact',
       favorite: (contact.flags & FAVORITE_FLAG) !== 0,
-      lastHeard: lastHeardOf(nowSecs, contact, adverts[contact.pubkeyPrefix]),
+      lastHeard: freshestHeard(contact, adverts[contact.pubkeyPrefix], nowSecs),
     });
   }
 

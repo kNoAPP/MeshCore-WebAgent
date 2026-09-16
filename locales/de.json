@@ -1028,7 +1028,7 @@
       "count_other": "{{count}} Knoten aufgeführt",
       "countFiltered": "{{shown}} von {{total}} Knoten aufgeführt",
       "noMatches": "Kein Knoten entspricht deiner Suche.",
-      "empty": "Derzeit ist kein Knoten eingezeichnet."
+      "empty": "Derzeit ist kein anderer Knoten aufgeführt."
     },
     "popup": {
       "message": "Nachricht",
