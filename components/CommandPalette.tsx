@@ -149,10 +149,12 @@ export function CommandPalette(): React.ReactElement {
   // leave the highlight past the end.
   const activeIndex = flat.length ? Math.min(active, flat.length - 1) : 0;
 
-  // Focus the input on open so typing works immediately.
+  // Focus the input on open so typing works immediately, and again whenever a
+  // confirmation is dismissed — the input is remounted with the result list, so
+  // focus would otherwise be left on the Cancel button that just disappeared.
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (!pending) inputRef.current?.focus();
+  }, [pending]);
 
   // Keep the highlighted row scrolled into view during keyboard navigation.
   useEffect(() => {
