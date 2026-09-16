@@ -183,7 +183,9 @@ label[for] {
   --map-favorite: #fbbf24;
   /* Ring color for a cluster holding more than one category. Neutral on
      purpose: the accent is already `--map-user`, so reusing it would make a
-     mixed cluster indistinguishable from an all-companion one. */
+     mixed cluster indistinguishable from an all-companion one. This one tone
+     clears 3:1 against the cluster's `--surface` fill in both themes, so
+     unlike the other map colors it is not overridden below. */
   --map-cluster-mixed: #64748b;
   --map-shadow: rgb(0 0 0 / 0.5);
 }
@@ -224,7 +226,6 @@ label[for] {
      have to darken or they vanish into the tiles. */
   --map-outline: #1a1d27;
   --map-favorite: #a16207;
-  --map-cluster-mixed: #94a3b8;
   --map-shadow: rgb(15 17 23 / 0.3);
 }
 

@@ -83,6 +83,41 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   const { t } = useTranslation();
   const mapPicking = useMeshStore((s) => s.mapPicking);
 
+  // What the map is plotting. A per-radio preference, so it survives the
+  // session; the node list's collapsed state stays transient UI.
+  const filters = useMeshStore((s) => s.mapFilters);
+  const setFilters = useMeshStore((s) => s.setMapFilters);
+  // The "heard within" window is measured against the wall clock, so it needs a
+  // tick of its own: without one a node would stay plotted after it crossed the
+  // selected boundary, until some unrelated store change happened to rebuild
+  // the set.
+  const nowSecs = useClockTick();
+
+  // The nodes actually eligible for plotting, after the filters. The marker
+  // layer, the node list and every piece of framing derive from this, so none
+  // of them can disagree — framing a set the map is not plotting would leave
+  // the visible markers off screen, or the view empty.
+  const visible = useMemo(
+    () => filterMapNodes(nodes, filters, nowSecs),
+    [nodes, filters, nowSecs],
+  );
+
+  const total = visible.length + (self ? 1 : 0);
+  const capped = total > MAX_MAP_MARKERS;
+  // Trimmed to the marker budget, with a slot reserved for this node's own
+  // marker. The node list takes the same trimmed set: a row the map is not
+  // plotting could be framed but never opened, and its count would disagree
+  // with the cap notice.
+  const listed = useMemo(
+    () => visible.slice(0, MAX_MAP_MARKERS - (self ? 1 : 0)),
+    [visible, self],
+  );
+  // Self first so it survives the cap.
+  const plotted = useMemo(
+    () => (self ? [self, ...listed] : listed),
+    [self, listed],
+  );
+
   // The Leaflet map, once created — needed to wire location-pick mode against
   // it. Held in state so the pick effect re-runs when the map (re)mounts.
   const [map, setMap] = useState<L.Map | null>(null);
@@ -102,7 +137,7 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   } | null>(null);
   // Capture the opening viewport once, from the first render's state.
   const [startView] = useState(() =>
-    initialView(useMeshStore.getState().mapPrefs, self, nodes),
+    initialView(useMeshStore.getState().mapPrefs, self, listed),
   );
   // Per-radio preferences and the advert cache both hydrate *after* the session
   // reports 'connected', so a map opened in that window (a `#/map` deep link,
@@ -112,7 +147,7 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   // remounting it, so a pin placed while picking survives.
   const savedPrefs = useMeshStore((s) => s.mapPrefs);
   const prefsHydrated = useMeshStore((s) => s.prefsHydrated);
-  const framedOnData = useRef(self != null || nodes.length > 0);
+  const framedOnData = useRef(self != null || listed.length > 0);
   const framedOnPrefs = useRef(false);
   // Leaflet reports our own framing through `moveend` as well, so each one is
   // announced here first and consumed by the next move it produces. A move with
@@ -164,10 +199,10 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
       // located marker off screen.
     }
     if (userMoved.current || framedOnData.current) return;
-    if (!self && nodes.length === 0) return;
+    if (!self && listed.length === 0) return;
     framedOnData.current = true;
-    frame(map, initialView(null, self, nodes));
-  }, [map, savedPrefs, prefsHydrated, mapPicking, self, nodes, frame]);
+    frame(map, initialView(null, self, listed));
+  }, [map, savedPrefs, prefsHydrated, mapPicking, self, listed, frame]);
   // Framing the operator asked for — a list selection, "fit all", "centre on
   // my node". It must not be undone by the late `mapPrefs`/first-data upgrades
   // above, which `userMoved` already blocks, and it is still not a pan, so
@@ -182,8 +217,6 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
 
   // What the map is plotting. A per-radio preference, so it survives the
   // session; the node list's collapsed state stays transient UI.
-  const filters = useMeshStore((s) => s.mapFilters);
-  const setFilters = useMeshStore((s) => s.setMapFilters);
   const [listOpen, setListOpen] = useState(true);
   // The node list is a sibling of the map, so collapsing it (or hiding it for
   // location picking) changes the map's width. Leaflet caches the container
@@ -201,35 +234,6 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
   // The node whose popup is open, owned here rather than by the map, so the
   // node list can open one for a node the user never clicked.
   const [openKey, setOpenKey] = useState<string | null>(null);
-  // The "heard within" window is measured against the wall clock, so it needs a
-  // tick of its own: without one a node would stay plotted after it crossed the
-  // selected boundary, until some unrelated store change happened to rebuild
-  // the set.
-  const nowSecs = useClockTick();
-
-  // The nodes actually eligible for plotting, after the filters. Both the
-  // marker layer and the node list derive from this, so their counts never
-  // disagree.
-  const visible = useMemo(
-    () => filterMapNodes(nodes, filters, nowSecs),
-    [nodes, filters, nowSecs],
-  );
-
-  const total = visible.length + (self ? 1 : 0);
-  const capped = total > MAX_MAP_MARKERS;
-  // Trimmed to the marker budget, with a slot reserved for this node's own
-  // marker. The node list takes the same trimmed set: a row the map is not
-  // plotting could be framed but never opened, and its count would disagree
-  // with the cap notice.
-  const listed = useMemo(
-    () => visible.slice(0, MAX_MAP_MARKERS - (self ? 1 : 0)),
-    [visible, self],
-  );
-  // Self first so it survives the cap.
-  const plotted = useMemo(
-    () => (self ? [self, ...listed] : listed),
-    [self, listed],
-  );
 
   // Location-pick mode: place/move a draggable pin on map clicks and pre-seed
   // it at this node's advertised location (if any). Wired only while picking so

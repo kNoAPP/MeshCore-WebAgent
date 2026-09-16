@@ -259,6 +259,8 @@ export function BaseLeafletMap({
   // Set while `zoomToShowLayer` is moving the map to reveal a selected marker.
   const revealingRef = useRef(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Which reveal owns the two refs above, so an overtaken one cannot end it.
+  const revealIdRef = useRef(0);
   const closePopup = useCallback(() => setPopupKey(null), [setPopupKey]);
   // Only when focus is still inside the popup being closed: a close that came
   // from clicking the map (or from opening another marker's popup) has already
@@ -618,16 +620,21 @@ export function BaseLeafletMap({
       // The pan/zoom this performs is the map answering a selection, not the
       // user moving, so it must not be persisted as a viewport. Cleared by the
       // callback, and by a timer in case the marker never becomes visible.
-      revealingRef.current = true;
-      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
-      revealTimerRef.current = setTimeout(() => {
-        revealingRef.current = false;
-        revealTimerRef.current = null;
-      }, REVEAL_SETTLE_MS);
-      group.zoomToShowLayer(marker, () => {
+      // Selecting a second node before the first reveal finishes starts a new
+      // generation, and only the current one is allowed to lower the flag —
+      // otherwise the stale callback would expose the reveal still running.
+      const generation = ++revealIdRef.current;
+      const endReveal = () => {
+        if (revealIdRef.current !== generation) return;
         if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
         revealTimerRef.current = null;
         revealingRef.current = false;
+      };
+      revealingRef.current = true;
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = setTimeout(endReveal, REVEAL_SETTLE_MS);
+      group.zoomToShowLayer(marker, () => {
+        endReveal();
         // Fanning a cluster out moves its markers onto spider legs, so the
         // popup has to follow this one there rather than stay at the
         // coordinate the whole cluster collapsed to.
