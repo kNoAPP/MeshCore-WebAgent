@@ -993,13 +993,40 @@
   "map": {
     "self": "This node",
     "markerCap": "Showing {{shown}} of {{total}} nodes",
+    "cluster_one": "Cluster of {{count}} node",
+    "cluster_other": "Cluster of {{count}} nodes",
     "empty": "No node has advertised a location yet. Locations arrive with adverts, so this fills in as the mesh is heard.",
     "emptyPeers": "No other node has advertised a location yet. Locations arrive with adverts, so this fills in as the mesh is heard.",
-    "emptyFavorites": "None of your favorites has a location yet.",
+    "emptyFiltered": "No node matches the current filters.",
     "pick": {
       "hint": "Click the map to set this radio's location.",
       "confirm": "Confirm location",
       "cancel": "Cancel"
+    },
+    "frame": {
+      "fitAll": "Fit all nodes",
+      "centerSelf": "Center on my node"
+    },
+    "filters": {
+      "types": "Node types",
+      "heardWithin": "Heard within",
+      "anyAge": "Any age",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    },
+    "nodeList": {
+      "title": "Nodes",
+      "show": "Show the node list",
+      "hide": "Hide the node list",
+      "search": "Search nodes",
+      "sort": "Order nodes",
+      "sortName": "Name (A–Z)",
+      "sortHeard": "Heard recently",
+      "sortDistance": "Distance",
+      "count_one": "{{count}} node on the map",
+      "count_other": "{{count}} nodes on the map",
+      "countFiltered": "{{shown}} of {{total}} nodes shown",
+      "noMatches": "No node matches your search."
     },
     "popup": {
       "message": "Message",

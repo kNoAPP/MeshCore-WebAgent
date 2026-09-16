@@ -994,13 +994,40 @@
   "map": {
     "self": "Este nodo",
     "markerCap": "Mostrando {{shown}} de {{total}} nodos",
+    "cluster_one": "Grupo de {{count}} nodo",
+    "cluster_other": "Grupo de {{count}} nodos",
     "empty": "Ningún nodo ha anunciado todavía su ubicación. Las ubicaciones llegan con los anuncios, así que esto se irá llenando a medida que se escuche la malla.",
     "emptyPeers": "Ningún otro nodo ha anunciado todavía su ubicación. Las ubicaciones llegan con los anuncios, así que esto se irá llenando a medida que se escuche la malla.",
-    "emptyFavorites": "Ninguno de tus favoritos tiene ubicación todavía.",
+    "emptyFiltered": "Ningún nodo coincide con los filtros actuales.",
     "pick": {
       "hint": "Haz clic en el mapa para establecer la ubicación de esta radio.",
       "confirm": "Confirmar ubicación",
       "cancel": "Cancelar"
+    },
+    "frame": {
+      "fitAll": "Encuadrar todos los nodos",
+      "centerSelf": "Centrar en mi nodo"
+    },
+    "filters": {
+      "types": "Tipos de nodo",
+      "heardWithin": "Escuchado hace",
+      "anyAge": "Cualquier antigüedad",
+      "days_one": "{{count}} día",
+      "days_other": "{{count}} días"
+    },
+    "nodeList": {
+      "title": "Nodos",
+      "show": "Mostrar la lista de nodos",
+      "hide": "Ocultar la lista de nodos",
+      "search": "Buscar nodos",
+      "sort": "Ordenar nodos",
+      "sortName": "Nombre (A–Z)",
+      "sortHeard": "Escuchados recientemente",
+      "sortDistance": "Distancia",
+      "count_one": "{{count}} nodo en el mapa",
+      "count_other": "{{count}} nodos en el mapa",
+      "countFiltered": "Mostrando {{shown}} de {{total}} nodos",
+      "noMatches": "Ningún nodo coincide con tu búsqueda."
     },
     "popup": {
       "message": "Mensaje",

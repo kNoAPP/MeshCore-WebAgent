@@ -5,20 +5,29 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Crosshair, Maximize } from 'lucide-react';
 import L from 'leaflet';
 import { useMeshStore } from '@/store/meshStore';
 import { collectMapNodes, selfMapNode, type MapNode } from '@/lib/map/nodes';
 import {
+  DEFAULT_MAP_FILTERS,
+  filterMapNodes,
+  filtersActive,
+  type MapFilters,
+} from '@/lib/map/filters';
+import {
   DEFAULT_MAP_PREFS,
+  MAP_FOCUS_ZOOM,
   MAP_MARKER_SIZE_PX,
   MAX_MAP_MARKERS,
   type MapPrefs,
   type StartView,
 } from '@/lib/map/config';
 import { BaseLeafletMap, applyStartView } from './BaseLeafletMap';
+import { MapFilterControls } from './MapFilterControls';
 import { MapLegend } from './MapLegend';
+import { MapNodeList } from './MapNodeList';
 import { MapNodePopup } from './MapNodePopup';
-import { Switch } from './Switch';
 
 function pickIcon(): L.DivIcon {
   const size = MAP_MARKER_SIZE_PX;
@@ -160,15 +169,33 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     framedOnData.current = true;
     frame(map, initialView(null, self, nodes));
   }, [map, savedPrefs, prefsHydrated, mapPicking, self, nodes, frame]);
-  // When on, only favorited contacts (plus this node) are plotted.
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  // Framing the operator asked for — a list selection, "fit all", "centre on
+  // my node". It must not be undone by the late `mapPrefs`/first-data upgrades
+  // above, which `userMoved` already blocks, and it is still not a pan, so
+  // `frame` keeps it out of the saved viewport.
+  const frameDeliberate = useCallback(
+    (m: L.Map, view: StartView) => {
+      userMoved.current = true;
+      frame(m, view);
+    },
+    [frame],
+  );
 
-  // The nodes actually eligible for plotting, after the favorites-only filter.
-  // Both the marker layer and the cap banner derive from this so their counts
-  // never disagree.
+  // What the map is plotting. Transient view state: deliberately not persisted
+  // per radio, so opening the Map shows the whole mesh rather than a filter set
+  // days ago and forgotten.
+  const [filters, setFilters] = useState<MapFilters>(DEFAULT_MAP_FILTERS);
+  const [listOpen, setListOpen] = useState(true);
+  // The node whose popup is open, owned here rather than by the map, so the
+  // node list can open one for a node the user never clicked.
+  const [openKey, setOpenKey] = useState<string | null>(null);
+
+  // The nodes actually eligible for plotting, after the filters. Both the
+  // marker layer and the node list derive from this, so their counts never
+  // disagree.
   const visible = useMemo(
-    () => (favoritesOnly ? nodes.filter((n) => n.favorite) : nodes),
-    [nodes, favoritesOnly],
+    () => filterMapNodes(nodes, filters),
+    [nodes, filters],
   );
 
   const total = visible.length + (self ? 1 : 0);
@@ -229,84 +256,164 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     [],
   );
 
+  // Picking a node by name: frame the map on it, then open its popup. Zooming
+  // in only when the map is further out keeps a deliberate close-up intact, and
+  // the popup opens even while the node is still inside a collapsed cluster.
+  const focusNode = useCallback(
+    (node: MapNode) => {
+      if (map) {
+        frameDeliberate(map, {
+          center: [node.lat, node.lon],
+          zoom: Math.max(map.getZoom(), MAP_FOCUS_ZOOM),
+        });
+      }
+      setOpenKey(node.key);
+    },
+    [map, frameDeliberate],
+  );
+
+  const fitAll = () => {
+    if (!map || plotted.length === 0) return;
+    frameDeliberate(map, {
+      bounds: plotted.map((n) => [n.lat, n.lon] as [number, number]),
+    });
+  };
+
+  const centerOnSelf = () => {
+    if (!map || !self) return;
+    frameDeliberate(map, { center: [self.lat, self.lon], zoom: map.getZoom() });
+  };
+
   return (
-    <BaseLeafletMap
-      nodes={plotted}
-      startView={startView}
-      renderPopup={mapPicking ? undefined : renderPopup}
-      onMoveEnd={(center, zoom) => {
-        // `mapPrefs` is null until the *user* moves the map, so our own
-        // framing must not persist itself as a saved viewport.
-        if (framing.current) {
-          framing.current = false;
-          return;
-        }
-        userMoved.current = true;
-        useMeshStore.getState().setMapPrefs({ center, zoom });
-      }}
-      onMapReady={setMap}
-    >
-      <div className='pointer-events-none absolute inset-x-0 top-0 z-1000 flex flex-col items-start gap-2 p-3'>
-        {capped && (
-          <span className='pointer-events-auto rounded-md border border-border bg-surface/90 px-2.5 py-1 text-xs text-text2 backdrop-blur'>
-            {t('map.markerCap', { shown: MAX_MAP_MARKERS, total })}
-          </span>
-        )}
-      </div>
-      {/* `visible`, not `plotted`: this node's own marker is prepended to
-          `plotted` regardless of the filter, so a located self would hide the
-          empty state even with no peers left to show. */}
-      {visible.length === 0 && !mapPicking && (
-        <div className='pointer-events-none absolute inset-0 z-1000 flex items-center justify-center p-6'>
-          <p className='pointer-events-auto max-w-sm rounded-card border border-border bg-surface/95 px-4 py-3 text-center text-sm text-text2 backdrop-blur'>
-            {t(
-              favoritesOnly
-                ? 'map.emptyFavorites'
-                : self
-                  ? 'map.emptyPeers'
-                  : 'map.empty',
-            )}
-          </p>
-        </div>
+    <>
+      {!mapPicking && (
+        <MapNodeList
+          nodes={visible}
+          self={self}
+          selectedKey={openKey}
+          onSelect={focusNode}
+          open={listOpen}
+          onOpenChange={setListOpen}
+        />
       )}
-      {mapPicking && (
-        <div className='pointer-events-none absolute inset-x-0 bottom-6 z-1000 flex justify-center px-3'>
-          <div className='pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-md border border-border bg-surface/95 px-3 py-2 text-sm text-text backdrop-blur'>
-            <span className='text-text2'>{t('map.pick.hint')}</span>
-            <div className='flex items-center gap-2'>
-              <button
-                type='button'
-                onClick={() => useMeshStore.getState().cancelLocationPick()}
-                className='rounded-md border border-border px-3 py-1 text-xs font-medium text-text2 hover:text-text'
-              >
-                {t('map.pick.cancel')}
-              </button>
-              <button
-                type='button'
-                disabled={!pickedPoint}
-                onClick={() => {
-                  if (pickedPoint) {
-                    useMeshStore
-                      .getState()
-                      .confirmLocationPick(pickedPoint.lat, pickedPoint.lon);
-                  }
-                }}
-                className='rounded-md bg-accent-solid px-3 py-1 text-xs font-medium text-white disabled:opacity-50'
-              >
-                {t('map.pick.confirm')}
-              </button>
+      <BaseLeafletMap
+        nodes={plotted}
+        startView={startView}
+        cluster
+        labels
+        renderPopup={mapPicking ? undefined : renderPopup}
+        openNodeKey={openKey}
+        onOpenNodeChange={setOpenKey}
+        onMoveEnd={(center, zoom) => {
+          // `mapPrefs` is null until the *user* moves the map, so our own
+          // framing must not persist itself as a saved viewport.
+          if (framing.current) {
+            framing.current = false;
+            return;
+          }
+          userMoved.current = true;
+          useMeshStore.getState().setMapPrefs({ center, zoom });
+        }}
+        onMapReady={setMap}
+      >
+        <div className='pointer-events-none absolute inset-x-0 top-0 z-1000 flex items-start justify-end gap-2 p-3'>
+          {capped && (
+            <span className='pointer-events-auto mr-auto rounded-md border border-border bg-surface/90 px-2.5 py-1 text-xs text-text2 backdrop-blur'>
+              {t('map.markerCap', { shown: MAX_MAP_MARKERS, total })}
+            </span>
+          )}
+          {!mapPicking && (
+            <div className='pointer-events-auto flex flex-col overflow-hidden rounded-md border border-border bg-surface/90 backdrop-blur'>
+              <FrameButton
+                onClick={fitAll}
+                disabled={plotted.length === 0}
+                label={t('map.frame.fitAll')}
+                icon={<Maximize size={15} aria-hidden='true' />}
+              />
+              <FrameButton
+                onClick={centerOnSelf}
+                disabled={!self}
+                label={t('map.frame.centerSelf')}
+                icon={<Crosshair size={15} aria-hidden='true' />}
+              />
+            </div>
+          )}
+        </div>
+        {/* `visible`, not `plotted`: this node's own marker is prepended to
+            `plotted` regardless of the filters, so a located self would hide
+            the empty state even with no peers left to show. */}
+        {visible.length === 0 && !mapPicking && (
+          <div className='pointer-events-none absolute inset-0 z-1000 flex items-center justify-center p-6'>
+            <p className='pointer-events-auto max-w-sm rounded-card border border-border bg-surface/95 px-4 py-3 text-center text-sm text-text2 backdrop-blur'>
+              {t(
+                filtersActive(filters)
+                  ? 'map.emptyFiltered'
+                  : self
+                    ? 'map.emptyPeers'
+                    : 'map.empty',
+              )}
+            </p>
+          </div>
+        )}
+        {mapPicking && (
+          <div className='pointer-events-none absolute inset-x-0 bottom-6 z-1000 flex justify-center px-3'>
+            <div className='pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-md border border-border bg-surface/95 px-3 py-2 text-sm text-text backdrop-blur'>
+              <span className='text-text2'>{t('map.pick.hint')}</span>
+              <div className='flex items-center gap-2'>
+                <button
+                  type='button'
+                  onClick={() => useMeshStore.getState().cancelLocationPick()}
+                  className='rounded-md border border-border px-3 py-1 text-xs font-medium text-text2 hover:text-text'
+                >
+                  {t('map.pick.cancel')}
+                </button>
+                <button
+                  type='button'
+                  disabled={!pickedPoint}
+                  onClick={() => {
+                    if (pickedPoint) {
+                      useMeshStore
+                        .getState()
+                        .confirmLocationPick(pickedPoint.lat, pickedPoint.lon);
+                    }
+                  }}
+                  className='rounded-md bg-accent-solid px-3 py-1 text-xs font-medium text-white disabled:opacity-50'
+                >
+                  {t('map.pick.confirm')}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      <MapLegend>
-        <Switch
-          checked={favoritesOnly}
-          onChange={setFavoritesOnly}
-          label={t('map.legend.favoritesOnly')}
-          className='focus-inset border-t border-border px-2.5 py-2 whitespace-nowrap hover:text-accent'
-        />
-      </MapLegend>
-    </BaseLeafletMap>
+        )}
+        <MapLegend>
+          <MapFilterControls filters={filters} onChange={setFilters} />
+        </MapLegend>
+      </BaseLeafletMap>
+    </>
+  );
+}
+
+function FrameButton({
+  onClick,
+  disabled,
+  label,
+  icon,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  label: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <button
+      type='button'
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      className='focus-inset p-1.5 text-text2 not-first:border-t not-first:border-border hover:text-accent disabled:cursor-not-allowed disabled:opacity-40'
+    >
+      {icon}
+      <span className='sr-only'>{label}</span>
+    </button>
   );
 }

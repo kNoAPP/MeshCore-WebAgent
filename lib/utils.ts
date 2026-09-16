@@ -28,6 +28,22 @@ export function randomSecret(): Uint8Array {
 }
 
 /**
+ * How old a `lastHeard` timestamp is, in seconds, clamped against a skewed
+ * sender clock: the magnitude of its offset from now, so a node whose clock
+ * runs ahead reads as *that far* old instead of as freshly heard.
+ *
+ * @param nowSecs - the reference clock in epoch seconds; pass one captured
+ * value when ranking or filtering a whole set, so every entry is measured
+ * against the same instant.
+ */
+export function heardAgeSecs(
+  lastHeard: number,
+  nowSecs: number = Math.floor(Date.now() / 1000),
+): number {
+  return Math.abs(nowSecs - lastHeard);
+}
+
+/**
  * Orders entries carrying a `lastHeard` timestamp freshest first, returning a
  * new array. `lastHeard` is the *sender's* clock and MeshCore nodes routinely
  * run without a synchronized RTC, so entries are ranked by the magnitude of
@@ -42,7 +58,8 @@ export function sortByHeardAge<T extends { lastHeard: number }>(
 ): T[] {
   const nowSecs = Math.floor(Date.now() / 1000);
   return [...items].sort(
-    (a, b) => Math.abs(nowSecs - a.lastHeard) - Math.abs(nowSecs - b.lastHeard),
+    (a, b) =>
+      heardAgeSecs(a.lastHeard, nowSecs) - heardAgeSecs(b.lastHeard, nowSecs),
   );
 }
 
@@ -323,6 +340,15 @@ export function contactCategory(advType: number): ContactCategory {
  */
 export function microToDeg(micro: number): number {
   return micro / 1e6;
+}
+
+/**
+ * The inverse of {@link microToDeg}, for handing a coordinate that has already
+ * been normalized to degrees (a `MapNode`) to a helper that takes the
+ * firmware's encoding.
+ */
+export function degToMicro(deg: number): number {
+  return Math.round(deg * 1e6);
 }
 
 /**

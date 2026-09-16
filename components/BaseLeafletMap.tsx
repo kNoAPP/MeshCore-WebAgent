@@ -14,8 +14,15 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { useMeshStore } from '@/store/meshStore';
-import { escapeHtml, nodeIcon } from '@/lib/map/leafletIcon';
+import {
+  clusterIcon,
+  escapeHtml,
+  nodeIcon,
+  type NodeMarker,
+} from '@/lib/map/leafletIcon';
 import {
   placeEdgeLabel,
   pointAlongEdge,
@@ -23,8 +30,10 @@ import {
 } from '@/lib/map/edgeLabel';
 import type { MapEdge, MapNode } from '@/lib/map/nodes';
 import {
+  MAP_CLUSTER_RADIUS_PX,
   MAP_EDGE_OPACITY,
   MAP_EDGE_WEIGHT,
+  MAP_LABEL_MIN_ZOOM,
   MAP_MARKER_SIZE_PX,
   MAP_MAX_ZOOM,
   MAP_POPUP_MAX_WIDTH_PX,
@@ -70,6 +79,25 @@ export interface BaseLeafletMapProps {
    * for an action that navigates away from the map.
    */
   renderPopup?: (node: MapNode, close: () => void) => ReactNode;
+  /**
+   * Key of the node whose popup is open, taking the popup out of the map's own
+   * hands so a caller can open one from outside it (a node list, a search
+   * result). Supply it together with {@link onOpenNodeChange}; omit both and
+   * the map tracks the open popup itself.
+   */
+  openNodeKey?: string | null;
+  /** Reports every open/close while the popup is controlled. */
+  onOpenNodeChange?: (key: string | null) => void;
+  /**
+   * Collapse overlapping markers into count glyphs that expand on click. Read
+   * once, when the map is created.
+   */
+  cluster?: boolean;
+  /**
+   * Draw each node's name beside its marker, from
+   * {@link MAP_LABEL_MIN_ZOOM} up (favorites at every zoom).
+   */
+  labels?: boolean;
   /** Invoked after each pan/zoom, for callers that persist the viewport. */
   onMoveEnd?: (center: [number, number], zoom: number) => void;
   /**
@@ -111,6 +139,10 @@ export function BaseLeafletMap({
   startView,
   onNodeClick,
   renderPopup,
+  openNodeKey,
+  onOpenNodeChange,
+  cluster = false,
+  labels = false,
   onMoveEnd,
   onMapReady,
   children,
@@ -124,6 +156,13 @@ export function BaseLeafletMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
+  // The same layer as `markerLayerRef` when clustering is on, kept separately
+  // so the bulk `addLayers` path (which the plugin batches) is typed.
+  const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
+  // Clustering is a property of the map surface, not of a render: recreating
+  // the map to honour a toggle would throw away the viewport and any open
+  // popup, so the create effect reads this rather than taking it as a dep.
+  const clusterRef = useRef(cluster);
   const edgeLayerRef = useRef<L.LayerGroup | null>(null);
   // Signatures of the currently plotted markers/edges; let the rebuild effects
   // skip work when nothing changed. Reset whenever a layer is (re)created so a
@@ -154,10 +193,36 @@ export function BaseLeafletMap({
   // its popup with it. The body itself is React, portalled into this detached
   // host that Leaflet adopts as the popup's content — so it keeps the app's
   // store, theme and i18n instead of being assembled as an HTML string.
-  const [popupKey, setPopupKey] = useState<string | null>(null);
-  const [popupHost] = useState(() => document.createElement('div'));
+  // A caller that supplies `onOpenNodeChange` owns the key instead, which is
+  // what lets the node list open a popup the map never got a click for.
+  const [uncontrolledKey, setUncontrolledKey] = useState<string | null>(null);
+  const controlled = onOpenNodeChange != null;
+  const popupKey = controlled ? (openNodeKey ?? null) : uncontrolledKey;
+  const setPopupKey = useCallback(
+    (key: string | null) => {
+      if (onOpenNodeChange) onOpenNodeChange(key);
+      else setUncontrolledKey(key);
+    },
+    [onOpenNodeChange],
+  );
+  // The create effect wires Leaflet's own close/click handlers once, for the
+  // life of the map, so it reaches the current setter through a ref rather than
+  // taking one whose identity follows a prop.
+  const setPopupKeyRef = useRef(setPopupKey);
+  useEffect(() => {
+    setPopupKeyRef.current = setPopupKey;
+  });
+  const popupHost = useState(() => document.createElement('div'))[0];
   const popupNode =
     popupKey == null ? null : (nodes.find((n) => n.key === popupKey) ?? null);
+  // Read by the open effect below without being a dependency of it: a fresh
+  // advert changes this object constantly and must *move* the open popup (the
+  // last effect in this file), never reopen it. Declared before that effect,
+  // so it is already current when the effect runs in the same commit.
+  const popupNodeRef = useRef(popupNode);
+  useEffect(() => {
+    popupNodeRef.current = popupNode;
+  });
   // The popup this component opened, and the node it belongs to. Leaflet
   // reports the *old* popup closing while a new one opens, so the close
   // handler has to tell them apart or switching markers would dismiss the
@@ -165,9 +230,11 @@ export function BaseLeafletMap({
   const popupRef = useRef<L.Popup | null>(null);
   const popupKeyRef = useRef<string | null>(null);
   // Where the popup opens: the clicked marker's position, captured by the
-  // click itself so the anchor never depends on a later lookup.
-  const popupAnchorRef = useRef<L.LatLng | null>(null);
-  const closePopup = useCallback(() => setPopupKey(null), []);
+  // click itself so the anchor never depends on a later lookup. Tagged with
+  // the node it was captured for, because a popup opened from outside the map
+  // has no click of its own and must not inherit the last one's anchor.
+  const popupAnchorRef = useRef<{ key: string; at: L.LatLng } | null>(null);
+  const closePopup = useCallback(() => setPopupKey(null), [setPopupKey]);
   // Only when focus is still inside the popup being closed: a close that came
   // from clicking the map (or from opening another marker's popup) has already
   // put focus where the user meant it to go. The marker is looked up live,
@@ -192,6 +259,10 @@ export function BaseLeafletMap({
       // opening viewport is applied below, once the min zoom is known.
       maxBounds: WORLD_BOUNDS,
       maxBoundsViscosity: 1,
+      // Stated on the map rather than inherited from the tile layer: the
+      // cluster group reads `getMaxZoom()` when it is added, and refuses to
+      // attach to a map whose ceiling is still unbounded.
+      maxZoom: MAP_MAX_ZOOM,
     });
     mapRef.current = map;
 
@@ -226,7 +297,23 @@ export function BaseLeafletMap({
     // Edges sit under markers so a node's shape always reads on top of its
     // links.
     edgeLayerRef.current = L.layerGroup().addTo(map);
-    markerLayerRef.current = L.layerGroup().addTo(map);
+    // Clustering keeps a dense mesh legible and bounds the DOM: only the
+    // visible clusters and their expanded children are rendered. Coverage
+    // polygons are off — they outline the cluster's bounding hull, which on a
+    // regional mesh sweeps across half the viewport on every hover.
+    if (clusterRef.current) {
+      const group = L.markerClusterGroup({
+        maxClusterRadius: MAP_CLUSTER_RADIUS_PX,
+        showCoverageOnHover: false,
+        iconCreateFunction: clusterIcon,
+        chunkedLoading: true,
+      });
+      clusterGroupRef.current = group;
+      markerLayerRef.current = group;
+    } else {
+      markerLayerRef.current = L.layerGroup();
+    }
+    markerLayerRef.current.addTo(map);
     // Brand-new, empty layers: force the next rebuilds rather than
     // short-circuit on a signature left over from the previous layers.
     markerSigRef.current = '';
@@ -277,7 +364,7 @@ export function BaseLeafletMap({
       popupRef.current = null;
       restorePopupFocus();
       popupKeyRef.current = null;
-      setPopupKey(null);
+      setPopupKeyRef.current(null);
     };
     map.on('popupclose', onPopupClose);
 
@@ -287,7 +374,7 @@ export function BaseLeafletMap({
     // the popup and then re-select the node it is already showing — leaving
     // the state pointing at a popup that is no longer on screen. A click that
     // reaches the map is, by definition, not on a marker.
-    const onMapClick = () => setPopupKey(null);
+    const onMapClick = () => setPopupKeyRef.current(null);
     map.on('click', onMapClick);
 
     onMapReadyRef.current?.(map);
@@ -304,6 +391,7 @@ export function BaseLeafletMap({
       map.remove();
       mapRef.current = null;
       markerLayerRef.current = null;
+      clusterGroupRef.current = null;
       edgeLayerRef.current = null;
       tileLayerRef.current = null;
     };
@@ -321,6 +409,14 @@ export function BaseLeafletMap({
   // that only bumps `lastHeard`, or touches an off-map node, moves no marker
   // and must not churn the layer.
   const clickable = onNodeClick != null || renderPopup != null;
+  // Which markers carry their name: every one from `MAP_LABEL_MIN_ZOOM` up,
+  // only the favorites below it. A boolean-per-mode rather than the raw zoom,
+  // so the rebuild happens on the crossing and not on every wheel notch.
+  const labelMode = !labels
+    ? 'none'
+    : zoom >= MAP_LABEL_MIN_ZOOM
+      ? 'all'
+      : 'favorites';
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
@@ -331,13 +427,15 @@ export function BaseLeafletMap({
       )
       .join('|');
     // `t` (locale) drives the self tooltip and `clickable` gates click wiring,
-    // so both belong in the signature that decides whether a rebuild is needed.
-    const fullSig = `${clickable ? 'click' : ''}|${t('map.self')}|${sig}`;
+    // so both belong in the signature that decides whether a rebuild is needed,
+    // as does the label mode the zoom has settled on.
+    const fullSig = `${clickable ? 'click' : ''}|${labelMode}|${t('map.self')}|${sig}`;
     if (fullSig === markerSigRef.current) return;
     markerSigRef.current = fullSig;
 
     layer.clearLayers();
     markersRef.current.clear();
+    const markers: L.Marker[] = [];
     for (const node of nodes) {
       // A node parked on the unplaced ring sits at an invented coordinate and
       // is known only by its prefix, so there is nothing for a click to open.
@@ -347,8 +445,10 @@ export function BaseLeafletMap({
         !node.positionUnknown
       );
       const name = node.kind === 'self' ? t('map.self') : node.name;
+      const labeled =
+        labelMode === 'all' || (labelMode === 'favorites' && node.favorite);
       const marker = L.marker([node.lat, node.lon], {
-        icon: nodeIcon(node),
+        icon: nodeIcon(node, labeled ? name : undefined),
         // An inert marker (location-pick mode, or the self node) would
         // otherwise swallow the click the map needs to place the pin, and
         // would be a dead stop for the keyboard.
@@ -357,7 +457,10 @@ export function BaseLeafletMap({
         // Leaflet puts this on the container, which is what names the button
         // it makes of an interactive marker.
         title: inert ? undefined : name,
-      });
+      }) as NodeMarker;
+      // Read back by the cluster glyph, which colors itself after its
+      // children when they all share a category.
+      marker.meshNode = node;
       marker.bindTooltip(escapeHtml(name), { direction: 'top' });
       if (!inert) {
         marker.on('click', () => {
@@ -368,25 +471,41 @@ export function BaseLeafletMap({
           // The marker's own position, so the popup always has an anchor even
           // if this node leaves the plotted set in the same batch as the
           // click. The effect below takes over keeping it current.
-          popupAnchorRef.current = marker.getLatLng();
+          popupAnchorRef.current = { key: node.key, at: marker.getLatLng() };
           setPopupKey(node.key);
         });
       }
-      marker.addTo(layer);
+      markers.push(marker);
       markersRef.current.set(node.key, marker);
     }
+    // The cluster group indexes a whole batch in one pass (and chunks the work
+    // across frames); a plain group has no such path, so it takes them singly.
+    const group = clusterGroupRef.current;
+    if (group) group.addLayers(markers);
+    else for (const marker of markers) marker.addTo(layer);
     // `startView` recreates the map with empty layers, so it has to refill.
-  }, [nodes, t, clickable, startView]);
+  }, [nodes, t, clickable, labelMode, startView, setPopupKey]);
 
-  // Open the popup for the clicked node, anchored at its coordinates. It is
+  // Open the popup for the selected node, anchored at its coordinates. It is
   // added to the map rather than bound to the marker, so a marker rebuild —
-  // which a busy advert cache triggers constantly — cannot close it mid-read.
-  // Keyed on the node alone: the anchor is kept current by the effect below,
-  // so a live update moves the popup instead of reopening it.
+  // which a busy advert cache triggers constantly — cannot close it mid-read,
+  // and a node still inside a collapsed cluster is just as openable as one
+  // whose marker is on screen. Keyed on the node alone: the anchor is kept
+  // current by the effect below, so a live update moves the popup instead of
+  // reopening it.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const anchor = popupAnchorRef.current;
+    // The click's own anchor when this is the node that was clicked; otherwise
+    // the node's current position, which is all a selection made off-map has.
+    const clicked = popupAnchorRef.current;
+    const live = popupNodeRef.current;
+    const anchor =
+      clicked && clicked.key === popupKey
+        ? clicked.at
+        : live
+          ? L.latLng(live.lat, live.lon)
+          : null;
     if (popupKey == null || !anchor) {
       if (popupRef.current) map.closePopup(popupRef.current);
       return;
@@ -453,7 +572,7 @@ export function BaseLeafletMap({
     };
     popupHost.addEventListener('keydown', onKeyDown);
     return () => popupHost.removeEventListener('keydown', onKeyDown);
-  }, [popupHost, restorePopupFocus]);
+  }, [popupHost, restorePopupFocus, setPopupKey]);
 
   // Rebuild link polylines when the edge set changes, guarded by a signature so
   // an unrelated node refresh doesn't churn the layer. The zoom is part of that

@@ -23,6 +23,12 @@ export interface MapNode {
   /** Favorited contact — flagged with a gold marker outline. */
   favorite: boolean;
   /**
+   * Unix epoch seconds of the most recent advert from this node, or
+   * `undefined` when neither store carries one. It is the *sender's* clock, so
+   * every reader must measure it with `heardAgeSecs` rather than subtracting.
+   */
+  lastHeard?: number;
+  /**
    * The coordinates are a placeholder, not a fix: this node is known only by
    * the 4 bytes a repeater reported, so it is parked on a ring around its
    * anchor and must be drawn as unplaced rather than plotted as terrain.
@@ -56,6 +62,15 @@ export interface MapEdge {
 }
 
 type DegCoords = { lat: number; lon: number } | null;
+
+// The newer of the two records, not whichever happens to carry a value: the
+// advert cache is written the moment a push advert lands, while the contact
+// table is re-synced on a debounce behind it. `0` means neither knows.
+function lastHeardOf(contact?: Contact, advert?: Advert): number | undefined {
+  return (
+    Math.max(contact?.lastAdvert ?? 0, advert?.lastHeard ?? 0) || undefined
+  );
+}
 
 // The firmware writes `0` for an unset coordinate, so a zero (or missing) lat
 // or lon — including `(0, 0)` "Null Island" — counts as no location.
@@ -120,6 +135,7 @@ export function collectMapNodes(
       lon: coords.lon,
       kind: 'contact',
       favorite: (contact.flags & FAVORITE_FLAG) !== 0,
+      lastHeard: lastHeardOf(contact, adverts[contact.pubkeyPrefix]),
     });
   }
 
@@ -137,6 +153,7 @@ export function collectMapNodes(
       lon: coords.lon,
       kind: 'advert',
       favorite: false,
+      lastHeard: advert.lastHeard,
     });
   }
 

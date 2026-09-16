@@ -994,13 +994,40 @@
   "map": {
     "self": "Ce nœud",
     "markerCap": "Affichage de {{shown}} sur {{total}} nœuds",
+    "cluster_one": "Groupe de {{count}} nœud",
+    "cluster_other": "Groupe de {{count}} nœuds",
     "empty": "Aucun nœud n'a encore annoncé de position. Les positions arrivent avec les annonces : la carte se remplira à mesure que le réseau sera entendu.",
     "emptyPeers": "Aucun autre nœud n'a encore annoncé de position. Les positions arrivent avec les annonces : la carte se remplira à mesure que le réseau sera entendu.",
-    "emptyFavorites": "Aucun de tes favoris n'a encore de position.",
+    "emptyFiltered": "Aucun nœud ne correspond aux filtres actuels.",
     "pick": {
       "hint": "Cliquez sur la carte pour définir la position de cette radio.",
       "confirm": "Confirmer la position",
       "cancel": "Annuler"
+    },
+    "frame": {
+      "fitAll": "Cadrer tous les nœuds",
+      "centerSelf": "Centrer sur mon nœud"
+    },
+    "filters": {
+      "types": "Types de nœud",
+      "heardWithin": "Entendu depuis",
+      "anyAge": "Tout âge",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours"
+    },
+    "nodeList": {
+      "title": "Nœuds",
+      "show": "Afficher la liste des nœuds",
+      "hide": "Masquer la liste des nœuds",
+      "search": "Rechercher des nœuds",
+      "sort": "Trier les nœuds",
+      "sortName": "Nom (A–Z)",
+      "sortHeard": "Entendus récemment",
+      "sortDistance": "Distance",
+      "count_one": "{{count}} nœud sur la carte",
+      "count_other": "{{count}} nœuds sur la carte",
+      "countFiltered": "{{shown}} nœuds sur {{total}} affichés",
+      "noMatches": "Aucun nœud ne correspond à votre recherche."
     },
     "popup": {
       "message": "Message",

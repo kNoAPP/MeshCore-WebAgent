@@ -994,13 +994,40 @@
   "map": {
     "self": "Dieser Knoten",
     "markerCap": "{{shown}} von {{total}} Knoten werden angezeigt",
+    "cluster_one": "Gruppe mit {{count}} Knoten",
+    "cluster_other": "Gruppe mit {{count}} Knoten",
     "empty": "Noch hat kein Knoten einen Standort gesendet. Standorte kommen mit Adverts, das füllt sich also, sobald das Mesh gehört wird.",
     "emptyPeers": "Noch hat kein anderer Knoten einen Standort gesendet. Standorte kommen mit Adverts, das füllt sich also, sobald das Mesh gehört wird.",
-    "emptyFavorites": "Keiner deiner Favoriten hat bisher einen Standort.",
+    "emptyFiltered": "Kein Knoten entspricht den aktuellen Filtern.",
     "pick": {
       "hint": "Klicke auf die Karte, um den Standort dieses Funkgeräts festzulegen.",
       "confirm": "Standort bestätigen",
       "cancel": "Abbrechen"
+    },
+    "frame": {
+      "fitAll": "Alle Knoten einpassen",
+      "centerSelf": "Auf meinen Knoten zentrieren"
+    },
+    "filters": {
+      "types": "Knotentypen",
+      "heardWithin": "Gehört innerhalb",
+      "anyAge": "Beliebiges Alter",
+      "days_one": "{{count}} Tag",
+      "days_other": "{{count}} Tage"
+    },
+    "nodeList": {
+      "title": "Knoten",
+      "show": "Knotenliste anzeigen",
+      "hide": "Knotenliste ausblenden",
+      "search": "Knoten suchen",
+      "sort": "Knoten sortieren",
+      "sortName": "Name (A–Z)",
+      "sortHeard": "Zuletzt gehört",
+      "sortDistance": "Entfernung",
+      "count_one": "{{count}} Knoten auf der Karte",
+      "count_other": "{{count}} Knoten auf der Karte",
+      "countFiltered": "{{shown}} von {{total}} Knoten angezeigt",
+      "noMatches": "Kein Knoten entspricht deiner Suche."
     },
     "popup": {
       "message": "Nachricht",
