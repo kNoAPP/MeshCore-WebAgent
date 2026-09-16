@@ -17,6 +17,7 @@ import {
 } from '@/lib/map/config';
 import { BaseLeafletMap, applyStartView } from './BaseLeafletMap';
 import { MapLegend } from './MapLegend';
+import { MapNodePopup } from './MapNodePopup';
 import { Switch } from './Switch';
 
 function pickIcon(): L.DivIcon {
@@ -221,19 +222,18 @@ function MapPage({ self, nodes }: { self: MapNode | null; nodes: MapNode[] }) {
     };
   }, [map, mapPicking]);
 
-  const openManage = useCallback((node: MapNode) => {
-    // The base map never reports a click on the self marker.
-    if (node.kind === 'self') return;
-    useMeshStore
-      .getState()
-      .setManagePanel({ kind: node.kind, id: node.pubkeyPrefix });
-  }, []);
+  const renderPopup = useCallback(
+    (node: MapNode, close: () => void) => (
+      <MapNodePopup node={node} onClose={close} />
+    ),
+    [],
+  );
 
   return (
     <BaseLeafletMap
       nodes={plotted}
       startView={startView}
-      onNodeClick={mapPicking ? undefined : openManage}
+      renderPopup={mapPicking ? undefined : renderPopup}
       onMoveEnd={(center, zoom) => {
         // `mapPrefs` is null until the *user* moves the map, so our own
         // framing must not persist itself as a saved viewport.

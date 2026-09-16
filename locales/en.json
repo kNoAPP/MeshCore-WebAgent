@@ -861,6 +861,11 @@
       "confirm": "Confirm location",
       "cancel": "Cancel"
     },
+    "popup": {
+      "message": "Message",
+      "manage": "Manage…",
+      "details": "Details…"
+    },
     "legend": {
       "title": "Legend",
       "companion": "Companion",

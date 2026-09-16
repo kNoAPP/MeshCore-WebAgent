@@ -58,6 +58,13 @@ export const MAP_EDGE_WEIGHT = 2.5;
 export const MAP_EDGE_OPACITY = 0.8;
 
 /**
+ * Widest a marker popup may grow, in pixels. Leaflet pins the popup's content
+ * box to this when the body would overflow it, so it doubles as the width the
+ * popup body is laid out against.
+ */
+export const MAP_POPUP_MAX_WIDTH_PX = 272;
+
+/**
  * The opening viewport for a Leaflet map: either a fixed `center`/`zoom`, or a
  * set of `bounds` (one `[lat, lon]` per node) to frame with
  * {@link https://leafletjs.com/reference.html#map-fitbounds | fitBounds}.
