@@ -4,13 +4,7 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import {
-  directConvoId,
-  openConvo,
-  repeaterConvoId,
-  roomConvoId,
-  useMeshStore,
-} from '@/store/meshStore';
+import { contactConvo, openConvo, useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useClockTick } from '@/hooks/useClockTick';
 import { ADV_ICON, ADV_LABEL_KEY } from '@/lib/utils';
@@ -20,11 +14,7 @@ import {
   formatRelative,
   formatRoute,
 } from '@/lib/i18n/format';
-import {
-  ADV_TYPE_REPEATER,
-  ADV_TYPE_ROOM,
-  FAVORITE_FLAG,
-} from '@/lib/meshcore/constants';
+import { ADV_TYPE_REPEATER, FAVORITE_FLAG } from '@/lib/meshcore/constants';
 import { freshestHeard, type MapNode } from '@/lib/map/nodes';
 
 /**
@@ -87,30 +77,11 @@ export function MapNodePopup({
 
   const openContact = () => {
     if (!contact) return;
-    const kind =
-      contact.advType === ADV_TYPE_REPEATER
-        ? 'repeater'
-        : contact.advType === ADV_TYPE_ROOM
-          ? 'room'
-          : 'direct';
-    const id =
-      kind === 'repeater'
-        ? repeaterConvoId(contact.pubkeyPrefix)
-        : kind === 'room'
-          ? roomConvoId(contact.pubkeyPrefix)
-          : directConvoId(contact.pubkeyPrefix);
     onClose();
     // Selected before the view switch, the way the palette and URL routes do
     // it: `setView` catches up whichever conversation is open at that moment,
-    // so switching first would mark the *previous* one read. The label follows
-    // `Sidebar`'s fallback rather than the heading's, so the chat header and
-    // the sidebar row can't disagree about an unnamed contact.
-    openConvo({
-      kind,
-      id,
-      rawId: contact.pubkeyPrefix,
-      label: contact.name || contact.pubkeyPrefix.slice(0, 8),
-    });
+    // so switching first would mark the *previous* one read.
+    openConvo(contactConvo(contact));
     useMeshStore.getState().setView('chat');
   };
 

@@ -156,11 +156,11 @@ export function Header() {
       </span>
 
       {active && (
-        /* Chat/Stats/Settings page switch. All tabs are disabled while
-           reconnecting — the link is down, so switching views would only show
-           stale or half-synced state behind the reconnecting overlay. */
+        /* Chat/Nodes/Map/Stats/Settings page switch. All tabs are disabled
+           while reconnecting — the link is down, so switching views would only
+           show stale or half-synced state behind the reconnecting overlay. */
         <nav className='flex shrink-0 overflow-hidden rounded-md border border-border-control'>
-          {(['chat', 'map', 'stats', 'settings'] as const).map((v) => (
+          {(['chat', 'nodes', 'map', 'stats', 'settings'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}

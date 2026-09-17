@@ -71,6 +71,7 @@
     "reconnecting": "Verbinde neu…",
     "disconnected": "Getrennt",
     "chat": "💬 Chat",
+    "nodes": "🛰 Knoten",
     "map": "🗺 Karte",
     "stats": "📊 Statistik",
     "settings": "⚙ Einstellungen",
@@ -149,6 +150,7 @@
     },
     "page": {
       "chat": "Chat",
+      "nodes": "Knoten",
       "map": "Karte",
       "stats": "Statistiken",
       "settings": "Einstellungen",
@@ -164,6 +166,7 @@
     },
     "keywords": {
       "chat": "chat nachrichten unterhaltungen",
+      "nodes": "knoten verzeichnis tabelle kontakte gehört entdeckt liste",
       "map": "karte standort knoten",
       "stats": "statistiken metriken",
       "settings": "einstellungen konfiguration",
@@ -1048,6 +1051,62 @@
       "sensor": "Sensor",
       "favorite": "Favorit (jeder Typ)",
       "favoritesOnly": "Nur Favoriten"
+    }
+  },
+  "nodes": {
+    "title": "Knoten",
+    "search": "Suchen",
+    "searchPlaceholder": "Name oder öffentlicher Schlüssel",
+    "count_one": "{{count}} Knoten",
+    "count_other": "{{count}} Knoten",
+    "countFiltered": "{{shown}} von {{total}} Knoten",
+    "empty": "Noch kein Knoten bekannt. Kontakte und gehörte Knoten erscheinen hier, sobald ihre Ankündigungen eintreffen.",
+    "noMatches": "Kein Knoten passt zur aktuellen Suche und den Filtern.",
+    "saved": "Gespeichert",
+    "heard": "Gehört",
+    "sortBy": "Nach {{column}} sortieren",
+    "keyboardHint": "Es werden nur die Zeilen nahe dem sichtbaren Bereich gerendert. Nutze die Pfeiltasten, Bild auf, Bild ab, Pos1 und Ende, um die ganze Liste zu durchlaufen.",
+    "storage": {
+      "label": "Gespeichert",
+      "all": "Gespeichert und gehört",
+      "saved": "Auf dem Funkgerät",
+      "heard": "Nur gehört"
+    },
+    "column": {
+      "select": "Auswählen",
+      "selectAll": "Alle aufgelisteten Knoten auswählen",
+      "name": "Name",
+      "type": "Typ",
+      "storage": "Gespeichert",
+      "heard": "Zuletzt gehört",
+      "distance": "Entfernung",
+      "route": "Route",
+      "snr": "SNR",
+      "favorite": "Favorit",
+      "actions": "Aktionen"
+    },
+    "row": {
+      "select": "{{name}} auswählen",
+      "details": "Details zu {{name}}",
+      "message": "Nachricht an {{name}}",
+      "console": "Admin-Konsole von {{name}} öffnen",
+      "room": "Raum von {{name}} öffnen",
+      "addContact": "{{name}} als Kontakt speichern",
+      "showOnMap": "{{name}} auf der Karte zeigen",
+      "favorite": "{{name}} zu Favoriten hinzufügen",
+      "unfavorite": "{{name}} aus Favoriten entfernen"
+    },
+    "selection": {
+      "title": "Ausgewählte Knoten",
+      "count_one": "{{count}} Knoten ausgewählt",
+      "count_other": "{{count}} Knoten ausgewählt",
+      "clear": "Auswahl aufheben",
+      "add_one": "{{count}} Kontakt speichern",
+      "add_other": "{{count}} Kontakte speichern",
+      "remove_one": "{{count}} Kontakt entfernen",
+      "remove_other": "{{count}} Kontakte entfernen",
+      "removeConfirm_one": "{{count}} Kontakt vom Funkgerät entfernen?",
+      "removeConfirm_other": "{{count}} Kontakte vom Funkgerät entfernen?"
     }
   },
   "sidebar": {

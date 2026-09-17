@@ -141,6 +141,7 @@ export interface ActionRecord {
  */
 export const PAGE_TARGETS = [
   { id: 'chat', view: 'chat' },
+  { id: 'nodes', view: 'nodes' },
   { id: 'map', view: 'map' },
   { id: 'stats', view: 'stats' },
   { id: 'settings', view: 'settings' },
