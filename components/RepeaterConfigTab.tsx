@@ -525,7 +525,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       // never answers (`reboot`). Any other non-answer is reported as such
       // rather than as a green "sent"; a failed/disconnected send already
       // toasts from repeaterCli itself.
-      const outcome = await repeaterCli(contact, action.cmd);
+      const outcome = await repeaterCli(contact, action.cmd, action.silent);
       if (outcome === 'ok' || (outcome === 'timeout' && action.silent)) {
         showToast(t('toast.repeaterActionSent'), 'success');
       } else if (outcome === 'timeout') {

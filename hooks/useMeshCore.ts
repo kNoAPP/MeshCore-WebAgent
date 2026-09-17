@@ -179,6 +179,11 @@ const DEFAULT_ACK_TIMEOUT_MS = 30000;
 const CLI_REPLY_GRACE = 4;
 const MIN_CLI_REPLY_TIMEOUT_MS = 20000;
 const DEFAULT_CLI_REPLY_TIMEOUT_MS = 30000;
+// A verb the node never answers (`reboot`) has no reply to budget for, so the
+// full exchange wait would only be time the caller spends before it can report
+// the send and time the per-repeater queue spends blocked. Still long enough to
+// catch a rejection (`Err: …`) coming back.
+const CLI_SILENT_TIMEOUT_MS = 5000;
 /**
  * Delivery attempts a direct message gets — the initial send plus automatic
  * retries. Each retry fires as soon as the previous attempt's ACK timeout
@@ -248,6 +253,22 @@ const cliWaiters = new Map<string, CliWaiter>();
 // leaves only after the previous reply lands (or times out) and the waiter
 // above is never ambiguous.
 const cliQueues = new Map<string, Promise<unknown>>();
+// Replies this repeater may still owe for commands already given up on, and the
+// timer that writes the debt off.
+//
+// A timeout releases the queue, so the next command is on the air before the
+// previous one's reply can be ruled out. With no correlation id on the wire,
+// that late reply would otherwise be claimed by the new command's waiter and
+// reported as its answer — a stale `neighbors` list read as a fresh one. Each
+// timeout therefore leaves a debt, and the next reply pays it off as
+// unattributed output instead of resolving the waiter. The debt lapses after
+// the same budget the request itself waited: a reply that has not arrived by
+// then is lost, and holding the debt longer would start discarding genuine
+// replies.
+const cliStaleReplies = new Map<
+  string,
+  { count: number; timer: ReturnType<typeof setTimeout> }
+>();
 let echoWindow: EchoWindow | null = null;
 // Recent group-text RX-log packets awaiting correlation to a decoded inbound
 // channel message. Each entry holds the ordered per-hop repeater hashes.
@@ -467,6 +488,8 @@ function clearDeliveryState(): void {
 function clearCliWaiters(): void {
   for (const prefix of [...cliWaiters.keys()]) rejectCliWaitersFor(prefix);
   cliQueues.clear();
+  for (const debt of cliStaleReplies.values()) clearTimeout(debt.timer);
+  cliStaleReplies.clear();
 }
 
 // Rejects and drops the CLI request outstanding for one repeater. Used on panel
@@ -491,6 +514,31 @@ function takeCliWaiter(prefix: string): CliWaiter | undefined {
   cliWaiters.delete(prefix);
   if (waiter.timer) clearTimeout(waiter.timer);
   return waiter;
+}
+
+// Records that a repeater may still answer a command that just timed out, for
+// `ms` longer. See cliStaleReplies.
+function oweStaleReply(prefix: string, ms: number): void {
+  const debt = cliStaleReplies.get(prefix);
+  if (debt) clearTimeout(debt.timer);
+  cliStaleReplies.set(prefix, {
+    count: (debt?.count ?? 0) + 1,
+    timer: setTimeout(() => cliStaleReplies.delete(prefix), ms),
+  });
+}
+
+// Whether this reply settles a debt from an earlier, already-abandoned request
+// rather than the command outstanding now. Consumes one debt when it does.
+function takeStaleReply(prefix: string): boolean {
+  const debt = cliStaleReplies.get(prefix);
+  if (!debt) return false;
+  if (debt.count > 1) {
+    cliStaleReplies.set(prefix, { ...debt, count: debt.count - 1 });
+  } else {
+    clearTimeout(debt.timer);
+    cliStaleReplies.delete(prefix);
+  }
+  return true;
 }
 
 // Chains `op` after whatever CLI command is already queued for this repeater,
@@ -1052,7 +1100,12 @@ export function useMeshCore() {
           // A queued frame can fire this after teardown; skip it so a late
           // reply can't recreate adminSessions that reset() just cleared.
           if (!canTransmit(c)) return;
-          const waiter = takeCliWaiter(pubkeyPrefix);
+          // A reply the repeater still owed for a command already given up on
+          // is not an answer to the one outstanding now, however plausible the
+          // timing looks — take the debt instead of the waiter.
+          const waiter = takeStaleReply(pubkeyPrefix)
+            ? undefined
+            : takeCliWaiter(pubkeyPrefix);
           const currentToken =
             useMeshStore.getState().adminSessions[pubkeyPrefix]?.token;
           // Append to the transcript only when the reply belongs to the current
@@ -1836,10 +1889,12 @@ export function useMeshCore() {
    * that nothing else can consume a pending request's reply. A round trip that
    * goes unanswered leaves a muted note in the transcript, so a non-answer
    * never reads as a reply still in flight.
+   * @param silent - the verb never answers (`reboot`), so wait only long enough
+   *   for a rejection instead of budgeting for a reply that will not come.
    * @throws if the send fails, the session drops, or no reply arrives in time.
    */
   const repeaterCliRequest = useCallback(
-    (contact: Contact, cmd: string): Promise<string> => {
+    (contact: Contact, cmd: string, silent = false): Promise<string> => {
       const prefix = contact.pubkeyPrefix;
       // Capture the session identity at enqueue time so a command can be tied
       // to the exact login it was issued under, not merely "some authed
@@ -1899,17 +1954,28 @@ export function useMeshCore() {
               // take far longer than a couple of seconds. A too-short wait
               // would time out prematurely, and the caller's retry would
               // re-send while the real reply is still in flight — flooding the
-              // mesh and stranding the late reply with no waiter. Fall back to
-              // a safe budget when the receipt has no estimate.
-              const timeoutMs = receipt
-                ? Math.max(
-                    MIN_CLI_REPLY_TIMEOUT_MS,
-                    receipt.suggestedTimeoutMs * CLI_REPLY_GRACE,
-                  )
-                : DEFAULT_CLI_REPLY_TIMEOUT_MS;
+              // mesh and stranding the late reply with no waiter. A receipt
+              // whose estimate is missing or non-positive carries no usable
+              // round trip, so it falls back to a safe budget rather than the
+              // floor.
+              const estimate = receipt?.suggestedTimeoutMs ?? 0;
+              const timeoutMs = silent
+                ? CLI_SILENT_TIMEOUT_MS
+                : estimate > 0
+                  ? Math.max(
+                      MIN_CLI_REPLY_TIMEOUT_MS,
+                      estimate * CLI_REPLY_GRACE,
+                    )
+                  : DEFAULT_CLI_REPLY_TIMEOUT_MS;
               waiter.timer = setTimeout(() => {
                 if (cliWaiters.get(prefix) !== waiter) return;
                 takeCliWaiter(prefix);
+                // The node may still answer after this: releasing the queue
+                // puts the next command on the air before a late reply can be
+                // ruled out. Record the debt so that reply is read as the
+                // straggler it is instead of the next command's answer. A verb
+                // that never replies owes nothing.
+                if (!silent) oweStaleReply(prefix, timeoutMs);
                 // Record the non-answer in the transcript here rather than in
                 // the caller: rejecting releases the queue, so a caller's
                 // continuation would land after the next command's echo and
@@ -1950,15 +2016,22 @@ export function useMeshCore() {
    * Still waits for the reply (via {@link repeaterCliRequest}) rather than
    * returning at the send ack, so the reply is consumed by this request instead
    * of being mistaken for the answer to whatever is sent next.
+   * @param silent - the verb never answers (`reboot`), so the wait is shortened
+   *   to what a rejection needs; the caller still decides whether the resulting
+   *   `'timeout'` counts as success.
    * @returns the {@link RepeaterCliOutcome}. A silent node is reported as
    *   `'timeout'`, never folded into success — only the caller knows whether
    *   the verb it sent answers at all.
    */
   const repeaterCli = useCallback(
-    async (contact: Contact, cmd: string): Promise<RepeaterCliOutcome> => {
+    async (
+      contact: Contact,
+      cmd: string,
+      silent = false,
+    ): Promise<RepeaterCliOutcome> => {
       if (!canTransmit(client)) return 'error';
       try {
-        const reply = await repeaterCliRequest(contact, cmd);
+        const reply = await repeaterCliRequest(contact, cmd, silent);
         // A received reply can still be a rejection (e.g. `ERR: clock cannot go
         // backwards`); surface it and report failure rather than "sent".
         if (isErrorReply(reply)) {
