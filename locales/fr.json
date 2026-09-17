@@ -759,6 +759,8 @@
       "clear": "Effacer",
       "waiting": "En attente d’une réponse…",
       "roundTripLabel": "Temps d’aller-retour",
+      "unsolicited": "(non sollicité)",
+      "unsolicitedHint": "Reçu alors qu’aucune commande n’était en attente — sortie spontanée du nœud, ou réponse tardive à une commande antérieure. Ce n’est pas la réponse à la commande ci-dessus.",
       "suggestionsLabel": "Suggestions de commandes",
       "suggestionCount_one": "{{count}} commande correspond. Appuyez sur Tab pour la compléter.",
       "suggestionCount_other": "{{count}} commandes correspondent. Appuyez sur Tab pour compléter celle qui est en surbrillance.",

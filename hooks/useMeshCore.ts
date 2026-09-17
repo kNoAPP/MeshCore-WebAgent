@@ -167,6 +167,18 @@ export type WriteResult = { ok: true } | { ok: false; error: string };
 const ACK_TIMEOUT_GRACE = 1.5;
 const MIN_ACK_TIMEOUT_MS = 5000;
 const DEFAULT_ACK_TIMEOUT_MS = 30000;
+// A remote-admin CLI reply is not an ACK, so the SENT receipt's estimate badly
+// under-budgets it: the node must run the command, build a whole reply message
+// and win its own transmit slot, and the companion radio only hands that
+// message over on its 5 s SYNC_NEXT_MESSAGE poll. Scaling the ACK estimate the
+// same way an ACK is scaled put the floor at 5 s — under the poll interval
+// alone — so a reply the node did send routinely landed after its request had
+// been given up on. These budget the full exchange instead: the floor clears
+// the poll plus a multi-hop round trip, and the estimate still raises it on a
+// long path.
+const CLI_REPLY_GRACE = 4;
+const MIN_CLI_REPLY_TIMEOUT_MS = 20000;
+const DEFAULT_CLI_REPLY_TIMEOUT_MS = 30000;
 /**
  * Delivery attempts a direct message gets — the initial send plus automatic
  * retries. Each retry fires as soon as the previous attempt's ACK timeout
@@ -1053,7 +1065,16 @@ export function useMeshCore() {
             ? waiter.token === currentToken
             : currentToken != null;
           if (belongsToCurrent) {
-            appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
+            // A reply with no waiter answers nothing on screen: either the node
+            // spoke unprompted, or this is the late answer to a command already
+            // reported as unanswered. Flagged so the transcript can't present
+            // it as the reply to whatever was sent most recently.
+            appendCliLine(pubkeyPrefix, {
+              own: false,
+              text,
+              ts: Date.now(),
+              unsolicited: waiter === undefined,
+            });
           }
           // Replies carry no correlation id, so this one answers the single
           // command outstanding for this repeater (enqueueCli guarantees there
@@ -1873,19 +1894,19 @@ export function useMeshCore() {
           client.sendCliCommand(contact, line).then(
             (receipt) => {
               if (cliWaiters.get(prefix) !== waiter) return;
-              // Wait the radio's estimated round-trip (scaled by the same grace
-              // as a direct-message ACK), not a fixed budget: a CLI reply over
-              // a multi-hop path can take far longer than a couple of seconds.
-              // A too-short wait would time out prematurely, and the caller's
-              // retry would re-send while the real reply is still in flight —
-              // flooding the mesh and stranding the late reply with no waiter.
-              // Fall back to a safe budget when the receipt has no estimate.
+              // Wait the radio's estimated round-trip scaled for a CLI
+              // exchange, not a fixed budget: a reply over a multi-hop path can
+              // take far longer than a couple of seconds. A too-short wait
+              // would time out prematurely, and the caller's retry would
+              // re-send while the real reply is still in flight — flooding the
+              // mesh and stranding the late reply with no waiter. Fall back to
+              // a safe budget when the receipt has no estimate.
               const timeoutMs = receipt
                 ? Math.max(
-                    MIN_ACK_TIMEOUT_MS,
-                    receipt.suggestedTimeoutMs * ACK_TIMEOUT_GRACE,
+                    MIN_CLI_REPLY_TIMEOUT_MS,
+                    receipt.suggestedTimeoutMs * CLI_REPLY_GRACE,
                   )
-                : DEFAULT_ACK_TIMEOUT_MS;
+                : DEFAULT_CLI_REPLY_TIMEOUT_MS;
               waiter.timer = setTimeout(() => {
                 if (cliWaiters.get(prefix) !== waiter) return;
                 takeCliWaiter(prefix);

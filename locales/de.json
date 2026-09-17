@@ -759,6 +759,8 @@
       "clear": "Leeren",
       "waiting": "Warte auf Antwort…",
       "roundTripLabel": "Umlaufzeit",
+      "unsolicited": "(unaufgefordert)",
+      "unsolicitedHint": "Eingegangen, ohne dass ein Befehl offen war — unaufgeforderte Ausgabe des Knotens oder eine späte Antwort auf einen früheren Befehl. Es ist nicht die Antwort auf den Befehl darüber.",
       "suggestionsLabel": "Befehlsvorschläge",
       "suggestionCount_one": "{{count}} Befehl passt. Drücken Sie Tab, um ihn zu vervollständigen.",
       "suggestionCount_other": "{{count}} Befehle passen. Drücken Sie Tab, um den hervorgehobenen zu vervollständigen.",

@@ -40,6 +40,10 @@ function roundTrips(lines: CliLine[]): (number | null)[] {
       sentAt = line.ts;
       return null;
     }
+    // Output that answered no outstanding request belongs to neither the
+    // command above it nor any timing: it neither carries a round trip nor
+    // closes one out.
+    if (line.unsolicited) return null;
     // Whatever arrives first after a command closes it out, so a second frame
     // of a long reply isn't timed as if it were its own round trip.
     const at = sentAt;
@@ -181,6 +185,14 @@ function ConsoleTranscript({
                     : 'wrap-break-word whitespace-pre-wrap text-text'
               }
             >
+              {line.unsolicited && (
+                <span
+                  title={t('repeaterAdmin.console.unsolicitedHint')}
+                  className='mr-2 text-text2 italic'
+                >
+                  {t('repeaterAdmin.console.unsolicited')}
+                </span>
+              )}
               {line.own ? `> ${line.text}` : line.text}
               {ms !== null && (
                 <span

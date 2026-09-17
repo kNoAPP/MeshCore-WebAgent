@@ -660,11 +660,17 @@ export class MeshCoreClient {
         type === RESP.CONTACT_MSG ? parseContactMsg(d) : parseContactMsgV3(d);
       if (parsed) {
         if (parsed.txtType === TXT_TYPE.CLI_DATA) {
-          // Remote-admin console output — keep it out of chat history.
-          this.callbacks.onCliReply?.({
-            pubkeyPrefix: parsed.pubkeyPrefix ?? '',
-            text: parsed.text,
-          });
+          // Remote-admin console output — keep it out of chat history. The
+          // sender's key prefix is the only thing tying a reply to the request
+          // that asked for it, so a frame without one cannot be routed and is
+          // dropped rather than delivered under an empty key, where it would
+          // silently match nothing.
+          if (parsed.pubkeyPrefix) {
+            this.callbacks.onCliReply?.({
+              pubkeyPrefix: parsed.pubkeyPrefix,
+              text: parsed.text,
+            });
+          }
         } else {
           this.callbacks.onMessage?.({ kind: 'direct', ...parsed });
         }
