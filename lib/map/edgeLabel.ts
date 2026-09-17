@@ -3,7 +3,8 @@
 
 import {
   claimLabelBox,
-  labelWidthPx,
+  labelFont,
+  measureTextPx,
   type LabelBox,
   type PixelPoint,
 } from '@/lib/map/labelBox';
@@ -28,7 +29,8 @@ const LABEL_FRACTIONS = [0.5, 0.38, 0.62, 0.28, 0.72, 0.2, 0.8];
 // The rendered label is a single line of 11px tabular digits, in a box that
 // carries its own padding and sits clear of the line it labels.
 const LABEL_HEIGHT_PX = 24;
-const LABEL_CHAR_PX = 5.6;
+const LABEL_SIZE_PX = 11;
+const LABEL_WEIGHT = 400;
 const LABEL_PADDING_PX = 14;
 
 /**
@@ -51,7 +53,9 @@ export function placeEdgeLabel(
   project: (fraction: number) => PixelPoint,
   placed: LabelBox[],
 ): number | null {
-  const width = labelWidthPx(label, LABEL_CHAR_PX, LABEL_PADDING_PX);
+  const width =
+    measureTextPx(label, labelFont(LABEL_WEIGHT, LABEL_SIZE_PX)) +
+    LABEL_PADDING_PX;
   for (const fraction of LABEL_FRACTIONS) {
     const box = { at: project(fraction), width, height: LABEL_HEIGHT_PX };
     if (claimLabelBox(box, placed)) return fraction;
