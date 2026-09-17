@@ -1065,6 +1065,7 @@
     "saved": "Gespeichert",
     "heard": "Gehört",
     "sortBy": "Nach {{column}} sortieren",
+    "keyboardHint": "Es werden nur die Zeilen nahe dem sichtbaren Bereich gerendert. Nutze die Pfeiltasten, Bild auf, Bild ab, Pos1 und Ende, um die ganze Liste zu durchlaufen.",
     "storage": {
       "label": "Gespeichert",
       "all": "Gespeichert und gehört",

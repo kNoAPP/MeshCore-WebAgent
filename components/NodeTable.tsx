@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Star } from 'lucide-react';
 import type {
@@ -85,10 +85,19 @@ export function NodeTable({
 }) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hintId = useId();
   const [scrollTop, setScrollTop] = useState(0);
   // Measured rather than assumed: the window size decides how many rows are in
   // the DOM, and the page's height depends on the toolbar and the bulk bar.
   const [viewportPx, setViewportPx] = useState(0);
+  // The row carrying the table's keyboard position. Only the rows near the
+  // viewport exist, so Tab alone can never reach the rest — this is the handle
+  // the arrow keys move, scrolling the target into the window (and therefore
+  // into the DOM, with its own controls) before focusing it.
+  const [activeIndex, setActiveIndex] = useState(0);
+  // Set when a key moved the active row, so focus follows that move and only
+  // that move — a clock tick or a filter change must not steal focus.
+  const focusPending = useRef(false);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -124,16 +133,68 @@ export function NodeTable({
     nodes.length > 0 && nodes.every((n) => selected.has(n.key));
   const someSelected = !allSelected && nodes.some((n) => selected.has(n.key));
 
+  // The row set changes under the keyboard position (a filter, a removed
+  // contact), so it is clamped at render rather than corrected by an effect.
+  const active = Math.min(activeIndex, maxFirst);
+
+  // Moves the keyboard position, bringing the target row into the window in
+  // the same update: `scrollTop` is state here, so the render that follows
+  // already contains the row the focus effect below is about to look for.
+  const moveActive = (to: number) => {
+    const next = Math.max(0, Math.min(nodes.length - 1, to));
+    const rowTop = next * NODE_ROW_HEIGHT_PX;
+    let top = scrollTop;
+    if (rowTop < top) top = rowTop;
+    else if (rowTop + NODE_ROW_HEIGHT_PX > top + viewportPx) {
+      top = rowTop + NODE_ROW_HEIGHT_PX - viewportPx;
+    }
+    focusPending.current = true;
+    setActiveIndex(next);
+    setScrollTop(top);
+    // Kept in step with the state the window derives from; the scroll event
+    // this fires reports the same value, so it settles rather than loops.
+    if (scrollRef.current) scrollRef.current.scrollTop = top;
+  };
+
+  useEffect(() => {
+    if (!focusPending.current) return;
+    focusPending.current = false;
+    scrollRef.current
+      ?.querySelector<HTMLElement>(`tr[aria-rowindex='${active + 2}']`)
+      ?.focus();
+  }, [active]);
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTableElement>) => {
+    // A modified chord is the browser's or the OS's, never the table's.
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    // One row short of a full screen, so the row the user was on stays
+    // visible as an anchor after the jump.
+    const page = Math.max(1, Math.floor(viewportPx / NODE_ROW_HEIGHT_PX) - 1);
+    if (e.key === 'ArrowDown') moveActive(active + 1);
+    else if (e.key === 'ArrowUp') moveActive(active - 1);
+    else if (e.key === 'PageDown') moveActive(active + page);
+    else if (e.key === 'PageUp') moveActive(active - page);
+    else if (e.key === 'Home') moveActive(0);
+    else if (e.key === 'End') moveActive(nodes.length - 1);
+    else return;
+    e.preventDefault();
+  };
+
   return (
     <div
       ref={scrollRef}
       onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       className='min-h-0 flex-1 overflow-auto'
     >
+      <p id={hintId} className='sr-only'>
+        {t('nodes.keyboardHint')}
+      </p>
       <table
         // The header row counts, so the body starts at 2.
         aria-rowcount={nodes.length + 1}
         aria-label={t('nodes.title')}
+        aria-describedby={hintId}
+        onKeyDown={onKeyDown}
         className='w-full table-fixed border-collapse'
       >
         <colgroup>
@@ -186,6 +247,9 @@ export function NodeTable({
               node={node}
               rowIndex={first + i + 2}
               selected={selected.has(node.key)}
+              // One tab stop for the whole body: Tab reaches the row the
+              // keyboard is on, and the arrows move it anywhere in the set.
+              tabIndex={first + i === active ? 0 : -1}
               ctx={ctx}
             />
           ))}

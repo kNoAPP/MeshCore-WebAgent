@@ -1065,6 +1065,7 @@
     "saved": "Guardado",
     "heard": "Escuchado",
     "sortBy": "Ordenar por {{column}}",
+    "keyboardHint": "Solo se muestran las filas cercanas a la vista. Usa las flechas, Re Pág, Av Pág, Inicio y Fin para recorrer toda la lista.",
     "storage": {
       "label": "Almacenado",
       "all": "Guardados y escuchados",

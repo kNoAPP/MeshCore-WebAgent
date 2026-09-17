@@ -1065,6 +1065,7 @@
     "saved": "Enregistré",
     "heard": "Entendu",
     "sortBy": "Trier par {{column}}",
+    "keyboardHint": "Seules les lignes proches de la zone visible sont rendues. Utilisez les flèches, Page précédente, Page suivante, Origine et Fin pour parcourir toute la liste.",
     "storage": {
       "label": "Stockage",
       "all": "Enregistrés et entendus",

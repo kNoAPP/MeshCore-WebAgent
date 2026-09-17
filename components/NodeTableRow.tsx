@@ -86,16 +86,20 @@ function IconAction({
  *
  * @param rowIndex - 1-based position in the whole table (not just the rendered
  * window), counting the header row, for `aria-rowindex`.
+ * @param tabIndex - `0` on the one row holding the table's keyboard position,
+ * `-1` on the rest. The table's arrow keys move it.
  */
 export function NodeTableRow({
   node,
   rowIndex,
   selected,
+  tabIndex,
   ctx,
 }: {
   node: DirectoryNode;
   rowIndex: number;
   selected: boolean;
+  tabIndex: number;
   ctx: NodeRowContext;
 }) {
   const { t } = useTranslation();
@@ -120,8 +124,9 @@ export function NodeTableRow({
   return (
     <tr
       aria-rowindex={rowIndex}
+      tabIndex={tabIndex}
       style={{ height: NODE_ROW_HEIGHT_PX }}
-      className={`border-b border-border ${
+      className={`focus-inset border-b border-border ${
         selected ? 'bg-surface2' : 'hover:bg-surface2'
       }`}
     >

@@ -152,11 +152,18 @@ export function NodesPage() {
     });
   }, []);
 
+  // Only the listed rows are touched. The selection deliberately survives a
+  // node being filtered out, so replacing the whole set here would silently
+  // discard the rows a narrowed filter is hiding.
   const onToggleAll = useCallback(() => {
     setSelected((current) => {
       const allOn = rows.length > 0 && rows.every((n) => current.has(n.key));
-      if (allOn) return new Set<string>();
-      return new Set(rows.map((n) => n.key));
+      const next = new Set(current);
+      for (const node of rows) {
+        if (allOn) next.delete(node.key);
+        else next.add(node.key);
+      }
+      return next;
     });
   }, [rows]);
 
