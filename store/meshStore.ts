@@ -349,6 +349,13 @@ export interface CliLine {
    * prompt marker.
    */
   note?: boolean;
+  /**
+   * `true` for repeater output that arrived with no request outstanding —
+   * unprompted node output, or the late answer to a command already reported
+   * as unanswered. Marked so it can't be read as the reply to the command
+   * above it, which is the one it would otherwise sit under.
+   */
+  unsolicited?: boolean;
 }
 
 /**

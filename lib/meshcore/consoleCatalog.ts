@@ -109,6 +109,21 @@ const DESTRUCTIVE_VERBS: readonly string[] = [
 const ALL_NEIGHBORS_VERB = 'neighbor.remove';
 
 /**
+ * Verbs the node cannot answer, because handling them ends with a call that
+ * never returns — `_board->powerOff()` for `poweroff`/`shutdown` and
+ * `_board->reboot()` for `reboot`/`clkreboot`, all in
+ * `CommonCLI::handleCommand` (`src/helpers/CommonCLI.cpp`). Every other verb
+ * the console offers writes a reply, including `erase`: over remote CLI its
+ * `sender_timestamp == 0` guard fails, so the node answers "Unknown command".
+ */
+const SILENT_VERBS: readonly string[] = [
+  'reboot',
+  'clkreboot',
+  'poweroff',
+  'shutdown',
+];
+
+/**
  * Normalizes a typed command line for transmission. Trims the surrounding
  * whitespace, except for the single trailing space that turns
  * `neighbor.remove` into its documented remove-every-neighbor form — trimming
@@ -129,6 +144,18 @@ export function normalizeCommandLine(line: string): string {
 export function isDestructiveCommand(line: string): boolean {
   const verb = line.trim().split(/\s+/)[0].toLowerCase();
   return DESTRUCTIVE_VERBS.includes(verb);
+}
+
+/**
+ * `true` when a command line's verb is one the node never answers, so silence
+ * is the expected outcome rather than a lost round trip. Matched on the first
+ * token like {@link isDestructiveCommand}; the firmware matches these verbs by
+ * prefix, so an unknown suffix (`reboot` run together with a word) is judged as
+ * its own verb here and merely waits longer than it needs to.
+ */
+export function isSilentCommand(line: string): boolean {
+  const verb = line.trim().split(/\s+/)[0].toLowerCase();
+  return SILENT_VERBS.includes(verb);
 }
 
 /** The argument placeholder a setting's `set` form takes. */

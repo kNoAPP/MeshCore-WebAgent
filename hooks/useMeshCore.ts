@@ -55,6 +55,7 @@ import {
 import { splitPathHashes } from '@/lib/meshcore/parsers';
 import { saveRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
+import { isSilentCommand } from '@/lib/meshcore/consoleCatalog';
 import {
   toHex,
   fromHex,
@@ -167,6 +168,23 @@ export type WriteResult = { ok: true } | { ok: false; error: string };
 const ACK_TIMEOUT_GRACE = 1.5;
 const MIN_ACK_TIMEOUT_MS = 5000;
 const DEFAULT_ACK_TIMEOUT_MS = 30000;
+// A remote-admin CLI reply is not an ACK, so the SENT receipt's estimate badly
+// under-budgets it: the node must run the command, build a whole reply message
+// and win its own transmit slot, and the companion radio only hands that
+// message over on its 5 s SYNC_NEXT_MESSAGE poll. Scaling the ACK estimate the
+// same way an ACK is scaled put the floor at 5 s — under the poll interval
+// alone — so a reply the node did send routinely landed after its request had
+// been given up on. These budget the full exchange instead: the floor clears
+// the poll plus a multi-hop round trip, and the estimate still raises it on a
+// long path.
+const CLI_REPLY_GRACE = 4;
+const MIN_CLI_REPLY_TIMEOUT_MS = 20000;
+const DEFAULT_CLI_REPLY_TIMEOUT_MS = 30000;
+// A verb the node never answers (`reboot`) has no reply to budget for, so the
+// full exchange wait would only be time the caller spends before it can report
+// the send and time the per-repeater queue spends blocked. Still long enough to
+// catch a rejection (`Err: …`) coming back.
+const CLI_SILENT_TIMEOUT_MS = 5000;
 /**
  * Delivery attempts a direct message gets — the initial send plus automatic
  * retries. Each retry fires as soon as the previous attempt's ACK timeout
@@ -236,6 +254,27 @@ const cliWaiters = new Map<string, CliWaiter>();
 // leaves only after the previous reply lands (or times out) and the waiter
 // above is never ambiguous.
 const cliQueues = new Map<string, Promise<unknown>>();
+// The window after a timed-out command in which that repeater may still answer
+// it, and the promise the next queued command waits on.
+//
+// A timeout releases the queue, so without this the next command would be on
+// the air before the previous one's reply can be ruled out — and with no
+// correlation id on the wire that straggler would be claimed by the new
+// command's waiter and reported as its answer, a stale `neighbors` list read as
+// a fresh one. While a repeater is quarantined nothing new is sent to it, so
+// there is never a second command for a straggler to be misread against. The
+// window ends as soon as the straggler lands (`endCliQuarantine`, which also
+// keeps that frame away from the waiter) or lapses after the same budget the
+// request itself waited, at which point the reply is taken as lost — holding it
+// longer would start discarding genuine replies instead.
+const cliQuarantines = new Map<
+  string,
+  {
+    timer: ReturnType<typeof setTimeout>;
+    lift: () => void;
+    ended: Promise<void>;
+  }
+>();
 let echoWindow: EchoWindow | null = null;
 // Recent group-text RX-log packets awaiting correlation to a decoded inbound
 // channel message. Each entry holds the ordered per-hop repeater hashes.
@@ -455,6 +494,7 @@ function clearDeliveryState(): void {
 function clearCliWaiters(): void {
   for (const prefix of [...cliWaiters.keys()]) rejectCliWaitersFor(prefix);
   cliQueues.clear();
+  for (const prefix of [...cliQuarantines.keys()]) endCliQuarantine(prefix);
 }
 
 // Rejects and drops the CLI request outstanding for one repeater. Used on panel
@@ -481,11 +521,43 @@ function takeCliWaiter(prefix: string): CliWaiter | undefined {
   return waiter;
 }
 
+// Holds this repeater's queue for `ms` while a command that just timed out may
+// still be answered. See cliQuarantines.
+function quarantineCli(prefix: string, ms: number): void {
+  endCliQuarantine(prefix);
+  let lift!: () => void;
+  const ended = new Promise<void>((resolve) => {
+    lift = resolve;
+  });
+  cliQuarantines.set(prefix, {
+    lift,
+    ended,
+    timer: setTimeout(() => endCliQuarantine(prefix), ms),
+  });
+}
+
+// Lifts a repeater's quarantine, releasing whatever is queued behind it.
+// Returns whether one was in force — which is also the answer to "was this
+// reply owed to a request already given up on?".
+function endCliQuarantine(prefix: string): boolean {
+  const quarantine = cliQuarantines.get(prefix);
+  if (!quarantine) return false;
+  cliQuarantines.delete(prefix);
+  clearTimeout(quarantine.timer);
+  quarantine.lift();
+  return true;
+}
+
 // Chains `op` after whatever CLI command is already queued for this repeater,
-// so only one is ever in flight and replies stay matchable by send order.
+// so only one is ever in flight and replies stay matchable by send order. A
+// command whose predecessor timed out also waits out that repeater's
+// quarantine, so the straggler it may still be owed cannot be mistaken for this
+// command's answer.
 function enqueueCli<T>(prefix: string, op: () => Promise<T>): Promise<T> {
   const prev = cliQueues.get(prefix) ?? Promise.resolve();
-  const run = prev.then(op, op);
+  const start = () =>
+    (cliQuarantines.get(prefix)?.ended ?? Promise.resolve()).then(op);
+  const run = prev.then(start, start);
   cliQueues.set(
     prefix,
     run.then(
@@ -1040,7 +1112,13 @@ export function useMeshCore() {
           // A queued frame can fire this after teardown; skip it so a late
           // reply can't recreate adminSessions that reset() just cleared.
           if (!canTransmit(c)) return;
-          const waiter = takeCliWaiter(pubkeyPrefix);
+          // A reply the repeater still owed for a command already given up on
+          // is not an answer to the one outstanding now, however plausible the
+          // timing looks — lifting the quarantine claims it as the straggler it
+          // is and leaves the waiter alone.
+          const waiter = endCliQuarantine(pubkeyPrefix)
+            ? undefined
+            : takeCliWaiter(pubkeyPrefix);
           const currentToken =
             useMeshStore.getState().adminSessions[pubkeyPrefix]?.token;
           // Append to the transcript only when the reply belongs to the current
@@ -1053,7 +1131,16 @@ export function useMeshCore() {
             ? waiter.token === currentToken
             : currentToken != null;
           if (belongsToCurrent) {
-            appendCliLine(pubkeyPrefix, { own: false, text, ts: Date.now() });
+            // A reply with no waiter answers nothing on screen: either the node
+            // spoke unprompted, or this is the late answer to a command already
+            // reported as unanswered. Flagged so the transcript can't present
+            // it as the reply to whatever was sent most recently.
+            appendCliLine(pubkeyPrefix, {
+              own: false,
+              text,
+              ts: Date.now(),
+              unsolicited: waiter === undefined,
+            });
           }
           // Replies carry no correlation id, so this one answers the single
           // command outstanding for this repeater (enqueueCli guarantees there
@@ -1814,12 +1901,16 @@ export function useMeshCore() {
    * time. Every CLI send goes through here, including fire-and-forget ones, so
    * that nothing else can consume a pending request's reply. A round trip that
    * goes unanswered leaves a muted note in the transcript, so a non-answer
-   * never reads as a reply still in flight.
+   * never reads as a reply still in flight. A verb the node cannot answer
+   * ({@link isSilentCommand}) waits only long enough for a rejection and leaves
+   * no quarantine behind — there is no straggler to protect the next command
+   * from.
    * @throws if the send fails, the session drops, or no reply arrives in time.
    */
   const repeaterCliRequest = useCallback(
     (contact: Contact, cmd: string): Promise<string> => {
       const prefix = contact.pubkeyPrefix;
+      const silent = isSilentCommand(cmd);
       // Capture the session identity at enqueue time so a command can be tied
       // to the exact login it was issued under, not merely "some authed
       // session". A logout + re-login (even as a guest, which firmware may
@@ -1873,22 +1964,33 @@ export function useMeshCore() {
           client.sendCliCommand(contact, line).then(
             (receipt) => {
               if (cliWaiters.get(prefix) !== waiter) return;
-              // Wait the radio's estimated round-trip (scaled by the same grace
-              // as a direct-message ACK), not a fixed budget: a CLI reply over
-              // a multi-hop path can take far longer than a couple of seconds.
-              // A too-short wait would time out prematurely, and the caller's
-              // retry would re-send while the real reply is still in flight —
-              // flooding the mesh and stranding the late reply with no waiter.
-              // Fall back to a safe budget when the receipt has no estimate.
-              const timeoutMs = receipt
-                ? Math.max(
-                    MIN_ACK_TIMEOUT_MS,
-                    receipt.suggestedTimeoutMs * ACK_TIMEOUT_GRACE,
-                  )
-                : DEFAULT_ACK_TIMEOUT_MS;
+              // Wait the radio's estimated round-trip scaled for a CLI
+              // exchange, not a fixed budget: a reply over a multi-hop path can
+              // take far longer than a couple of seconds. A too-short wait
+              // would time out prematurely, and the caller's retry would
+              // re-send while the real reply is still in flight — flooding the
+              // mesh and stranding the late reply with no waiter. A receipt
+              // whose estimate is missing or non-positive carries no usable
+              // round trip, so it falls back to a safe budget rather than the
+              // floor.
+              const estimate = receipt?.suggestedTimeoutMs ?? 0;
+              const timeoutMs = silent
+                ? CLI_SILENT_TIMEOUT_MS
+                : estimate > 0
+                  ? Math.max(
+                      MIN_CLI_REPLY_TIMEOUT_MS,
+                      estimate * CLI_REPLY_GRACE,
+                    )
+                  : DEFAULT_CLI_REPLY_TIMEOUT_MS;
               waiter.timer = setTimeout(() => {
                 if (cliWaiters.get(prefix) !== waiter) return;
                 takeCliWaiter(prefix);
+                // The node may still answer after this: releasing the queue
+                // would otherwise put the next command on the air before a late
+                // reply can be ruled out. Hold this repeater until the
+                // straggler lands or the window lapses. A verb that never
+                // replies has no straggler to wait for.
+                if (!silent) quarantineCli(prefix, timeoutMs);
                 // Record the non-answer in the transcript here rather than in
                 // the caller: rejecting releases the queue, so a caller's
                 // continuation would land after the next command's echo and
@@ -1929,6 +2031,9 @@ export function useMeshCore() {
    * Still waits for the reply (via {@link repeaterCliRequest}) rather than
    * returning at the send ack, so the reply is consumed by this request instead
    * of being mistaken for the answer to whatever is sent next.
+   * @param silent - the verb never answers (`reboot`), so the wait is shortened
+   *   to what a rejection needs; the caller still decides whether the resulting
+   *   `'timeout'` counts as success.
    * @returns the {@link RepeaterCliOutcome}. A silent node is reported as
    *   `'timeout'`, never folded into success — only the caller knows whether
    *   the verb it sent answers at all.

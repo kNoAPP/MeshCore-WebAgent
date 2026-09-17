@@ -32,6 +32,7 @@ import type {
   SelectSetting,
   RepeaterAction,
 } from '@/lib/meshcore/repeaterConfig';
+import { isSilentCommand } from '@/lib/meshcore/consoleCatalog';
 import { fmtNum, utf8ByteLength } from '@/lib/utils';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
 import { Card } from './Card';
@@ -526,7 +527,10 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       // rather than as a green "sent"; a failed/disconnected send already
       // toasts from repeaterCli itself.
       const outcome = await repeaterCli(contact, action.cmd);
-      if (outcome === 'ok' || (outcome === 'timeout' && action.silent)) {
+      if (
+        outcome === 'ok' ||
+        (outcome === 'timeout' && isSilentCommand(action.cmd))
+      ) {
         showToast(t('toast.repeaterActionSent'), 'success');
       } else if (outcome === 'timeout') {
         showToast(t('toast.repeaterCliNoReply'), 'error');

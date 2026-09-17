@@ -759,6 +759,8 @@
       "clear": "Limpiar",
       "waiting": "Esperando respuesta…",
       "roundTripLabel": "Tiempo de ida y vuelta",
+      "unsolicited": "(no solicitado)",
+      "unsolicitedHint": "Llegó sin ningún comando pendiente: es salida no solicitada del nodo o una respuesta tardía a un comando anterior. No es la respuesta al comando de arriba.",
       "suggestionsLabel": "Sugerencias de comandos",
       "suggestionCount_one": "{{count}} comando coincide. Pulsa Tab para completarlo.",
       "suggestionCount_other": "{{count}} comandos coinciden. Pulsa Tab para completar el resaltado.",

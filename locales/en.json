@@ -758,6 +758,8 @@
       "clear": "Clear",
       "waiting": "Waiting for a reply…",
       "roundTripLabel": "Round-trip time",
+      "unsolicited": "(unprompted)",
+      "unsolicitedHint": "Arrived with no command outstanding — unprompted output from the node, or a late answer to an earlier command. It is not the reply to the command above it.",
       "suggestionsLabel": "Command suggestions",
       "suggestionCount_one": "{{count}} command matches. Press Tab to complete it.",
       "suggestionCount_other": "{{count}} commands match. Press Tab to complete the highlighted one.",
