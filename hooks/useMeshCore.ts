@@ -55,6 +55,7 @@ import {
 import { splitPathHashes } from '@/lib/meshcore/parsers';
 import { saveRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
+import { isSilentCommand } from '@/lib/meshcore/consoleCatalog';
 import {
   toHex,
   fromHex,
@@ -253,21 +254,26 @@ const cliWaiters = new Map<string, CliWaiter>();
 // leaves only after the previous reply lands (or times out) and the waiter
 // above is never ambiguous.
 const cliQueues = new Map<string, Promise<unknown>>();
-// Replies this repeater may still owe for commands already given up on, and the
-// timer that writes the debt off.
+// The window after a timed-out command in which that repeater may still answer
+// it, and the promise the next queued command waits on.
 //
-// A timeout releases the queue, so the next command is on the air before the
-// previous one's reply can be ruled out. With no correlation id on the wire,
-// that late reply would otherwise be claimed by the new command's waiter and
-// reported as its answer — a stale `neighbors` list read as a fresh one. Each
-// timeout therefore leaves a debt, and the next reply pays it off as
-// unattributed output instead of resolving the waiter. The debt lapses after
-// the same budget the request itself waited: a reply that has not arrived by
-// then is lost, and holding the debt longer would start discarding genuine
-// replies.
-const cliStaleReplies = new Map<
+// A timeout releases the queue, so without this the next command would be on
+// the air before the previous one's reply can be ruled out — and with no
+// correlation id on the wire that straggler would be claimed by the new
+// command's waiter and reported as its answer, a stale `neighbors` list read as
+// a fresh one. While a repeater is quarantined nothing new is sent to it, so
+// there is never a second command for a straggler to be misread against. The
+// window ends as soon as the straggler lands (`endCliQuarantine`, which also
+// keeps that frame away from the waiter) or lapses after the same budget the
+// request itself waited, at which point the reply is taken as lost — holding it
+// longer would start discarding genuine replies instead.
+const cliQuarantines = new Map<
   string,
-  { count: number; timer: ReturnType<typeof setTimeout> }
+  {
+    timer: ReturnType<typeof setTimeout>;
+    lift: () => void;
+    ended: Promise<void>;
+  }
 >();
 let echoWindow: EchoWindow | null = null;
 // Recent group-text RX-log packets awaiting correlation to a decoded inbound
@@ -488,8 +494,7 @@ function clearDeliveryState(): void {
 function clearCliWaiters(): void {
   for (const prefix of [...cliWaiters.keys()]) rejectCliWaitersFor(prefix);
   cliQueues.clear();
-  for (const debt of cliStaleReplies.values()) clearTimeout(debt.timer);
-  cliStaleReplies.clear();
+  for (const prefix of [...cliQuarantines.keys()]) endCliQuarantine(prefix);
 }
 
 // Rejects and drops the CLI request outstanding for one repeater. Used on panel
@@ -516,36 +521,43 @@ function takeCliWaiter(prefix: string): CliWaiter | undefined {
   return waiter;
 }
 
-// Records that a repeater may still answer a command that just timed out, for
-// `ms` longer. See cliStaleReplies.
-function oweStaleReply(prefix: string, ms: number): void {
-  const debt = cliStaleReplies.get(prefix);
-  if (debt) clearTimeout(debt.timer);
-  cliStaleReplies.set(prefix, {
-    count: (debt?.count ?? 0) + 1,
-    timer: setTimeout(() => cliStaleReplies.delete(prefix), ms),
+// Holds this repeater's queue for `ms` while a command that just timed out may
+// still be answered. See cliQuarantines.
+function quarantineCli(prefix: string, ms: number): void {
+  endCliQuarantine(prefix);
+  let lift!: () => void;
+  const ended = new Promise<void>((resolve) => {
+    lift = resolve;
+  });
+  cliQuarantines.set(prefix, {
+    lift,
+    ended,
+    timer: setTimeout(() => endCliQuarantine(prefix), ms),
   });
 }
 
-// Whether this reply settles a debt from an earlier, already-abandoned request
-// rather than the command outstanding now. Consumes one debt when it does.
-function takeStaleReply(prefix: string): boolean {
-  const debt = cliStaleReplies.get(prefix);
-  if (!debt) return false;
-  if (debt.count > 1) {
-    cliStaleReplies.set(prefix, { ...debt, count: debt.count - 1 });
-  } else {
-    clearTimeout(debt.timer);
-    cliStaleReplies.delete(prefix);
-  }
+// Lifts a repeater's quarantine, releasing whatever is queued behind it.
+// Returns whether one was in force — which is also the answer to "was this
+// reply owed to a request already given up on?".
+function endCliQuarantine(prefix: string): boolean {
+  const quarantine = cliQuarantines.get(prefix);
+  if (!quarantine) return false;
+  cliQuarantines.delete(prefix);
+  clearTimeout(quarantine.timer);
+  quarantine.lift();
   return true;
 }
 
 // Chains `op` after whatever CLI command is already queued for this repeater,
-// so only one is ever in flight and replies stay matchable by send order.
+// so only one is ever in flight and replies stay matchable by send order. A
+// command whose predecessor timed out also waits out that repeater's
+// quarantine, so the straggler it may still be owed cannot be mistaken for this
+// command's answer.
 function enqueueCli<T>(prefix: string, op: () => Promise<T>): Promise<T> {
   const prev = cliQueues.get(prefix) ?? Promise.resolve();
-  const run = prev.then(op, op);
+  const start = () =>
+    (cliQuarantines.get(prefix)?.ended ?? Promise.resolve()).then(op);
+  const run = prev.then(start, start);
   cliQueues.set(
     prefix,
     run.then(
@@ -1102,8 +1114,9 @@ export function useMeshCore() {
           if (!canTransmit(c)) return;
           // A reply the repeater still owed for a command already given up on
           // is not an answer to the one outstanding now, however plausible the
-          // timing looks — take the debt instead of the waiter.
-          const waiter = takeStaleReply(pubkeyPrefix)
+          // timing looks — lifting the quarantine claims it as the straggler it
+          // is and leaves the waiter alone.
+          const waiter = endCliQuarantine(pubkeyPrefix)
             ? undefined
             : takeCliWaiter(pubkeyPrefix);
           const currentToken =
@@ -1888,14 +1901,16 @@ export function useMeshCore() {
    * time. Every CLI send goes through here, including fire-and-forget ones, so
    * that nothing else can consume a pending request's reply. A round trip that
    * goes unanswered leaves a muted note in the transcript, so a non-answer
-   * never reads as a reply still in flight.
-   * @param silent - the verb never answers (`reboot`), so wait only long enough
-   *   for a rejection instead of budgeting for a reply that will not come.
+   * never reads as a reply still in flight. A verb the node cannot answer
+   * ({@link isSilentCommand}) waits only long enough for a rejection and leaves
+   * no quarantine behind — there is no straggler to protect the next command
+   * from.
    * @throws if the send fails, the session drops, or no reply arrives in time.
    */
   const repeaterCliRequest = useCallback(
-    (contact: Contact, cmd: string, silent = false): Promise<string> => {
+    (contact: Contact, cmd: string): Promise<string> => {
       const prefix = contact.pubkeyPrefix;
+      const silent = isSilentCommand(cmd);
       // Capture the session identity at enqueue time so a command can be tied
       // to the exact login it was issued under, not merely "some authed
       // session". A logout + re-login (even as a guest, which firmware may
@@ -1971,11 +1986,11 @@ export function useMeshCore() {
                 if (cliWaiters.get(prefix) !== waiter) return;
                 takeCliWaiter(prefix);
                 // The node may still answer after this: releasing the queue
-                // puts the next command on the air before a late reply can be
-                // ruled out. Record the debt so that reply is read as the
-                // straggler it is instead of the next command's answer. A verb
-                // that never replies owes nothing.
-                if (!silent) oweStaleReply(prefix, timeoutMs);
+                // would otherwise put the next command on the air before a late
+                // reply can be ruled out. Hold this repeater until the
+                // straggler lands or the window lapses. A verb that never
+                // replies has no straggler to wait for.
+                if (!silent) quarantineCli(prefix, timeoutMs);
                 // Record the non-answer in the transcript here rather than in
                 // the caller: rejecting releases the queue, so a caller's
                 // continuation would land after the next command's echo and
@@ -2024,14 +2039,10 @@ export function useMeshCore() {
    *   the verb it sent answers at all.
    */
   const repeaterCli = useCallback(
-    async (
-      contact: Contact,
-      cmd: string,
-      silent = false,
-    ): Promise<RepeaterCliOutcome> => {
+    async (contact: Contact, cmd: string): Promise<RepeaterCliOutcome> => {
       if (!canTransmit(client)) return 'error';
       try {
-        const reply = await repeaterCliRequest(contact, cmd, silent);
+        const reply = await repeaterCliRequest(contact, cmd);
         // A received reply can still be a rejection (e.g. `ERR: clock cannot go
         // backwards`); surface it and report failure rather than "sent".
         if (isErrorReply(reply)) {

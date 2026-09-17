@@ -347,13 +347,6 @@ export interface RepeaterAction {
   /** The CLI command to send. */
   cmd: string;
   destructive?: boolean;
-  /**
-   * The node never answers this verb, so a reply timeout still counts as sent
-   * (the radio accepted the transmission) rather than as a lost command.
-   * Without it, silence must be reported as a non-answer rather than as
-   * success.
-   */
-  silent?: boolean;
 }
 
 /**
@@ -361,7 +354,7 @@ export interface RepeaterAction {
  * design (task 7.5 scope).
  */
 export const REPEATER_ACTIONS: readonly RepeaterAction[] = [
-  { id: 'reboot', cmd: 'reboot', destructive: true, silent: true },
+  { id: 'reboot', cmd: 'reboot', destructive: true },
   { id: 'advert', cmd: 'advert' },
   { id: 'advertZeroHop', cmd: 'advert.zerohop' },
   { id: 'clockSync', cmd: 'clock sync' },
