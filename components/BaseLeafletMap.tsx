@@ -24,11 +24,9 @@ import {
   nodeIcon,
   type NodeMarker,
 } from '@/lib/map/leafletIcon';
-import {
-  placeEdgeLabel,
-  pointAlongEdge,
-  type LabelBox,
-} from '@/lib/map/edgeLabel';
+import { placeEdgeLabel, pointAlongEdge } from '@/lib/map/edgeLabel';
+import type { LabelBox } from '@/lib/map/labelBox';
+import { nodeLabelOrder, placeNodeLabel } from '@/lib/map/nodeLabel';
 import type { MapEdge, MapNode } from '@/lib/map/nodes';
 import {
   MAP_CLUSTER_RADIUS_PX,
@@ -105,9 +103,10 @@ export interface BaseLeafletMapProps {
    */
   cluster?: boolean;
   /**
-   * Draw each node's name beside its marker. Density is the caller's problem:
-   * a clustered map only ever draws a marker that has already won its own
-   * space, and a map without clustering is expected to plot a bounded set.
+   * Draw each node's name beside its marker. Only where it fits: names are
+   * decluttered in pixel space at the current zoom, and a marker whose name
+   * would land on one already drawn keeps the name on hover instead, so a
+   * crowded hilltop never becomes an unreadable pile of text.
    */
   labels?: boolean;
   /**
@@ -194,6 +193,9 @@ export function BaseLeafletMap({
   // The plotted markers by node key, so the open popup can find the live
   // marker for a node after a rebuild has replaced the element it came from.
   const markersRef = useRef(new Map<string, L.Marker>());
+  // Keys of the markers currently drawing their name, so the declutter pass
+  // rebuilds only the icons whose answer actually changed.
+  const labeledRef = useRef(new Set<string>());
   useEffect(() => {
     renderPopupRef.current = renderPopup;
     onMoveEndRef.current = onMoveEnd;
@@ -484,8 +486,6 @@ export function BaseLeafletMap({
   // that only bumps `lastHeard`, or touches an off-map node, moves no marker
   // and must not churn the layer.
   const clickable = renderPopup != null;
-  // The name is either drawn beside the glyph or offered on hover, never both.
-  const hoverName = !labels;
   useEffect(() => {
     const layer = markerLayerRef.current;
     if (!layer) return;
@@ -496,35 +496,36 @@ export function BaseLeafletMap({
       )
       .join('|');
     // `t` (locale) drives the self tooltip and `clickable` gates click wiring,
-    // so both belong in the signature that decides whether a rebuild is needed,
-    // as does whether the markers are carrying their names.
-    const fullSig = `${clickable ? 'click' : ''}|${labels ? 'label' : ''}|${hoverName ? 'hover' : ''}|${t('map.self')}|${sig}`;
+    // so both belong in the signature that decides whether a rebuild is needed.
+    // Whether a marker carries its name does not: every marker is built
+    // unlabeled and the pass below promotes the ones whose name has room.
+    const fullSig = `${clickable ? 'click' : ''}|${t('map.self')}|${sig}`;
     if (fullSig === markerSigRef.current) return;
     markerSigRef.current = fullSig;
 
     layer.clearLayers();
     markersRef.current.clear();
+    labeledRef.current = new Set();
     const markers: L.Marker[] = [];
     for (const node of nodes) {
       const inert = !(clickable && node.kind !== 'self');
       const name = node.kind === 'self' ? t('map.self') : node.name;
       const marker = L.marker([node.lat, node.lon], {
-        icon: nodeIcon(node, labels ? name : undefined),
+        icon: nodeIcon(node),
         // An inert marker (location-pick mode, or the self node) would
         // otherwise swallow the click the map needs to place the pin, and
         // would be a dead stop for the keyboard.
         bubblingMouseEvents: inert,
         keyboard: !inert,
         // Leaflet puts this on the container, which is what names the button it
-        // makes of an interactive marker. A labeled marker already carries its
-        // name as text, so the button is named from its contents instead and a
-        // native tooltip would only repeat what is on screen.
-        title: inert || labels ? undefined : name,
+        // makes of an interactive marker. A labeled marker is named from its
+        // own text instead, so the pass below strips this back off.
+        title: inert ? undefined : name,
       }) as NodeMarker;
       // Read back by the cluster glyph, which colors itself after its
       // children when they all share a category.
       marker.meshNode = node;
-      if (hoverName) marker.bindTooltip(escapeHtml(name), { direction: 'top' });
+      marker.bindTooltip(escapeHtml(name), { direction: 'top' });
       if (!inert) {
         marker.on('click', () => {
           // The marker's own position, so the popup always has an anchor even
@@ -544,7 +545,70 @@ export function BaseLeafletMap({
     else for (const marker of markers) marker.addTo(layer);
     // `startView` recreates the map with empty layers, and `cluster` swaps the
     // marker layer for an empty one of the other kind, so both have to refill.
-  }, [nodes, t, clickable, labels, hoverName, cluster, startView, setPopupKey]);
+  }, [nodes, t, clickable, cluster, startView, setPopupKey]);
+
+  // Decide which markers can carry their name, and hand the rest a hover
+  // tooltip instead. Runs in the same commit as the rebuild above — so a
+  // dropped name is never painted and then taken away — and again whenever the
+  // pixels move under it: a zoom changes every separation, a pan brings markers
+  // the cluster group had not rendered into play, and the cluster animation
+  // decides which markers ended up drawn at all.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const group = clusterGroupRef.current;
+    // Ranked once per node set rather than per pass: which names survive must
+    // not depend on the pan or zoom that triggered the pass.
+    const ranked = labels ? nodeLabelOrder(nodes) : [];
+    const nameOf = (node: MapNode) =>
+      node.kind === 'self' ? t('map.self') : node.name;
+    const relabel = () => {
+      const placed: LabelBox[] = [];
+      const drawn = new Set<string>();
+      for (const node of ranked) {
+        const marker = markersRef.current.get(node.key);
+        // Collapsed into a cluster glyph, or outside the bounds the cluster
+        // group renders: nothing is on screen to label or to collide with.
+        if (!marker || (group && group.getVisibleParent(marker) !== marker)) {
+          continue;
+        }
+        const at = map.latLngToLayerPoint(marker.getLatLng());
+        if (placeNodeLabel(nameOf(node), at, placed)) drawn.add(node.key);
+      }
+      const previous = labeledRef.current;
+      labeledRef.current = drawn;
+      for (const node of nodes) {
+        const on = drawn.has(node.key);
+        if (on === previous.has(node.key)) continue;
+        const marker = markersRef.current.get(node.key);
+        if (!marker) continue;
+        // The name is either drawn beside the glyph or offered on hover, never
+        // both — including the native `title` that names the marker's button,
+        // which a labeled marker takes from its own text instead.
+        const inert = !(clickable && node.kind !== 'self');
+        const title = on || inert ? undefined : nameOf(node);
+        marker.options.title = title;
+        if (on) marker.unbindTooltip();
+        else marker.bindTooltip(escapeHtml(nameOf(node)), { direction: 'top' });
+        marker.setIcon(nodeIcon(node, on ? nameOf(node) : undefined));
+        // `L.DivIcon.createIcon` reuses the element it is handed, so `setIcon`
+        // swaps the glyph's contents but never revisits the title — Leaflet
+        // only writes that when it has built a fresh element.
+        const el = marker.getElement();
+        if (title) el?.setAttribute('title', title);
+        else el?.removeAttribute('title');
+      }
+    };
+    relabel();
+    map.on('zoomend', relabel);
+    map.on('moveend', relabel);
+    group?.on('animationend', relabel);
+    return () => {
+      map.off('zoomend', relabel);
+      map.off('moveend', relabel);
+      group?.off('animationend', relabel);
+    };
+  }, [nodes, labels, t, clickable, cluster, startView]);
 
   // Open the popup for the selected node, anchored at its coordinates. It is
   // added to the map rather than bound to the marker, so a marker rebuild —

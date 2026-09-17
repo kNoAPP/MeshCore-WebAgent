@@ -1,6 +1,14 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
+import {
+  claimLabelBox,
+  labelFont,
+  measureTextPx,
+  type LabelBox,
+  type PixelPoint,
+} from '@/lib/map/labelBox';
+
 /**
  * Placement of the permanent labels drawn on map link edges (the Neighbors
  * map's per-link SNR). Leaflet pins a tooltip wherever it is told and does no
@@ -13,41 +21,17 @@
  * no Leaflet import; the caller supplies the projection.
  */
 
-/** A position in the map pane's pixel space. */
-export interface PixelPoint {
-  x: number;
-  y: number;
-}
-
-/** A placed label's pixel box, kept so later labels can avoid it. */
-export interface LabelBox {
-  at: PixelPoint;
-  width: number;
-}
-
 // Fractions along an edge, in preference order, at which a label may sit. The
 // midpoint reads best, so it is tried first; the rest walk outward in pairs so
 // a crowded anchor spreads its labels along the edges rather than around them.
 const LABEL_FRACTIONS = [0.5, 0.38, 0.62, 0.28, 0.72, 0.2, 0.8];
 
-// The rendered label is a single line of 11px tabular digits. These estimate
-// its box in map-pane pixels, rounded up from what the browser reports so a
-// near-miss still counts as a clash.
+// The rendered label is a single line of 11px tabular digits, in a box that
+// carries its own padding and sits clear of the line it labels.
 const LABEL_HEIGHT_PX = 24;
-const LABEL_CHAR_PX = 5.6;
+const LABEL_SIZE_PX = 11;
+const LABEL_WEIGHT = 400;
 const LABEL_PADDING_PX = 14;
-
-/** Approximate rendered width, in pixels, of an edge label. */
-export function labelWidthPx(label: string): number {
-  return label.length * LABEL_CHAR_PX + LABEL_PADDING_PX;
-}
-
-function collides(a: LabelBox, b: LabelBox): boolean {
-  return (
-    Math.abs(a.at.x - b.at.x) < (a.width + b.width) / 2 &&
-    Math.abs(a.at.y - b.at.y) < LABEL_HEIGHT_PX
-  );
-}
 
 /**
  * Picks where along one edge its label should sit, preferring the midpoint and
@@ -69,13 +53,12 @@ export function placeEdgeLabel(
   project: (fraction: number) => PixelPoint,
   placed: LabelBox[],
 ): number | null {
-  const width = labelWidthPx(label);
+  const width =
+    measureTextPx(label, labelFont(LABEL_WEIGHT, LABEL_SIZE_PX)) +
+    LABEL_PADDING_PX;
   for (const fraction of LABEL_FRACTIONS) {
-    const box = { at: project(fraction), width };
-    if (placed.every((other) => !collides(box, other))) {
-      placed.push(box);
-      return fraction;
-    }
+    const box = { at: project(fraction), width, height: LABEL_HEIGHT_PX };
+    if (claimLabelBox(box, placed)) return fraction;
   }
   return null;
 }
