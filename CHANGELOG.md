@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.30.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.29.0...v1.30.0) (2026-09-17)
+
+
+### Features
+
+* **map:** cluster and label markers, and make a node findable ([#322](https://github.com/kNoAPP/MeshCore-WebAgent/issues/322)) ([3940e3d](https://github.com/kNoAPP/MeshCore-WebAgent/commit/3940e3d1b7d2a4dc7d4d4bd218c1b1e06d823e54))
+* **nodes:** add a Nodes directory over contacts and heard adverts ([#328](https://github.com/kNoAPP/MeshCore-WebAgent/issues/328)) ([c350716](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c35071634dbf551859535507b4397361fb4c252d))
+* **ui:** give the command palette an actions group ([#320](https://github.com/kNoAPP/MeshCore-WebAgent/issues/320)) ([cb0da41](https://github.com/kNoAPP/MeshCore-WebAgent/commit/cb0da41a03d1b12cf77add5b7bdb428822ae2e5c))
+
+
+### Bug Fixes
+
+* **map:** declutter node name labels in pixel space ([#327](https://github.com/kNoAPP/MeshCore-WebAgent/issues/327)) ([d575eba](https://github.com/kNoAPP/MeshCore-WebAgent/commit/d575ebada69e8d3830b3c10113b822856337425d))
+* **repeater:** budget CLI replies for the whole exchange, not an ACK ([#326](https://github.com/kNoAPP/MeshCore-WebAgent/issues/326)) ([1331674](https://github.com/kNoAPP/MeshCore-WebAgent/commit/13316749ff057684036b87f2daf17d393715ce7a))
+
 ## [1.29.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.28.0...v1.29.0) (2026-09-16)
 
 
