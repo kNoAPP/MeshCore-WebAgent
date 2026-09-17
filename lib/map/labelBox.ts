@@ -55,6 +55,19 @@ export function labelFont(weight: number, sizePx: number): string {
 }
 
 /**
+ * The pixel value of one `rem`, from the root element.
+ *
+ * @remarks Not cached: a cap the stylesheet expresses in `rem` follows the
+ * user's browser font size, which they can change without reloading, and a
+ * stale value would let the geometry disagree with what is painted. The read
+ * resolves style rather than layout, so it is cheap in a loop that has not
+ * touched the DOM yet.
+ */
+export function remPx(): number {
+  return parseFloat(getComputedStyle(document.documentElement).fontSize);
+}
+
+/**
  * Width, in pixels, of one line of {@link text} rendered in {@link font}.
  *
  * @remarks Measured rather than estimated per character: node names are

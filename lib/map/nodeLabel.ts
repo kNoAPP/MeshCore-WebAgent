@@ -5,6 +5,7 @@ import {
   claimLabelBox,
   labelFont,
   measureTextPx,
+  remPx,
   type LabelBox,
   type PixelPoint,
 } from '@/lib/map/labelBox';
@@ -26,12 +27,14 @@ import type { MapNode } from '@/lib/map/nodes';
 // The rendered label is a single line pinned to the right of the glyph. These
 // mirror `.map-marker-label` in `app/globals.css`: the gap is its `left`
 // offset, the halo is how far its `text-shadow` spreads past the glyphs, and
-// the cap is its `max-width` (10rem), past which the name is truncated with an
-// ellipsis rather than widening the box.
+// the cap is its `max-width`, past which the name is truncated with an
+// ellipsis rather than widening the box. That cap is in `rem`, so it is
+// resolved against the live root font size rather than assuming the 16px
+// default a reader may well have changed.
 const NODE_LABEL_SIZE_PX = 11;
 const NODE_LABEL_WEIGHT = 600;
 const NODE_LABEL_HEIGHT_PX = 16;
-const NODE_LABEL_MAX_WIDTH_PX = 160;
+const NODE_LABEL_MAX_WIDTH_REM = 10;
 const NODE_LABEL_HALO_PX = 3;
 const NODE_LABEL_GAP_PX = 4;
 
@@ -71,7 +74,7 @@ export function placeNodeLabel(
 ): boolean {
   const text = Math.min(
     measureTextPx(label, labelFont(NODE_LABEL_WEIGHT, NODE_LABEL_SIZE_PX)),
-    NODE_LABEL_MAX_WIDTH_PX,
+    NODE_LABEL_MAX_WIDTH_REM * remPx(),
   );
   const width = text + 2 * NODE_LABEL_HALO_PX;
   const box: LabelBox = {
