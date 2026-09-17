@@ -123,8 +123,17 @@ function MapPage({
     () => (mapFocus ? (nodes.find((n) => n.key === mapFocus) ?? null) : null),
     [mapFocus, nodes],
   );
+  // A handed-over node the filters exclude is plotted anyway, so it occupies a
+  // marker slot the cap notice has to account for — otherwise a filtered node
+  // could displace a visible one while the notice still claims nothing was
+  // trimmed.
+  const focusOutsideVisible = useMemo(
+    () =>
+      focusTarget !== null && !visible.some((n) => n.key === focusTarget.key),
+    [focusTarget, visible],
+  );
 
-  const total = visible.length + (self ? 1 : 0);
+  const total = visible.length + (focusOutsideVisible ? 1 : 0) + (self ? 1 : 0);
   const capped = total > MAX_MAP_MARKERS;
   // Trimmed to the marker budget, with a slot reserved for this node's own
   // marker. The node list takes the same trimmed set: a row the map is not

@@ -1086,8 +1086,10 @@
     },
     "row": {
       "select": "Seleccionar {{name}}",
-      "details": "Abrir {{name}}",
+      "details": "Detalles de {{name}}",
       "message": "Enviar mensaje a {{name}}",
+      "console": "Abrir la consola de administración de {{name}}",
+      "room": "Abrir la sala de {{name}}",
       "addContact": "Guardar {{name}} como contacto",
       "showOnMap": "Mostrar {{name}} en el mapa",
       "favorite": "Marcar {{name}} como favorito",

@@ -64,31 +64,61 @@ export function isSaved(node: DirectoryNode): boolean {
 }
 
 /**
- * The SNR of the newest received message from each node, keyed by public-key
- * prefix.
+ * The SNR of the most recently received message from each node, keyed by
+ * public-key prefix.
  *
  * @remarks The contact table and the advert cache carry no signal quality, so
  * the only per-node SNR the app holds is the one stamped on each inbound
- * message. Every conversation is walked in one pass rather than per node, and
- * the newest timestamped message with a numeric SNR wins.
+ * message. Every conversation is walked once rather than once per node.
+ *
+ * Within a conversation the transcript is in **receipt** order, which no
+ * sender's clock can distort, so a later entry simply supersedes an earlier
+ * one. Two conversations share no such order — a node's prefix appears on its
+ * direct messages and on anything it posts to a channel — so those are
+ * reconciled by clock-clamped age, the rule `freshestHeard` already applies to
+ * last-advert timestamps.
+ *
+ * @param nowSecs - reference clock in epoch seconds for that age comparison.
  */
 export function lastSnrByPrefix(
   msgHistory: Record<string, Message[]>,
+  nowSecs: number = Math.floor(Date.now() / 1000),
 ): Record<string, number> {
   const snr: Record<string, number> = {};
-  const at: Record<string, number> = {};
+  const age: Record<string, number> = {};
   for (const messages of Object.values(msgHistory)) {
+    const latest = new Map<string, { snr: number; timestamp?: number }>();
     for (const m of messages) {
-      if (m.own || typeof m.snr !== 'number') continue;
-      const prefix = m.pubkeyPrefix;
-      if (!prefix) continue;
-      const stamp = m.timestamp ?? 0;
-      if (prefix in at && at[prefix] >= stamp) continue;
-      at[prefix] = stamp;
-      snr[prefix] = m.snr;
+      if (m.own || typeof m.snr !== 'number' || !m.pubkeyPrefix) continue;
+      latest.set(m.pubkeyPrefix, { snr: m.snr, timestamp: m.timestamp });
+    }
+    for (const [prefix, reading] of latest) {
+      // A reading with no timestamp cannot be placed against another
+      // conversation's, so it only wins when nothing else has been seen.
+      const readingAge = reading.timestamp
+        ? heardAgeSecs(reading.timestamp, nowSecs)
+        : Infinity;
+      if (prefix in age && age[prefix] <= readingAge) continue;
+      age[prefix] = readingAge;
+      snr[prefix] = reading.snr;
     }
   }
   return snr;
+}
+
+// The firmware writes `0` for an unset coordinate, so a pair counts only when
+// both halves are set. Taken from one record or the other and never mixed:
+// a half-populated contact and a half-populated advert would otherwise
+// synthesize a position neither of them advertised.
+function advertisedCoords(
+  ...sources: ({ advLat?: number; advLon?: number } | null | undefined)[]
+): { advLat?: number; advLon?: number } {
+  for (const source of sources) {
+    if (source?.advLat && source.advLon) {
+      return { advLat: source.advLat, advLon: source.advLon };
+    }
+  }
+  return {};
 }
 
 /**
@@ -127,9 +157,8 @@ export function collectDirectoryNodes(
       advert,
       favorite: (contact.flags & FAVORITE_FLAG) !== 0,
       lastHeard: freshestHeard(contact, advert ?? undefined, nowSecs),
-      // The cache keeps a location the contact table may not have yet.
-      advLat: contact.advLat || advert?.advLat,
-      advLon: contact.advLon || advert?.advLon,
+      // The cache keeps a position the contact table may not have yet.
+      ...advertisedCoords(contact, advert),
       outPathLen: contact.outPathLen,
       snr: snrByPrefix[prefix],
     });
@@ -149,8 +178,7 @@ export function collectDirectoryNodes(
       advert,
       favorite: false,
       lastHeard: advert.lastHeard,
-      advLat: advert.advLat,
-      advLon: advert.advLon,
+      ...advertisedCoords(advert),
       snr: snrByPrefix[prefix],
     });
   }
@@ -317,7 +345,10 @@ export function sortDirectoryNodes(
       case 'name':
         return node.name;
       case 'type':
-        return contactCategory(node.advType);
+        // The advert type itself, not its marker category: the column shows
+        // `Contact` and `Chat` as different values, and ranking by category
+        // would collapse them into one bucket ordered by name.
+        return node.advType;
       case 'storage':
         return isSaved(node) ? 0 : 1;
       case 'heard':

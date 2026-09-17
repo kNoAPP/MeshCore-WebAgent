@@ -62,7 +62,10 @@ export function NodesPage() {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
 
   const selfPrefix = selfInfo?.pubkey.slice(0, 12);
-  const snrByPrefix = useMemo(() => lastSnrByPrefix(msgHistory), [msgHistory]);
+  const snrByPrefix = useMemo(
+    () => lastSnrByPrefix(msgHistory, nowSecs),
+    [msgHistory, nowSecs],
+  );
   const all = useMemo(
     () =>
       collectDirectoryNodes(

@@ -4,7 +4,7 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import { MapPin, MessageSquare, Star, UserPlus } from 'lucide-react';
+import { MapPin, MessageSquare, Radio, Star, UserPlus } from 'lucide-react';
 import { contactConvo, openConvo, useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import {
@@ -16,6 +16,7 @@ import {
   formatSnr,
 } from '@/lib/i18n/format';
 import { ADV_ICON, ADV_LABEL_KEY } from '@/lib/utils';
+import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import { isSaved, type DirectoryNode } from '@/lib/nodes/directory';
 
 /**
@@ -92,6 +93,17 @@ export function NodeTableRow({
   const contact = node.contact;
   const advert = node.advert;
   const located = Boolean(node.advLat && node.advLon);
+  // A repeater's conversation is its admin console, not a transcript, so the
+  // verb has to name what actually opens; a room server does have a post feed.
+  const isRepeater = node.advType === ADV_TYPE_REPEATER;
+  const openLabel = t(
+    isRepeater
+      ? 'nodes.row.console'
+      : node.advType === ADV_TYPE_ROOM
+        ? 'nodes.row.room'
+        : 'nodes.row.message',
+    { name: node.name },
+  );
   const distance = formatDistanceBearing(
     selfInfo?.advLat,
     selfInfo?.advLon,
@@ -192,11 +204,12 @@ export function NodeTableRow({
       <td className='px-2'>
         <div className='flex items-center gap-0.5'>
           {contact ? (
-            <IconAction
-              label={t('nodes.row.message', { name: node.name })}
-              onClick={openChat}
-            >
-              <MessageSquare size={13} aria-hidden='true' />
+            <IconAction label={openLabel} onClick={openChat}>
+              {isRepeater ? (
+                <Radio size={13} aria-hidden='true' />
+              ) : (
+                <MessageSquare size={13} aria-hidden='true' />
+              )}
             </IconAction>
           ) : (
             <IconAction
