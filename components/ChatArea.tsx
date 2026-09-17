@@ -16,7 +16,8 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { ArrowDown, Send } from 'lucide-react';
 import { useMeshStore, isConvoVisible, canPostToRoom } from '@/store/meshStore';
-import { useMeshCore, MAX_DELIVERY_ATTEMPTS } from '@/hooks/useMeshCore';
+import { useMeshCore } from '@/hooks/useMeshCore';
+import { MAX_DELIVERY_ATTEMPTS } from '@/lib/session/delivery';
 import type { Contact, Message } from '@/types/meshcore';
 import {
   ADV_ICON,
