@@ -5,8 +5,10 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMeshStore } from '@/store/meshStore';
+import { contactConvo, openConvo, useMeshStore } from '@/store/meshStore';
+import { useMeshCore } from '@/hooks/useMeshCore';
 import { useClockTick } from '@/hooks/useClockTick';
+import { formatDistanceBearing } from '@/lib/i18n/format';
 import { haversineKm, microToDeg } from '@/lib/utils';
 import {
   DEFAULT_NODE_FILTERS,
@@ -25,6 +27,7 @@ import {
 import { NodeBulkBar } from './NodeBulkBar';
 import { NodeFilterBar } from './NodeFilterBar';
 import { NodeTable } from './NodeTable';
+import type { NodeRowContext } from './NodeTableRow';
 
 /**
  * The Nodes directory: one table over every node the session knows about —
@@ -42,6 +45,17 @@ export function NodesPage() {
   const advertCache = useMeshStore((s) => s.advertCache);
   const msgHistory = useMeshStore((s) => s.msgHistory);
   const selfInfo = useMeshStore((s) => s.selfInfo);
+  const unitSystem = useMeshStore((s) => s.unitSystem);
+  const setManagePanel = useMeshStore((s) => s.setManagePanel);
+  const showNodeOnMap = useMeshStore((s) => s.showNodeOnMap);
+  const setView = useMeshStore((s) => s.setView);
+  // Favoriting and saving both write to the radio, so those verbs need a live
+  // link; the directory itself stays readable while one is being restored.
+  const connected = useMeshStore((s) => s.status === 'connected');
+  // Read once for the whole page, never per row: this hook subscribes to the
+  // entire store, so a row calling it would rerun it for every rendered row on
+  // every unrelated store update.
+  const { toggleFavorite, addDiscoveredContact, removeContact } = useMeshCore();
   // The rows carry last-advert ages and an age filter, both of which must keep
   // advancing while the operator reads the table rather than freezing at what
   // they said on mount.
@@ -148,6 +162,63 @@ export function NodesPage() {
 
   const clearSelection = useCallback(() => setSelected(new Set<string>()), []);
 
+  // A batch unchecks only what the radio accepted, so a failure (a full
+  // contact table, a dropped link) leaves the operator with the exact rows to
+  // retry instead of a cleared selection they have to rebuild.
+  const onBatchWritten = useCallback((keys: string[]) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      for (const key of keys) next.delete(key);
+      return next;
+    });
+  }, []);
+
+  const rowContext = useMemo<NodeRowContext>(
+    () => ({
+      connected,
+      distance: (node) =>
+        formatDistanceBearing(
+          selfInfo?.advLat,
+          selfInfo?.advLon,
+          node.advLat,
+          node.advLon,
+          unitSystem,
+        ),
+      onToggleSelect: onToggleRow,
+      onOpenDetails: (node) =>
+        setManagePanel({
+          kind: node.contact ? 'contact' : 'advert',
+          id: node.pubkeyPrefix,
+        }),
+      onOpenConvo: (node) => {
+        if (!node.contact) return;
+        // Selected before the view switch, as every other entry point does it:
+        // `setView` catches up whichever conversation is open at that moment,
+        // so switching first would mark the *previous* one read.
+        openConvo(contactConvo(node.contact));
+        setView('chat');
+      },
+      onToggleFavorite: (node) => {
+        if (node.contact) void toggleFavorite(node.contact);
+      },
+      onSaveContact: (node) => {
+        if (node.advert) void addDiscoveredContact(node.advert);
+      },
+      onShowOnMap: (node) => showNodeOnMap(node.pubkeyPrefix),
+    }),
+    [
+      connected,
+      selfInfo,
+      unitSystem,
+      onToggleRow,
+      setManagePanel,
+      setView,
+      showNodeOnMap,
+      toggleFavorite,
+      addDiscoveredContact,
+    ],
+  );
+
   const filtering = nodeFiltersActive(filters) || query.trim() !== '';
 
   return (
@@ -178,12 +249,19 @@ export function NodesPage() {
           direction={order.direction}
           onSort={onSort}
           selected={selected}
-          onToggleRow={onToggleRow}
           onToggleAll={onToggleAll}
+          ctx={rowContext}
         />
       )}
       {selectedRows.length > 0 && (
-        <NodeBulkBar selected={selectedRows} onDone={clearSelection} />
+        <NodeBulkBar
+          selected={selectedRows}
+          connected={connected}
+          onAddContact={addDiscoveredContact}
+          onRemoveContact={removeContact}
+          onClear={clearSelection}
+          onWritten={onBatchWritten}
+        />
       )}
     </div>
   );

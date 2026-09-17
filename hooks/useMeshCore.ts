@@ -2075,14 +2075,20 @@ export function useMeshCore() {
     rejectCliWaitersFor(prefix);
   }, []);
 
-  /** Saves a heard advert as a contact on the radio. */
+  /**
+   * Saves a heard advert as a contact on the radio.
+   *
+   * @returns whether the radio accepted the write. The failure is already
+   * surfaced as a toast; the result is for a caller running a batch, which has
+   * to tell a contact that landed from one the radio refused.
+   */
   const addDiscoveredContact = useCallback(
-    async (advert: Advert) => {
-      if (!canTransmit(client)) return;
+    async (advert: Advert): Promise<boolean> => {
+      if (!canTransmit(client)) return false;
       const pubkeyBytes = fromHex(advert.pubkey, 32);
       if (!pubkeyBytes) {
         showToast(i18n.t('toast.invalidPublicKey'), 'error');
-        return;
+        return false;
       }
       const contact: Contact = {
         pubkey: advert.pubkey,
@@ -2105,11 +2111,13 @@ export function useMeshCore() {
           }),
           'success',
         );
+        return true;
       } catch (err) {
         showToast(
           i18n.t('toast.addContactFailed', { error: (err as Error).message }),
           'error',
         );
+        return false;
       }
     },
     [client, showToast],
@@ -2227,13 +2235,19 @@ export function useMeshCore() {
     [client, showToast],
   );
 
-  /** Deletes a contact from the radio. */
+  /**
+   * Deletes a contact from the radio.
+   *
+   * @returns whether the radio accepted the delete, for the same batching
+   * reason as {@link addDiscoveredContact}.
+   */
   const removeContact = useCallback(
-    async (contact: Contact) => {
-      if (!canTransmit(client)) return;
+    async (contact: Contact): Promise<boolean> => {
+      if (!canTransmit(client)) return false;
       try {
         await client.removeContact(contact);
         showToast(i18n.t('toast.contactRemoved'));
+        return true;
       } catch (err) {
         showToast(
           i18n.t('toast.removeContactFailed', {
@@ -2241,6 +2255,7 @@ export function useMeshCore() {
           }),
           'error',
         );
+        return false;
       }
     },
     [client, showToast],

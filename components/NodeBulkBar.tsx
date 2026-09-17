@@ -5,8 +5,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMeshStore } from '@/store/meshStore';
-import { useMeshCore } from '@/hooks/useMeshCore';
+import type { Advert, Contact } from '@/types/meshcore';
 import { isSaved, type DirectoryNode } from '@/lib/nodes/directory';
 
 /**
@@ -21,48 +20,62 @@ import { isSaved, type DirectoryNode } from '@/lib/nodes/directory';
  *
  * @param selected - the checked rows, already narrowed to the listed ones, so
  * a node the filters hide is never written to.
- * @param onDone - clears the selection once a batch finishes.
+ * @param onAddContact - resolves `false` when the radio refused the write; the
+ * failure is surfaced as a toast by the caller's own action.
+ * @param onRemoveContact - the same contract for a delete.
+ * @param onClear - drops the selection without writing anything.
+ * @param onWritten - receives the keys the radio accepted. Only those are
+ * unchecked: a node the radio refused stays selected to retry, and so does one
+ * this batch never touched (a saved contact during a "save heard nodes" run).
  */
 export function NodeBulkBar({
   selected,
-  onDone,
+  connected,
+  onAddContact,
+  onRemoveContact,
+  onClear,
+  onWritten,
 }: {
   selected: DirectoryNode[];
-  onDone: () => void;
+  connected: boolean;
+  onAddContact: (advert: Advert) => Promise<boolean>;
+  onRemoveContact: (contact: Contact) => Promise<boolean>;
+  onClear: () => void;
+  onWritten: (keys: string[]) => void;
 }) {
   const { t } = useTranslation();
-  const connected = useMeshStore((s) => s.status === 'connected');
-  const { addDiscoveredContact, removeContact } = useMeshCore();
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   const addable = selected.filter((node) => !isSaved(node) && node.advert);
   const removable = selected.filter(isSaved);
 
-  const run = async (batch: () => Promise<void>) => {
+  const run = async (
+    batch: DirectoryNode[],
+    write: (node: DirectoryNode) => Promise<boolean>,
+  ) => {
     setBusy(true);
+    const written: string[] = [];
     try {
-      await batch();
+      for (const node of batch) {
+        if (await write(node)) written.push(node.key);
+      }
     } finally {
       setBusy(false);
       setConfirming(false);
-      onDone();
+      onWritten(written);
     }
   };
 
   const addAll = () =>
-    void run(async () => {
-      for (const node of addable) {
-        if (node.advert) await addDiscoveredContact(node.advert);
-      }
-    });
+    void run(addable, (node) =>
+      node.advert ? onAddContact(node.advert) : Promise.resolve(false),
+    );
 
   const removeAll = () =>
-    void run(async () => {
-      for (const node of removable) {
-        if (node.contact) await removeContact(node.contact);
-      }
-    });
+    void run(removable, (node) =>
+      node.contact ? onRemoveContact(node.contact) : Promise.resolve(false),
+    );
 
   return (
     <div
@@ -99,7 +112,7 @@ export function NodeBulkBar({
           <>
             <button
               type='button'
-              onClick={onDone}
+              onClick={onClear}
               className='rounded-md px-3 py-1 text-xs text-text2 hover:text-accent'
             >
               {t('nodes.selection.clear')}

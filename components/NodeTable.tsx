@@ -11,7 +11,11 @@ import type {
   NodeSortKey,
   SortDirection,
 } from '@/lib/nodes/directory';
-import { NODE_ROW_HEIGHT_PX, NodeTableRow } from './NodeTableRow';
+import {
+  NODE_ROW_HEIGHT_PX,
+  NodeTableRow,
+  type NodeRowContext,
+} from './NodeTableRow';
 
 /** Extra rows rendered above and below the viewport, for fast scrolling. */
 const OVERSCAN_ROWS = 8;
@@ -58,6 +62,8 @@ const COLUMNS = [
  * @param nodes - the rows to show, already filtered, searched and sorted.
  * @param selected - keys of the checked rows, including any the current filters
  * hide.
+ * @param ctx - the row verbs and formatting, built once by the page so no row
+ * subscribes to the store on its own.
  */
 export function NodeTable({
   nodes,
@@ -65,17 +71,17 @@ export function NodeTable({
   direction,
   onSort,
   selected,
-  onToggleRow,
   onToggleAll,
+  ctx,
 }: {
   nodes: DirectoryNode[];
   sort: NodeSortKey;
   direction: SortDirection;
   onSort: (key: NodeSortKey) => void;
   selected: ReadonlySet<string>;
-  onToggleRow: (key: string) => void;
   /** Checks every listed row, or clears them when all are already checked. */
   onToggleAll: () => void;
+  ctx: NodeRowContext;
 }) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -180,7 +186,7 @@ export function NodeTable({
               node={node}
               rowIndex={first + i + 2}
               selected={selected.has(node.key)}
-              onToggleSelect={onToggleRow}
+              ctx={ctx}
             />
           ))}
           {padBottomPx > 0 && (

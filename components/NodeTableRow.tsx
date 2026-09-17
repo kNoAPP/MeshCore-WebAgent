@@ -5,12 +5,9 @@
 
 import { useTranslation } from 'react-i18next';
 import { MapPin, MessageSquare, Radio, Star, UserPlus } from 'lucide-react';
-import { contactConvo, openConvo, useMeshStore } from '@/store/meshStore';
-import { useMeshCore } from '@/hooks/useMeshCore';
 import {
   NO_VALUE,
   formatDateTime,
-  formatDistanceBearing,
   formatRelative,
   formatRoute,
   formatSnr,
@@ -26,6 +23,27 @@ import { isSaved, type DirectoryNode } from '@/lib/nodes/directory';
  * every cell truncates instead.
  */
 export const NODE_ROW_HEIGHT_PX = 30;
+
+/**
+ * Everything a row needs from outside itself, built once per page render.
+ *
+ * @remarks Passed in rather than read per row: `useMeshCore` subscribes to the
+ * whole store, so calling it from each row would rerun it for every rendered
+ * row on every unrelated store update and undo the point of rendering only a
+ * window of rows.
+ */
+export interface NodeRowContext {
+  /** Whether the link is live; the verbs that write to the radio need it. */
+  connected: boolean;
+  /** Formatted distance + bearing from this radio, or `null` when unknown. */
+  distance: (node: DirectoryNode) => string | null;
+  onToggleSelect: (key: string) => void;
+  onOpenDetails: (node: DirectoryNode) => void;
+  onOpenConvo: (node: DirectoryNode) => void;
+  onToggleFavorite: (node: DirectoryNode) => void;
+  onSaveContact: (node: DirectoryNode) => void;
+  onShowOnMap: (node: DirectoryNode) => void;
+}
 
 const CELL = 'truncate px-2 text-xs';
 const ICON_BUTTON =
@@ -61,9 +79,10 @@ function IconAction({
 
 /**
  * One node of the directory: the columns the table's header declares, then the
- * per-row verbs. Message/Save and Show on map act immediately; the name opens
- * `ManagePanel`, which owns the rarer and destructive ones (reset route, share,
- * remove) so this row and that panel can't drift apart on what they do.
+ * per-row verbs. Opening the conversation, saving a heard node and showing it
+ * on the map act immediately; the name opens `ManagePanel`, which already owns
+ * the rarer and destructive ones (reset route, share, remove) so this row and
+ * that panel can't drift apart on what they do.
  *
  * @param rowIndex - 1-based position in the whole table (not just the rendered
  * window), counting the header row, for `aria-rowindex`.
@@ -72,26 +91,15 @@ export function NodeTableRow({
   node,
   rowIndex,
   selected,
-  onToggleSelect,
+  ctx,
 }: {
   node: DirectoryNode;
   rowIndex: number;
   selected: boolean;
-  onToggleSelect: (key: string) => void;
+  ctx: NodeRowContext;
 }) {
   const { t } = useTranslation();
-  const selfInfo = useMeshStore((s) => s.selfInfo);
-  const unitSystem = useMeshStore((s) => s.unitSystem);
-  const setManagePanel = useMeshStore((s) => s.setManagePanel);
-  const showNodeOnMap = useMeshStore((s) => s.showNodeOnMap);
-  const setView = useMeshStore((s) => s.setView);
-  // Favoriting and saving both write to the radio, so those verbs need a live
-  // link; the directory itself stays readable while one is being restored.
-  const connected = useMeshStore((s) => s.status === 'connected');
-  const { toggleFavorite, addDiscoveredContact } = useMeshCore();
-
   const contact = node.contact;
-  const advert = node.advert;
   const located = Boolean(node.advLat && node.advLon);
   // A repeater's conversation is its admin console, not a transcript, so the
   // verb has to name what actually opens; a room server does have a post feed.
@@ -104,32 +112,10 @@ export function NodeTableRow({
         : 'nodes.row.message',
     { name: node.name },
   );
-  const distance = formatDistanceBearing(
-    selfInfo?.advLat,
-    selfInfo?.advLon,
-    node.advLat,
-    node.advLon,
-    unitSystem,
-  );
   const favLabel = t(
     node.favorite ? 'nodes.row.unfavorite' : 'nodes.row.favorite',
     { name: node.name },
   );
-
-  const openDetails = () =>
-    setManagePanel({
-      kind: contact ? 'contact' : 'advert',
-      id: node.pubkeyPrefix,
-    });
-
-  const openChat = () => {
-    if (!contact) return;
-    // Selected before the view switch, as every other entry point does it:
-    // `setView` catches up whichever conversation is open at that moment, so
-    // switching first would mark the *previous* one read.
-    openConvo(contactConvo(contact));
-    setView('chat');
-  };
 
   return (
     <tr
@@ -143,7 +129,7 @@ export function NodeTableRow({
         <input
           type='checkbox'
           checked={selected}
-          onChange={() => onToggleSelect(node.key)}
+          onChange={() => ctx.onToggleSelect(node.key)}
           aria-label={t('nodes.row.select', { name: node.name })}
           className='accent-accent'
         />
@@ -151,7 +137,7 @@ export function NodeTableRow({
       <td className={CELL}>
         <button
           type='button'
-          onClick={openDetails}
+          onClick={() => ctx.onOpenDetails(node)}
           title={t('nodes.row.details', { name: node.name })}
           className='focus-inset flex w-full items-center gap-1.5 truncate text-left hover:text-accent'
         >
@@ -176,7 +162,7 @@ export function NodeTableRow({
           ? NO_VALUE
           : formatRelative(node.lastHeard)}
       </td>
-      <td className={`${CELL} text-text2`}>{distance ?? NO_VALUE}</td>
+      <td className={`${CELL} text-text2`}>{ctx.distance(node) ?? NO_VALUE}</td>
       <td className={`${CELL} text-text2`}>
         {node.outPathLen === undefined
           ? NO_VALUE
@@ -189,8 +175,8 @@ export function NodeTableRow({
         {contact && (
           <IconAction
             label={favLabel}
-            disabled={!connected}
-            onClick={() => void toggleFavorite(contact)}
+            disabled={!ctx.connected}
+            onClick={() => ctx.onToggleFavorite(node)}
             className={node.favorite ? 'text-amber' : ''}
           >
             <Star
@@ -204,7 +190,7 @@ export function NodeTableRow({
       <td className='px-2'>
         <div className='flex items-center gap-0.5'>
           {contact ? (
-            <IconAction label={openLabel} onClick={openChat}>
+            <IconAction label={openLabel} onClick={() => ctx.onOpenConvo(node)}>
               {isRepeater ? (
                 <Radio size={13} aria-hidden='true' />
               ) : (
@@ -214,8 +200,8 @@ export function NodeTableRow({
           ) : (
             <IconAction
               label={t('nodes.row.addContact', { name: node.name })}
-              disabled={!connected || !advert}
-              onClick={() => advert && void addDiscoveredContact(advert)}
+              disabled={!ctx.connected || !node.advert}
+              onClick={() => ctx.onSaveContact(node)}
             >
               <UserPlus size={13} aria-hidden='true' />
             </IconAction>
@@ -223,7 +209,7 @@ export function NodeTableRow({
           <IconAction
             label={t('nodes.row.showOnMap', { name: node.name })}
             disabled={!located}
-            onClick={() => showNodeOnMap(node.pubkeyPrefix)}
+            onClick={() => ctx.onShowOnMap(node)}
           >
             <MapPin size={13} aria-hidden='true' />
           </IconAction>

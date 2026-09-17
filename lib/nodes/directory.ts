@@ -63,20 +63,53 @@ export function isSaved(node: DirectoryNode): boolean {
   return node.contact !== null;
 }
 
+/** The latest SNR one conversation carries for one node. */
+interface SnrReading {
+  snr: number;
+  /** Sender's clock in epoch seconds, absent when the message carried none. */
+  timestamp?: number;
+}
+
+// Keyed by the transcript array itself. The store replaces only the array of
+// the conversation a message belongs to, so every other conversation keeps its
+// identity and is answered from here instead of being walked again — without
+// this, one inbound frame would re-read the whole uncapped history. A WeakMap
+// holds nothing alive once a conversation is dropped.
+const conversationReadingCache = new WeakMap<
+  Message[],
+  Map<string, SnrReading>
+>();
+
+// The last SNR each node has in this one conversation. The transcript is in
+// receipt order, which no sender's clock can distort, so a later entry simply
+// supersedes an earlier one.
+function conversationReadings(messages: Message[]): Map<string, SnrReading> {
+  const cached = conversationReadingCache.get(messages);
+  if (cached) return cached;
+  const latest = new Map<string, SnrReading>();
+  for (const m of messages) {
+    if (m.own || typeof m.snr !== 'number' || !m.pubkeyPrefix) continue;
+    latest.set(m.pubkeyPrefix, { snr: m.snr, timestamp: m.timestamp });
+  }
+  conversationReadingCache.set(messages, latest);
+  return latest;
+}
+
 /**
  * The SNR of the most recently received message from each node, keyed by
  * public-key prefix.
  *
  * @remarks The contact table and the advert cache carry no signal quality, so
  * the only per-node SNR the app holds is the one stamped on each inbound
- * message. Every conversation is walked once rather than once per node.
+ * message.
  *
- * Within a conversation the transcript is in **receipt** order, which no
- * sender's clock can distort, so a later entry simply supersedes an earlier
- * one. Two conversations share no such order — a node's prefix appears on its
- * direct messages and on anything it posts to a channel — so those are
- * reconciled by clock-clamped age, the rule `freshestHeard` already applies to
- * last-advert timestamps.
+ * Within a conversation the transcript is in **receipt** order and a later
+ * entry supersedes an earlier one. Two conversations share no such order — a
+ * node's prefix appears on its direct messages and on anything it posts to a
+ * channel — so those are reconciled by clock-clamped age, the rule
+ * `freshestHeard` already applies to last-advert timestamps. That comparison
+ * is the only part that depends on the clock, and it runs over the cached
+ * per-conversation results rather than over the messages themselves.
  *
  * @param nowSecs - reference clock in epoch seconds for that age comparison.
  */
@@ -87,12 +120,7 @@ export function lastSnrByPrefix(
   const snr: Record<string, number> = {};
   const age: Record<string, number> = {};
   for (const messages of Object.values(msgHistory)) {
-    const latest = new Map<string, { snr: number; timestamp?: number }>();
-    for (const m of messages) {
-      if (m.own || typeof m.snr !== 'number' || !m.pubkeyPrefix) continue;
-      latest.set(m.pubkeyPrefix, { snr: m.snr, timestamp: m.timestamp });
-    }
-    for (const [prefix, reading] of latest) {
+    for (const [prefix, reading] of conversationReadings(messages)) {
       // A reading with no timestamp cannot be placed against another
       // conversation's, so it only wins when nothing else has been seen.
       const readingAge = reading.timestamp
