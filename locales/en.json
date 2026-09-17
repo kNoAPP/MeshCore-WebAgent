@@ -70,6 +70,7 @@
     "reconnecting": "Reconnecting…",
     "disconnected": "Disconnected",
     "chat": "💬 Chat",
+    "nodes": "🛰 Nodes",
     "map": "🗺 Map",
     "stats": "📊 Stats",
     "settings": "⚙ Settings",
@@ -148,6 +149,7 @@
     },
     "page": {
       "chat": "Chat",
+      "nodes": "Nodes",
       "map": "Map",
       "stats": "Stats",
       "settings": "Settings",
@@ -163,6 +165,7 @@
     },
     "keywords": {
       "chat": "chat messages conversations",
+      "nodes": "nodes directory table contacts heard discovered list",
       "map": "map location nodes",
       "stats": "stats statistics metrics",
       "settings": "settings preferences configuration",
@@ -1047,6 +1050,59 @@
       "sensor": "Sensor",
       "favorite": "Favorite (any type)",
       "favoritesOnly": "Favorites only"
+    }
+  },
+  "nodes": {
+    "title": "Nodes",
+    "search": "Search",
+    "searchPlaceholder": "Name or public key",
+    "count_one": "{{count}} node",
+    "count_other": "{{count}} nodes",
+    "countFiltered": "{{shown}} of {{total}} nodes",
+    "empty": "No node is known yet. Contacts and the nodes you hear advertise appear here as their adverts arrive.",
+    "noMatches": "No node matches the current search and filters.",
+    "saved": "Saved",
+    "heard": "Heard",
+    "sortBy": "Sort by {{column}}",
+    "storage": {
+      "label": "Stored",
+      "all": "Saved & heard",
+      "saved": "Saved on radio",
+      "heard": "Heard only"
+    },
+    "column": {
+      "select": "Select",
+      "selectAll": "Select every listed node",
+      "name": "Name",
+      "type": "Type",
+      "storage": "Stored",
+      "heard": "Last heard",
+      "distance": "Distance",
+      "route": "Route",
+      "snr": "SNR",
+      "favorite": "Favorite",
+      "actions": "Actions"
+    },
+    "row": {
+      "select": "Select {{name}}",
+      "details": "Open {{name}}",
+      "message": "Message {{name}}",
+      "addContact": "Save {{name}} as a contact",
+      "showOnMap": "Show {{name}} on the map",
+      "favorite": "Favorite {{name}}",
+      "unfavorite": "Unfavorite {{name}}"
+    },
+    "selection": {
+      "title": "Selected nodes",
+      "count_one": "{{count}} node selected",
+      "count_other": "{{count}} nodes selected",
+      "clear": "Clear selection",
+      "add_one": "Save {{count}} contact",
+      "add_other": "Save {{count}} contacts",
+      "remove_one": "Remove {{count}} contact",
+      "remove_other": "Remove {{count}} contacts",
+      "removeConfirm_one": "Remove {{count}} contact from the radio?",
+      "removeConfirm_other": "Remove {{count}} contacts from the radio?"
     }
   },
   "sidebar": {

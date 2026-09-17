@@ -71,6 +71,7 @@
     "reconnecting": "Reconnexion…",
     "disconnected": "Déconnecté",
     "chat": "💬 Discussion",
+    "nodes": "🛰 Nœuds",
     "map": "🗺 Carte",
     "stats": "📊 Stats",
     "settings": "⚙ Paramètres",
@@ -149,6 +150,7 @@
     },
     "page": {
       "chat": "Chat",
+      "nodes": "Nœuds",
       "map": "Carte",
       "stats": "Statistiques",
       "settings": "Paramètres",
@@ -164,6 +166,7 @@
     },
     "keywords": {
       "chat": "chat messages conversations",
+      "nodes": "nœuds annuaire tableau contacts entendus découverts liste",
       "map": "carte emplacement nœuds",
       "stats": "statistiques métriques",
       "settings": "paramètres configuration préférences",
@@ -1048,6 +1051,59 @@
       "sensor": "Capteur",
       "favorite": "Favori (tout type)",
       "favoritesOnly": "Favoris uniquement"
+    }
+  },
+  "nodes": {
+    "title": "Nœuds",
+    "search": "Rechercher",
+    "searchPlaceholder": "Nom ou clé publique",
+    "count_one": "{{count}} nœud",
+    "count_other": "{{count}} nœuds",
+    "countFiltered": "{{shown}} sur {{total}} nœuds",
+    "empty": "Aucun nœud connu pour l'instant. Les contacts et les nœuds entendus apparaîtront ici à mesure que leurs annonces arrivent.",
+    "noMatches": "Aucun nœud ne correspond à la recherche et aux filtres actuels.",
+    "saved": "Enregistré",
+    "heard": "Entendu",
+    "sortBy": "Trier par {{column}}",
+    "storage": {
+      "label": "Stockage",
+      "all": "Enregistrés et entendus",
+      "saved": "Enregistrés sur la radio",
+      "heard": "Entendus uniquement"
+    },
+    "column": {
+      "select": "Sélectionner",
+      "selectAll": "Sélectionner tous les nœuds listés",
+      "name": "Nom",
+      "type": "Type",
+      "storage": "Stockage",
+      "heard": "Dernier contact",
+      "distance": "Distance",
+      "route": "Route",
+      "snr": "SNR",
+      "favorite": "Favori",
+      "actions": "Actions"
+    },
+    "row": {
+      "select": "Sélectionner {{name}}",
+      "details": "Ouvrir {{name}}",
+      "message": "Envoyer un message à {{name}}",
+      "addContact": "Enregistrer {{name}} comme contact",
+      "showOnMap": "Afficher {{name}} sur la carte",
+      "favorite": "Ajouter {{name}} aux favoris",
+      "unfavorite": "Retirer {{name}} des favoris"
+    },
+    "selection": {
+      "title": "Nœuds sélectionnés",
+      "count_one": "{{count}} nœud sélectionné",
+      "count_other": "{{count}} nœuds sélectionnés",
+      "clear": "Effacer la sélection",
+      "add_one": "Enregistrer {{count}} contact",
+      "add_other": "Enregistrer {{count}} contacts",
+      "remove_one": "Supprimer {{count}} contact",
+      "remove_other": "Supprimer {{count}} contacts",
+      "removeConfirm_one": "Supprimer {{count}} contact de la radio ?",
+      "removeConfirm_other": "Supprimer {{count}} contacts de la radio ?"
     }
   },
   "sidebar": {

@@ -30,6 +30,7 @@ import type {
 } from '@/types/automation';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import type { Neighbor } from '@/lib/meshcore/repeaterCli';
+import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import { convoId } from '@/lib/utils';
 import i18n from '@/lib/i18n';
 import {
@@ -112,7 +113,7 @@ export const CONTACT_SORTS = ['az', 'heard', 'latest'] as const;
 export type ContactSort = (typeof CONTACT_SORTS)[number];
 
 /** Every top-level page; also the allowlist for URL-hash parsing. */
-export const APP_VIEWS = ['chat', 'stats', 'settings', 'map'] as const;
+export const APP_VIEWS = ['chat', 'nodes', 'stats', 'settings', 'map'] as const;
 
 /** Which top-level page the connected app is showing. */
 export type AppView = (typeof APP_VIEWS)[number];
@@ -606,6 +607,13 @@ interface MeshState {
    */
   mapPicking: boolean;
   /**
+   * Public-key prefix of a node the map should frame and open the popup for,
+   * set when another page hands a node over to the map. Cleared by the next
+   * {@link MeshActions.setView}, and {@link MapView} honors a given prefix only
+   * once, so a popup the operator closed does not spring back open.
+   */
+  mapFocus: string | null;
+  /**
    * A location the user just confirmed on the map, in decimal degrees, awaiting
    * consumption by the Location card. One-shot: cleared once read.
    */
@@ -754,6 +762,8 @@ interface MeshActions {
   confirmLocationPick: (lat: number, lon: number) => void;
   /** Aborts location picking without a result, staying on the map. */
   cancelLocationPick: () => void;
+  /** Opens the map framed on one node, with its popup open. */
+  showNodeOnMap: (pubkeyPrefix: string) => void;
   /** Clears the one-shot {@link MeshState.pendingLocation} after it's read. */
   clearPendingLocation: () => void;
   setManagePanel: (
@@ -890,6 +900,7 @@ const initialState: MeshState = {
   windowFocused: true,
   visibleRoomFeed: null,
   mapPicking: false,
+  mapFocus: null,
   pendingLocation: null,
   locationPickReturn: 'settings',
   managePanel: null,
@@ -1233,9 +1244,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setLastConnectFailure: (lastConnectFailure) => set({ lastConnectFailure }),
 
   setReconnectProgress: (reconnectProgress) => set({ reconnectProgress }),
-  // Any manual tab switch also aborts an in-progress location pick.
+  // Any manual tab switch also aborts an in-progress location pick, and drops
+  // a node handover that never reached the map.
   setView: (view) => {
-    set({ view, mapPicking: false, settingsSection: null });
+    set({ view, mapPicking: false, mapFocus: null, settingsSection: null });
     catchUpVisibleConvo();
   },
   setWindowFocused: (windowFocused) => {
@@ -1260,6 +1272,12 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     catchUpVisibleConvo();
   },
   cancelLocationPick: () => set({ mapPicking: false }),
+  // `setView` clears any previous handover (and runs the view-switch side
+  // effects), so the new target is written after it rather than alongside.
+  showNodeOnMap: (mapFocus) => {
+    get().setView('map');
+    set({ mapFocus });
+  },
   clearPendingLocation: () => set({ pendingLocation: null }),
   setManagePanel: (managePanel) => set({ managePanel }),
   setAutoAddOpen: (autoAddOpen) => set({ autoAddOpen }),
@@ -1277,7 +1295,12 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   openCommandPalette: () => set({ commandPaletteOpen: true }),
   closeCommandPalette: () => set({ commandPaletteOpen: false }),
   openSettingsSection: (settingsSection) =>
-    set({ view: 'settings', mapPicking: false, settingsSection }),
+    set({
+      view: 'settings',
+      mapPicking: false,
+      mapFocus: null,
+      settingsSection,
+    }),
   clearSettingsSection: () => set({ settingsSection: null }),
   // Closes every connection-scoped overlay/panel at once. Called when the link
   // drops so a panel left open doesn't silently reappear once reconnect
@@ -1287,6 +1310,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({
       view: 'chat',
       mapPicking: false,
+      mapFocus: null,
       pendingLocation: null,
       locationPickReturn: 'settings',
       managePanel: null,
@@ -1635,4 +1659,28 @@ export function repeaterConvoId(prefix: string): string {
  */
 export function roomConvoId(prefix: string): string {
   return convoId('room', prefix);
+}
+
+/**
+ * The conversation a contact opens into. Its advert type — not the surface the
+ * user clicked from — decides which one, so the sidebar, the map popup and the
+ * Nodes directory can never land a node on different surfaces. The label
+ * follows the sidebar's fallback so an unnamed contact reads the same
+ * everywhere.
+ */
+export function contactConvo(contact: Contact): ActiveConvo {
+  const prefix = contact.pubkeyPrefix;
+  const label = contact.name || prefix.slice(0, 8);
+  if (contact.advType === ADV_TYPE_REPEATER) {
+    return {
+      kind: 'repeater',
+      id: repeaterConvoId(prefix),
+      rawId: prefix,
+      label,
+    };
+  }
+  if (contact.advType === ADV_TYPE_ROOM) {
+    return { kind: 'room', id: roomConvoId(prefix), rawId: prefix, label };
+  }
+  return { kind: 'direct', id: directConvoId(prefix), rawId: prefix, label };
 }

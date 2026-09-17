@@ -97,6 +97,8 @@ function MapPage({
 }) {
   const { t } = useTranslation();
   const mapPicking = useMeshStore((s) => s.mapPicking);
+  // A node the Nodes directory handed over, to frame and open a popup for.
+  const mapFocus = useMeshStore((s) => s.mapFocus);
 
   // What the map is plotting. A per-radio preference, so it survives the
   // session; the node list's collapsed state stays transient UI.
@@ -112,16 +114,30 @@ function MapPage({
     [nodes, filters, nowSecs],
   );
 
+  // Resolved against the unfiltered set: the operator named this node on
+  // another page, so whether the map's own filters would have hidden it says
+  // nothing about whether they want to see it. `null` while the handover names
+  // a node with no advertised location, or one the advert cache has not
+  // hydrated yet — the request then waits rather than being dropped.
+  const focusTarget = useMemo(
+    () => (mapFocus ? (nodes.find((n) => n.key === mapFocus) ?? null) : null),
+    [mapFocus, nodes],
+  );
+
   const total = visible.length + (self ? 1 : 0);
   const capped = total > MAX_MAP_MARKERS;
   // Trimmed to the marker budget, with a slot reserved for this node's own
   // marker. The node list takes the same trimmed set: a row the map is not
   // plotting could be framed but never opened, and its count would disagree
-  // with the cap notice.
-  const listed = useMemo(
-    () => visible.slice(0, MAX_MAP_MARKERS - (self ? 1 : 0)),
-    [visible, self],
-  );
+  // with the cap notice. A handed-over node leads the set so it survives both
+  // the filters and the cap — framing on a marker the map is not drawing would
+  // leave the operator staring at empty tiles.
+  const listed = useMemo(() => {
+    const budget = MAX_MAP_MARKERS - (self ? 1 : 0);
+    if (!focusTarget) return visible.slice(0, budget);
+    const rest = visible.filter((n) => n.key !== focusTarget.key);
+    return [focusTarget, ...rest.slice(0, Math.max(0, budget - 1))];
+  }, [visible, self, focusTarget]);
   // Self first so it survives the cap.
   const plotted = useMemo(
     () => (self ? [self, ...listed] : listed),
@@ -244,6 +260,16 @@ function MapPage({
   // The node whose popup is open, owned here rather than by the map, so the
   // node list can open one for a node the user never clicked.
   const [openKey, setOpenKey] = useState<string | null>(null);
+  // A handover from another page is turned into this component's own popup
+  // selection during render, which is what React prescribes for deriving state
+  // from a changed input — doing it from an effect would cascade an extra
+  // render. Remembering which request was honored keeps a popup the operator
+  // then closed from springing back open on the next re-render.
+  const [consumedFocus, setConsumedFocus] = useState<string | null>(null);
+  if (mapFocus !== null && mapFocus !== consumedFocus) {
+    setConsumedFocus(mapFocus);
+    setOpenKey(mapFocus);
+  }
 
   // Location-pick mode: place/move a draggable pin on map clicks and pre-seed
   // it at this node's advertised location (if any). Wired only while picking so
@@ -302,6 +328,21 @@ function MapPage({
     },
     [map, frameDeliberate],
   );
+
+  // Framing the handover is Leaflet's business rather than React state, so it
+  // belongs in an effect — guarded by the key already framed, because the node
+  // set is rebuilt on every clock tick and hands `focusTarget` a new identity
+  // long after the request was honored.
+  const framedFocus = useRef<string | null>(null);
+  useEffect(() => {
+    if (!map || !focusTarget) return;
+    if (framedFocus.current === focusTarget.key) return;
+    framedFocus.current = focusTarget.key;
+    frameDeliberate(map, {
+      center: [focusTarget.lat, focusTarget.lon],
+      zoom: Math.max(map.getZoom(), MAP_FOCUS_ZOOM),
+    });
+  }, [map, focusTarget, frameDeliberate]);
 
   const fitAll = () => {
     if (!map || plotted.length === 0) return;

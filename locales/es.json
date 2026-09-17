@@ -71,6 +71,7 @@
     "reconnecting": "Reconectando…",
     "disconnected": "Desconectado",
     "chat": "💬 Chat",
+    "nodes": "🛰 Nodos",
     "map": "🗺 Mapa",
     "stats": "📊 Estadísticas",
     "settings": "⚙ Configuración",
@@ -149,6 +150,7 @@
     },
     "page": {
       "chat": "Chat",
+      "nodes": "Nodos",
       "map": "Mapa",
       "stats": "Estadísticas",
       "settings": "Ajustes",
@@ -164,6 +166,7 @@
     },
     "keywords": {
       "chat": "chat mensajes conversaciones",
+      "nodes": "nodos directorio tabla contactos escuchados descubiertos lista",
       "map": "mapa ubicación nodos",
       "stats": "estadísticas métricas",
       "settings": "ajustes configuración preferencias",
@@ -1048,6 +1051,59 @@
       "sensor": "Sensor",
       "favorite": "Favorito (cualquier tipo)",
       "favoritesOnly": "Solo favoritos"
+    }
+  },
+  "nodes": {
+    "title": "Nodos",
+    "search": "Buscar",
+    "searchPlaceholder": "Nombre o clave pública",
+    "count_one": "{{count}} nodo",
+    "count_other": "{{count}} nodos",
+    "countFiltered": "{{shown}} de {{total}} nodos",
+    "empty": "Aún no se conoce ningún nodo. Los contactos y los nodos que escuches anunciarse aparecerán aquí cuando lleguen sus anuncios.",
+    "noMatches": "Ningún nodo coincide con la búsqueda y los filtros actuales.",
+    "saved": "Guardado",
+    "heard": "Escuchado",
+    "sortBy": "Ordenar por {{column}}",
+    "storage": {
+      "label": "Almacenado",
+      "all": "Guardados y escuchados",
+      "saved": "Guardados en la radio",
+      "heard": "Solo escuchados"
+    },
+    "column": {
+      "select": "Seleccionar",
+      "selectAll": "Seleccionar todos los nodos listados",
+      "name": "Nombre",
+      "type": "Tipo",
+      "storage": "Almacenado",
+      "heard": "Escuchado por última vez",
+      "distance": "Distancia",
+      "route": "Ruta",
+      "snr": "SNR",
+      "favorite": "Favorito",
+      "actions": "Acciones"
+    },
+    "row": {
+      "select": "Seleccionar {{name}}",
+      "details": "Abrir {{name}}",
+      "message": "Enviar mensaje a {{name}}",
+      "addContact": "Guardar {{name}} como contacto",
+      "showOnMap": "Mostrar {{name}} en el mapa",
+      "favorite": "Marcar {{name}} como favorito",
+      "unfavorite": "Quitar {{name}} de favoritos"
+    },
+    "selection": {
+      "title": "Nodos seleccionados",
+      "count_one": "{{count}} nodo seleccionado",
+      "count_other": "{{count}} nodos seleccionados",
+      "clear": "Borrar selección",
+      "add_one": "Guardar {{count}} contacto",
+      "add_other": "Guardar {{count}} contactos",
+      "remove_one": "Eliminar {{count}} contacto",
+      "remove_other": "Eliminar {{count}} contactos",
+      "removeConfirm_one": "¿Eliminar {{count}} contacto de la radio?",
+      "removeConfirm_other": "¿Eliminar {{count}} contactos de la radio?"
     }
   },
   "sidebar": {

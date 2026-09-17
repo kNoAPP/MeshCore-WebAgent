@@ -14,6 +14,7 @@ import { ConnectPanel } from './ConnectPanel';
 import { ChatArea } from './ChatArea';
 import { RepeaterView } from './RepeaterView';
 import { ReconnectingOverlay } from './ReconnectingOverlay';
+import { NodesPage } from './NodesPage';
 import { StatsPage } from './StatsPage';
 import { SettingsPage } from './SettingsPage';
 import { ManagePanel } from './ManagePanel';
@@ -88,6 +89,8 @@ export function AppShell() {
             {active ? (
               view === 'stats' ? (
                 <StatsPage />
+              ) : view === 'nodes' ? (
+                <NodesPage />
               ) : view === 'settings' ? (
                 <SettingsPage />
               ) : view === 'map' ? (
