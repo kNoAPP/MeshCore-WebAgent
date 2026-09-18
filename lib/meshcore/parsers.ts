@@ -652,25 +652,34 @@ export function parseNeighborsResponse(data: Uint8Array): NeighborsPage | null {
  * `[6-byte pubkey prefix][permissions]`.
  *
  * @remarks
- * The firmware only ever writes whole entries, so a body that is not a
- * multiple of seven has been truncated or corrupted in transit. That is
- * rejected rather than decoded as far as it goes: a short read salvaged into a
- * shorter list would be cached and shown as the node's complete access list,
- * which is exactly the failure this request exists to avoid. The list is never
- * legitimately empty either — the companion radio suppresses a reply with no
- * body, so an empty ACL reaches the caller as a timeout.
- * @returns null when the body is not a whole number of entries.
+ * **The body length says nothing about the entry count.** `Utils::encrypt`
+ * zero-pads the final cipher block, so the payload arrives rounded up to a
+ * multiple of 16 while the entries are 7 bytes each — the two almost never
+ * agree. Five entries travel as `4 + 35 = 39` bytes of reply, padded to 48 and
+ * reaching this parser as 44, which spans six whole 7-byte slots. So the tail
+ * yields **phantom all-zero entries**, not just leftover bytes, and neither
+ * decoding every slot nor demanding a multiple of seven is right: the first
+ * invents members, the second rejects every real reply.
+ *
+ * A zero permissions byte is what separates them. The firmware skips such
+ * entries when building the list (`if (c->permissions == 0) continue`), so a
+ * zero byte here can only be padding — and a guest, whose role value *is* zero,
+ * is skipped by that same line and never appears at all.
+ * @returns null when no real entry could be read, which the companion radio's
+ * suppression of empty replies means is never a legitimately empty list.
  * @see the `REQ_TYPE_GET_ACCESS_LIST` reply built in `MyMesh::handleRequest`
- * (`examples/simple_repeater/MyMesh.cpp`).
+ * (`examples/simple_repeater/MyMesh.cpp`) and `Utils::encrypt` in
+ * `src/Utils.cpp` for the padding.
  */
 export function parseAccessList(data: Uint8Array): AclEntry[] | null {
-  if (data.length === 0 || data.length % 7 !== 0) return null;
   const entries: AclEntry[] = [];
   for (let at = 0; at + 7 <= data.length; at += 7) {
+    const permissions = data[at + 6];
+    if (permissions === 0) continue;
     entries.push({
       pubkeyPrefix: hexBytes(data, at, at + 6),
-      permissions: data[at + 6],
+      permissions,
     });
   }
-  return entries;
+  return entries.length > 0 ? entries : null;
 }
