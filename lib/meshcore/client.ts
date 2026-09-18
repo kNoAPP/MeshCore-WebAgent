@@ -1038,18 +1038,17 @@ export class MeshCoreClient {
    * Requires a prior admin {@link login}: the firmware answers this request
    * only for `isAdmin()` senders, and a room server reports only its admin
    * entries where a repeater reports every role.
-   * @throws on a timeout, or when the reply carries no entry at all. It does
-   * *not* throw on a reply whose length is not a multiple of the 7-byte entry:
-   * cipher padding makes that the normal case, and `parseAccessList` drops it.
-   * A node whose list is empty answers with nothing at all, so an empty ACL is
-   * indistinguishable from silence and surfaces the same way.
+   * @returns every entry the node reported, and an empty array when it holds
+   * none — a node with an empty list still replies, so that is a real answer
+   * rather than the silence a timeout would raise on.
+   * @throws on a timeout. It does *not* throw on a reply whose length is not a
+   * multiple of the 7-byte entry: cipher padding makes that the normal case,
+   * and `parseAccessList` drops it.
    */
   async requestAccessList(contact: Contact): Promise<AclEntry[]> {
-    const entries = parseAccessList(
+    return parseAccessList(
       await this.binaryRequest(buildGetAccessListReq(contact.pubkeyBytes)),
     );
-    if (!entries) throw new Error('Malformed GET_ACCESS_LIST response');
-    return entries;
   }
 
   /**
@@ -1773,6 +1772,12 @@ export class MeshCoreClient {
     // receipt without one is a frame this client cannot correlate at all.
     if (!receipt) throw new Error('Binary request receipt carried no tag');
     const tag = receipt.expectedAck;
+
+    // The receipt is an await, so a disconnect can land between it and here:
+    // teardown has already rejected and cleared the waiter maps by then, and a
+    // waiter registered after that would simply sit on a dead client until its
+    // own timeout. Nothing else rechecks this — `cmd` only guards the send.
+    if (this._closed) throw new Error('Transport closed during binary request');
 
     const early = this.takeOrphanBinaryResponse(tag);
     if (early) return early;

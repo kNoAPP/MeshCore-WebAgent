@@ -819,7 +819,7 @@
       "caption": "Clients, für die dieser Knoten einen Zugriffseintrag gemeldet hat, und die jeweils gewährte Rolle.",
       "label": "Zugriffsliste",
       "loading": "Zugriffsliste wird geladen…",
-      "unavailable": "Die Zugriffsliste konnte nicht geladen werden. Versuche es erneut — die Antwort ging möglicherweise verloren, oder der Knoten hat keine Einträge bzw. keine Firmware für diese Anfrage.",
+      "unavailable": "Die Zugriffsliste konnte nicht geladen werden. Versuche es erneut – die Antwort ging möglicherweise verloren, oder dieser Knoten hat Firmware ohne diese Anfrage.",
       "stale": "Zeigt die zuletzt gelesene Zugriffsliste. Die letzte Aktualisierung ist fehlgeschlagen, sie kann also veraltet sein.",
       "truncated": "Die Antwort dieses Knotens war bei {{max}} Einträgen voll, und diese Anfrage meldet keine Gesamtzahl – er hält möglicherweise mehr, als hier aufgeführt sind.",
       "empty": "Keine Zugriffseinträge.",

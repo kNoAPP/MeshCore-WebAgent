@@ -78,11 +78,12 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
   const setRepeaterAccessStale = useMeshStore((s) => s.setRepeaterAccessStale);
 
   const [loading, setLoading] = useState(false);
-  // Three things land here identically: a reply lost on the mesh (the common
-  // one — a single round trip, with no fallback path to soften it), a node
-  // whose ACL is empty (the firmware suppresses a reply with no entries), and
-  // firmware that has no handler at all. Nothing on the wire tells them apart,
-  // so they share one message that leads with the retry.
+  // Two things land here identically: a reply lost on the mesh (the common one
+  // — a single round trip, with no fallback path to soften it) and firmware
+  // with no handler at all, which answers nothing. Nothing on the wire tells
+  // them apart, so they share one message that leads with the retry. A node
+  // holding no entries is *not* one of them: it replies, and shows the empty
+  // state.
   //
   // Only drives the no-cache notice. A failure with rows cached is recorded on
   // the session instead, so it survives navigation.

@@ -818,7 +818,7 @@
       "caption": "Clients this node reported an access entry for, and the role each was granted.",
       "label": "Access control list",
       "loading": "Loading access list…",
-      "unavailable": "Couldn't load the access list. Try refreshing — the reply may have been lost, or this node may have no entries or firmware without this request.",
+      "unavailable": "Couldn't load the access list. Try refreshing — the reply may have been lost, or this node may have firmware without this request.",
       "stale": "Showing the last access list read. The latest refresh failed, so it may be out of date.",
       "truncated": "This node's reply was full at {{max}} entries, and this request reports no total — it may hold more than are listed here.",
       "empty": "No access entries.",

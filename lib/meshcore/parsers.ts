@@ -665,24 +665,24 @@ export function parseNeighborsResponse(data: Uint8Array): NeighborsPage | null {
  * entries when building the list (`if (c->permissions == 0) continue`), so a
  * zero byte here can only be padding — and a guest, whose role value *is* zero,
  * is skipped by that same line and never appears at all.
- * @returns null when no real entry could be read, which the companion radio's
- * suppression of empty replies means is never a legitimately empty list.
+ * @returns every live entry, and an empty array when the node holds none. A
+ * node with an empty list still answers: the handler returns the 4-byte tag
+ * alone, which the cipher pads to a whole block, so the companion radio's
+ * `len > 4` guard passes and a body of twelve zero bytes arrives here. Getting
+ * this far at all means the node replied.
  * @see the `REQ_TYPE_GET_ACCESS_LIST` reply built in `MyMesh::handleRequest`
  * (`examples/simple_repeater/MyMesh.cpp`) and `Utils::encrypt` in
  * `src/Utils.cpp` for the padding.
  */
-export function parseAccessList(data: Uint8Array): AclEntry[] | null {
+export function parseAccessList(data: Uint8Array): AclEntry[] {
   const entries: AclEntry[] = [];
   for (let at = 0; at + 7 <= data.length; at += 7) {
     const permissions = data[at + 6];
-    // The firmware skips its own zero-permission entries when building the
-    // reply ("deleted"), so a zero byte here is cipher padding rather than a
-    // member. It is also why a plain guest (role 0, no flags) can never appear.
     if (permissions === 0) continue;
     entries.push({
       pubkeyPrefix: hexBytes(data, at, at + 6),
       permissions,
     });
   }
-  return entries.length > 0 ? entries : null;
+  return entries;
 }

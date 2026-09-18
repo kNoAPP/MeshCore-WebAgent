@@ -427,8 +427,8 @@ export interface AdminSession {
    * Cache of the node's last-read access control list. Ephemeral like the rest
    * of the session — it names who may administer this node, so it must not
    * outlive the admin login that was allowed to read it. `undefined` until the
-   * first read; the firmware cannot report an empty list, so an entry here
-   * always has rows.
+   * first read; an empty array is a settled "no entries", which a node holding
+   * none does answer with.
    */
   accessList?: AclEntry[];
   /**
