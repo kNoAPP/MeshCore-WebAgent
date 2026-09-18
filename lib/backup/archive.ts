@@ -220,6 +220,17 @@ export async function decryptBackup(
   } catch {
     throw new BackupReadError('corrupt');
   }
+  // Separate from the envelope check above: the envelope can be unchanged
+  // while the payload schema moves, and "written by a newer build" is a
+  // different thing to tell the user than "unreadable".
+  if (
+    typeof parsed === 'object' &&
+    parsed !== null &&
+    typeof (parsed as Partial<BackupPayload>).version === 'number' &&
+    (parsed as BackupPayload).version !== BACKUP_PAYLOAD_VERSION
+  ) {
+    throw new BackupReadError('unsupportedVersion');
+  }
   const payload = normalizeBackupPayload(parsed);
   if (!payload) throw new BackupReadError('corrupt');
   return payload;
