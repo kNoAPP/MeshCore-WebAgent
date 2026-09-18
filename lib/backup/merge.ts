@@ -3,6 +3,7 @@
 
 import type { Advert, Message } from '@/types/meshcore';
 import type { AutomationRule } from '@/types/automation';
+import { mergeAdvertCache } from '@/lib/map/advertCache';
 import type { BackupPayload } from './archive';
 
 /**
@@ -75,19 +76,28 @@ export function previewImport(
       // A message with no id predates the field; `restoreHistory` mints one on
       // restore, so it can never match an existing record and always lands.
       if (m.id !== undefined && seen.has(m.id)) duplicateMessages++;
-      else newMessages++;
+      else {
+        newMessages++;
+        // Claimed as `restoreHistory` claims it, so an id repeated inside the
+        // file is counted once here and dropped there, rather than promising a
+        // message the merge will discard.
+        if (m.id !== undefined) seen.add(m.id);
+      }
     }
   }
 
-  // Counted off the filtered set, so the numbers shown are the ones that will
-  // actually land — a backup entry older than the cached sighting is dropped by
-  // `freshAdverts` and belongs in neither column.
+  // Counted off the merge the import will actually run, so the numbers shown
+  // are the ones that land: `freshAdverts` drops a backup entry older than the
+  // cached sighting, and `mergeAdvertCache` then evicts the least recently
+  // heard over ADVERT_CACHE_LIMIT — an incoming advert lost to either belongs
+  // in neither column.
+  const fresh = freshAdverts(payload.advertCache, current.advertCache);
+  const mergedCache = mergeAdvertCache(current.advertCache, fresh);
   let newAdverts = 0;
   let updatedAdverts = 0;
-  for (const prefix of Object.keys(
-    freshAdverts(payload.advertCache, current.advertCache),
-  )) {
-    if (current.advertCache[prefix]) updatedAdverts++;
+  for (const advert of Object.values(fresh)) {
+    if (!mergedCache[advert.pubkeyPrefix]) continue;
+    if (current.advertCache[advert.pubkeyPrefix]) updatedAdverts++;
     else newAdverts++;
   }
 

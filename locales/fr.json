@@ -467,6 +467,8 @@
       "importing": "Restauration…",
       "importDone": "Sauvegarde restaurée",
       "importDoneIdentity": "Sauvegarde restaurée — redémarrez la radio pour terminer le changement d'identité",
+      "importUnsaved": "Sauvegarde restaurée pour cette session seulement : elle n'a pas pu être enregistrée dans ce navigateur et sera perdue au rechargement",
+      "importUnsavedIdentity": "Identité remplacée — redémarrez la radio pour terminer. Les données restaurées n'ont pas pu être enregistrées dans ce navigateur et seront perdues au rechargement",
       "importFailed": "Échec de la restauration : {{error}}",
       "unlockAction": "Déverrouiller",
       "unlocking": "Déchiffrement…",

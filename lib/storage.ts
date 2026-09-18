@@ -212,13 +212,14 @@ async function getDecrypted(
  * failure (e.g. IndexedDB unavailable) is swallowed.
  *
  * @param key - the key from {@link deriveStorageKey} for this radio.
+ * @returns whether the write landed, for callers that report persistence state.
  */
 export async function saveRadioData(
   pubkey: string,
   key: CryptoKey,
   data: PersistedRadioData,
-): Promise<void> {
-  await putEncrypted(STORE_NAME, pubkey, key, JSON.stringify(data));
+): Promise<boolean> {
+  return putEncrypted(STORE_NAME, pubkey, key, JSON.stringify(data));
 }
 
 /**
@@ -306,13 +307,14 @@ export async function clearSecret(
  *
  * @param key - the key from {@link deriveStorageKey} for this radio.
  * @param rules - the JSON-serializable rule list to persist.
+ * @returns whether the write landed, for callers that report persistence state.
  */
 export async function saveAutomationRules(
   pubkey: string,
   key: CryptoKey,
   rules: unknown,
-): Promise<void> {
-  await putEncrypted(
+): Promise<boolean> {
+  return putEncrypted(
     STORE_NAME,
     recordKey(pubkey, 'automation-rules'),
     key,
@@ -350,13 +352,14 @@ export async function loadAutomationRules<T>(
  *
  * @param key - the key from {@link deriveStorageKey} for this radio.
  * @param cache - the advert map (keyed by `pubkeyPrefix`) to persist.
+ * @returns whether the write landed, for callers that report persistence state.
  */
 export async function saveAdvertCache(
   pubkey: string,
   key: CryptoKey,
   cache: Record<string, Advert>,
-): Promise<void> {
-  await putEncrypted(
+): Promise<boolean> {
+  return putEncrypted(
     STORE_NAME,
     recordKey(pubkey, 'advert-cache'),
     key,
@@ -400,13 +403,14 @@ export async function loadAdvertCache(
  *
  * @param key - the key from {@link deriveStorageKey} for this radio.
  * @param prefs - the JSON-serializable preferences object to persist.
+ * @returns whether the write landed, for callers that report persistence state.
  */
 export async function savePreferences(
   pubkey: string,
   key: CryptoKey,
   prefs: unknown,
-): Promise<void> {
-  await putEncrypted(
+): Promise<boolean> {
+  return putEncrypted(
     STORE_NAME,
     recordKey(pubkey, 'preferences'),
     key,

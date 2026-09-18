@@ -107,8 +107,10 @@ export function flushSession(client: MeshCoreClient | null): void {
  * are saved by an effect in `useAutomation` that nothing awaits, so a restore
  * ending in a reboot would otherwise race that write.
  *
- * @returns false when no session key is bound yet, so a caller can tell "the
- * writes completed" from "there was nothing to write them with".
+ * @returns whether the data is actually on disk — false when no session key is
+ * bound (a reconnect cleared it, or none was ever derived) and false when any
+ * of the four writes failed. A caller that reports persistence state must not
+ * read a resolved promise as a successful write.
  */
 export async function flushSessionAsync(
   client: MeshCoreClient | null,
@@ -116,13 +118,13 @@ export async function flushSessionAsync(
   const pubkey = client?.selfInfo?.pubkey;
   if (!pubkey || !storageKey) return false;
   const state = useMeshStore.getState();
-  await Promise.all([
+  const results = await Promise.all([
     saveRadioData(pubkey, storageKey, { msgHistory: state.msgHistory }),
     saveAdvertCache(pubkey, storageKey, state.advertCache),
     savePreferences(pubkey, storageKey, selectPreferences(state)),
     saveAutomationRules(pubkey, storageKey, state.automationRules),
   ]);
-  return true;
+  return results.every(Boolean);
 }
 
 /**

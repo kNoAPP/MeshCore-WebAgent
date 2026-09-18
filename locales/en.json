@@ -466,6 +466,8 @@
       "importing": "Restoring…",
       "importDone": "Backup restored",
       "importDoneIdentity": "Backup restored — reboot the radio to finish switching identity",
+      "importUnsaved": "Backup restored to this session only — it could not be saved to this browser, so reloading will lose it",
+      "importUnsavedIdentity": "Identity replaced — reboot the radio to finish. The restored data could not be saved to this browser, so reloading will lose it",
       "importFailed": "Restore failed: {{error}}",
       "unlockAction": "Unlock",
       "unlocking": "Decrypting…",

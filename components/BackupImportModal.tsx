@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import {
@@ -37,18 +37,39 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   const client = useMeshStore((s) => s.client);
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const showToast = useMeshStore((s) => s.showToast);
+  // The slices the preview counts against. Subscribed rather than read once, so
+  // the counts stay true while the dialog is open — the radio keeps delivering
+  // messages and adverts, and `applyBackup` merges against whatever the store
+  // holds at the moment Restore is clicked, not at unlock time.
+  const msgHistory = useMeshStore((s) => s.msgHistory);
+  const advertCache = useMeshStore((s) => s.advertCache);
+  const automationRules = useMeshStore((s) => s.automationRules);
   const passId = useId();
   const confirmId = useId();
 
   const [file, setFile] = useState<File | null>(null);
   const [passphrase, setPassphrase] = useState('');
   const [payload, setPayload] = useState<BackupPayload | null>(null);
-  const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [restoreIdentity, setRestoreIdentity] = useState(false);
   const [mismatchAck, setMismatchAck] = useState(false);
   const [identityConfirm, setIdentityConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<React.ReactNode>(null);
+
+  const connectedName = selfInfo?.name ?? '';
+  const connectedPubkey = selfInfo?.pubkey?.toLowerCase() ?? null;
+
+  const preview: ImportPreview | null = useMemo(
+    () =>
+      payload
+        ? previewImport(
+            payload,
+            { msgHistory, advertCache, automationRules },
+            connectedPubkey,
+          )
+        : null,
+    [payload, msgHistory, advertCache, automationRules, connectedPubkey],
+  );
 
   const unlock = async () => {
     if (!file || !passphrase || busy) return;
@@ -60,13 +81,6 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
         passphrase,
       );
       setPayload(decoded);
-      setPreview(
-        previewImport(
-          decoded,
-          useMeshStore.getState(),
-          selfInfo?.pubkey ?? null,
-        ),
-      );
     } catch (err) {
       setError(
         err instanceof BackupReadError ? (
@@ -86,11 +100,18 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       const result = await applyBackup(payload, client, { restoreIdentity });
+      // A failed write still leaves the import applied in memory, so the dialog
+      // closes either way — but it says so rather than claiming a restore that
+      // the next reload would undo.
+      const done = result.identityRestored
+        ? 'settings.backup.importDoneIdentity'
+        : 'settings.backup.importDone';
+      const unsaved = result.identityRestored
+        ? 'settings.backup.importUnsavedIdentity'
+        : 'settings.backup.importUnsaved';
       showToast(
-        result.identityRestored
-          ? t('settings.backup.importDoneIdentity')
-          : t('settings.backup.importDone'),
-        'success',
+        t(result.persisted ? done : unsaved),
+        result.persisted ? 'success' : 'error',
       );
       onClose();
     } catch (err) {
@@ -109,8 +130,6 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   };
 
   const num = (n: number) => fmtNum(n, i18n.language);
-  const connectedName = selfInfo?.name ?? '';
-  const connectedPubkey = selfInfo?.pubkey?.toLowerCase() ?? null;
 
   // The auto-reconnect loop keeps this modal mounted while it swaps `client`
   // and `selfInfo`, and what comes back may be a different radio. Both
@@ -126,12 +145,7 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
     setIdentityConfirm('');
   }
 
-  // Recomputed from the live pubkey rather than read off `preview`, which was
-  // frozen at unlock time and would still describe the radio that was connected
-  // then.
-  const pubkeyMismatch =
-    payload !== null &&
-    (connectedPubkey === null || connectedPubkey !== payload.pubkey);
+  const pubkeyMismatch = preview?.pubkeyMismatch ?? false;
 
   // Restore stays disabled until both irreversible choices are confirmed the
   // way each is meant to be: the different-radio graft by acknowledging it, and

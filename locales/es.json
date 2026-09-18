@@ -467,6 +467,8 @@
       "importing": "Restaurando…",
       "importDone": "Copia restaurada",
       "importDoneIdentity": "Copia restaurada — reinicia la radio para terminar de cambiar la identidad",
+      "importUnsaved": "Copia restaurada solo para esta sesión: no se pudo guardar en este navegador, así que se perderá al recargar",
+      "importUnsavedIdentity": "Identidad reemplazada — reinicia la radio para terminar. Los datos restaurados no se pudieron guardar en este navegador, así que se perderán al recargar",
       "importFailed": "Error al restaurar: {{error}}",
       "unlockAction": "Desbloquear",
       "unlocking": "Descifrando…",

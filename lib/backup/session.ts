@@ -70,6 +70,13 @@ export interface ApplyOptions {
 export interface ApplyResult {
   /** Whether the radio accepted the backup's identity. */
   identityRestored: boolean;
+  /**
+   * Whether the merged data reached encrypted storage. False when the session
+   * key is gone (a reconnect swapped radios mid-restore) or a write failed —
+   * the import is then in memory only and a reload loses it, so the caller must
+   * not report an unqualified success.
+   */
+  persisted: boolean;
 }
 
 /**
@@ -84,6 +91,11 @@ export interface ApplyResult {
  * Radio writes are opt-in through {@link ApplyOptions} and happen after the
  * browser data has landed, so a radio that refuses them still leaves the
  * history restored.
+ *
+ * The merged data is written to encrypted storage before any radio write, and
+ * whether that write landed is reported in {@link ApplyResult.persisted} rather
+ * than thrown — the import is applied to the store either way, so a failed
+ * write is a weaker success, not a failure to roll back.
  *
  * @throws whatever {@link MeshCoreClient.importPrivateKey} throws when identity
  * restore was requested and refused — the browser data is already applied by
@@ -109,9 +121,9 @@ export async function applyBackup(
   // Awaited, not just started: the caller reports success and closes the dialog
   // on return, and an identity restore below ends in a reboot. A reload in
   // either window would lose the import if the writes were still pending.
-  await flushSessionAsync(client);
+  const persisted = await flushSessionAsync(client);
 
-  const result: ApplyResult = { identityRestored: false };
+  const result: ApplyResult = { identityRestored: false, persisted };
   if (!client) return result;
 
   if (opts.restoreIdentity && payload.identityHex) {

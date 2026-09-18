@@ -5,6 +5,8 @@ import type { Advert, Message } from '@/types/meshcore';
 import type { AutomationRule } from '@/types/automation';
 import type { RadioPreferences } from '@/store/meshStore';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
+import { isProviderId } from '@/lib/ai/provider';
+import { isToolName } from '@/lib/ai/tools';
 
 /**
  * The passphrase-encrypted backup file: the per-radio blobs this browser holds
@@ -260,7 +262,7 @@ function normalizeBackupPayload(raw: unknown): BackupPayload | null {
 
   const msgHistory = validateHistory(p.msgHistory);
   const advertCache = validateAdvertCache(p.advertCache);
-  const automationRules = validateArray(p.automationRules, isAutomationRule);
+  const automationRules = validateRules(p.automationRules);
   const channels = validateArray(p.channels, isBackupChannel);
   if (
     msgHistory === null ||
@@ -309,6 +311,17 @@ function validateArray<T>(
   if (raw === undefined) return [];
   if (!Array.isArray(raw)) return null;
   return raw.every(ok) ? (raw as T[]) : null;
+}
+
+// Rule ids must also be unique across the file. `mergeAutomationRules` only
+// knows the ids already in the store, so two incoming rules sharing an id are
+// both appended — one event then fires both copies and the radio transmits
+// twice. Rule ids are minted with `crypto.randomUUID`, so a duplicate can only
+// come from a corrupt or hand-edited file.
+function validateRules(raw: unknown): AutomationRule[] | null {
+  const rules = validateArray(raw, isAutomationRule);
+  if (rules === null) return null;
+  return new Set(rules.map((r) => r.id)).size === rules.length ? rules : null;
 }
 
 // The optional fields are checked too, not just the required ones: the bubble
@@ -398,17 +411,30 @@ function isRuleTrigger(v: unknown): boolean {
   }
 }
 
+// Tool names and provider ids are closed unions this build indexes registries
+// with, not free strings: `toolSchemas` reads `TOOL_REGISTRY[name].schema` and
+// the engine reads `getProvider(id).models`, so an unknown value restored here
+// throws the moment the rule fires. Narrowed against the live registries rather
+// than accepted as a string and cast.
+function isToolNameList(v: unknown): boolean {
+  return (
+    Array.isArray(v) && v.every((t) => typeof t === 'string' && isToolName(t))
+  );
+}
+
 function isRuleAction(v: unknown): boolean {
   if (!isRecord(v)) return false;
   switch (v.kind) {
     case 'fixed':
-      return typeof v.tool === 'string' && isRecord(v.args);
+      return (
+        typeof v.tool === 'string' && isToolName(v.tool) && isRecord(v.args)
+      );
     case 'prompt':
       return (
         typeof v.system === 'string' &&
-        Array.isArray(v.allowTools) &&
-        v.allowTools.every((t) => typeof t === 'string') &&
-        (v.providerId === undefined || typeof v.providerId === 'string') &&
+        isToolNameList(v.allowTools) &&
+        (v.providerId === undefined ||
+          (typeof v.providerId === 'string' && isProviderId(v.providerId))) &&
         (v.model === undefined || typeof v.model === 'string') &&
         (v.maxTurns === undefined || typeof v.maxTurns === 'number') &&
         (v.maxTokens === undefined || typeof v.maxTokens === 'number')
@@ -434,8 +460,7 @@ function isAutomationRule(v: unknown): v is AutomationRule {
     isRuleTrigger(v.trigger) &&
     isRuleAction(v.action) &&
     (v.autonomy === 'approve' || v.autonomy === 'auto') &&
-    Array.isArray(v.allowlist) &&
-    v.allowlist.every((t) => typeof t === 'string') &&
+    isToolNameList(v.allowlist) &&
     (v.cooldownSec === undefined || typeof v.cooldownSec === 'number') &&
     (v.condition === undefined ||
       (isRecord(v.condition) &&
@@ -480,6 +505,12 @@ function validateAdvertCache(raw: unknown): Record<string, Advert> | null {
   const out: Record<string, Advert> = {};
   for (const [prefix, advert] of Object.entries(raw)) {
     if (!isAdvert(advert)) return null;
+    // The key and the record's own prefix must agree: the import's staleness
+    // filter looks entries up by key while `mergeAdvertCache` writes them back
+    // by `pubkeyPrefix`, so a mismatched pair would skip the freshness check,
+    // be counted against the wrong node in the preview, and overwrite newer
+    // metadata under the key it really carries.
+    if (advert.pubkeyPrefix !== prefix) return null;
     out[prefix] = advert;
   }
   return out;

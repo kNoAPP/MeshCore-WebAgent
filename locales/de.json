@@ -467,6 +467,8 @@
       "importing": "Wird wiederhergestellt…",
       "importDone": "Sicherung wiederhergestellt",
       "importDoneIdentity": "Sicherung wiederhergestellt — starte die Funkeinheit neu, um den Identitätswechsel abzuschließen",
+      "importUnsaved": "Sicherung nur für diese Sitzung wiederhergestellt — sie konnte in diesem Browser nicht gespeichert werden und geht beim Neuladen verloren",
+      "importUnsavedIdentity": "Identität ersetzt — starte die Funkeinheit neu, um den Wechsel abzuschließen. Die wiederhergestellten Daten konnten in diesem Browser nicht gespeichert werden und gehen beim Neuladen verloren",
       "importFailed": "Wiederherstellung fehlgeschlagen: {{error}}",
       "unlockAction": "Entsperren",
       "unlocking": "Wird entschlüsselt…",
