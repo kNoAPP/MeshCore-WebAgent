@@ -4,6 +4,7 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
+import { useMeshStore } from '@/store/meshStore';
 import type { PrivateKeyErrorCode } from '@/lib/meshcore/errors';
 import type { BackupReadErrorCode } from '@/lib/backup/archive';
 
@@ -13,6 +14,46 @@ import type { BackupReadErrorCode } from '@/lib/backup/archive';
  * a login password's.
  */
 export const MIN_PASSPHRASE_LENGTH = 12;
+
+/**
+ * Whether a backup may be written or applied right now.
+ *
+ * Stricter than the other radio-touching cards, and deliberately so: those need
+ * a live link, but these need the *stored* per-radio data to be in memory.
+ * `status` flips to 'connected' before the derived key and the IndexedDB blobs
+ * have loaded, so acting inside that window would export a half-empty backup,
+ * or import onto state the pending hydrate is about to overwrite.
+ * `prefsHydrated` marks the end of that load.
+ *
+ * Both dialogs sit above the reconnect overlay and stay mounted while the
+ * auto-reconnect loop swaps the client — and what comes back may be a different
+ * radio — so each rechecks this rather than trusting the check that opened it.
+ */
+export function useBackupReady(): boolean {
+  const status = useMeshStore((s) => s.status);
+  const client = useMeshStore((s) => s.client);
+  const prefsHydrated = useMeshStore((s) => s.prefsHydrated);
+  return status === 'connected' && !!client && !client.closed && prefsHydrated;
+}
+
+/**
+ * The public key of the radio a backup may act on right now, or null when the
+ * session is not ready by {@link useBackupReady}'s test.
+ *
+ * Read once from the live store rather than subscribed, for revalidating after
+ * an `await`: comparing it against the pubkey an operation started with catches
+ * both halves of the race in one test — the session going away, and a
+ * *different* radio having taken its place.
+ */
+export function backupSessionPubkey(): string | null {
+  const s = useMeshStore.getState();
+  const ready =
+    s.status === 'connected' &&
+    !!s.client &&
+    !s.client.closed &&
+    s.prefsHydrated;
+  return ready ? (s.selfInfo?.pubkey ?? null) : null;
+}
 
 const PRIVATE_KEY_ERROR_KEY = {
   disabled: 'settings.backup.identityError.disabledExport',

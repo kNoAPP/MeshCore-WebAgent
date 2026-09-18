@@ -81,11 +81,12 @@ export function flushPreferences(client: MeshCoreClient | null): void {
 }
 
 /**
- * Flushes all three per-radio blobs. The two paths that end a session — a
- * deliberate disconnect and a drop into the reconnect loop — both have to
- * persist everything, so they share one call rather than each listing them.
+ * Flushes all four per-radio records — history, advert cache, preferences and
+ * automation rules. The two paths that end a session — a deliberate disconnect
+ * and a drop into the reconnect loop — both have to persist everything, so they
+ * share one call rather than each listing them.
  *
- * @remarks Fire-and-forget: the three writes are started, not awaited, because
+ * @remarks Fire-and-forget: the writes are started, not awaited, because
  * the teardown paths run where nothing can wait on IndexedDB. Callers that must
  * know the data actually reached disk before continuing use
  * {@link flushSessionAsync}.
@@ -95,7 +96,7 @@ export function flushSession(client: MeshCoreClient | null): void {
 }
 
 /**
- * {@link flushSession}, awaitable — resolves once all three encrypted writes
+ * {@link flushSession}, awaitable — resolves once all four encrypted writes
  * have been attempted.
  *
  * @remarks For the backup restore, which must not report success (or start a

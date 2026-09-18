@@ -5,9 +5,9 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMeshStore } from '@/store/meshStore';
 import { BackupExportModal } from './BackupExportModal';
 import { BackupImportModal } from './BackupImportModal';
+import { useBackupReady } from './BackupCommon';
 
 /**
  * The Backup & Restore card body: one button to write a passphrase-encrypted
@@ -20,20 +20,12 @@ import { BackupImportModal } from './BackupImportModal';
  */
 export function BackupSettingsBody() {
   const { t } = useTranslation();
-  const status = useMeshStore((s) => s.status);
-  const client = useMeshStore((s) => s.client);
-  const prefsHydrated = useMeshStore((s) => s.prefsHydrated);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  // Stricter than the other radio-touching cards, and deliberately so: those
-  // need a live link, but these need the *stored* per-radio data to be in
-  // memory. `status` flips to 'connected' before the derived key and the
-  // IndexedDB blobs have loaded, so opening either dialog during that window
-  // would export a half-empty backup, or import onto state the pending hydrate
-  // is about to overwrite. `prefsHydrated` marks the end of that load.
-  const ready =
-    status === 'connected' && !!client && !client.closed && prefsHydrated;
+  // Gates opening either dialog; each one rechecks the same condition for the
+  // action itself, since a reconnect can start after it opened.
+  const ready = useBackupReady();
 
   return (
     <>

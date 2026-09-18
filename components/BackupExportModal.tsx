@@ -12,7 +12,12 @@ import { buildBackupPayload } from '@/lib/backup/session';
 import { PrivateKeyError } from '@/lib/meshcore/errors';
 import { ModalShell } from './ModalShell';
 import { Switch } from './Switch';
-import { MIN_PASSPHRASE_LENGTH, PrivateKeyErrorText } from './BackupCommon';
+import {
+  MIN_PASSPHRASE_LENGTH,
+  PrivateKeyErrorText,
+  backupSessionPubkey,
+  useBackupReady,
+} from './BackupCommon';
 
 // Stable identity for the suppressed-close handler, so ModalShell's props
 // don't change on every render while an export runs.
@@ -47,10 +52,15 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
   const tooShort = passphrase.length > 0 && passLength < MIN_PASSPHRASE_LENGTH;
   const mismatch =
     confirm.length > 0 && confirm.normalize('NFKC') !== normalized;
+  // Rechecked here, not just where the dialog was opened: this modal sits above
+  // the reconnect overlay and stays mounted while the auto-reconnect loop swaps
+  // the client, so the session that was ready a moment ago may be gone.
+  const sessionReady = useBackupReady();
   const ready =
     passLength >= MIN_PASSPHRASE_LENGTH &&
     confirm.normalize('NFKC') === normalized &&
     !!selfInfo?.pubkey &&
+    sessionReady &&
     !busy;
 
   const run = async () => {
@@ -62,6 +72,13 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
       if (includeIdentity) {
         if (!client) throw new PrivateKeyError('unsupported');
         identity = await client.exportPrivateKey();
+      }
+      // The identity read is a radio round-trip, and a drop during it would
+      // leave the session mid-reconnect. `buildBackupPayload` reads the live
+      // store, so continuing would file the next radio's data under the pubkey
+      // captured before the await.
+      if (backupSessionPubkey() !== selfInfo.pubkey) {
+        throw new Error(t('settings.backup.sessionChanged'));
       }
       const payload = buildBackupPayload(
         selfInfo.pubkey,

@@ -31,11 +31,19 @@ export interface ImportPreview {
   newAdverts: number;
   /** Cached adverts that would refresh an entry this browser already holds. */
   updatedAdverts: number;
+  /**
+   * Cached nodes this browser would *lose*: at `ADVERT_CACHE_LIMIT` the merge
+   * keeps the most recently heard, so taking in a backup's nodes can push out
+   * ones already held. Normally 0 — the import UI only mentions it when it
+   * isn't, because it is the one part of a restore that is not purely additive.
+   */
+  evictedAdverts: number;
   /** Automation rules whose id is not already present. */
   newRules: number;
   /** Automation rules whose id is already present (kept, not overwritten). */
   existingRules: number;
-  /** Channel slots the file carries a secret for. */
+  /** Channel slots the file describes (slot number and name; see
+   * `BackupChannel` for why no secret travels with them). */
   channels: number;
   /** Whether the file carries a preferences blob that would be applied. */
   hasPreferences: boolean;
@@ -100,6 +108,13 @@ export function previewImport(
     if (current.advertCache[advert.pubkeyPrefix]) updatedAdverts++;
     else newAdverts++;
   }
+  // The same cap can push out nodes this browser already had, which no other
+  // count would show — a restore is otherwise additive, and the preview would
+  // be promising that.
+  let evictedAdverts = 0;
+  for (const prefix of Object.keys(current.advertCache)) {
+    if (!mergedCache[prefix]) evictedAdverts++;
+  }
 
   const ruleIds = new Set(current.automationRules.map((r) => r.id));
   const newRules = payload.automationRules.filter(
@@ -112,6 +127,7 @@ export function previewImport(
     newConversations,
     newAdverts,
     updatedAdverts,
+    evictedAdverts,
     newRules,
     existingRules: payload.automationRules.length - newRules,
     channels: payload.channels.length,

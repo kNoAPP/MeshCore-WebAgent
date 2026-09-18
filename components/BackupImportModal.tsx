@@ -19,7 +19,12 @@ import { PrivateKeyError } from '@/lib/meshcore/errors';
 import { fmtNum } from '@/lib/utils';
 import { ModalShell } from './ModalShell';
 import { Switch } from './Switch';
-import { BackupReadErrorText, PrivateKeyErrorText } from './BackupCommon';
+import {
+  BackupReadErrorText,
+  PrivateKeyErrorText,
+  backupSessionPubkey,
+  useBackupReady,
+} from './BackupCommon';
 
 // Stable identity for the suppressed-close handler, so ModalShell's props
 // don't change on every render while a restore runs.
@@ -58,6 +63,7 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
 
   const connectedName = selfInfo?.name ?? '';
   const connectedPubkey = selfInfo?.pubkey?.toLowerCase() ?? null;
+  const sessionReady = useBackupReady();
 
   const preview: ImportPreview | null = useMemo(
     () =>
@@ -95,10 +101,17 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   };
 
   const apply = async () => {
-    if (!payload || !preview || busy) return;
+    if (!payload || !preview || busy || blocked) return;
     setBusy(true);
     setError(null);
     try {
+      // Revalidated against the live store, not the render's captured values: a
+      // reconnect can start between the last render and this click, and merging
+      // now would fold the file's records into whatever radio the pending
+      // hydrate is about to load.
+      if (backupSessionPubkey() !== selfInfo?.pubkey) {
+        throw new Error(t('settings.backup.sessionChanged'));
+      }
       const result = await applyBackup(payload, client, { restoreIdentity });
       // A failed write still leaves the import applied in memory, so the dialog
       // closes either way — but it says so rather than claiming a restore that
@@ -152,7 +165,12 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   // the identity replacement by naming the node it destroys.
   const identityUnconfirmed =
     restoreIdentity && identityConfirm.trim() !== connectedName;
-  const blocked = (pubkeyMismatch && !mismatchAck) || identityUnconfirmed;
+  // `!sessionReady` covers the reconnect window: this dialog stays mounted
+  // above the reconnect overlay with a payload unlocked against the previous
+  // session, and the radio that comes back may not be the one the preview
+  // describes.
+  const blocked =
+    (pubkeyMismatch && !mismatchAck) || identityUnconfirmed || !sessionReady;
 
   return (
     <ModalShell
@@ -272,6 +290,17 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
                 value={num(preview.channels)}
               />
             </dl>
+
+            {/* A restore is otherwise purely additive, so the one case where it
+                removes something the user already had is called out rather than
+                left to be inferred from a count that does not show it. */}
+            {preview.evictedAdverts > 0 && (
+              <p className='mt-3 text-xs leading-relaxed text-text2'>
+                {t('settings.backup.previewAdvertsEvicted', {
+                  count: preview.evictedAdverts,
+                })}
+              </p>
+            )}
 
             {pubkeyMismatch && (
               <div className='mt-5 rounded-md border border-red bg-red/10 p-3'>
