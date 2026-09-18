@@ -16,13 +16,9 @@ import {
   PERM_ACL_ROLE_MASK,
 } from '@/lib/meshcore/constants';
 import { ADV_ICON } from '@/lib/utils';
+import { joinRead, sessionReadKey } from '@/lib/session/sharedReads';
 import { RefreshButton } from './RefreshButton';
-import type { AclEntry, Contact } from '@/types/meshcore';
-
-// Held at module scope so a tab switch joins the outstanding read instead of
-// starting a second one; removed once the read settles. Mirrors how the
-// Neighbors tab shares its request.
-const accessRequests = new Map<string, Promise<AclEntry[]>>();
+import type { Contact } from '@/types/meshcore';
 
 // Label key per ACL role, indexed by the role value itself — the firmware
 // numbers the four roles 0-3, and `PERM_ACL_ROLE_MASK` keeps a lookup in range.
@@ -97,16 +93,16 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
     try {
       // The session this read belongs to. A log-out and re-login while it is in
       // flight mints a new token, and this list is admin-only — so it must not
-      // land on whatever session replaced the one that asked.
+      // land on whatever session replaced the one that asked. The token is in
+      // the shared-read key too: joining the previous session's read would
+      // stamp its result with this session's token and walk straight past the
+      // guard in `setRepeaterAccessList`.
       const token = useMeshStore.getState().adminSessions[prefix]?.token;
-      let request = accessRequests.get(prefix);
-      if (!request) {
-        request = repeaterAccessList(contact).finally(() => {
-          accessRequests.delete(prefix);
-        });
-        accessRequests.set(prefix, request);
-      }
-      setRepeaterAccessList(prefix, await request, token);
+      const entries = await joinRead(
+        sessionReadKey('access', prefix, token),
+        () => repeaterAccessList(contact),
+      );
+      setRepeaterAccessList(prefix, entries, token);
     } catch {
       setErrored(true);
     } finally {

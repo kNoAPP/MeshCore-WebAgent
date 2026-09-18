@@ -25,6 +25,7 @@ import {
   type NeighborIdentity,
 } from '@/lib/map/nodes';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
+import { joinRead, sessionReadKey } from '@/lib/session/sharedReads';
 import {
   formatAirtime,
   formatDbm,
@@ -817,12 +818,6 @@ function StatusDashboard({
   );
 }
 
-// Held at module scope, not per-tab, so a remount (tab switch) joins the
-// outstanding read instead of starting a duplicate or briefly showing a false
-// empty. Storing the promise — rather than a flag — lets every mount await the
-// same list. The entry is removed once the read settles.
-const neighborsRequests = new Map<string, Promise<Neighbor[]>>();
-
 const NEIGHBOR_VIEWS = ['map', 'list'] as const;
 type NeighborView = (typeof NEIGHBOR_VIEWS)[number];
 
@@ -891,16 +886,16 @@ function NeighborsTab({ contact }: { contact: Contact }) {
       // await the same settlement instead of showing a transient false empty.
       // The session this read belongs to. A structured read walks several
       // pages, so a log-out and re-login can easily land mid-flight; the new
-      // session must not inherit the old one's list.
+      // session must not inherit the old one's list. The token is in the
+      // shared-read key for the same reason — joining the previous session's
+      // read would stamp its result with this session's token and pass the
+      // guard in `setRepeaterNeighbors` on a technicality.
       const token = useMeshStore.getState().adminSessions[prefix]?.token;
-      let request = neighborsRequests.get(prefix);
-      if (!request) {
-        request = repeaterNeighbors(contact).finally(() => {
-          neighborsRequests.delete(prefix);
-        });
-        neighborsRequests.set(prefix, request);
-      }
-      setRepeaterNeighbors(prefix, await request, token);
+      const neighbors = await joinRead(
+        sessionReadKey('neighbors', prefix, token),
+        () => repeaterNeighbors(contact),
+      );
+      setRepeaterNeighbors(prefix, neighbors, token);
     } catch {
       // A timeout, a rejected reply, or a dropped link is an error, not "no
       // neighbors": surface an error state and preserve any cached list rather

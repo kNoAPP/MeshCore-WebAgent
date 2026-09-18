@@ -106,14 +106,32 @@ async function readNeighborsPaged(
       offset: read,
       orderBy: NEIGHBOR_ORDER.NEWEST_FIRST,
     });
-    // A page that carried nothing means the window ran past the table, whatever
-    // the total claimed — without this an over-reported total would loop.
-    if (page.neighbors.length === 0) break;
+    if (page.neighbors.length === 0) {
+      // Nothing came back. That is the normal end of the walk when the total
+      // agrees, but a node still claiming more rows than it has handed over has
+      // contradicted itself — returning the rows so far would cache a list the
+      // repeater itself says is short, which is the truncation this path exists
+      // to remove. Raising also keeps an over-reported total from looping.
+      if (page.total > read) {
+        throw new Error(
+          `Repeater reported ${page.total} neighbors but returned ${read}`,
+        );
+      }
+      break;
+    }
     read += page.neighbors.length;
     for (const neighbor of page.neighbors) {
       // The repeater re-sorts its table per request, so a node heard between
       // two pages can shift into a window already read. Drop the duplicate
       // rather than show one neighbor twice.
+      //
+      // This identifies a neighbor by the prefix alone, which two of them could
+      // in principle share. Nothing better is on offer: age and SNR both move
+      // between pages, and the only stronger key is a longer prefix — asking
+      // for the full 32-byte key would cut a page from ten rows to three and
+      // more than triple the mesh round trips for a full table. At eight bytes
+      // a collision between two neighbors of the same repeater is not a case
+      // worth paying that for.
       if (seen.has(neighbor.prefix)) continue;
       seen.add(neighbor.prefix);
       neighbors.push(neighbor);

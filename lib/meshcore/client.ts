@@ -1024,7 +1024,9 @@ export class MeshCoreClient {
    * Requires a prior admin {@link login}: the firmware answers this request
    * only for `isAdmin()` senders, and a room server reports only its admin
    * entries where a repeater reports every role.
-   * @throws on a timeout, or when the reply is not a whole number of entries.
+   * @throws on a timeout, or when the reply carries no entry at all. It does
+   * *not* throw on a reply whose length is not a multiple of the 7-byte entry:
+   * cipher padding makes that the normal case, and `parseAccessList` drops it.
    * A node whose list is empty answers with nothing at all, so an empty ACL is
    * indistinguishable from silence and surfaces the same way.
    */
