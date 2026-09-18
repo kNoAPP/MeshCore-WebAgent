@@ -384,6 +384,17 @@ export type RepeaterAccess = 'admin' | 'readWrite' | 'guest';
  */
 export type LoginKind = Extract<RepeaterAccess, 'admin' | 'guest'>;
 
+/**
+ * How one repeater/room login attempt ended.
+ *
+ * `timeout` is the transient shape worth retrying — the request went out and
+ * nothing came back, which over a stale multi-hop route is usually the path,
+ * not the password (a wrong password is silent too, so the two are
+ * indistinguishable on the wire). `failed` is a rejection the radio reported,
+ * and `offline` means the link was already down, so neither is retried.
+ */
+export type RepeaterLoginOutcome = 'ok' | 'timeout' | 'failed' | 'offline';
+
 /** The conversation currently open in the UI. */
 export interface ActiveConvo {
   kind: 'channel' | 'direct' | 'repeater' | 'room';

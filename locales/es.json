@@ -749,7 +749,15 @@
       "submit": "Iniciar sesión",
       "loggingIn": "Iniciando sesión…",
       "checking": "Comprobando credenciales guardadas…",
-      "remember": "Recordar estas credenciales"
+      "remember": "Recordar estas credenciales",
+      "attempt": "Iniciando sesión… ({{attempt}} de {{total}})",
+      "timedOutTitle": "No se pudo contactar con {{name}}",
+      "timedOutBody": "Se agotó el tiempo de inicio de sesión. Normalmente significa que hay que redescubrir la ruta, no que la contraseña sea incorrecta.",
+      "failedTitle": "No se pudo iniciar sesión en {{name}}",
+      "failedBody": "No se pudo enviar la solicitud de inicio de sesión. Inténtalo de nuevo en un momento.",
+      "retry": "Reintentar inicio de sesión",
+      "retryFlood": "Restablecer la ruta y reintentar",
+      "differentPassword": "Introducir otra contraseña"
     },
     "dashboard": {
       "accessAdmin": "Acceso de administrador",
@@ -1361,6 +1369,7 @@
     "rebooting": "Reiniciando… se reconectará cuando el dispositivo vuelva",
     "rebootFailed": "Error al reiniciar: {{error}}",
     "repeaterLoginFailed": "Error al iniciar sesión: {{error}}",
+    "repeaterLoginTimedOut": "Sin respuesta de {{name}}. Puede que haya que restablecer la ruta o que la contraseña haya cambiado.",
     "repeaterStatusFailed": "Error al obtener el estado: {{error}}",
     "telemetryFailed": "Error al obtener la telemetría: {{error}}",
     "repeaterCliFailed": "Error al enviar el comando: {{error}}",

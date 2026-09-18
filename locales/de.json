@@ -749,7 +749,15 @@
       "submit": "Anmelden",
       "loggingIn": "Anmeldung…",
       "checking": "Gespeicherte Anmeldedaten werden geprüft…",
-      "remember": "Diese Anmeldedaten merken"
+      "remember": "Diese Anmeldedaten merken",
+      "attempt": "Anmeldung… ({{attempt}} von {{total}})",
+      "timedOutTitle": "{{name}} nicht erreichbar",
+      "timedOutBody": "Zeitüberschreitung bei der Anmeldung. Das bedeutet meist, dass die Route neu gefunden werden muss, nicht dass das Passwort falsch ist.",
+      "failedTitle": "Anmeldung bei {{name}} nicht möglich",
+      "failedBody": "Die Anmeldeanfrage konnte nicht gesendet werden. Versuchen Sie es gleich noch einmal.",
+      "retry": "Anmeldung wiederholen",
+      "retryFlood": "Route zurücksetzen und wiederholen",
+      "differentPassword": "Anderes Passwort eingeben"
     },
     "dashboard": {
       "accessAdmin": "Admin-Zugriff",
@@ -1361,6 +1369,7 @@
     "rebooting": "Neustart … Verbindung wird wiederhergestellt, sobald das Gerät zurück ist",
     "rebootFailed": "Neustart fehlgeschlagen: {{error}}",
     "repeaterLoginFailed": "Anmeldung fehlgeschlagen: {{error}}",
+    "repeaterLoginTimedOut": "Keine Antwort von {{name}}. Möglicherweise muss die Route zurückgesetzt werden, oder das Passwort hat sich geändert.",
     "repeaterStatusFailed": "Status konnte nicht abgerufen werden: {{error}}",
     "telemetryFailed": "Telemetrie konnte nicht abgerufen werden: {{error}}",
     "repeaterCliFailed": "Befehl konnte nicht gesendet werden: {{error}}",

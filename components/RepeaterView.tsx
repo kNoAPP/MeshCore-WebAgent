@@ -3,21 +3,14 @@
 
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import dynamic from 'next/dynamic';
-import { Eye, EyeOff } from 'lucide-react';
 import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { useRepeaterAutoLogin } from '@/hooks/useRepeaterAutoLogin';
 import { useClockTick } from '@/hooks/useClockTick';
-import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
+import { clearRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import {
   repeaterAnchorNode,
@@ -45,10 +38,10 @@ import { RefreshButton } from './RefreshButton';
 import { RepeaterAccessTab } from './RepeaterAccessTab';
 import { RepeaterConfigTab } from './RepeaterConfigTab';
 import { RepeaterConsoleTab } from './RepeaterConsoleTab';
+import { RepeaterLoginGate } from './RepeaterLoginGate';
 import { TelemetryPanel } from './TelemetryPanel';
 import type {
   Contact,
-  LoginKind,
   Neighbor,
   RepeaterAccess,
   RepeaterStatus,
@@ -113,7 +106,8 @@ export function RepeaterView() {
 
 function RepeaterViewInner({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
-  const { repeaterLogin, repeaterStatus } = useMeshCore();
+  const { repeaterStatus } = useMeshCore();
+  const autoLogin = useRepeaterAutoLogin(contact);
   const session = useMeshStore((s) => s.adminSessions[contact.pubkeyPrefix]);
   const resetAdminSession = useMeshStore((s) => s.resetAdminSession);
   const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
@@ -181,11 +175,6 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   // Neighbors/Console and logs back in as a guest must not keep rendering a
   // now-hidden panel — fall back to the first tab this session may see.
   const activeTab = tabs.includes(selection.tab) ? selection.tab : tabs[0];
-  // True only during the initial credential probe (from a clean logged-out
-  // state), so we show a brief spinner instead of flashing the login form
-  // before auto-login runs. A `pending` login shows the disabled gate instead.
-  const [checking, setChecking] = useState(login === 'loggedOut');
-
   // Report whether the post feed is actually rendered, so arrivals behind the
   // login gate or another tab stay unread and keep their toast.
   const setVisibleRoomFeed = useMeshStore((s) => s.setVisibleRoomFeed);
@@ -194,48 +183,6 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
     setVisibleRoomFeed(feedVisible ? roomConvoId(prefix) : null);
     return () => setVisibleRoomFeed(null);
   }, [feedVisible, prefix, setVisibleRoomFeed]);
-
-  // Captured once at mount (the component is keyed by `prefix`, so it remounts
-  // per repeater). The auto-login effect reads these without listing them as
-  // dependencies, so an unrelated contact update can't re-run the effect and
-  // cancel its own in-flight credential probe (which would strand the
-  // "checking" spinner). The pubkey is immutable, so the mount-time contact is
-  // valid for the login command.
-  const contactRef = useRef(contact);
-  const repeaterLoginRef = useRef(repeaterLogin);
-  const loginRef = useRef(login);
-
-  // On entry, when there is no live session yet, probe the encrypted store for
-  // a remembered credential and auto-log-in with it. Keyed by the stable
-  // `prefix`, so it runs once per repeater (remounted when the selection
-  // changes).
-  useEffect(() => {
-    // Only probe from a clean logged-out state. Skipping `admin`/`guest`
-    // avoids clobbering a live session; skipping `pending` avoids queuing a
-    // second login when the view remounts mid-login (e.g. switching away and
-    // back during a multi-hop handshake).
-    if (loginRef.current !== 'loggedOut') return;
-    let cancelled = false;
-    void (async () => {
-      const cred = await loadRepeaterCred(prefix);
-      if (cancelled) return;
-      if (cred) {
-        // A failed auto-login (e.g. the node's password changed) falls back to
-        // the gate via the login toast; the stale credential is left in place
-        // since the failure may be transient.
-        void repeaterLoginRef.current(
-          contactRef.current,
-          cred.password,
-          cred.access,
-          true,
-        );
-      }
-      setChecking(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [prefix]);
 
   // Logging out also forgets any remembered credential, so the next visit
   // re-prompts instead of silently auto-logging back in.
@@ -308,21 +255,12 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
         </>
       ) : (
         <div className='flex flex-1 flex-col items-center justify-center overflow-y-auto p-4'>
-          {checking ? (
-            <p className='text-sm text-text2'>
-              {t('repeaterAdmin.login.checking')}
-            </p>
-          ) : (
-            <div className='w-full max-w-md'>
-              <LoginGate
-                pending={login === 'pending'}
-                isRoom={isRoom}
-                onSubmit={(password, kind, remember) =>
-                  void repeaterLogin(contact, password, kind, remember)
-                }
-              />
-            </div>
-          )}
+          <RepeaterLoginGate
+            contact={contact}
+            isRoom={isRoom}
+            pending={login === 'pending'}
+            auto={autoLogin}
+          />
         </div>
       )}
     </div>
@@ -384,142 +322,6 @@ function TabBar({
         </button>
       ))}
     </div>
-  );
-}
-
-// The password is never auto-filled: it stays in local state and is persisted
-// (encrypted, per-radio) only when the user opts in via the remember toggle.
-// A room offers the same two choices, but its non-admin password is the room
-// password, which grants posting — the server reports the role it actually
-// granted, so the label here is only about which password is being entered.
-function LoginGate({
-  pending,
-  isRoom,
-  onSubmit,
-}: {
-  pending: boolean;
-  isRoom: boolean;
-  onSubmit: (password: string, kind: LoginKind, remember: boolean) => void;
-}) {
-  const { t } = useTranslation();
-  const passwordId = useId();
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [kind, setKind] = useState<LoginKind>('admin');
-  const [remember, setRemember] = useState(false);
-  const scope = isRoom ? 'room.login' : 'repeaterAdmin.login';
-
-  const submit = () => {
-    // An empty password is a valid guest login; only Admin requires one.
-    if (pending || (kind === 'admin' && password === '')) return;
-    onSubmit(password, kind, remember);
-  };
-
-  return (
-    <form
-      className='space-y-4'
-      onSubmit={(e) => {
-        e.preventDefault();
-        submit();
-      }}
-    >
-      <p className='text-sm text-text2'>{t(`${scope}.prompt`)}</p>
-
-      <div
-        role='radiogroup'
-        aria-label={t('repeaterAdmin.login.accessLabel')}
-        onKeyDown={(e) =>
-          handleRovingKeyDown(e, 2, kind === 'admin' ? 0 : 1, (i) =>
-            setKind(i === 0 ? 'admin' : 'guest'),
-          )
-        }
-        className='grid grid-cols-2 gap-2'
-      >
-        {(['admin', 'guest'] as const).map((k) => (
-          <button
-            key={k}
-            type='button'
-            role='radio'
-            aria-checked={kind === k}
-            tabIndex={kind === k ? 0 : -1}
-            onClick={() => setKind(k)}
-            disabled={pending}
-            className={`rounded-md border px-3 py-2 text-left disabled:opacity-50 ${
-              kind === k
-                ? 'border-accent bg-surface2'
-                : 'border-border-control hover:bg-surface2'
-            }`}
-          >
-            <span className='block text-sm font-medium text-text'>
-              {t(`${scope}.${k}`)}
-            </span>
-            <span className='block text-xs text-text2'>
-              {t(`${scope}.${k}Hint`)}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div>
-        <label htmlFor={passwordId} className='mb-1 block text-xs text-text2'>
-          {t('repeaterAdmin.login.password')}
-        </label>
-        <div className='relative'>
-          <input
-            id={passwordId}
-            type={showPassword ? 'text' : 'password'}
-            autoComplete='off'
-            autoFocus
-            disabled={pending}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={t('repeaterAdmin.login.passwordPlaceholder')}
-            className='w-full rounded-md border border-border-control bg-surface py-1.5 pr-9 pl-2 text-sm text-text outline-none focus:border-accent disabled:opacity-50'
-          />
-          <button
-            type='button'
-            onClick={() => setShowPassword((v) => !v)}
-            disabled={pending}
-            aria-label={t(
-              showPassword
-                ? 'repeaterAdmin.login.hidePassword'
-                : 'repeaterAdmin.login.showPassword',
-            )}
-            title={t(
-              showPassword
-                ? 'repeaterAdmin.login.hidePassword'
-                : 'repeaterAdmin.login.showPassword',
-            )}
-            className='absolute inset-y-0 right-0 flex items-center px-2 text-text2 hover:text-text disabled:opacity-50'
-          >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        </div>
-      </div>
-
-      <label className='flex items-center gap-2 text-sm text-text'>
-        <input
-          type='checkbox'
-          disabled={pending}
-          checked={remember}
-          onChange={(e) => setRemember(e.target.checked)}
-          className='h-4 w-4 accent-accent disabled:opacity-50'
-        />
-        <span>{t('repeaterAdmin.login.remember')}</span>
-      </label>
-
-      <div className='flex justify-end border-t border-border pt-4'>
-        <button
-          type='submit'
-          disabled={pending || (kind === 'admin' && password === '')}
-          className='rounded-md bg-accent-solid px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50'
-        >
-          {pending
-            ? t('repeaterAdmin.login.loggingIn')
-            : t('repeaterAdmin.login.submit')}
-        </button>
-      </div>
-    </form>
   );
 }
 
