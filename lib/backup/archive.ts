@@ -4,6 +4,7 @@
 import type { Advert, Message } from '@/types/meshcore';
 import type { AutomationRule } from '@/types/automation';
 import type { RadioPreferences } from '@/store/meshStore';
+import { MAX_CHANNEL_SLOTS, PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
 
 /**
  * The passphrase-encrypted backup file: the per-radio blobs this browser holds
@@ -75,6 +76,13 @@ export interface BackupPayload {
    * The radio's 64-byte Ed25519 private key as 128 hex characters, present
    * only when the user explicitly asked to include the identity. Anyone
    * holding this — and the passphrase — can impersonate the node.
+   *
+   * @remarks Hex is a JS string, so once it is in a payload the key exists in
+   * immutable copies (this field, the JSON text, the encoded plaintext) that
+   * cannot be wiped and live until GC. Callers zero the `Uint8Array` they own
+   * to bound how long an erasable copy survives; that is the whole of the
+   * guarantee. What holds unconditionally is that no copy is ever written to
+   * the store, IndexedDB, the DOM, or a log.
    */
   identityHex?: string;
 }
@@ -236,59 +244,151 @@ export async function decryptBackup(
   return payload;
 }
 
-// Coerces a decrypted object into a BackupPayload, dropping anything of the
-// wrong shape rather than letting it reach the store. The file decrypted under
-// the user's own passphrase, so this guards against an older/newer build or a
-// partial write — not against an attacker.
+// Validates a decrypted object into a BackupPayload, rejecting the whole file
+// rather than letting a malformed record reach the store. Import applies data
+// in several steps, so a record that only blows up on use (a null advert, a
+// rule with no trigger) would leave the restore half-applied — cheaper to
+// refuse it here. The file decrypted under the user's own passphrase, so this
+// guards against a partial write or a build mismatch, not an attacker.
 function normalizeBackupPayload(raw: unknown): BackupPayload | null {
-  if (typeof raw !== 'object' || raw === null) return null;
+  if (!isRecord(raw)) return null;
   const p = raw as Partial<BackupPayload>;
-  if (typeof p.pubkey !== 'string' || !p.pubkey) return null;
+  if (typeof p.pubkey !== 'string' || !/^[0-9a-fA-F]{64}$/.test(p.pubkey)) {
+    return null;
+  }
   if (p.version !== BACKUP_PAYLOAD_VERSION) return null;
+
+  const msgHistory = validateHistory(p.msgHistory);
+  const advertCache = validateAdvertCache(p.advertCache);
+  const automationRules = validateArray(p.automationRules, isAutomationRule);
+  const channels = validateArray(p.channels, isBackupChannel);
+  if (
+    msgHistory === null ||
+    advertCache === null ||
+    automationRules === null ||
+    channels === null
+  ) {
+    return null;
+  }
+  if (p.identityHex !== undefined) {
+    if (
+      typeof p.identityHex !== 'string' ||
+      !new RegExp(`^[0-9a-fA-F]{${PRIVATE_KEY_BYTES * 2}}$`).test(p.identityHex)
+    ) {
+      return null;
+    }
+  }
+
   return {
     version: BACKUP_PAYLOAD_VERSION,
-    createdAt: typeof p.createdAt === 'number' ? p.createdAt : 0,
+    createdAt:
+      typeof p.createdAt === 'number' && p.createdAt >= 0 ? p.createdAt : 0,
     pubkey: p.pubkey.toLowerCase(),
     nodeName: typeof p.nodeName === 'string' ? p.nodeName : '',
-    msgHistory: normalizeHistory(p.msgHistory),
-    advertCache: normalizeRecord<Advert>(p.advertCache),
-    automationRules: Array.isArray(p.automationRules)
-      ? p.automationRules.filter(
-          (r): r is AutomationRule =>
-            typeof r === 'object' && r !== null && typeof r.id === 'string',
-        )
-      : [],
-    preferences:
-      typeof p.preferences === 'object' && p.preferences !== null
-        ? p.preferences
-        : null,
-    channels: Array.isArray(p.channels)
-      ? p.channels.filter(
-          (c): c is BackupChannel =>
-            typeof c === 'object' &&
-            c !== null &&
-            typeof c.idx === 'number' &&
-            typeof c.name === 'string' &&
-            typeof c.secretHex === 'string',
-        )
-      : [],
-    ...(typeof p.identityHex === 'string' && p.identityHex
-      ? { identityHex: p.identityHex }
-      : {}),
+    msgHistory,
+    advertCache,
+    automationRules,
+    channels,
+    preferences: isRecord(p.preferences)
+      ? (p.preferences as RadioPreferences)
+      : null,
+    ...(p.identityHex ? { identityHex: p.identityHex.toLowerCase() } : {}),
   };
 }
 
-function normalizeHistory(raw: unknown): Record<string, Message[]> {
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+// Null (reject the file) rather than an empty array, so a malformed entry is
+// never silently dropped from a restore the user was shown a count for.
+function validateArray<T>(
+  raw: unknown,
+  ok: (v: unknown) => v is T,
+): T[] | null {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) return null;
+  return raw.every(ok) ? (raw as T[]) : null;
+}
+
+function isMessage(v: unknown): v is Message {
+  if (!isRecord(v)) return false;
+  if (v.kind !== 'channel' && v.kind !== 'direct' && v.kind !== 'system') {
+    return false;
+  }
+  if (typeof v.text !== 'string') return false;
+  if (v.id !== undefined && typeof v.id !== 'string') return false;
+  if (v.timestamp !== undefined && typeof v.timestamp !== 'number')
+    return false;
+  return true;
+}
+
+function isAdvert(v: unknown): v is Advert {
+  return (
+    isRecord(v) &&
+    typeof v.pubkey === 'string' &&
+    typeof v.pubkeyPrefix === 'string' &&
+    !!v.pubkeyPrefix &&
+    typeof v.name === 'string' &&
+    typeof v.advType === 'number' &&
+    typeof v.lastHeard === 'number'
+  );
+}
+
+// Only the fields the engine dereferences without checking first. A rule that
+// is missing one of these throws on the first tick after a restore rather than
+// failing visibly here.
+function isAutomationRule(v: unknown): v is AutomationRule {
+  return (
+    isRecord(v) &&
+    typeof v.id === 'string' &&
+    !!v.id &&
+    typeof v.name === 'string' &&
+    typeof v.enabled === 'boolean' &&
+    isRecord(v.trigger) &&
+    typeof v.trigger.on === 'string' &&
+    isRecord(v.action) &&
+    typeof v.action.kind === 'string' &&
+    (v.autonomy === 'approve' || v.autonomy === 'auto') &&
+    Array.isArray(v.allowlist) &&
+    v.allowlist.every((t) => typeof t === 'string')
+  );
+}
+
+// `idx` must be a real slot: Uint8Array assignment silently wraps, so an out
+// of range index would land on (and overwrite) a different channel.
+function isBackupChannel(v: unknown): v is BackupChannel {
+  return (
+    isRecord(v) &&
+    typeof v.idx === 'number' &&
+    Number.isInteger(v.idx) &&
+    v.idx >= 0 &&
+    v.idx < MAX_CHANNEL_SLOTS &&
+    typeof v.name === 'string' &&
+    typeof v.secretHex === 'string' &&
+    (v.secretHex === '' || /^[0-9a-fA-F]{32}$/.test(v.secretHex))
+  );
+}
+
+function validateHistory(raw: unknown): Record<string, Message[]> | null {
+  if (raw === undefined) return {};
+  if (!isRecord(raw)) return null;
   const out: Record<string, Message[]> = {};
-  if (typeof raw !== 'object' || raw === null) return out;
   for (const [id, msgs] of Object.entries(raw)) {
-    if (Array.isArray(msgs)) out[id] = msgs as Message[];
+    const list = validateArray(msgs, isMessage);
+    if (list === null) return null;
+    out[id] = list;
   }
   return out;
 }
 
-function normalizeRecord<T>(raw: unknown): Record<string, T> {
-  return typeof raw === 'object' && raw !== null
-    ? (raw as Record<string, T>)
-    : {};
+function validateAdvertCache(raw: unknown): Record<string, Advert> | null {
+  if (raw === undefined) return {};
+  if (!isRecord(raw)) return null;
+  const out: Record<string, Advert> = {};
+  for (const [prefix, advert] of Object.entries(raw)) {
+    if (!isAdvert(advert)) return null;
+    out[prefix] = advert;
+  }
+  return out;
 }

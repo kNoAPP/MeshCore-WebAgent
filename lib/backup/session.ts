@@ -1,7 +1,12 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-import { useMeshStore, selectPreferences } from '@/store/meshStore';
+import {
+  useMeshStore,
+  selectPreferences,
+  type RadioPreferences,
+} from '@/store/meshStore';
+import { flushSession } from '@/lib/session/persistence';
 import { toHex, fromHex } from '@/lib/utils';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
@@ -65,6 +70,8 @@ export interface ApplyOptions {
 export interface ApplyResult {
   /** Channel slots successfully written back to the radio. */
   channelsRestored: number;
+  /** Channel slots the radio refused (out of range, or storage full). */
+  channelsFailed: number;
   /** Whether the radio accepted the backup's identity. */
   identityRestored: boolean;
 }
@@ -97,9 +104,20 @@ export async function applyBackup(
   state.restoreAutomationRules(
     mergeAutomationRules(state.automationRules, payload.automationRules),
   );
-  if (payload.preferences) state.restorePreferences(payload.preferences);
+  if (payload.preferences) {
+    state.restorePreferences(importablePreferences(payload.preferences));
+  }
 
-  const result: ApplyResult = { channelsRestored: 0, identityRestored: false };
+  // Write the restored blobs out now rather than leaving them to the debounced
+  // subscriptions: a reload (or, after an identity restore, a reconnect under a
+  // different pubkey) inside the debounce window would lose them entirely.
+  flushSession(client);
+
+  const result: ApplyResult = {
+    channelsRestored: 0,
+    channelsFailed: 0,
+    identityRestored: false,
+  };
   if (!client) return result;
 
   if (opts.restoreChannels) {
@@ -107,12 +125,13 @@ export async function applyBackup(
       const secret = fromHex(ch.secretHex, 16);
       if (!secret) continue;
       // Per slot rather than all-or-nothing: a radio with fewer slots than the
-      // backup should still take the ones it can hold.
+      // backup should still take the ones it can hold. The counts go back to
+      // the caller so a partial write is reported as one.
       try {
         await client.setChannel(ch.idx, ch.name, secret);
         result.channelsRestored++;
       } catch {
-        // Slot rejected (out of range on this model, or storage full).
+        result.channelsFailed++;
       }
     }
   }
@@ -120,10 +139,25 @@ export async function applyBackup(
   if (opts.restoreIdentity && payload.identityHex) {
     const key = fromHex(payload.identityHex, PRIVATE_KEY_BYTES);
     if (key) {
-      await client.importPrivateKey(key);
-      key.fill(0);
-      result.identityRestored = true;
+      try {
+        await client.importPrivateKey(key);
+        result.identityRestored = true;
+      } finally {
+        // Zeroed even when the radio refuses the key, so a failed restore
+        // doesn't leave the plaintext identity resident until GC.
+        key.fill(0);
+      }
     }
   }
   return result;
+}
+
+// `autoAddConfig` mirrors state the radio owns — the settings UI writes it
+// through the client, and reconnect hydration overwrites the store from the
+// device. Restoring it into the store alone would show the backup's value
+// while the radio kept its own, until the next reconnect silently replaced it.
+// It stays in the file (it describes the radio the backup came from) but is
+// not applied.
+function importablePreferences(prefs: RadioPreferences): RadioPreferences {
+  return { ...prefs, autoAddConfig: useMeshStore.getState().autoAddConfig };
 }

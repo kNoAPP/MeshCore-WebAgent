@@ -15,7 +15,7 @@ import type { BackupReadErrorCode } from '@/lib/backup/archive';
 export const MIN_PASSPHRASE_LENGTH = 12;
 
 const PRIVATE_KEY_ERROR_KEY = {
-  disabled: 'settings.backup.identityError.disabled',
+  disabled: 'settings.backup.identityError.disabledExport',
   unsupported: 'settings.backup.identityError.unsupported',
   rejected: 'settings.backup.identityError.rejected',
   writeFailed: 'settings.backup.identityError.writeFailed',
@@ -28,11 +28,19 @@ const READ_ERROR_KEY = {
   corrupt: 'settings.backup.readError.corrupt',
 } as const satisfies Record<BackupReadErrorCode, string>;
 
+// The two build flags are independent — a firmware can export but not import,
+// or the reverse — so `disabled` gets a per-action sentence rather than one
+// that claims both halves are unavailable.
+const DISABLED_KEY = {
+  export: 'settings.backup.identityError.disabledExport',
+  import: 'settings.backup.identityError.disabledImport',
+} as const satisfies Record<'export' | 'import', string>;
+
 /**
  * Explains why the radio refused an identity export or import.
  *
- * @param action - which half failed, so the `disabled` copy can name the build
- * flag the operator's firmware is missing.
+ * @param action - which half failed, so the copy describes only that operation
+ * and names the build flag the operator's firmware is missing.
  */
 export function PrivateKeyErrorText({
   code,
@@ -42,16 +50,8 @@ export function PrivateKeyErrorText({
   action: 'export' | 'import';
 }) {
   const { t } = useTranslation();
-  return (
-    <>
-      {t(PRIVATE_KEY_ERROR_KEY[code], {
-        flag:
-          action === 'export'
-            ? 'ENABLE_PRIVATE_KEY_EXPORT'
-            : 'ENABLE_PRIVATE_KEY_IMPORT',
-      })}
-    </>
-  );
+  if (code === 'disabled') return <>{t(DISABLED_KEY[action])}</>;
+  return <>{t(PRIVATE_KEY_ERROR_KEY[code])}</>;
 }
 
 /** Explains why a picked file could not be read as a backup. */

@@ -21,6 +21,10 @@ import { ModalShell } from './ModalShell';
 import { Switch } from './Switch';
 import { BackupReadErrorText, PrivateKeyErrorText } from './BackupCommon';
 
+// Stable identity for the suppressed-close handler, so ModalShell's props
+// don't change on every render while a restore runs.
+const noop = () => {};
+
 /**
  * Restores a passphrase-encrypted backup: pick a file, unlock it, review a
  * preview of exactly what would change, then apply. Nothing is written until
@@ -84,12 +88,24 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
         restoreChannels,
         restoreIdentity,
       });
-      showToast(
-        result.identityRestored
-          ? t('settings.backup.importDoneIdentity')
-          : t('settings.backup.importDone'),
-        'success',
-      );
+      // A refused slot is reported rather than folded into a plain success —
+      // the user asked for those channels to reach the radio.
+      if (result.channelsFailed > 0) {
+        showToast(
+          t('settings.backup.importDonePartial', {
+            failed: result.channelsFailed,
+            total: result.channelsFailed + result.channelsRestored,
+          }),
+          'error',
+        );
+      } else {
+        showToast(
+          result.identityRestored
+            ? t('settings.backup.importDoneIdentity')
+            : t('settings.backup.importDone'),
+          'success',
+        );
+      }
       onClose();
     } catch (err) {
       // The browser data landed before any radio write was attempted, so this
@@ -112,9 +128,13 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell
       title={t('settings.backup.importTitle')}
-      onClose={onClose}
+      // Restoring writes channel slots and can replace the radio's identity,
+      // and dismissal cannot cancel a command already in flight. Suppress every
+      // close path while it runs so closing the dialog never reads as having
+      // stopped a destructive write that is still going.
+      onClose={busy ? noop : onClose}
       widthClass='w-140'
-      confirmClose={payload !== null}
+      confirmClose={!busy && payload !== null}
     >
       {!payload ? (
         <>
@@ -154,7 +174,8 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
           <div className='mt-6 flex justify-end gap-2'>
             <button
               onClick={onClose}
-              className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
+              disabled={busy}
+              className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent'
             >
               {t('common.cancel')}
             </button>
@@ -267,7 +288,8 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
             <div className='mt-6 flex justify-end gap-2'>
               <button
                 onClick={onClose}
-                className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
+                disabled={busy}
+                className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent'
               >
                 {t('common.cancel')}
               </button>

@@ -467,6 +467,7 @@
       "importing": "Wird wiederhergestellt…",
       "importDone": "Sicherung wiederhergestellt",
       "importDoneIdentity": "Sicherung wiederhergestellt — starte die Funkeinheit neu, um den Identitätswechsel abzuschließen",
+      "importDonePartial": "Sicherung wiederhergestellt, aber {{failed}} von {{total}} Kanälen konnten nicht auf die Funkeinheit geschrieben werden",
       "importFailed": "Wiederherstellung fehlgeschlagen: {{error}}",
       "unlockAction": "Entsperren",
       "unlocking": "Wird entschlüsselt…",
@@ -488,7 +489,8 @@
       "restoreIdentity": "Identität dieser Funkeinheit ersetzen",
       "restoreIdentityWarning": "Dies überschreibt den privaten Schlüssel der verbundenen Funkeinheit mit dem aus der Sicherung. Ihre aktuelle Identität wird zerstört und ist ohne eigene Sicherung nicht wiederherstellbar. Danach muss die Funkeinheit neu gestartet werden, und Kontakte, die ihren alten öffentlichen Schlüssel kannten, erreichen sie nicht mehr.",
       "identityError": {
-        "disabled": "Die Firmware dieser Funkeinheit wurde ohne {{flag}} gebaut, daher lässt sich die Identität über die Companion-Verbindung weder lesen noch ersetzen.",
+        "disabledExport": "Die Firmware dieser Funkeinheit wurde ohne ENABLE_PRIVATE_KEY_EXPORT gebaut, daher lässt sich ihre Identität über die Companion-Verbindung nicht lesen.",
+        "disabledImport": "Die Firmware dieser Funkeinheit wurde ohne ENABLE_PRIVATE_KEY_IMPORT gebaut, daher lässt sich ihre Identität über die Companion-Verbindung nicht ersetzen.",
         "unsupported": "Die Firmware dieser Funkeinheit unterstützt keine Identitätssicherung.",
         "rejected": "Die Funkeinheit hat den Schlüssel dieser Sicherung als ungültig abgelehnt.",
         "writeFailed": "Die Funkeinheit konnte die neue Identität nicht speichern."

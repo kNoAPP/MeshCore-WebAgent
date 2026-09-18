@@ -467,6 +467,7 @@
       "importing": "Restauration…",
       "importDone": "Sauvegarde restaurée",
       "importDoneIdentity": "Sauvegarde restaurée — redémarrez la radio pour terminer le changement d'identité",
+      "importDonePartial": "Sauvegarde restaurée, mais {{failed}} canaux sur {{total}} n'ont pas pu être écrits sur la radio",
       "importFailed": "Échec de la restauration : {{error}}",
       "unlockAction": "Déverrouiller",
       "unlocking": "Déchiffrement…",
@@ -488,7 +489,8 @@
       "restoreIdentity": "Remplacer l'identité de cette radio",
       "restoreIdentityWarning": "Ceci écrase la clé privée de la radio connectée par celle de la sauvegarde. Son identité actuelle est détruite et irrécupérable sans une sauvegarde de celle-ci. La radio doit ensuite être redémarrée, et les contacts qui connaissaient son ancienne clé publique ne pourront plus la joindre.",
       "identityError": {
-        "disabled": "Le micrologiciel de cette radio a été compilé sans {{flag}} : l'identité ne peut être ni lue ni remplacée via le lien compagnon.",
+        "disabledExport": "Le micrologiciel de cette radio a été compilé sans ENABLE_PRIVATE_KEY_EXPORT : son identité ne peut pas être lue via le lien compagnon.",
+        "disabledImport": "Le micrologiciel de cette radio a été compilé sans ENABLE_PRIVATE_KEY_IMPORT : son identité ne peut pas être remplacée via le lien compagnon.",
         "unsupported": "Le micrologiciel de cette radio ne prend pas en charge la sauvegarde d'identité.",
         "rejected": "La radio a rejeté la clé de cette sauvegarde comme invalide.",
         "writeFailed": "La radio n'a pas pu enregistrer la nouvelle identité."

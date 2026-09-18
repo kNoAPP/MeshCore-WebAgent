@@ -467,6 +467,7 @@
       "importing": "Restaurando…",
       "importDone": "Copia restaurada",
       "importDoneIdentity": "Copia restaurada — reinicia la radio para terminar de cambiar la identidad",
+      "importDonePartial": "Copia restaurada, pero no se pudieron escribir {{failed}} de {{total}} canales en la radio",
       "importFailed": "Error al restaurar: {{error}}",
       "unlockAction": "Desbloquear",
       "unlocking": "Descifrando…",
@@ -488,7 +489,8 @@
       "restoreIdentity": "Reemplazar la identidad de esta radio",
       "restoreIdentityWarning": "Esto sobrescribe la clave privada de la radio conectada con la del archivo. Su identidad actual se destruye y no se puede recuperar salvo que tengas una copia de ella. Después hay que reiniciar la radio, y los contactos que conocían su clave pública anterior ya no podrán contactarla.",
       "identityError": {
-        "disabled": "El firmware de esta radio se compiló sin {{flag}}, así que la identidad no se puede leer ni reemplazar por el enlace de compañía.",
+        "disabledExport": "El firmware de esta radio se compiló sin ENABLE_PRIVATE_KEY_EXPORT, así que su identidad no se puede leer por el enlace de compañía.",
+        "disabledImport": "El firmware de esta radio se compiló sin ENABLE_PRIVATE_KEY_IMPORT, así que su identidad no se puede reemplazar por el enlace de compañía.",
         "unsupported": "El firmware de esta radio no admite la copia de seguridad de la identidad.",
         "rejected": "La radio rechazó la clave de esta copia por no ser válida.",
         "writeFailed": "La radio no pudo guardar la nueva identidad."

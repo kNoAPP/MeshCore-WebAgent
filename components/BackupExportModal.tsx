@@ -14,6 +14,10 @@ import { ModalShell } from './ModalShell';
 import { Switch } from './Switch';
 import { MIN_PASSPHRASE_LENGTH, PrivateKeyErrorText } from './BackupCommon';
 
+// Stable identity for the suppressed-close handler, so ModalShell's props
+// don't change on every render while an export runs.
+const noop = () => {};
+
 /**
  * Writes a passphrase-encrypted backup of everything this browser holds for the
  * connected radio, optionally including the radio's Ed25519 identity.
@@ -34,12 +38,18 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<React.ReactNode>(null);
 
-  const tooShort =
-    passphrase.length > 0 && passphrase.length < MIN_PASSPHRASE_LENGTH;
-  const mismatch = confirm.length > 0 && confirm !== passphrase;
+  // Measured the way the KDF sees it: deriveBackupKey normalizes to NFKC
+  // first, so a decomposed "e + combining acute" pair is one character there
+  // while raw `.length` counts two. Counting code points of the normalized
+  // form is what actually enforces the advertised minimum.
+  const normalized = passphrase.normalize('NFKC');
+  const passLength = [...normalized].length;
+  const tooShort = passphrase.length > 0 && passLength < MIN_PASSPHRASE_LENGTH;
+  const mismatch =
+    confirm.length > 0 && confirm.normalize('NFKC') !== normalized;
   const ready =
-    passphrase.length >= MIN_PASSPHRASE_LENGTH &&
-    confirm === passphrase &&
+    passLength >= MIN_PASSPHRASE_LENGTH &&
+    confirm.normalize('NFKC') === normalized &&
     !!selfInfo?.pubkey &&
     !busy;
 
@@ -83,8 +93,11 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell
       title={t('settings.backup.exportTitle')}
-      onClose={onClose}
-      confirmClose={passphrase.length > 0}
+      // Dismissal does not cancel the in-flight export, so while it runs every
+      // close path is a no-op rather than a Cancel that still downloads an
+      // identity-bearing file moments later.
+      onClose={busy ? noop : onClose}
+      confirmClose={!busy && passphrase.length > 0}
     >
       <p className='mb-4 text-xs text-text2'>
         {t('settings.backup.exportIntro')}
@@ -142,7 +155,8 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
       <div className='mt-6 flex justify-end gap-2'>
         <button
           onClick={onClose}
-          className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2'
+          disabled={busy}
+          className='rounded-md px-3 py-1.5 text-sm text-text hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent'
         >
           {t('common.cancel')}
         </button>
