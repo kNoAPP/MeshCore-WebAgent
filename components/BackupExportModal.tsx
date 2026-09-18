@@ -150,7 +150,11 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
         </p>
       </div>
 
-      {error && <p className='mt-4 text-xs text-red'>{error}</p>}
+      {error && (
+        <p role='alert' className='mt-4 text-xs text-red'>
+          {error}
+        </p>
+      )}
 
       <div className='mt-6 flex justify-end gap-2'>
         <button

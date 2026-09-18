@@ -4,7 +4,7 @@
 import type { Advert, Message } from '@/types/meshcore';
 import type { AutomationRule } from '@/types/automation';
 import type { RadioPreferences } from '@/store/meshStore';
-import { MAX_CHANNEL_SLOTS, PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
+import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
 
 /**
  * The passphrase-encrypted backup file: the per-radio blobs this browser holds
@@ -311,16 +311,44 @@ function validateArray<T>(
   return raw.every(ok) ? (raw as T[]) : null;
 }
 
+// The optional fields are checked too, not just the required ones: the bubble
+// calls `snr.toFixed(2)` and `path.join(...)` directly, so a record with
+// `snr: "x"` validates, restores, and then throws the first time that
+// conversation renders — after the import has already been committed.
 function isMessage(v: unknown): v is Message {
   if (!isRecord(v)) return false;
   if (v.kind !== 'channel' && v.kind !== 'direct' && v.kind !== 'system') {
     return false;
   }
   if (typeof v.text !== 'string') return false;
-  if (v.id !== undefined && typeof v.id !== 'string') return false;
-  if (v.timestamp !== undefined && typeof v.timestamp !== 'number')
-    return false;
-  return true;
+  return (
+    optionalType(v.id, 'string') &&
+    optionalType(v.timestamp, 'number') &&
+    optionalType(v.channelIdx, 'number') &&
+    optionalType(v.pubkeyPrefix, 'string') &&
+    optionalType(v.authorPrefix, 'string') &&
+    optionalType(v.senderName, 'string') &&
+    // Explicitly nullable on the wire: v1 channel frames carry no SNR.
+    (v.snr === undefined || v.snr === null || typeof v.snr === 'number') &&
+    optionalType(v.pathLen, 'number') &&
+    optionalArrayOf(v.path, 'string') &&
+    optionalArrayOf(v.heardVia, 'string') &&
+    optionalType(v.system, 'boolean') &&
+    optionalType(v.status, 'string') &&
+    optionalType(v.routeFlood, 'boolean') &&
+    optionalType(v.roundTripMs, 'number') &&
+    optionalType(v.attempt, 'number') &&
+    optionalType(v.heardByRepeaters, 'number') &&
+    optionalType(v.txtType, 'number') &&
+    optionalType(v._unread, 'boolean')
+  );
+}
+
+function optionalType(
+  v: unknown,
+  type: 'number' | 'string' | 'boolean',
+): boolean {
+  return v === undefined || typeof v === type;
 }
 
 function isAdvert(v: unknown): v is Advert {
@@ -408,15 +436,18 @@ function isAutomationRule(v: unknown): v is AutomationRule {
   );
 }
 
-// `idx` must be a real slot: Uint8Array assignment silently wraps, so an out
-// of range index would land on (and overwrite) a different channel.
+// `idx` is checked against the wire encoding (a uint8), not against
+// `MAX_CHANNEL_SLOTS` — that constant is only the fallback for firmware that
+// doesn't report a count, and current boards advertise far more (40 on the
+// Heltec V4.3 this was tested against). Validating against it would reject a
+// backup this very app produced from a radio with an occupied slot 8 or above.
 function isBackupChannel(v: unknown): v is BackupChannel {
   return (
     isRecord(v) &&
     typeof v.idx === 'number' &&
     Number.isInteger(v.idx) &&
     v.idx >= 0 &&
-    v.idx < MAX_CHANNEL_SLOTS &&
+    v.idx <= 0xff &&
     typeof v.name === 'string' &&
     typeof v.secretHex === 'string' &&
     (v.secretHex === '' || /^[0-9a-fA-F]{32}$/.test(v.secretHex))

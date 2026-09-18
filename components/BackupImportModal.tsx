@@ -44,7 +44,6 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   const [passphrase, setPassphrase] = useState('');
   const [payload, setPayload] = useState<BackupPayload | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
-  const [restoreChannels, setRestoreChannels] = useState(false);
   const [restoreIdentity, setRestoreIdentity] = useState(false);
   const [mismatchAck, setMismatchAck] = useState(false);
   const [identityConfirm, setIdentityConfirm] = useState('');
@@ -86,36 +85,13 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const result = await applyBackup(payload, client, {
-        restoreChannels,
-        restoreIdentity,
-      });
-      // A refused slot is reported rather than folded into a plain success —
-      // the user asked for those channels to reach the radio. The
-      // reboot-required half still has to come through even then: a failed
-      // channel write must not swallow the news that the radio took a new
-      // identity.
-      if (result.channelsFailed > 0) {
-        showToast(
-          t(
-            result.identityRestored
-              ? 'settings.backup.importDonePartialIdentity'
-              : 'settings.backup.importDonePartial',
-            {
-              failed: result.channelsFailed,
-              total: result.channelsFailed + result.channelsRestored,
-            },
-          ),
-          'error',
-        );
-      } else {
-        showToast(
-          result.identityRestored
-            ? t('settings.backup.importDoneIdentity')
-            : t('settings.backup.importDone'),
-          'success',
-        );
-      }
+      const result = await applyBackup(payload, client, { restoreIdentity });
+      showToast(
+        result.identityRestored
+          ? t('settings.backup.importDoneIdentity')
+          : t('settings.backup.importDone'),
+        'success',
+      );
       onClose();
     } catch (err) {
       // The browser data landed before any radio write was attempted, so this
@@ -208,7 +184,11 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
             className='w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent-solid'
           />
 
-          {error && <p className='mt-4 text-xs text-red'>{error}</p>}
+          {error && (
+            <p role='alert' className='mt-4 text-xs text-red'>
+              {error}
+            </p>
+          )}
 
           <div className='mt-6 flex justify-end gap-2'>
             <button
@@ -296,18 +276,6 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
-            {preview.channels > 0 && (
-              <div className='mt-4'>
-                <Switch
-                  label={t('settings.backup.restoreChannels')}
-                  description={t('settings.backup.restoreChannelsHint')}
-                  checked={restoreChannels}
-                  onChange={setRestoreChannels}
-                  disabled={!client}
-                />
-              </div>
-            )}
-
             {preview.hasIdentity && (
               <div className='mt-4 rounded-md border border-red bg-red/10 p-3'>
                 <Switch
@@ -346,7 +314,11 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
-            {error && <p className='mt-4 text-xs text-red'>{error}</p>}
+            {error && (
+              <p role='alert' className='mt-4 text-xs text-red'>
+                {error}
+              </p>
+            )}
 
             <div className='mt-6 flex justify-end gap-2'>
               <button

@@ -716,7 +716,15 @@ interface MeshActions {
    * normalizing every field so a corrupt or partial record falls back to
    * defaults. See {@link RadioPreferences}.
    */
-  restorePreferences: (raw: unknown) => void;
+  /**
+   * Loads a per-radio preferences blob into the store.
+   *
+   * @param explicit - true for a deliberate restore (a backup import), which
+   * overrides the map viewport and filters the user touched this session.
+   * False (the default) is connect-time hydration, where a pan made while the
+   * blob was still loading is newer intent than the stored value and wins.
+   */
+  restorePreferences: (raw: unknown, explicit?: boolean) => void;
   addMessage: (id: string, msg: Message) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
@@ -1033,7 +1041,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setNotifyPref: (notifyPref) => set({ notifyPref }),
 
-  restorePreferences: (raw) => {
+  restorePreferences: (raw, explicit = false) => {
     const p = (
       typeof raw === 'object' && raw !== null ? raw : {}
     ) as Partial<RadioPreferences>;
@@ -1044,9 +1052,15 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // back itself. Only *this* session's move counts: the store isn't reset
     // between reconnects, and the radio that comes back may not be the one
     // that left.
-    const keepMapPrefs = mapPrefsTouched;
+    // Those guards exist for the *hydrate* race only. An explicit import is a
+    // deliberate act on a settled session, and the preview told the user the
+    // file's preferences replace theirs — so it clears the touched marks and
+    // lets every field come from the blob.
+    const keepMapPrefs = explicit ? false : mapPrefsTouched;
     mapPrefsTouched = false;
-    const keptFilters = new Set(mapFiltersTouched);
+    const keptFilters = explicit
+      ? new Set<keyof MapFilters>()
+      : new Set(mapFiltersTouched);
     mapFiltersTouched.clear();
     const storedFilters = normalizeMapFilters(p.mapFilters);
     set((state) => ({

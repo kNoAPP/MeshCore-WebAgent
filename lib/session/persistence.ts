@@ -79,11 +79,36 @@ export function flushPreferences(client: MeshCoreClient | null): void {
  * Flushes all three per-radio blobs. The two paths that end a session — a
  * deliberate disconnect and a drop into the reconnect loop — both have to
  * persist everything, so they share one call rather than each listing them.
+ *
+ * @remarks Fire-and-forget: the three writes are started, not awaited, because
+ * the teardown paths run where nothing can wait on IndexedDB. Callers that must
+ * know the data actually reached disk before continuing use
+ * {@link flushSessionAsync}.
  */
 export function flushSession(client: MeshCoreClient | null): void {
-  flushHistory(client);
-  flushAdvertCache(client);
-  flushPreferences(client);
+  void flushSessionAsync(client);
+}
+
+/**
+ * {@link flushSession}, awaitable — resolves once all three encrypted writes
+ * have been attempted.
+ *
+ * @remarks For the backup restore, which must not report success (or start a
+ * radio write) while the imported history is still only in memory: a reload in
+ * that window would lose it. Individual writes are best-effort and swallow
+ * their own failures, so this resolves rather than rejecting.
+ */
+export async function flushSessionAsync(
+  client: MeshCoreClient | null,
+): Promise<void> {
+  const pubkey = client?.selfInfo?.pubkey;
+  if (!pubkey || !storageKey) return;
+  const state = useMeshStore.getState();
+  await Promise.all([
+    saveRadioData(pubkey, storageKey, { msgHistory: state.msgHistory }),
+    saveAdvertCache(pubkey, storageKey, state.advertCache),
+    savePreferences(pubkey, storageKey, selectPreferences(state)),
+  ]);
 }
 
 /**
