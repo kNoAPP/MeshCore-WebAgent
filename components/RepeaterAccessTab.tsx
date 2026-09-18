@@ -9,6 +9,7 @@ import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { resolveNeighbor } from '@/lib/map/nodes';
 import {
+  ACCESS_LIST_MAX_ENTRIES,
   PERM_ACL_ADMIN,
   PERM_ACL_GUEST,
   PERM_ACL_READ_ONLY,
@@ -48,7 +49,10 @@ const ROLE_LABELS = [
  * admins. (A room server is the exception — it filters its reply to admin
  * entries.) A plain guest is the one role that cannot appear: the firmware
  * spends zero for both "deleted" and the guest role, and skips those entries
- * when building the reply. Read-only by design, as
+ * when building the reply. Nor is the list guaranteed whole — the reply is one
+ * packet with no total and no way to ask for a second, so a node holding more
+ * than {@link ACCESS_LIST_MAX_ENTRIES} is reported as possibly short.
+ * Read-only by design, as
  * the firmware exposes no way to edit the list remotely; the point of showing
  * it is that an operator can see who else holds a role on a node they
  * administer. Each entry carries only a 6-byte key prefix, so it is named only
@@ -160,6 +164,18 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
           {t('repeaterAdmin.accessList.stale')}
         </p>
       )}
+      {/* A reply that filled the firmware's buffer is the only sign this list
+          may be short — the request carries no total and no way to ask for the
+          rest, so a node holding more entries than fit answers with a reply
+          that looks whole. Say so rather than let the table imply completeness.
+          Exactly at the cap because the firmware stops there, not below it. */}
+      {rows.length >= ACCESS_LIST_MAX_ENTRIES && (
+        <p className='rounded-lg border border-border p-3 text-sm text-text2'>
+          {t('repeaterAdmin.accessList.truncated', {
+            max: ACCESS_LIST_MAX_ENTRIES,
+          })}
+        </p>
+      )}
       {rows.length === 0 ? (
         <div className='rounded-lg border border-border p-6'>
           <p className='text-center text-sm text-text2'>
@@ -196,8 +212,11 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
                 >
                   <td className='px-3 py-1.5'>
                     {node ? (
-                      <span className='truncate'>
-                        {ADV_ICON[node.advType] ?? '👤'} {node.name}
+                      <span className='flex items-center gap-1.5 truncate'>
+                        <span aria-hidden='true'>
+                          {ADV_ICON[node.advType] ?? '👤'}
+                        </span>
+                        <span className='truncate'>{node.name}</span>
                       </span>
                     ) : (
                       <span className='font-mono text-xs text-text2'>

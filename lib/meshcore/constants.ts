@@ -357,6 +357,24 @@ export const NEIGHBORS_PAGE_SIZE = Math.floor(
 export const NEIGHBORS_READ_LIMIT = 50;
 
 /**
+ * How many access-list entries a repeater's reply can carry, above which the
+ * list it returns is silently short.
+ *
+ * @remarks
+ * The handler writes 7-byte entries into the shared 184-byte `reply_data` from
+ * offset 4 and stops while `ofs + 7 <= sizeof(reply_data) - 4`, which lands at
+ * 25 — but a repeater is built with `MAX_CLIENTS` 32. Unlike
+ * {@link BINARY_REQ.GET_NEIGHBOURS} this request takes no offset and reports no
+ * total, so a node holding more than this returns a full-looking reply with the
+ * rest missing and nothing to say so. A list arriving at exactly this length is
+ * therefore the only warning available that it may be incomplete.
+ *
+ * @see the `REQ_TYPE_GET_ACCESS_LIST` branch in `MyMesh::handleRequest` and
+ * `MAX_CLIENTS` in `examples/simple_repeater/MyMesh.h`.
+ */
+export const ACCESS_LIST_MAX_ENTRIES = 25;
+
+/**
  * `route_type` in a raw MeshCore packet header (the `PUSH_LOG_RX_DATA`
  * payload): flood routed.
  */
