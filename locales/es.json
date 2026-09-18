@@ -731,7 +731,8 @@
       "telemetry": "Telemetría",
       "config": "Configuración",
       "neighbors": "Vecinos",
-      "console": "Consola"
+      "console": "Consola",
+      "access": "Acceso"
     },
     "tabsLabel": "Administración del nodo",
     "login": {
@@ -795,6 +796,7 @@
     "neighbors": {
       "empty": "No se han escuchado vecinos recientemente.",
       "error": "No se pudieron cargar los vecinos. Intenta actualizar.",
+      "stale": "Se muestra la última lista de vecinos leída. La actualización más reciente falló, así que puede estar desactualizada.",
       "loading": "Cargando vecinos…",
       "listLabel": "Vecinos",
       "viewLabel": "Vista de vecinos",
@@ -812,6 +814,21 @@
       "hiddenByAge_other": "{{count}} vecinos se escucharon hace más tiempo que el intervalo de arriba.",
       "noLocation": "Se escucharon vecinos, pero ninguno pudo ubicarse en el mapa: no tienen una ubicación conocida.",
       "noAnchor": "Este repetidor no tiene una ubicación anunciada, por lo que sus vecinos no pueden mostrarse en el mapa."
+    },
+    "accessList": {
+      "caption": "Clientes para los que este nodo informó una entrada de acceso, y el rol que se concedió a cada uno.",
+      "label": "Lista de control de acceso",
+      "loading": "Cargando lista de acceso…",
+      "unavailable": "No se pudo cargar la lista de acceso. Intenta actualizar: puede que se haya perdido la respuesta o que este nodo tenga firmware sin esta solicitud.",
+      "stale": "Se muestra la última lista de acceso leída. La actualización más reciente falló, así que puede estar desactualizada.",
+      "truncated": "La respuesta de este nodo se llenó con {{max}} entradas, y esta solicitud no informa ningún total: puede que tenga más de las que se enumeran aquí.",
+      "empty": "Sin entradas de acceso.",
+      "colClient": "Cliente",
+      "colRole": "Rol",
+      "roleGuest": "Invitado",
+      "roleReadOnly": "Solo lectura",
+      "roleReadWrite": "Miembro",
+      "roleAdmin": "Administrador"
     },
     "console": {
       "empty": "Aún no hay salida. Envía un comando para empezar, o pulsa el botón ? para ver la lista de comandos.",

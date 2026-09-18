@@ -91,6 +91,21 @@ export const CMD = {
   SEND_TELEMETRY_REQ: 0x27,
   GET_CUSTOM_VARS: 0x28,
   SET_CUSTOM_VAR: 0x29,
+  /**
+   * Asks the radio to relay a structured request to another node:
+   * `[0x32][32-byte pubkey][request code][params…]`. The radio replies `SENT`
+   * with a 4-byte **tag**, then pushes {@link RESP.PUSH_BINARY_RESPONSE}
+   * carrying that same tag once the target answers. Unlike
+   * {@link CMD.SEND_STATUS_REQ} and {@link CMD.SEND_TELEMETRY_REQ} — which the
+   * firmware marks as deprecated in its favour — correlation is by tag rather
+   * than by pubkey prefix, so a reply can never be claimed by a request to the
+   * same node that preceded it.
+   *
+   * @see `CMD_SEND_BINARY_REQ` (50) in the firmware's
+   * `examples/companion_radio/MyMesh.cpp` and `sendBinaryRequest` in
+   * `meshcore.js`. Not listed on the published protocol page.
+   */
+  SEND_BINARY_REQ: 0x32,
   GET_STATS: 0x38,
   SET_AUTOADD_CONFIG: 0x3a,
   GET_AUTOADD_CONFIG: 0x3b,
@@ -203,6 +218,22 @@ export const RESP = {
    */
   PUSH_TELEMETRY_RESPONSE: 0x8b,
   /**
+   * Push carrying another node's answer to a {@link CMD.SEND_BINARY_REQ}:
+   * `[0x8c][reserved][tag (uint32 LE)][response bytes]`. The tag matches the
+   * one the `SENT` receipt returned; the response bytes are whatever the
+   * target's request handler produced, with its own reflected tag already
+   * stripped by the companion radio.
+   *
+   * @remarks
+   * The firmware only emits this when the target's reply body is non-empty
+   * (`len > 4`), so a handler that returns nothing — an unknown request type,
+   * or an access list with no entries — produces no push at all and the
+   * request times out.
+   * @see `PUSH_CODE_BINARY_RESPONSE` and `MyMesh::onContactResponse` in the
+   * firmware's `examples/companion_radio/MyMesh.cpp`.
+   */
+  PUSH_BINARY_RESPONSE: 0x8c,
+  /**
    * Push announcing the radio evicted a contact: `[0x8f][32-byte pubkey]`.
    * Emitted when auto-add's "overwrite oldest" mode
    * ({@link AUTOADD.OVERWRITE_OLDEST}) reclaims a slot for a newly heard node,
@@ -242,6 +273,106 @@ export const ERR_CODE = {
   FILE_IO_ERROR: 5,
   ILLEGAL_ARG: 6,
 } as const;
+
+/**
+ * Request codes carried as the first byte of a {@link CMD.SEND_BINARY_REQ}
+ * payload, mirroring the firmware's `REQ_TYPE_*` defines. Which ones a node
+ * answers depends on its role and firmware: a node that does not recognize a
+ * code returns an empty reply, which reaches this app as a timeout rather than
+ * an error.
+ *
+ * @see the `REQ_TYPE_*` defines in `examples/simple_repeater/MyMesh.cpp` and
+ * `Constants.BinaryRequestTypes` in `meshcore.js`.
+ */
+export const BINARY_REQ = {
+  /**
+   * The node's CayenneLPP sensor telemetry — the same payload
+   * {@link CMD.SEND_TELEMETRY_REQ} fetches over its own command.
+   */
+  GET_TELEMETRY_DATA: 0x03,
+  /**
+   * Aggregated min/average/max sensor stats. Listed for completeness: no
+   * shipping repeater or room-server firmware implements a handler for it, so
+   * a request would simply time out.
+   */
+  GET_AVG_MIN_MAX: 0x04,
+  /**
+   * The node's access control list — who may administer it. Admin-only, and
+   * answered by both repeaters and room servers (a room reports only its admin
+   * entries).
+   */
+  GET_ACCESS_LIST: 0x05,
+  /**
+   * The node's neighbor table, structured and paged rather than squeezed into
+   * one 160-byte CLI reply. Repeater-only.
+   */
+  GET_NEIGHBOURS: 0x06,
+} as const;
+
+/**
+ * `order_by` values for a {@link BINARY_REQ.GET_NEIGHBOURS} request. The
+ * repeater sorts its whole table by this before applying the page window, so
+ * paging with a fixed order walks the list in that order.
+ *
+ * @see the `order_by` branches in `MyMesh::handleRequest`
+ * (`examples/simple_repeater/MyMesh.cpp`).
+ */
+export const NEIGHBOR_ORDER = {
+  NEWEST_FIRST: 0,
+  OLDEST_FIRST: 1,
+  STRONGEST_FIRST: 2,
+  WEAKEST_FIRST: 3,
+} as const;
+
+/**
+ * How many bytes of each neighbor's public key a
+ * {@link BINARY_REQ.GET_NEIGHBOURS} request asks for. Eight is twice what the
+ * `neighbors` CLI reply carries, which matters because the app resolves a
+ * neighbor to a node by prefix and refuses to name an ambiguous one — and it
+ * still leaves room for a useful page size. The repeater clamps anything above
+ * 32 to the full key.
+ */
+export const NEIGHBOR_PREFIX_BYTES = 8;
+
+/**
+ * How many neighbors one {@link BINARY_REQ.GET_NEIGHBOURS} page asks for.
+ * The repeater builds its results into a fixed 130-byte buffer and stops early
+ * once the next entry would not fit, so asking for more than fits only wastes
+ * the request: an entry is {@link NEIGHBOR_PREFIX_BYTES} + 4 (age) + 1 (SNR)
+ * bytes.
+ *
+ * @see the `results_buffer[130]` cap in `MyMesh::handleRequest`
+ * (`examples/simple_repeater/MyMesh.cpp`).
+ */
+export const NEIGHBORS_PAGE_SIZE = Math.floor(
+  130 / (NEIGHBOR_PREFIX_BYTES + 5),
+);
+
+/**
+ * Upper bound on how many neighbors are read across pages, matching the
+ * largest `MAX_NEIGHBOURS` the firmware is built with (50). Each page is its
+ * own mesh round trip, so this caps the walk even if a node reports an absurd
+ * total.
+ */
+export const NEIGHBORS_READ_LIMIT = 50;
+
+/**
+ * How many access-list entries a repeater's reply can carry, above which the
+ * list it returns is silently short.
+ *
+ * @remarks
+ * The handler writes 7-byte entries into the shared 184-byte `reply_data` from
+ * offset 4 and stops while `ofs + 7 <= sizeof(reply_data) - 4`, which lands at
+ * 25 — but a repeater is built with `MAX_CLIENTS` 32. Unlike
+ * {@link BINARY_REQ.GET_NEIGHBOURS} this request takes no offset and reports no
+ * total, so a node holding more than this returns a full-looking reply with the
+ * rest missing and nothing to say so. A list arriving at exactly this length is
+ * therefore the only warning available that it may be incomplete.
+ *
+ * @see the `REQ_TYPE_GET_ACCESS_LIST` branch in `MyMesh::handleRequest` and
+ * `MAX_CLIENTS` in `examples/simple_repeater/MyMesh.h`.
+ */
+export const ACCESS_LIST_MAX_ENTRIES = 25;
 
 /**
  * `route_type` in a raw MeshCore packet header (the `PUSH_LOG_RX_DATA`
@@ -489,6 +620,13 @@ export const PERM_ACL_ROLE_MASK = 0x03;
 export const PERM_ACL_READ_WRITE = 0x02;
 /** ACL role value granting full remote administration. */
 export const PERM_ACL_ADMIN = 0x03;
+/**
+ * ACL role value for an anonymous or password-less client — the role a node
+ * assigns a guest login.
+ */
+export const PERM_ACL_GUEST = 0x00;
+/** ACL role value granting reads but no posts. */
+export const PERM_ACL_READ_ONLY = 0x01;
 
 /**
  * `autoadd_config` bitmask sent with {@link CMD.SET_AUTOADD_CONFIG}.

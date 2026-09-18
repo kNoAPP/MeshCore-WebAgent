@@ -730,7 +730,8 @@
       "telemetry": "Telemetry",
       "config": "Config",
       "neighbors": "Neighbors",
-      "console": "Console"
+      "console": "Console",
+      "access": "Access"
     },
     "tabsLabel": "Node administration",
     "login": {
@@ -794,6 +795,7 @@
     "neighbors": {
       "empty": "No neighbors heard recently.",
       "error": "Couldn't load neighbors. Try refreshing.",
+      "stale": "Showing the last neighbors read. The latest refresh failed, so it may be out of date.",
       "loading": "Loading neighbors…",
       "listLabel": "Neighbors",
       "viewLabel": "Neighbors view",
@@ -811,6 +813,21 @@
       "hiddenByAge_other": "{{count}} neighbors were heard longer ago than the window above.",
       "noLocation": "Neighbors were heard, but none could be placed on the map — they have no known location.",
       "noAnchor": "This repeater has no advertised location, so its neighbors can't be shown on the map."
+    },
+    "accessList": {
+      "caption": "Clients this node reported an access entry for, and the role each was granted.",
+      "label": "Access control list",
+      "loading": "Loading access list…",
+      "unavailable": "Couldn't load the access list. Try refreshing — the reply may have been lost, or this node may have firmware without this request.",
+      "stale": "Showing the last access list read. The latest refresh failed, so it may be out of date.",
+      "truncated": "This node's reply was full at {{max}} entries, and this request reports no total — it may hold more than are listed here.",
+      "empty": "No access entries.",
+      "colClient": "Client",
+      "colRole": "Role",
+      "roleGuest": "Guest",
+      "roleReadOnly": "Read-only",
+      "roleReadWrite": "Member",
+      "roleAdmin": "Admin"
     },
     "console": {
       "empty": "No output yet. Send a command to get started, or press the ? button for the command list.",

@@ -322,6 +322,52 @@ export interface NodeTelemetry {
   readings: TelemetryReading[];
 }
 
+/** One node in a repeater's neighbor table. */
+export interface Neighbor {
+  /**
+   * The node's public-key prefix as lowercase hex. Its length depends on where
+   * the row came from: 8 characters (4 bytes) from a `neighbors` CLI reply, 16
+   * (`NEIGHBOR_PREFIX_BYTES`) from a structured `GET_NEIGHBOURS` read.
+   */
+  prefix: string;
+  /**
+   * Unix epoch seconds the repeater last heard this neighbor. Derived at parse
+   * time from the wire field, which is the *age* in seconds
+   * (`now - heard_timestamp` on the node), converted to an absolute time so a
+   * relative "heard N ago" label keeps growing while the tab stays open.
+   */
+  lastHeard: number;
+  /** Signal-to-noise ratio in dB (the wire value divided by 4). */
+  snr: number;
+}
+
+/**
+ * One page of a repeater's neighbor table, from a `GET_NEIGHBOURS` response.
+ *
+ * @remarks The repeater reports {@link total} before applying the page window,
+ * so it is how a caller knows another page is worth asking for.
+ */
+export interface NeighborsPage {
+  /** How many neighbors the repeater holds in total, ignoring the window. */
+  total: number;
+  /** The rows this page carried, in the requested order. */
+  neighbors: Neighbor[];
+}
+
+/**
+ * One entry of a node's access control list, from a `GET_ACCESS_LIST` response.
+ *
+ * @remarks The node reports only a 6-byte key prefix, never a full public key,
+ * so an entry names a client only as far as this browser can resolve that
+ * prefix against its own contacts and advert cache.
+ */
+export interface AclEntry {
+  /** 6-byte public-key prefix (hex) of the client this entry governs. */
+  pubkeyPrefix: string;
+  /** Raw permissions byte; its low two bits hold the ACL role. */
+  permissions: number;
+}
+
 /**
  * Access level a repeater/room server grants a login, decoded from the ACL role
  * bits of the `PUSH_LOGIN_SUCCESS` permissions byte. The server — not the

@@ -16,6 +16,9 @@ import type {
   RepeaterStatus,
   RepeaterAccess,
   NodeTelemetry,
+  Neighbor,
+  NeighborsPage,
+  AclEntry,
 } from '@/types/meshcore';
 import {
   ROUTE_TYPE_FLOOD,
@@ -25,6 +28,7 @@ import {
   PERM_ACL_ADMIN,
   PERM_ACL_READ_WRITE,
   PRIVATE_KEY_BYTES,
+  NEIGHBOR_PREFIX_BYTES,
 } from './constants';
 import { decodeCayenneLpp } from './cayenneLpp';
 import { toHex } from '@/lib/utils';
@@ -585,4 +589,100 @@ export function parseLoginPush(
   const access: RepeaterAccess | null =
     d[1] === 1 ? 'admin' : d[1] === 2 ? 'guest' : null;
   return { pubkeyPrefix, access };
+}
+
+/**
+ * Parses a `PUSH_BINARY_RESPONSE` (`0x8c`) into the tag that identifies which
+ * request it answers and the target's raw reply bytes.
+ *
+ * @remarks
+ * Frame: `[0x8c][reserved][tag (uint32 LE)][response bytes]`. The tag is the
+ * `expectedAck` field of the `SENT` receipt the request returned — the only
+ * correlation this family of requests has, and the reason it does not need the
+ * prefix matching that `PUSH_STATUS_RESPONSE` relies on. The response bytes
+ * are already stripped of the reflected timestamp the target prefixes its
+ * reply with.
+ * @returns null on a frame too short to carry a tag.
+ */
+export function parseBinaryResponse(
+  d: Uint8Array,
+): { tag: number; data: Uint8Array } | null {
+  if (d.length < 6) return null;
+  const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
+  return { tag: v.getUint32(2, true), data: d.slice(6) };
+}
+
+/**
+ * Decodes a `GET_NEIGHBOURS` response body: a uint16 total, a uint16 row
+ * count, then that many fixed-width rows of
+ * `[pubkey prefix][seconds heard ago (uint32 LE)][SNR (int8, quarter-dB)]`.
+ *
+ * @remarks
+ * The row width is not on the wire — it follows the `pubkey_prefix_len` the
+ * request asked for ({@link NEIGHBOR_PREFIX_BYTES}) — so a body that does not
+ * hold the rows it claims is treated as malformed rather than decoded
+ * half-way. The age is converted to an absolute epoch here for the same reason
+ * {@link parseNeighborsReply} does it.
+ * @returns null when the body is too short for its own header or row count.
+ * @see the `REQ_TYPE_GET_NEIGHBOURS` reply built in `MyMesh::handleRequest`
+ * (`examples/simple_repeater/MyMesh.cpp`).
+ */
+export function parseNeighborsResponse(data: Uint8Array): NeighborsPage | null {
+  if (data.length < 4) return null;
+  const v = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const total = v.getUint16(0, true);
+  const count = v.getUint16(2, true);
+  const rowLen = NEIGHBOR_PREFIX_BYTES + 5;
+  if (data.length < 4 + count * rowLen) return null;
+  const nowSecs = Math.floor(Date.now() / 1000);
+  const neighbors: Neighbor[] = [];
+  for (let i = 0; i < count; i++) {
+    const at = 4 + i * rowLen;
+    neighbors.push({
+      prefix: hexBytes(data, at, at + NEIGHBOR_PREFIX_BYTES),
+      lastHeard: nowSecs - v.getUint32(at + NEIGHBOR_PREFIX_BYTES, true),
+      snr: v.getInt8(at + NEIGHBOR_PREFIX_BYTES + 4) / 4,
+    });
+  }
+  return { total, neighbors };
+}
+
+/**
+ * Decodes a `GET_ACCESS_LIST` response body: fixed 7-byte entries of
+ * `[6-byte pubkey prefix][permissions]`.
+ *
+ * @remarks
+ * **The body length says nothing about the entry count.** `Utils::encrypt`
+ * zero-pads the final cipher block, so the payload arrives rounded up to a
+ * multiple of 16 while the entries are 7 bytes each — the two almost never
+ * agree. Five entries travel as `4 + 35 = 39` bytes of reply, padded to 48 and
+ * reaching this parser as 44, which spans six whole 7-byte slots. So the tail
+ * yields **phantom all-zero entries**, not just leftover bytes, and neither
+ * decoding every slot nor demanding a multiple of seven is right: the first
+ * invents members, the second rejects every real reply.
+ *
+ * A zero permissions byte is what separates them. The firmware skips such
+ * entries when building the list (`if (c->permissions == 0) continue`), so a
+ * zero byte here can only be padding — and a guest, whose role value *is* zero,
+ * is skipped by that same line and never appears at all.
+ * @returns every live entry, and an empty array when the node holds none. A
+ * node with an empty list still answers: the handler returns the 4-byte tag
+ * alone, which the cipher pads to a whole block, so the companion radio's
+ * `len > 4` guard passes and a body of twelve zero bytes arrives here. Getting
+ * this far at all means the node replied.
+ * @see the `REQ_TYPE_GET_ACCESS_LIST` reply built in `MyMesh::handleRequest`
+ * (`examples/simple_repeater/MyMesh.cpp`) and `Utils::encrypt` in
+ * `src/Utils.cpp` for the padding.
+ */
+export function parseAccessList(data: Uint8Array): AclEntry[] {
+  const entries: AclEntry[] = [];
+  for (let at = 0; at + 7 <= data.length; at += 7) {
+    const permissions = data[at + 6];
+    if (permissions === 0) continue;
+    entries.push({
+      pubkeyPrefix: hexBytes(data, at, at + 6),
+      permissions,
+    });
+  }
+  return entries;
 }

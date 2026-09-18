@@ -29,7 +29,7 @@ import type {
   AuditEntry,
 } from '@/types/automation';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
-import type { Neighbor } from '@/lib/meshcore/repeaterCli';
+import type { AclEntry, Neighbor } from '@/types/meshcore';
 import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import { convoId } from '@/lib/utils';
 import i18n from '@/lib/i18n';
@@ -415,6 +415,30 @@ export interface AdminSession {
    * until the first read; an empty array is a settled "no neighbors" result.
    */
   neighbors?: Neighbor[];
+  /**
+   * Whether the newest attempt to refresh {@link neighbors} failed, so the
+   * cached rows are the last good read rather than a confirmed current one.
+   * Session state for the same reason as {@link accessListStale}: the tab
+   * unmounts on navigation, so component state would reset and the stale list
+   * would come back looking freshly confirmed.
+   */
+  neighborsStale?: boolean;
+  /**
+   * Cache of the node's last-read access control list. Ephemeral like the rest
+   * of the session — it names who may administer this node, so it must not
+   * outlive the admin login that was allowed to read it. `undefined` until the
+   * first read; an empty array is a settled "no entries", which a node holding
+   * none does answer with.
+   */
+  accessList?: AclEntry[];
+  /**
+   * Whether the newest attempt to refresh {@link accessList} failed, so the
+   * cached rows are the last good read rather than a confirmed current one.
+   * Kept here rather than in the tab because the tab unmounts on navigation:
+   * component state would reset and the stale list would come back looking
+   * freshly confirmed.
+   */
+  accessListStale?: boolean;
 }
 
 /**
@@ -842,8 +866,42 @@ interface MeshActions {
     status: RepeaterStatus,
     token?: number,
   ) => void;
-  /** Caches the last-read neighbors list for a repeater's admin session. */
-  setRepeaterNeighbors: (prefix: string, neighbors: Neighbor[]) => void;
+  /**
+   * Caches the last-read neighbors list for a repeater's admin session.
+   *
+   * @param token - the {@link AdminSession.token} the read was issued under;
+   *   the result is dropped when the session has since been replaced.
+   */
+  setRepeaterNeighbors: (
+    prefix: string,
+    neighbors: Neighbor[],
+    token?: number,
+  ) => void;
+  /**
+   * Caches the last-read access control list for a node's admin session.
+   *
+   * @param token - as {@link MeshActions.setRepeaterNeighbors}, and more
+   *   load-bearing here: only an admin may read this list, so a reply landing
+   *   in a session that replaced the one which asked must not be kept.
+   */
+  setRepeaterAccessList: (
+    prefix: string,
+    entries: AclEntry[],
+    token?: number,
+  ) => void;
+  /**
+   * Marks a node's cached access list as not confirmed by the latest attempt.
+   *
+   * @param token - as {@link MeshActions.setRepeaterAccessList}.
+   */
+  setRepeaterAccessStale: (prefix: string, token?: number) => void;
+  /**
+   * Marks a repeater's cached neighbors list as not confirmed by the latest
+   * attempt.
+   *
+   * @param token - as {@link MeshActions.setRepeaterNeighbors}.
+   */
+  setRepeaterNeighborsStale: (prefix: string, token?: number) => void;
   /** Merges loaded/confirmed Config values into a repeater's session cache. */
   mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
@@ -1389,11 +1447,19 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         cli: [],
         token: nextAdminSessionToken(),
       };
+      const next: AdminSession = { ...session, login };
+      // The role can change without the token doing so, and the access list is
+      // the one cached read that requires `admin`. Dropping it on the way out
+      // is what makes the next admin login read the node again rather than show
+      // the previous login's copy: the tab skips its automatic read whenever a
+      // list is already cached, so leaving it would outlive the session that
+      // earned it.
+      if (login !== 'admin') {
+        delete next.accessList;
+        delete next.accessListStale;
+      }
       return {
-        adminSessions: {
-          ...state.adminSessions,
-          [prefix]: { ...session, login },
-        },
+        adminSessions: { ...state.adminSessions, [prefix]: next },
       };
     }),
   setRepeaterStatus: (prefix, status, token) => {
@@ -1419,17 +1485,63 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       },
     });
   },
-  setRepeaterNeighbors: (prefix, neighbors) => {
+  setRepeaterNeighbors: (prefix, neighbors, token) => {
     const { adminSessions } = get();
     const session = adminSessions[prefix];
-    // Neighbors belong to a live, authenticated session. Drop a late reply
-    // that lands after log-out or before login completes, matching
-    // setRepeaterStatus, so it can't resurrect a logged-out session.
+    // Neighbors belong to the live, authenticated session that asked for them.
+    // Drop a late reply that lands after log-out or before login completes, and
+    // one issued under a session since replaced by a log-out and re-login —
+    // matching setRepeaterStatus. A structured read walks several pages, so
+    // that window is wide enough to hit in practice.
     if (!isAuthedLogin(session?.login)) return;
+    if (token !== undefined && session?.token !== token) return;
     set({
       adminSessions: {
         ...adminSessions,
-        [prefix]: { ...session, neighbors },
+        [prefix]: { ...session, neighbors, neighborsStale: false },
+      },
+    });
+  },
+  setRepeaterNeighborsStale: (prefix, token) => {
+    const { adminSessions } = get();
+    const session = adminSessions[prefix];
+    // Same gate as the rows the flag describes.
+    if (!isAuthedLogin(session?.login)) return;
+    if (token !== undefined && session?.token !== token) return;
+    set({
+      adminSessions: {
+        ...adminSessions,
+        [prefix]: { ...session, neighborsStale: true },
+      },
+    });
+  },
+  setRepeaterAccessList: (prefix, entries, token) => {
+    const { adminSessions } = get();
+    const session = adminSessions[prefix];
+    // Only an admin may read this list, so only an admin session may hold it.
+    // `isAuthedLogin` is not enough on two counts: it accepts guest and
+    // readWrite, and `setAdminLogin` can drop an existing session to one of
+    // those *without* minting a new token — so the role must be checked as well
+    // as the token, or a demoted session keeps the rows its predecessor earned.
+    if (session?.login !== 'admin') return;
+    if (token !== undefined && session.token !== token) return;
+    set({
+      adminSessions: {
+        ...adminSessions,
+        [prefix]: { ...session, accessList: entries, accessListStale: false },
+      },
+    });
+  },
+  setRepeaterAccessStale: (prefix, token) => {
+    const { adminSessions } = get();
+    const session = adminSessions[prefix];
+    // Same gate as setRepeaterAccessList: the flag describes those rows.
+    if (session?.login !== 'admin') return;
+    if (token !== undefined && session.token !== token) return;
+    set({
+      adminSessions: {
+        ...adminSessions,
+        [prefix]: { ...session, accessListStale: true },
       },
     });
   },

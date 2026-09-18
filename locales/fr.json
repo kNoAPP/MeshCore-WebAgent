@@ -731,7 +731,8 @@
       "telemetry": "Télémétrie",
       "config": "Configuration",
       "neighbors": "Voisins",
-      "console": "Console"
+      "console": "Console",
+      "access": "Accès"
     },
     "tabsLabel": "Administration du nœud",
     "login": {
@@ -795,6 +796,7 @@
     "neighbors": {
       "empty": "Aucun voisin entendu récemment.",
       "error": "Impossible de charger les voisins. Essayez d’actualiser.",
+      "stale": "Affiche la dernière liste de voisins lue. La dernière actualisation a échoué, elle peut donc être obsolète.",
       "loading": "Chargement des voisins…",
       "listLabel": "Voisins",
       "viewLabel": "Vue des voisins",
@@ -812,6 +814,21 @@
       "hiddenByAge_other": "{{count}} voisins ont été entendus il y a plus longtemps que la période ci-dessus.",
       "noLocation": "Des voisins ont été entendus, mais aucun n’a pu être placé sur la carte — aucun emplacement connu.",
       "noAnchor": "Ce répéteur n’a pas d’emplacement annoncé, ses voisins ne peuvent donc pas être affichés sur la carte."
+    },
+    "accessList": {
+      "caption": "Clients pour lesquels ce nœud a signalé une entrée d'accès, et le rôle accordé à chacun.",
+      "label": "Liste de contrôle d'accès",
+      "loading": "Chargement de la liste d'accès…",
+      "unavailable": "Impossible de charger la liste d'accès. Essayez d'actualiser : la réponse a peut-être été perdue, ou ce nœud a un firmware sans cette requête.",
+      "stale": "Affiche la dernière liste d'accès lue. La dernière actualisation a échoué, elle peut donc être obsolète.",
+      "truncated": "La réponse de ce nœud était pleine à {{max}} entrées, et cette requête n'indique aucun total : il en détient peut-être plus que celles listées ici.",
+      "empty": "Aucune entrée d'accès.",
+      "colClient": "Client",
+      "colRole": "Rôle",
+      "roleGuest": "Invité",
+      "roleReadOnly": "Lecture seule",
+      "roleReadWrite": "Membre",
+      "roleAdmin": "Administrateur"
     },
     "console": {
       "empty": "Aucune sortie pour l’instant. Envoyez une commande pour commencer, ou ouvrez la liste des commandes avec le bouton ?.",

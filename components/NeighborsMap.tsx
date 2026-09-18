@@ -17,7 +17,7 @@ import type { StartView } from '@/lib/map/config';
 import { formatSnr } from '@/lib/i18n/format';
 import { LEGEND_CATEGORIES } from '@/lib/map/markers';
 import { contactCategory, heardAgeSecs } from '@/lib/utils';
-import type { Neighbor } from '@/lib/meshcore/repeaterCli';
+import type { Neighbor } from '@/types/meshcore';
 import type { Advert, Contact } from '@/types/meshcore';
 import { BaseLeafletMap } from './BaseLeafletMap';
 import { HeardWithinFilter } from './HeardWithinFilter';

@@ -6,7 +6,15 @@
  * structured `get`/`set` catalog in `repeaterConfig.ts` — today just the
  * `neighbors` list. Command strings follow the CLI reference at
  * https://docs.meshcore.io/cli_commands/.
+ *
+ * @remarks
+ * The `neighbors` CLI reply is the fallback path only: firmware that answers a
+ * structured `GET_NEIGHBOURS` binary request is read through
+ * `parseNeighborsResponse` instead, which is neither truncated by the text
+ * message limit nor pinned to the firmware's row formatting.
  */
+
+import type { Neighbor } from '@/types/meshcore';
 
 /**
  * The exact hex length of a neighbor's public-key prefix in a `neighbors`
@@ -21,21 +29,6 @@ const NEIGHBOR_PREFIX_HEX_LEN = 8;
 const NEIGHBOR_PREFIX_RE = new RegExp(
   `^[0-9a-fA-F]{${NEIGHBOR_PREFIX_HEX_LEN}}$`,
 );
-
-/** One parsed row of a `neighbors` reply. */
-export interface Neighbor {
-  /** The node's 4-byte public-key prefix, as 8 lowercase hex characters. */
-  prefix: string;
-  /**
-   * Unix epoch seconds the repeater last heard this neighbor. Derived at parse
-   * time from the wire field, which is the *age* in seconds
-   * (`now − heard_timestamp` on the node), converted to an absolute time so a
-   * relative "heard N ago" label keeps growing while the tab stays open.
-   */
-  lastHeard: number;
-  /** Signal-to-noise ratio in dB (the wire value divided by 4). */
-  snr: number;
-}
 
 /**
  * Parses a `neighbors` CLI reply into rows. The reply lists up to the 8 most
