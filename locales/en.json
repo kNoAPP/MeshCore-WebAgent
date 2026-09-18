@@ -467,6 +467,7 @@
       "importDone": "Backup restored",
       "importDoneIdentity": "Backup restored — reboot the radio to finish switching identity",
       "importDonePartial": "Backup restored, but {{failed}} of {{total}} channels could not be written to the radio",
+      "importDonePartialIdentity": "Identity replaced — reboot the radio. {{failed}} of {{total}} channels could not be written.",
       "importFailed": "Restore failed: {{error}}",
       "unlockAction": "Unlock",
       "unlocking": "Decrypting…",

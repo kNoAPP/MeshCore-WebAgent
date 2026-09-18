@@ -6,7 +6,8 @@ import {
   selectPreferences,
   type RadioPreferences,
 } from '@/store/meshStore';
-import { flushSession } from '@/lib/session/persistence';
+import { flushSession, setStorageKey } from '@/lib/session/persistence';
+import { deriveStorageKey } from '@/lib/storage';
 import { toHex, fromHex } from '@/lib/utils';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
@@ -15,7 +16,7 @@ import {
   type BackupChannel,
   type BackupPayload,
 } from './archive';
-import { mergeAutomationRules } from './merge';
+import { freshAdverts, mergeAutomationRules } from './merge';
 
 /**
  * Binds the pure backup format in `./archive` to this session: reading the
@@ -100,7 +101,7 @@ export async function applyBackup(
 ): Promise<ApplyResult> {
   const state = useMeshStore.getState();
   state.restoreHistory(payload.msgHistory);
-  state.cacheAdverts(payload.advertCache);
+  state.cacheAdverts(freshAdverts(payload.advertCache, state.advertCache));
   state.restoreAutomationRules(
     mergeAutomationRules(state.automationRules, payload.automationRules),
   );
@@ -134,6 +135,13 @@ export async function applyBackup(
         result.channelsFailed++;
       }
     }
+    // `deriveStorageKey` takes the radio's channel secrets as its password
+    // material, so writing a different secret silently re-keys all per-radio
+    // storage. The blobs flushed above went out under the pre-restore key; on
+    // the next connect the key would be derived from the *new* channels and
+    // none of it would decrypt. Re-derive now and rewrite everything under the
+    // key the next session will actually use.
+    if (result.channelsRestored > 0) await rekeyStorage(client);
   }
 
   if (opts.restoreIdentity && payload.identityHex) {
@@ -150,6 +158,21 @@ export async function applyBackup(
     }
   }
   return result;
+}
+
+// Re-derives the per-radio storage key from the radio's channel secrets as they
+// stand after a channel restore, hands it to the persistence layer, and
+// rewrites every blob under it. Mirrors the derivation the connect flow
+// performs in `useMeshCore`, so the two can never disagree about which key a
+// session uses.
+async function rekeyStorage(client: MeshCoreClient): Promise<void> {
+  const pubkey = client.selfInfo?.pubkey;
+  if (!pubkey) return;
+  const secrets = Object.values(client.channels)
+    .map((ch) => ch.secret)
+    .filter((s): s is Uint8Array => s != null && s.length > 0);
+  setStorageKey(await deriveStorageKey(secrets, pubkey));
+  flushSession(client);
 }
 
 // `autoAddConfig` mirrors state the radio owns — the settings UI writes it

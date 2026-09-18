@@ -468,6 +468,7 @@
       "importDone": "Sicherung wiederhergestellt",
       "importDoneIdentity": "Sicherung wiederhergestellt — starte die Funkeinheit neu, um den Identitätswechsel abzuschließen",
       "importDonePartial": "Sicherung wiederhergestellt, aber {{failed}} von {{total}} Kanälen konnten nicht auf die Funkeinheit geschrieben werden",
+      "importDonePartialIdentity": "Identität ersetzt — starte die Funkeinheit neu. {{failed}} von {{total}} Kanälen konnten nicht geschrieben werden.",
       "importFailed": "Wiederherstellung fehlgeschlagen: {{error}}",
       "unlockAction": "Entsperren",
       "unlocking": "Wird entschlüsselt…",

@@ -11,16 +11,20 @@ import { BACKUP_FILE_EXT } from './archive';
 
 /**
  * Builds the suggested filename for a backup, e.g.
- * `meshcore-KN0-APP-2026-09-17.mcbak`. The node name is reduced to
- * filename-safe characters and the pubkey's first bytes disambiguate two radios
- * with the same name.
+ * `meshcore-KN0-APP-41029c91-2026-09-17.mcbak`. The node name is reduced to
+ * filename-safe characters, and the pubkey prefix is always included so two
+ * radios that share a name still get distinct files on the same day.
  */
 export function backupFilename(nodeName: string, pubkey: string): string {
   const safeName = nodeName
     .replace(/[^A-Za-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
   const date = new Date().toISOString().slice(0, 10);
-  const parts = ['meshcore', safeName || pubkey.slice(0, 8), date];
+  // The pubkey prefix is unconditional, not a fallback for an unnamed radio:
+  // two nodes called "Base" would otherwise overwrite each other's backup.
+  const parts = ['meshcore', safeName, pubkey.slice(0, 8), date].filter(
+    Boolean,
+  );
   return parts.join('-') + BACKUP_FILE_EXT;
 }
 

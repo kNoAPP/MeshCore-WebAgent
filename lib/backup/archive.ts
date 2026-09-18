@@ -335,9 +335,59 @@ function isAdvert(v: unknown): v is Advert {
   );
 }
 
-// Only the fields the engine dereferences without checking first. A rule that
-// is missing one of these throws on the first tick after a restore rather than
-// failing visibly here.
+// Each trigger and action variant is validated against its own required
+// fields, not just the discriminant: the Settings page and the engine read
+// variant-specific properties directly, so `{kind: 'prompt'}` with no
+// `allowTools` would render once and throw. An unknown discriminant is rejected
+// too — this build has no code path for it.
+function isRuleTrigger(v: unknown): boolean {
+  if (!isRecord(v)) return false;
+  switch (v.on) {
+    case 'message':
+      return (
+        (v.scope === 'direct' || v.scope === 'channel' || v.scope === 'any') &&
+        optionalArrayOf(v.channels, 'number') &&
+        optionalArrayOf(v.contacts, 'string')
+      );
+    case 'advert':
+      return optionalArrayOf(v.advTypes, 'number');
+    case 'ack':
+      return true;
+    case 'connection':
+      return v.status === undefined || typeof v.status === 'string';
+    case 'schedule':
+      return typeof v.cron === 'string';
+    default:
+      return false;
+  }
+}
+
+function isRuleAction(v: unknown): boolean {
+  if (!isRecord(v)) return false;
+  switch (v.kind) {
+    case 'fixed':
+      return typeof v.tool === 'string' && isRecord(v.args);
+    case 'prompt':
+      return (
+        typeof v.system === 'string' &&
+        Array.isArray(v.allowTools) &&
+        v.allowTools.every((t) => typeof t === 'string') &&
+        (v.providerId === undefined || typeof v.providerId === 'string') &&
+        (v.model === undefined || typeof v.model === 'string') &&
+        (v.maxTurns === undefined || typeof v.maxTurns === 'number') &&
+        (v.maxTokens === undefined || typeof v.maxTokens === 'number')
+      );
+    default:
+      return false;
+  }
+}
+
+function optionalArrayOf(v: unknown, type: 'number' | 'string'): boolean {
+  return (
+    v === undefined || (Array.isArray(v) && v.every((x) => typeof x === type))
+  );
+}
+
 function isAutomationRule(v: unknown): v is AutomationRule {
   return (
     isRecord(v) &&
@@ -345,13 +395,16 @@ function isAutomationRule(v: unknown): v is AutomationRule {
     !!v.id &&
     typeof v.name === 'string' &&
     typeof v.enabled === 'boolean' &&
-    isRecord(v.trigger) &&
-    typeof v.trigger.on === 'string' &&
-    isRecord(v.action) &&
-    typeof v.action.kind === 'string' &&
+    isRuleTrigger(v.trigger) &&
+    isRuleAction(v.action) &&
     (v.autonomy === 'approve' || v.autonomy === 'auto') &&
     Array.isArray(v.allowlist) &&
-    v.allowlist.every((t) => typeof t === 'string')
+    v.allowlist.every((t) => typeof t === 'string') &&
+    (v.cooldownSec === undefined || typeof v.cooldownSec === 'number') &&
+    (v.condition === undefined ||
+      (isRecord(v.condition) &&
+        (v.condition.contains === undefined ||
+          typeof v.condition.contains === 'string')))
   );
 }
 

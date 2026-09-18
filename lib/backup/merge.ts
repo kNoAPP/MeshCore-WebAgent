@@ -79,9 +79,14 @@ export function previewImport(
     }
   }
 
+  // Counted off the filtered set, so the numbers shown are the ones that will
+  // actually land — a backup entry older than the cached sighting is dropped by
+  // `freshAdverts` and belongs in neither column.
   let newAdverts = 0;
   let updatedAdverts = 0;
-  for (const prefix of Object.keys(payload.advertCache)) {
+  for (const prefix of Object.keys(
+    freshAdverts(payload.advertCache, current.advertCache),
+  )) {
     if (current.advertCache[prefix]) updatedAdverts++;
     else newAdverts++;
   }
@@ -106,6 +111,31 @@ export function previewImport(
       connectedPubkey === null ||
       connectedPubkey.toLowerCase() !== payload.pubkey,
   };
+}
+
+/**
+ * Drops backup adverts the cache already knows about at least as recently,
+ * leaving only genuinely newer records.
+ *
+ * @remarks `mergeAdvertCache` is written for adverts just heard off the air: it
+ * spreads the incoming record over the cached one and only takes the newer
+ * *timestamp*, so a backup's name, type and location would win even when the
+ * cached sighting is more recent. Restoring an old backup must not roll live
+ * metadata backwards, so the stale entries are removed before that merge sees
+ * them — and {@link previewImport} counts the same way, so the preview promises
+ * exactly what lands.
+ */
+export function freshAdverts(
+  incoming: Record<string, Advert>,
+  cached: Record<string, Advert>,
+): Record<string, Advert> {
+  const out: Record<string, Advert> = {};
+  for (const [prefix, advert] of Object.entries(incoming)) {
+    const existing = cached[prefix];
+    if (existing && existing.lastHeard >= advert.lastHeard) continue;
+    out[prefix] = advert;
+  }
+  return out;
 }
 
 /**

@@ -468,6 +468,7 @@
       "importDone": "Copia restaurada",
       "importDoneIdentity": "Copia restaurada — reinicia la radio para terminar de cambiar la identidad",
       "importDonePartial": "Copia restaurada, pero no se pudieron escribir {{failed}} de {{total}} canales en la radio",
+      "importDonePartialIdentity": "Identidad reemplazada: reinicia la radio. No se pudieron escribir {{failed}} de {{total}} canales.",
       "importFailed": "Error al restaurar: {{error}}",
       "unlockAction": "Desbloquear",
       "unlocking": "Descifrando…",

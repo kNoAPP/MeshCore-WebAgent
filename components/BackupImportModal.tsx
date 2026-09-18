@@ -91,13 +91,21 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
         restoreIdentity,
       });
       // A refused slot is reported rather than folded into a plain success —
-      // the user asked for those channels to reach the radio.
+      // the user asked for those channels to reach the radio. The
+      // reboot-required half still has to come through even then: a failed
+      // channel write must not swallow the news that the radio took a new
+      // identity.
       if (result.channelsFailed > 0) {
         showToast(
-          t('settings.backup.importDonePartial', {
-            failed: result.channelsFailed,
-            total: result.channelsFailed + result.channelsRestored,
-          }),
+          t(
+            result.identityRestored
+              ? 'settings.backup.importDonePartialIdentity'
+              : 'settings.backup.importDonePartial',
+            {
+              failed: result.channelsFailed,
+              total: result.channelsFailed + result.channelsRestored,
+            },
+          ),
           'error',
         );
       } else {
@@ -126,13 +134,35 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
 
   const num = (n: number) => fmtNum(n, i18n.language);
   const connectedName = selfInfo?.name ?? '';
+  const connectedPubkey = selfInfo?.pubkey?.toLowerCase() ?? null;
+
+  // The auto-reconnect loop keeps this modal mounted while it swaps `client`
+  // and `selfInfo`, and what comes back may be a different radio. Both
+  // confirmations are therefore bound to the pubkey they were given for and
+  // dropped the moment it changes — otherwise an acknowledgement for one radio
+  // would still authorize the write to another. Adjusted during render (the
+  // "reset state when an input changes" pattern) rather than in an effect, so
+  // it lands before the buttons below read it.
+  const [ackedFor, setAckedFor] = useState(connectedPubkey);
+  if (ackedFor !== connectedPubkey) {
+    setAckedFor(connectedPubkey);
+    setMismatchAck(false);
+    setIdentityConfirm('');
+  }
+
+  // Recomputed from the live pubkey rather than read off `preview`, which was
+  // frozen at unlock time and would still describe the radio that was connected
+  // then.
+  const pubkeyMismatch =
+    payload !== null &&
+    (connectedPubkey === null || connectedPubkey !== payload.pubkey);
+
   // Restore stays disabled until both irreversible choices are confirmed the
   // way each is meant to be: the different-radio graft by acknowledging it, and
   // the identity replacement by naming the node it destroys.
   const identityUnconfirmed =
     restoreIdentity && identityConfirm.trim() !== connectedName;
-  const blocked =
-    (preview?.pubkeyMismatch && !mismatchAck) || identityUnconfirmed;
+  const blocked = (pubkeyMismatch && !mismatchAck) || identityUnconfirmed;
 
   return (
     <ModalShell
@@ -249,7 +279,7 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
               />
             </dl>
 
-            {preview.pubkeyMismatch && (
+            {pubkeyMismatch && (
               <div className='mt-5 rounded-md border border-red bg-red/10 p-3'>
                 <p className='mb-2 text-xs leading-relaxed text-text'>
                   {t('settings.backup.mismatchWarning', {
