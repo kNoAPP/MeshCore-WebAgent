@@ -128,6 +128,7 @@ export const SETTINGS_SECTIONS = [
   'notifications',
   'ai',
   'automation',
+  'backup',
   'danger',
 ] as const;
 
@@ -711,11 +712,16 @@ interface MeshActions {
   setMapPrefs: (prefs: MapPrefs) => void;
   setMapFilters: (filters: MapFilters) => void;
   /**
-   * Folds a decrypted per-radio preferences blob into the store on connect,
-   * normalizing every field so a corrupt or partial record falls back to
-   * defaults. See {@link RadioPreferences}.
+   * Folds a decrypted per-radio preferences blob into the store, normalizing
+   * every field so a corrupt or partial record falls back to defaults. See
+   * {@link RadioPreferences}.
+   *
+   * @param explicit - true for a deliberate restore (a backup import), which
+   * overrides the map viewport and filters the user touched this session.
+   * False (the default) is connect-time hydration, where a pan made while the
+   * blob was still loading is newer intent than the stored value and wins.
    */
-  restorePreferences: (raw: unknown) => void;
+  restorePreferences: (raw: unknown, explicit?: boolean) => void;
   addMessage: (id: string, msg: Message) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
@@ -733,7 +739,21 @@ interface MeshActions {
   markRead: (id: string) => void;
   /** Clears the unread flag on every conversation at once. */
   markAllRead: () => void;
-  restoreHistory: (persisted: Record<string, Message[]>) => void;
+  /**
+   * Folds a persisted history back onto the live one, de-duplicating by message
+   * id (the live copy of a shared id wins).
+   *
+   * @param interleave - order each merged conversation by timestamp instead of
+   * placing every persisted message ahead of every live one. A reconnect
+   * hydrate wants the default: its records are a strictly older prefix of the
+   * same transcript, and arrival order is the more truthful ordering when a
+   * sender's clock is skewed. A backup import wants `true` — a file from
+   * another browser interleaves with what this one already holds.
+   */
+  restoreHistory: (
+    persisted: Record<string, Message[]>,
+    interleave?: boolean,
+  ) => void;
   /**
    * Raises a toast. Pass `convo` to make the banner open that conversation
    * when clicked.
@@ -1032,7 +1052,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setNotifyPref: (notifyPref) => set({ notifyPref }),
 
-  restorePreferences: (raw) => {
+  restorePreferences: (raw, explicit = false) => {
     const p = (
       typeof raw === 'object' && raw !== null ? raw : {}
     ) as Partial<RadioPreferences>;
@@ -1043,9 +1063,15 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // back itself. Only *this* session's move counts: the store isn't reset
     // between reconnects, and the radio that comes back may not be the one
     // that left.
-    const keepMapPrefs = mapPrefsTouched;
+    // Those guards exist for the *hydrate* race only. An explicit import is a
+    // deliberate act on a settled session, and the preview told the user the
+    // file's preferences replace theirs — so it clears the touched marks and
+    // lets every field come from the blob.
+    const keepMapPrefs = explicit ? false : mapPrefsTouched;
     mapPrefsTouched = false;
-    const keptFilters = new Set(mapFiltersTouched);
+    const keptFilters = explicit
+      ? new Set<keyof MapFilters>()
+      : new Set(mapFiltersTouched);
     mapFiltersTouched.clear();
     const storedFilters = normalizeMapFilters(p.mapFilters);
     set((state) => ({
@@ -1152,7 +1178,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       return { drafts };
     }),
 
-  restoreHistory: (persisted) =>
+  restoreHistory: (persisted, interleave = false) =>
     set((state) => {
       // Prepend persisted messages before any newly-polled messages (old → new
       // order).
@@ -1191,7 +1217,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
             seen.add(m.id);
             return true;
           });
-        merged[id] = [...old, ...keptCurrent];
+        const list = [...old, ...keptCurrent];
+        merged[id] = interleave ? byTimestamp(list) : list;
       }
       return { msgHistory: merged };
     }),
@@ -1540,6 +1567,24 @@ function inFlightOnRestore(msg: Message): boolean {
   return (
     msg.status === 'sending' || (msg.kind === 'direct' && msg.status === 'sent')
   );
+}
+
+// Orders a merged conversation chronologically, for the backup import: a file
+// from another browser holds messages both older and newer than the live ones,
+// and the chat's date dividers and sender grouping read adjacent entries, so an
+// unordered list renders repeated day headers and broken groups. A message with
+// no timestamp (they predate the field) inherits the one before it, keeping it
+// beside the neighbors it was stored with instead of collapsing to the top;
+// `sort` is stable, so equal keys hold the merge's own order.
+function byTimestamp(msgs: Message[]): Message[] {
+  let last = 0;
+  return msgs
+    .map((msg) => {
+      if (msg.timestamp !== undefined) last = msg.timestamp;
+      return { msg, at: last };
+    })
+    .sort((a, b) => a.at - b.at)
+    .map((k) => k.msg);
 }
 
 /** Counts unread messages in one conversation. */

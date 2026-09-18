@@ -20,7 +20,7 @@ import type {
   NodeTelemetry,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
-import { MeshConnectError } from './errors';
+import { MeshConnectError, PrivateKeyError } from './errors';
 import {
   RESP,
   ERR_CODE,
@@ -49,6 +49,8 @@ import {
   buildAddOrUpdateContact,
   buildRemoveContact,
   buildShareContact,
+  buildExportPrivateKey,
+  buildImportPrivateKey,
   buildSendSelfAdvert,
   buildSetChannel,
   buildSetAdvertName,
@@ -86,6 +88,7 @@ import {
   parseStatusResponse,
   parseLoginPush,
   parseTelemetryResponse,
+  parsePrivateKey,
 } from './parsers';
 import { sortByHeardAge, toHex } from '@/lib/utils';
 
@@ -395,6 +398,20 @@ export class MeshCoreClient {
       () => undefined,
     );
     return { run, tail };
+  }
+
+  // Maps a refused private-key exchange onto a PrivateKeyError the Settings UI
+  // can explain. Only the device ERR codes the two firmware handlers actually
+  // emit are translated; timeouts and transport failures stay as they are so
+  // the generic retry/reconnect copy still applies to them.
+  private static privateKeyError(err: unknown): unknown {
+    const code = (err as { code?: number }).code;
+    if (code === ERR_CODE.UNSUPPORTED_CMD)
+      return new PrivateKeyError('unsupported');
+    if (code === ERR_CODE.ILLEGAL_ARG) return new PrivateKeyError('rejected');
+    if (code === ERR_CODE.FILE_IO_ERROR)
+      return new PrivateKeyError('writeFailed');
+    return err;
   }
 
   private cmd(
@@ -1245,6 +1262,71 @@ export class MeshCoreClient {
     const rawHops =
       cfg.maxHops >= MAX_HOPS_NO_LIMIT ? 0 : Math.min(cfg.maxHops + 1, 64);
     await this.cmd(buildSetAutoAddConfig(bits, rawHops), [RESP.OK], 5000);
+  }
+
+  /**
+   * Reads the radio's Ed25519 private key for an identity backup
+   * (`EXPORT_PRIVATE_KEY`).
+   *
+   * @returns the raw {@link PRIVATE_KEY_BYTES}-byte key. The caller is
+   * responsible for it: write it straight into the passphrase-encrypted backup
+   * and zero the array — it must never reach the store, the DOM, or a log.
+   * @throws PrivateKeyError with `disabled` when the build has
+   * `ENABLE_PRIVATE_KEY_EXPORT` unset, or `unsupported` on firmware predating
+   * the command. Other device errors, timeouts, and transport failures
+   * propagate unchanged.
+   */
+  async exportPrivateKey(): Promise<Uint8Array> {
+    let d: Uint8Array;
+    try {
+      d = await this.cmd(
+        buildExportPrivateKey(),
+        [RESP.PRIVATE_KEY, RESP.DISABLED],
+        5000,
+      );
+    } catch (err) {
+      throw MeshCoreClient.privateKeyError(err);
+    }
+    if (d[0] === RESP.DISABLED) throw new PrivateKeyError('disabled');
+    try {
+      // `parsePrivateKey` copies the key out, so the response frame is a second
+      // readable copy of the identity. Zero it on every path — including the
+      // malformed-frame one — rather than leaving it resident until GC.
+      const key = parsePrivateKey(d);
+      if (!key) throw new PrivateKeyError('unsupported');
+      return key;
+    } finally {
+      d.fill(0);
+    }
+  }
+
+  /**
+   * Replaces the radio's Ed25519 identity from a backup
+   * (`IMPORT_PRIVATE_KEY`). The radio rewrites its stored identity and reloads
+   * contacts to invalidate their cached ECDH shared secrets; it needs a reboot
+   * before the new identity is fully in effect, which this method does not
+   * perform.
+   *
+   * @param prvKey - the {@link PRIVATE_KEY_BYTES}-byte key from a backup.
+   * @throws PrivateKeyError with `disabled`, `unsupported`, `rejected` (the
+   * radio failed `validatePrivateKey`), or `writeFailed` (the radio could not
+   * persist it). Timeouts and transport failures propagate unchanged.
+   */
+  async importPrivateKey(prvKey: Uint8Array): Promise<void> {
+    // The command frame is a second copy of the identity, and the command chain
+    // holds the closure that captured it until the next command displaces it —
+    // so it is kept in a local and zeroed once the exchange has settled, rather
+    // than being left to GC.
+    const frame = buildImportPrivateKey(prvKey);
+    let d: Uint8Array;
+    try {
+      d = await this.cmd(frame, [RESP.OK, RESP.DISABLED], 10000);
+    } catch (err) {
+      throw MeshCoreClient.privateKeyError(err);
+    } finally {
+      frame.fill(0);
+    }
+    if (d[0] === RESP.DISABLED) throw new PrivateKeyError('disabled');
   }
 
   /**

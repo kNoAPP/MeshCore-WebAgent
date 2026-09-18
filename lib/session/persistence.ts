@@ -3,7 +3,12 @@
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { useMeshStore, selectPreferences } from '@/store/meshStore';
-import { saveRadioData, saveAdvertCache, savePreferences } from '@/lib/storage';
+import {
+  saveRadioData,
+  saveAdvertCache,
+  savePreferences,
+  saveAutomationRules,
+} from '@/lib/storage';
 
 const SAVE_DEBOUNCE_MS = 1000;
 
@@ -76,14 +81,51 @@ export function flushPreferences(client: MeshCoreClient | null): void {
 }
 
 /**
- * Flushes all three per-radio blobs. The two paths that end a session — a
- * deliberate disconnect and a drop into the reconnect loop — both have to
- * persist everything, so they share one call rather than each listing them.
+ * Flushes all four per-radio records — history, advert cache, preferences and
+ * automation rules. The two paths that end a session — a deliberate disconnect
+ * and a drop into the reconnect loop — both have to persist everything, so they
+ * share one call rather than each listing them.
+ *
+ * @remarks Fire-and-forget: the writes are started, not awaited, because
+ * the teardown paths run where nothing can wait on IndexedDB. Callers that must
+ * know the data actually reached disk before continuing use
+ * {@link flushSessionAsync}.
  */
 export function flushSession(client: MeshCoreClient | null): void {
-  flushHistory(client);
-  flushAdvertCache(client);
-  flushPreferences(client);
+  void flushSessionAsync(client);
+}
+
+/**
+ * {@link flushSession}, awaitable — resolves once all four encrypted writes
+ * have been attempted.
+ *
+ * @remarks For the backup restore, which must not report success (or start a
+ * radio write) while the imported data is still only in memory: a reload in
+ * that window would lose it. Individual writes are best-effort and swallow
+ * their own failures, so this resolves rather than rejecting.
+ *
+ * Covers automation rules too, which the debounced path above does not: they
+ * are saved by an effect in `useAutomation` that nothing awaits, so a restore
+ * ending in a reboot would otherwise race that write.
+ *
+ * @returns whether the data is actually on disk — false when no session key is
+ * bound (a reconnect cleared it, or none was ever derived) and false when any
+ * of the four writes failed. A caller that reports persistence state must not
+ * read a resolved promise as a successful write.
+ */
+export async function flushSessionAsync(
+  client: MeshCoreClient | null,
+): Promise<boolean> {
+  const pubkey = client?.selfInfo?.pubkey;
+  if (!pubkey || !storageKey) return false;
+  const state = useMeshStore.getState();
+  const results = await Promise.all([
+    saveRadioData(pubkey, storageKey, { msgHistory: state.msgHistory }),
+    saveAdvertCache(pubkey, storageKey, state.advertCache),
+    savePreferences(pubkey, storageKey, selectPreferences(state)),
+    saveAutomationRules(pubkey, storageKey, state.automationRules),
+  ]);
+  return results.every(Boolean);
 }
 
 /**

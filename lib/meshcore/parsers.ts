@@ -24,6 +24,7 @@ import {
   PERM_ACL_ROLE_MASK,
   PERM_ACL_ADMIN,
   PERM_ACL_READ_WRITE,
+  PRIVATE_KEY_BYTES,
 } from './constants';
 import { decodeCayenneLpp } from './cayenneLpp';
 import { toHex } from '@/lib/utils';
@@ -245,6 +246,19 @@ export function parseChannelInfo(d: Uint8Array): Channel | null {
     name: nullTermStr(d, 2, 32),
     secret: d.slice(34, 50),
   };
+}
+
+/**
+ * Parses a `PRIVATE_KEY` frame into the radio's raw Ed25519 private key.
+ *
+ * @returns a copy of the {@link PRIVATE_KEY_BYTES}-byte key, or null when the
+ * frame is short (a firmware that answered with a different layout).
+ * @remarks Layout: `[code] prv_key(64)`. The caller owns the returned bytes and
+ * should zero them once the backup is written — they are the node's identity.
+ */
+export function parsePrivateKey(d: Uint8Array): Uint8Array | null {
+  if (d.length < 1 + PRIVATE_KEY_BYTES) return null;
+  return d.slice(1, 1 + PRIVATE_KEY_BYTES);
 }
 
 /**

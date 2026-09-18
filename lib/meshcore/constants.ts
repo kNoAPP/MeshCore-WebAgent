@@ -28,6 +28,31 @@ export const CMD = {
   IMPORT_CONTACT: 0x12,
   REBOOT: 0x13,
   GET_BATT_AND_STORAGE: 0x14,
+  /**
+   * Reads the radio's Ed25519 identity for backup: the payload is the bare
+   * code byte. The radio answers {@link RESP.PRIVATE_KEY} with the 64-byte
+   * private key, or {@link RESP.DISABLED} on a build compiled without
+   * `ENABLE_PRIVATE_KEY_EXPORT`.
+   *
+   * @see `CMD_EXPORT_PRIVATE_KEY` (23) in the firmware's
+   * `examples/companion_radio/MyMesh.cpp`. Not listed on the published
+   * protocol page.
+   */
+  EXPORT_PRIVATE_KEY: 0x17,
+  /**
+   * Replaces the radio's Ed25519 identity: `[0x18][64-byte private key]`. The
+   * firmware re-derives the public key, rewrites the stored identity, and
+   * reloads contacts to invalidate their cached ECDH shared secrets; it
+   * answers {@link RESP.OK}, {@link RESP.ERR} with
+   * {@link ERR_CODE.ILLEGAL_ARG} when the key fails `validatePrivateKey`, or
+   * {@link RESP.DISABLED} on a build compiled without
+   * `ENABLE_PRIVATE_KEY_IMPORT`.
+   *
+   * @see `CMD_IMPORT_PRIVATE_KEY` (24) in the firmware's
+   * `examples/companion_radio/MyMesh.cpp`. Not listed on the published
+   * protocol page.
+   */
+  IMPORT_PRIVATE_KEY: 0x18,
   DEVICE_QUERY: 0x16,
   /**
    * Logs in to a repeater or room server for remote admin:
@@ -90,6 +115,27 @@ export const RESP = {
   NO_MORE_MESSAGES: 0x0a,
   BATT_AND_STORAGE: 0x0c,
   DEVICE_INFO: 0x0d,
+  /**
+   * The radio's Ed25519 identity, answering {@link CMD.EXPORT_PRIVATE_KEY}:
+   * `[0x0e][64-byte private key]`. The firmware writes the key with a 64-byte
+   * budget, which is exactly `PRV_KEY_SIZE`, so the 32-byte public key does
+   * *not* follow — an importing radio re-derives it.
+   *
+   * @see `RESP_CODE_PRIVATE_KEY` (14) in the firmware's
+   * `examples/companion_radio/MyMesh.cpp` and `LocalIdentity::writeTo` in
+   * `src/Identity.cpp`.
+   */
+  PRIVATE_KEY: 0x0e,
+  /**
+   * The command exists but this build has it compiled out: the payload is the
+   * bare code byte, with no error code. Emitted by `writeDisabledFrame` for
+   * the private-key commands when `ENABLE_PRIVATE_KEY_EXPORT` /
+   * `ENABLE_PRIVATE_KEY_IMPORT` are unset.
+   *
+   * @see `RESP_CODE_DISABLED` (15) in the firmware's
+   * `examples/companion_radio/MyMesh.cpp`.
+   */
+  DISABLED: 0x0f,
   CONTACT_MSG_V3: 0x10,
   CHANNEL_MSG_V3: 0x11,
   CHANNEL_INFO: 0x12,
@@ -243,6 +289,16 @@ export const TXT_TYPE = {
  * that counts toward this limit on the radio.
  */
 export const MAX_MSG_BYTES = 160;
+
+/**
+ * Length of a MeshCore Ed25519 private key, in bytes — the firmware's
+ * `PRV_KEY_SIZE`. It is the payload of both {@link CMD.IMPORT_PRIVATE_KEY} and
+ * {@link RESP.PRIVATE_KEY}; the 32-byte public key is not carried alongside it
+ * (an importing radio derives it from the private key).
+ *
+ * @see `PRV_KEY_SIZE` in the firmware's `src/MeshCore.h`.
+ */
+export const PRIVATE_KEY_BYTES = 64;
 
 /**
  * The well-known 16-byte secret of MeshCore's default **Public** channel
