@@ -35,6 +35,7 @@ import { SwitchTrack } from './Switch';
 import { AiSettingsBody } from './AiSettings';
 import { NotificationSettingsBody } from './NotificationSettings';
 import { AutomationSettingsBody } from './AutomationPanel';
+import { BackupSettingsBody } from './BackupSettings';
 import { SUPPORTED_UNIT_SYSTEMS } from '@/lib/units/config';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 
@@ -230,6 +231,14 @@ export function SettingsPage() {
               section='automation'
             >
               <AutomationSettingsBody />
+            </Card>
+
+            <Card
+              title={t('settings.section.backup')}
+              className='md:col-span-2 xl:col-span-3'
+              section='backup'
+            >
+              <BackupSettingsBody />
             </Card>
 
             <RebootCard />

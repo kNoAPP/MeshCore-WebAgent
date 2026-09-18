@@ -128,6 +128,7 @@ export const SETTINGS_SECTIONS = [
   'notifications',
   'ai',
   'automation',
+  'backup',
   'danger',
 ] as const;
 

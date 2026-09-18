@@ -4,6 +4,7 @@
 import {
   CMD,
   MAX_MSG_BYTES,
+  PRIVATE_KEY_BYTES,
   MAX_ADVERT_NAME_BYTES,
   RADIO_PARAM_SCALE,
   LATLON_SCALE,
@@ -46,6 +47,36 @@ export function buildAppStart(): Uint8Array {
 /** Requests `DEVICE_INFO` (firmware version, capacities, model). */
 export function buildDeviceQuery(): Uint8Array {
   return new Uint8Array([CMD.DEVICE_QUERY, 0x03]);
+}
+
+/**
+ * Requests the radio's Ed25519 private key for an identity backup
+ * (`EXPORT_PRIVATE_KEY`). The payload is the bare command byte; the firmware's
+ * handler takes no arguments.
+ */
+export function buildExportPrivateKey(): Uint8Array {
+  return new Uint8Array([CMD.EXPORT_PRIVATE_KEY]);
+}
+
+/**
+ * Replaces the radio's Ed25519 identity from a backup (`IMPORT_PRIVATE_KEY`).
+ *
+ * @param prvKey - the 64-byte private key, exactly as
+ * {@link buildExportPrivateKey} read it back. The firmware requires a 65-byte
+ * frame and re-derives the public key, so a shorter key is rejected here
+ * rather than sent as a frame the radio would silently ignore.
+ * @throws RangeError when `prvKey` is not {@link PRIVATE_KEY_BYTES} long.
+ */
+export function buildImportPrivateKey(prvKey: Uint8Array): Uint8Array {
+  if (prvKey.length !== PRIVATE_KEY_BYTES) {
+    throw new RangeError(
+      `Private key must be ${PRIVATE_KEY_BYTES} bytes, got ${prvKey.length}`,
+    );
+  }
+  const p = new Uint8Array(1 + PRIVATE_KEY_BYTES);
+  p[0] = CMD.IMPORT_PRIVATE_KEY;
+  p.set(prvKey, 1);
+  return p;
 }
 
 /** Requests the radio's clock (`CURR_TIME`, a uint32 LE epoch-seconds). */

@@ -1,0 +1,49 @@
+// Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
+// (https://github.com/kNoAPP/MeshCore-WebAgent)
+
+import { BACKUP_FILE_EXT } from './archive';
+
+/**
+ * Browser file I/O for backups: handing encrypted bytes to the user's download
+ * folder and reading a picked file back. Nothing here ever sees a passphrase or
+ * a private key in the clear — it moves the already-encrypted envelope.
+ */
+
+/**
+ * Builds the suggested filename for a backup, e.g.
+ * `meshcore-KN0-APP-2026-09-17.mcbak`. The node name is reduced to
+ * filename-safe characters and the pubkey's first bytes disambiguate two radios
+ * with the same name.
+ */
+export function backupFilename(nodeName: string, pubkey: string): string {
+  const safeName = nodeName
+    .replace(/[^A-Za-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  const date = new Date().toISOString().slice(0, 10);
+  const parts = ['meshcore', safeName || pubkey.slice(0, 8), date];
+  return parts.join('-') + BACKUP_FILE_EXT;
+}
+
+/**
+ * Saves `bytes` to the user's downloads as `filename`.
+ *
+ * @remarks Uses an object URL on a synthetic anchor — the only route a static,
+ * backend-free page has to a real file. The URL is revoked on the next frame
+ * rather than immediately, because Safari cancels a download whose blob URL is
+ * revoked in the same task.
+ */
+export function downloadBackup(bytes: Uint8Array, filename: string): void {
+  const url = URL.createObjectURL(
+    new Blob([bytes as BlobPart], { type: 'application/octet-stream' }),
+  );
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/** Reads a picked file into bytes. */
+export async function readFileBytes(file: File): Promise<Uint8Array> {
+  return new Uint8Array(await file.arrayBuffer());
+}

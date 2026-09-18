@@ -38,3 +38,29 @@ export class PickerDismissedError extends Error {
 export function isPickerDismissal(err: unknown): boolean {
   return err instanceof DOMException && err.name === 'NotFoundError';
 }
+
+/**
+ * Why a private-key export or import could not be performed — a stable code the
+ * Settings UI maps to localized copy.
+ *
+ * `disabled` means the firmware recognized the command but was built without
+ * it (`RESP.DISABLED`); `unsupported` means the firmware has no such command at
+ * all (`ERR_CODE.UNSUPPORTED_CMD`); `rejected` means the radio refused the key
+ * as invalid (`ERR_CODE.ILLEGAL_ARG`); `writeFailed` means the radio could not
+ * persist the new identity (`ERR_CODE.FILE_IO_ERROR`).
+ */
+export type PrivateKeyErrorCode =
+  'disabled' | 'unsupported' | 'rejected' | 'writeFailed';
+
+/**
+ * Thrown when {@link MeshCoreClient.exportPrivateKey} or
+ * {@link MeshCoreClient.importPrivateKey} is refused by the radio. Carries a
+ * stable {@link code} so the UI can explain *why* identity backup is
+ * unavailable on this build instead of showing a bare device-error number.
+ */
+export class PrivateKeyError extends Error {
+  constructor(readonly code: PrivateKeyErrorCode) {
+    super(code);
+    this.name = 'PrivateKeyError';
+  }
+}
