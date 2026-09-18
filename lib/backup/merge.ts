@@ -114,7 +114,7 @@ export function previewImport(
     updatedAdverts,
     newRules,
     existingRules: payload.automationRules.length - newRules,
-    channels: payload.channels.filter((c) => c.secretHex).length,
+    channels: payload.channels.length,
     hasPreferences: payload.preferences !== null,
     hasIdentity: payload.identityHex !== undefined,
     pubkeyMismatch:

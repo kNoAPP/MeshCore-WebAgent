@@ -38,10 +38,11 @@ export function buildBackupPayload(
   identity?: Uint8Array,
 ): BackupPayload {
   const state = useMeshStore.getState();
+  // Slot and name only — see {@link BackupChannel} for why the secret is left
+  // out of the file.
   const channels: BackupChannel[] = Object.values(state.channels).map((c) => ({
     idx: c.idx,
     name: c.name,
-    secretHex: c.secret ? toHex(c.secret) : '',
   }));
   return {
     version: BACKUP_PAYLOAD_VERSION,
@@ -107,7 +108,11 @@ export async function applyBackup(
   opts: ApplyOptions,
 ): Promise<ApplyResult> {
   const state = useMeshStore.getState();
-  state.restoreHistory(payload.msgHistory);
+  // `interleave`: unlike a reconnect hydrate, a backup is not a strictly older
+  // prefix of the live transcript — it can hold messages newer than ones this
+  // browser already has, so the merged list is ordered by time rather than
+  // simply prepended.
+  state.restoreHistory(payload.msgHistory, true);
   state.cacheAdverts(freshAdverts(payload.advertCache, state.advertCache));
   state.restoreAutomationRules(
     mergeAutomationRules(state.automationRules, payload.automationRules),

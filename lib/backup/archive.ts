@@ -49,15 +49,22 @@ const PBKDF2_ITERATIONS = 600_000;
 /** Filename extension this app writes and expects on import. */
 export const BACKUP_FILE_EXT = '.mcbak';
 
-/** A channel slot as carried in a backup: the 16-byte secret as hex. */
+/**
+ * An occupied channel slot as carried in a backup: which slot it is and what
+ * it is called.
+ *
+ * The slot's 16-byte secret is deliberately **not** here. It is a live
+ * credential — anyone holding it can read and inject that channel's traffic —
+ * and nothing restores it: writing channels back to the radio re-keys every
+ * per-radio record (`deriveStorageKey` derives from the channel secrets), so
+ * that write was removed rather than patched. Carrying a credential no code
+ * path consumes would only widen what a leaked file costs, and the file
+ * describes itself as channel *metadata*. When channel restore returns it
+ * belongs behind its own explicit opt-in, the way the identity is.
+ */
 export interface BackupChannel {
   idx: number;
   name: string;
-  /**
-   * 32 hex characters — the slot's 16-byte secret, or `''` for an empty
-   * slot.
-   */
-  secretHex: string;
 }
 
 /** The decrypted contents of a backup file. */
@@ -367,9 +374,23 @@ function optionalType(
   return v === undefined || typeof v === type;
 }
 
-// The optional coordinates are checked as well: map code arithmetic turns a
-// non-numeric value into NaN, so a malformed archive would break rendering
-// after the restore had already committed.
+// The optional coordinates are checked as well, and against the range rather
+// than just the type: map code divides them by 1e6 and feeds the result to
+// Leaflet, so a non-numeric value becomes NaN, `1e999` parses out of JSON as
+// Infinity, and coordinates outside the microdegrees range place a marker off
+// the projection — each breaking rendering after the restore has committed.
+// `0` is
+// the firmware's "no fix" sentinel and stays valid.
+const MAX_LAT_MICRO = 90_000_000;
+const MAX_LON_MICRO = 180_000_000;
+
+function optionalMicroDeg(v: unknown, max: number): boolean {
+  return (
+    v === undefined ||
+    (typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= max)
+  );
+}
+
 function isAdvert(v: unknown): v is Advert {
   return (
     isRecord(v) &&
@@ -379,8 +400,8 @@ function isAdvert(v: unknown): v is Advert {
     typeof v.name === 'string' &&
     typeof v.advType === 'number' &&
     typeof v.lastHeard === 'number' &&
-    optionalType(v.advLat, 'number') &&
-    optionalType(v.advLon, 'number')
+    optionalMicroDeg(v.advLat, MAX_LAT_MICRO) &&
+    optionalMicroDeg(v.advLon, MAX_LON_MICRO)
   );
 }
 
@@ -481,17 +502,23 @@ function isBackupChannel(v: unknown): v is BackupChannel {
     Number.isInteger(v.idx) &&
     v.idx >= 0 &&
     v.idx <= 0xff &&
-    typeof v.name === 'string' &&
-    typeof v.secretHex === 'string' &&
-    (v.secretHex === '' || /^[0-9a-fA-F]{32}$/.test(v.secretHex))
+    typeof v.name === 'string'
   );
 }
+
+// Conversation keys are `convoId()` output — `channel:<n>` or `direct:<hex>`.
+// Checking the shape is not pedantry: these keys index plain objects all over
+// the app, so a key like `constructor` or `toString` resolves to an inherited
+// `Object` member instead of a missing conversation, and the first `.map` on it
+// throws — in `previewImport`, before the user has agreed to anything.
+const CONVO_ID_RE = /^(channel:\d+|direct:[0-9a-fA-F]+)$/;
 
 function validateHistory(raw: unknown): Record<string, Message[]> | null {
   if (raw === undefined) return {};
   if (!isRecord(raw)) return null;
   const out: Record<string, Message[]> = {};
   for (const [id, msgs] of Object.entries(raw)) {
+    if (!CONVO_ID_RE.test(id)) return null;
     const list = validateArray(msgs, isMessage);
     if (list === null) return null;
     out[id] = list;
