@@ -38,6 +38,7 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const showToast = useMeshStore((s) => s.showToast);
   const passId = useId();
+  const confirmId = useId();
 
   const [file, setFile] = useState<File | null>(null);
   const [passphrase, setPassphrase] = useState('');
@@ -46,6 +47,7 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   const [restoreChannels, setRestoreChannels] = useState(false);
   const [restoreIdentity, setRestoreIdentity] = useState(false);
   const [mismatchAck, setMismatchAck] = useState(false);
+  const [identityConfirm, setIdentityConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<React.ReactNode>(null);
 
@@ -123,7 +125,14 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   };
 
   const num = (n: number) => fmtNum(n, i18n.language);
-  const blocked = preview?.pubkeyMismatch && !mismatchAck;
+  const connectedName = selfInfo?.name ?? '';
+  // Restore stays disabled until both irreversible choices are confirmed the
+  // way each is meant to be: the different-radio graft by acknowledging it, and
+  // the identity replacement by naming the node it destroys.
+  const identityUnconfirmed =
+    restoreIdentity && identityConfirm.trim() !== connectedName;
+  const blocked =
+    (preview?.pubkeyMismatch && !mismatchAck) || identityUnconfirmed;
 
   return (
     <ModalShell
@@ -280,6 +289,30 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
                 <p className='mt-2 text-xs leading-relaxed text-text'>
                   {t('settings.backup.restoreIdentityWarning')}
                 </p>
+                {/* Replacing the identity is the one step here with no undo:
+                    the outgoing key is gone unless it was itself backed up. A
+                    toggle alone is too easy to leave on by accident next to a
+                    Restore the user wants for other reasons, so it also takes
+                    typing the name of the node being overwritten. */}
+                {restoreIdentity && (
+                  <>
+                    <label
+                      htmlFor={confirmId}
+                      className='mt-3 mb-1 block text-xs text-text'
+                    >
+                      {t('settings.backup.restoreIdentityConfirm', {
+                        node: connectedName,
+                      })}
+                    </label>
+                    <input
+                      id={confirmId}
+                      value={identityConfirm}
+                      onChange={(e) => setIdentityConfirm(e.target.value)}
+                      autoComplete='off'
+                      className='w-full rounded-md border border-red bg-surface2 px-3 py-2 text-sm outline-none focus:border-red'
+                    />
+                  </>
+                )}
               </div>
             )}
 

@@ -488,6 +488,7 @@
       "restoreChannelsHint": "Überschreibt die passenden Kanalplätze der verbundenen Funkeinheit mit denen aus der Datei.",
       "restoreIdentity": "Identität dieser Funkeinheit ersetzen",
       "restoreIdentityWarning": "Dies überschreibt den privaten Schlüssel der verbundenen Funkeinheit mit dem aus der Sicherung. Ihre aktuelle Identität wird zerstört und ist ohne eigene Sicherung nicht wiederherstellbar. Danach muss die Funkeinheit neu gestartet werden, und Kontakte, die ihren alten öffentlichen Schlüssel kannten, erreichen sie nicht mehr.",
+      "restoreIdentityConfirm": "Dies kann nicht rückgängig gemacht werden. Gib {{node}} ein, um zu bestätigen, dass du die Identität dieser Funkeinheit ersetzt.",
       "identityError": {
         "disabledExport": "Die Firmware dieser Funkeinheit wurde ohne ENABLE_PRIVATE_KEY_EXPORT gebaut, daher lässt sich ihre Identität über die Companion-Verbindung nicht lesen.",
         "disabledImport": "Die Firmware dieser Funkeinheit wurde ohne ENABLE_PRIVATE_KEY_IMPORT gebaut, daher lässt sich ihre Identität über die Companion-Verbindung nicht ersetzen.",

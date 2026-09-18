@@ -488,6 +488,7 @@
       "restoreChannelsHint": "Sobrescribe las ranuras de canal correspondientes de la radio conectada con las del archivo.",
       "restoreIdentity": "Reemplazar la identidad de esta radio",
       "restoreIdentityWarning": "Esto sobrescribe la clave privada de la radio conectada con la del archivo. Su identidad actual se destruye y no se puede recuperar salvo que tengas una copia de ella. Después hay que reiniciar la radio, y los contactos que conocían su clave pública anterior ya no podrán contactarla.",
+      "restoreIdentityConfirm": "Esto no se puede deshacer. Escribe {{node}} para confirmar que vas a reemplazar la identidad de esta radio.",
       "identityError": {
         "disabledExport": "El firmware de esta radio se compiló sin ENABLE_PRIVATE_KEY_EXPORT, así que su identidad no se puede leer por el enlace de compañía.",
         "disabledImport": "El firmware de esta radio se compiló sin ENABLE_PRIVATE_KEY_IMPORT, así que su identidad no se puede reemplazar por el enlace de compañía.",

@@ -488,6 +488,7 @@
       "restoreChannelsHint": "Écrase les emplacements de canal correspondants de la radio connectée par ceux du fichier.",
       "restoreIdentity": "Remplacer l'identité de cette radio",
       "restoreIdentityWarning": "Ceci écrase la clé privée de la radio connectée par celle de la sauvegarde. Son identité actuelle est détruite et irrécupérable sans une sauvegarde de celle-ci. La radio doit ensuite être redémarrée, et les contacts qui connaissaient son ancienne clé publique ne pourront plus la joindre.",
+      "restoreIdentityConfirm": "Ceci est irréversible. Saisissez {{node}} pour confirmer que vous remplaçez l'identité de cette radio.",
       "identityError": {
         "disabledExport": "Le micrologiciel de cette radio a été compilé sans ENABLE_PRIVATE_KEY_EXPORT : son identité ne peut pas être lue via le lien compagnon.",
         "disabledImport": "Le micrologiciel de cette radio a été compilé sans ENABLE_PRIVATE_KEY_IMPORT : son identité ne peut pas être remplacée via le lien compagnon.",
