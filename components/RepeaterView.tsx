@@ -958,10 +958,14 @@ function NeighborsTab({ contact }: { contact: Contact }) {
 
   return (
     <div className='flex h-full w-full flex-col gap-3'>
-      {/* A failed refresh with rows still cached would otherwise leave the old
-          list looking freshly confirmed. Driven by session state, so navigating
-          away and back cannot clear the warning while leaving its rows. */}
-      {stale && total > 0 && (
+      {/* A failed refresh over a cached result would otherwise leave it looking
+          freshly confirmed. Gated on a list having been cached at all, not on
+          its length: a repeater that legitimately reported no neighbors caches
+          an empty list, and without this the notice below would go on calling
+          that an empty table long after a refresh stopped confirming it.
+          Driven by session state, so navigating away and back cannot clear the
+          warning while leaving the result it was about. */}
+      {stale && neighbors != null && (
         <p className='shrink-0 rounded-lg border border-border p-2 text-xs text-text2'>
           {t('repeaterAdmin.neighbors.stale')}
         </p>

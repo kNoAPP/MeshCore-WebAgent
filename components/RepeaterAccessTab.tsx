@@ -145,11 +145,14 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
         </p>
         <RefreshButton onClick={() => void refresh()} busy={loading} />
       </div>
-      {/* A failed refresh with rows still cached would otherwise leave the old
-          table looking freshly confirmed, so say so above it. Driven by session
-          state, so navigating away and back cannot clear the warning while
-          leaving the rows it was about. */}
-      {stale && rows.length > 0 && (
+      {/* A failed refresh over a cached result would otherwise leave it looking
+          freshly confirmed, so say so above it. Gated on a list having been
+          cached at all, not on its length: an empty list is a real answer from
+          a node holding no entries, and without this the notice below would go
+          on calling it that long after a refresh stopped confirming it. Driven
+          by session state, so navigating away and back cannot clear the warning
+          while leaving the result it was about. */}
+      {stale && entries != null && (
         <p className='rounded-lg border border-border p-3 text-sm text-text2'>
           {t('repeaterAdmin.accessList.stale')}
         </p>
