@@ -796,6 +796,7 @@
     "neighbors": {
       "empty": "Kürzlich keine Nachbarn gehört.",
       "error": "Nachbarn konnten nicht geladen werden. Bitte aktualisieren.",
+      "stale": "Zeigt die zuletzt gelesene Nachbarliste. Die letzte Aktualisierung ist fehlgeschlagen, sie kann also veraltet sein.",
       "loading": "Nachbarn werden geladen…",
       "listLabel": "Nachbarn",
       "viewLabel": "Nachbaransicht",

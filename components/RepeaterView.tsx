@@ -833,6 +833,12 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   // read, an empty array once a read settles with no neighbors.
   const neighbors = useMeshStore((s) => s.adminSessions[prefix]?.neighbors);
   const setRepeaterNeighbors = useMeshStore((s) => s.setRepeaterNeighbors);
+  // Whether the newest attempt failed. In the session rather than in this
+  // component because the tab unmounts on navigation: local state would reset,
+  // the cached-list branch below would skip the automatic re-read, and the
+  // stale rows would come back with nothing saying so.
+  const stale = useMeshStore((s) => s.adminSessions[prefix]?.neighborsStale);
+  const setNeighborsStale = useMeshStore((s) => s.setRepeaterNeighborsStale);
 
   // Resolve every row once: the identity the list names it by, and whether it
   // also has a fix the map can anchor. The lookup scans the advert cache,
@@ -880,17 +886,18 @@ function NeighborsTab({ contact }: { contact: Contact }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     setErrored(false);
+    // The session this read belongs to. A structured read walks several pages,
+    // so a log-out and re-login can easily land mid-flight; the new session
+    // must not inherit the old one's list. The token is in the shared-read key
+    // for the same reason — joining the previous session's read would stamp its
+    // result with this session's token and pass the guard in
+    // `setRepeaterNeighbors` on a technicality. Read outside the try so the
+    // failure path can scope its own write to the same session.
+    const token = useMeshStore.getState().adminSessions[prefix]?.token;
     try {
-      // Join an outstanding read for this repeater if one exists, else start
-      // one. Sharing the promise dedupes concurrent reads and lets a remount
-      // await the same settlement instead of showing a transient false empty.
-      // The session this read belongs to. A structured read walks several
-      // pages, so a log-out and re-login can easily land mid-flight; the new
-      // session must not inherit the old one's list. The token is in the
-      // shared-read key for the same reason — joining the previous session's
-      // read would stamp its result with this session's token and pass the
-      // guard in `setRepeaterNeighbors` on a technicality.
-      const token = useMeshStore.getState().adminSessions[prefix]?.token;
+      // Join an outstanding read for this repeater and session if one exists,
+      // else start it. Sharing the promise dedupes concurrent reads and lets a
+      // remount await the same settlement instead of showing a false empty.
       const neighbors = await joinRead(
         sessionReadKey('neighbors', prefix, token),
         () => repeaterNeighbors(contact),
@@ -899,12 +906,20 @@ function NeighborsTab({ contact }: { contact: Contact }) {
     } catch {
       // A timeout, a rejected reply, or a dropped link is an error, not "no
       // neighbors": surface an error state and preserve any cached list rather
-      // than clearing it.
+      // than clearing it — marked stale on the session so navigating away and
+      // back cannot present it as freshly confirmed.
       setErrored(true);
+      setNeighborsStale(prefix, token);
     } finally {
       setLoading(false);
     }
-  }, [contact, prefix, repeaterNeighbors, setRepeaterNeighbors]);
+  }, [
+    contact,
+    prefix,
+    repeaterNeighbors,
+    setRepeaterNeighbors,
+    setNeighborsStale,
+  ]);
 
   // Fetch once on first entry, unless a cached list is already showing. The
   // ref guard survives StrictMode's double mount; `refresh` itself joins an
@@ -943,6 +958,14 @@ function NeighborsTab({ contact }: { contact: Contact }) {
 
   return (
     <div className='flex h-full w-full flex-col gap-3'>
+      {/* A failed refresh with rows still cached would otherwise leave the old
+          list looking freshly confirmed. Driven by session state, so navigating
+          away and back cannot clear the warning while leaving its rows. */}
+      {stale && total > 0 && (
+        <p className='shrink-0 rounded-lg border border-border p-2 text-xs text-text2'>
+          {t('repeaterAdmin.neighbors.stale')}
+        </p>
+      )}
       <div className='flex shrink-0 flex-wrap items-center justify-between gap-3'>
         <p className='text-xs text-text2'>
           {total > 0

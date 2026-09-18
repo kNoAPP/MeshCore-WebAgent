@@ -5,7 +5,6 @@ import { MeshConnectError } from '@/lib/meshcore/errors';
 import { useMeshStore, type ConnectErrorCode } from '@/store/meshStore';
 import { resetDelivery } from '@/lib/session/delivery';
 import { resetCliQueue } from '@/lib/session/cliQueue';
-import { resetNeighborCapabilities } from '@/lib/session/neighbors';
 import { resetSharedReads } from '@/lib/session/sharedReads';
 import { resetRxCorrelation } from '@/lib/session/rxCorrelation';
 import { flushSession, resetPersistence } from '@/lib/session/persistence';
@@ -43,7 +42,6 @@ export function clearSessionState(): void {
   resetDelivery();
   resetRxCorrelation();
   resetCliQueue();
-  resetNeighborCapabilities();
   resetSharedReads();
   // The Stats snapshot describes one link session. A reconnect swaps in a fresh
   // client without going through reset(), so drop it here or the cards would

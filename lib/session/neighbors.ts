@@ -13,24 +13,10 @@ import {
 import i18n from '@/lib/i18n';
 import type { Contact, Neighbor } from '@/types/meshcore';
 
-// How many structured reads in a row must fail — each with the CLI then
-// answering — before a repeater is taken to lack GET_NEIGHBOURS. One is not
-// evidence: a single binary response lost on the mesh while the later CLI round
-// trip happened to survive looks exactly the same, and downgrading on that
-// would give up the untruncated read for the rest of the session over one
-// dropped packet.
-const CLI_ONLY_STRIKES = 2;
-
-// Consecutive structured-read failures per repeater (keyed by pubkeyPrefix),
-// counted only where the CLI then answered. Reset by a structured read that
-// succeeds, so a node is downgraded only on a sustained pattern. Module-level
-// like the CLI queues beside it, and cleared with them on teardown.
-const structuredFailures = new Map<string, number>();
-
 // Raised when the walk finished but came up short of the total the repeater
-// reported. Distinct from "the node did not answer": the request works, so it
-// must not count toward a downgrade, and falling back to the CLI would replace
-// a nearly complete list with a definitely shorter one.
+// reported. Distinct from "the node did not answer": the request plainly works,
+// so falling back to the CLI would replace a nearly complete list with a
+// definitely shorter one.
 class IncompleteWalkError extends Error {
   constructor(collected: number, total: number) {
     super(`Read ${collected} of ${total} neighbors`);
@@ -53,8 +39,9 @@ class IncompleteWalkError extends Error {
  * Degrading is by observation, never by version number. The firmware does not
  * raise its advertised version for `GET_NEIGHBOURS`, so there is nothing
  * trustworthy to gate on: a local radio that does not know `SEND_BINARY_REQ`
- * says so with a device error, and a repeater that does not implement the
- * request answers nothing at all, which arrives as a timeout.
+ * says so with a device error — definitive, and remembered for the session —
+ * while a repeater that does not implement the request simply answers nothing,
+ * which is indistinguishable from a lost reply and so is never remembered.
  * @param contact - the repeater, which must already have an admin session.
  * @returns every neighbor the repeater reported, newest first.
  * @throws if neither path answered, or the CLI answered with a rejection —
@@ -64,16 +51,17 @@ export async function readNeighbors(
   client: MeshCoreClient,
   contact: Contact,
 ): Promise<Neighbor[]> {
-  const prefix = contact.pubkeyPrefix;
-  const structured =
-    !client.binaryRequestsUnsupported &&
-    (structuredFailures.get(prefix) ?? 0) < CLI_ONLY_STRIKES;
-  if (structured) {
+  // Attempted on every read, with no per-repeater memo of past failures. There
+  // is no signal that distinguishes "this firmware has no handler" from "that
+  // response was lost": both are silence. Remembering a failure therefore means
+  // guessing, and guessing wrong costs the untruncated list for the rest of the
+  // session without telling anyone — while guessing right saves only one
+  // receipt-derived timeout on a read that then spends far longer on the CLI
+  // anyway. Observed on a live mesh: two lost responses in a row were enough to
+  // strand a repeater that answers this request perfectly well.
+  if (!client.binaryRequestsUnsupported) {
     try {
-      const neighbors = await readNeighborsWhole(client, contact);
-      // This node does answer, so any earlier failures were the link.
-      structuredFailures.delete(prefix);
-      return neighbors;
+      return await readNeighborsWhole(client, contact);
     } catch (err) {
       // An incomplete walk is not a reason to fall back. The node answered, so
       // the CLI would only return a shorter list than the one just collected —
@@ -84,15 +72,7 @@ export async function readNeighbors(
       // response this client could not decode — leaves the CLI worth trying.
     }
   }
-  const neighbors = await readNeighborsViaCli(client, contact);
-  // The CLI answering where the structured read did not is weak evidence about
-  // the firmware — a lost response looks the same — so it counts a strike
-  // rather than settling the question. A node that answered neither was
-  // unreachable and says nothing at all, so it is not counted.
-  if (structured) {
-    structuredFailures.set(prefix, (structuredFailures.get(prefix) ?? 0) + 1);
-  }
-  return neighbors;
+  return readNeighborsViaCli(client, contact);
 }
 
 // Runs the paged walk, retrying once if it comes up short of the total the
@@ -199,14 +179,4 @@ async function readNeighborsViaCli(
     throw new Error(i18n.t('repeaterAdmin.neighbors.error'));
   }
   return parseNeighborsReply(reply);
-}
-
-/**
- * Forgets which repeaters have been failing structured neighbor reads.
- *
- * @remarks Called on session teardown: the finding belongs to one radio's view
- * of one mesh, and a repeater can be reflashed between sessions.
- */
-export function resetNeighborCapabilities(): void {
-  structuredFailures.clear();
 }

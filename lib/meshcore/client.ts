@@ -116,6 +116,13 @@ const PUSH_GRACE_MS = 2000;
 // own estimate is preferred whenever it provides one.
 const PUSH_FALLBACK_TIMEOUT_MS = 8000;
 
+// How many unmatched binary responses to hold while a request is between its
+// SENT receipt and registering its waiter. Only one request is in flight at a
+// time, so this needs to cover that request's own push plus any stragglers owed
+// to ones that already timed out — a handful is ample, and the map is cleared
+// at the start of every request anyway.
+const ORPHAN_BINARY_LIMIT = 8;
+
 /**
  * Maximum tolerated drift, in seconds, between the device clock and the
  * browser clock. On connect, the radio's clock is only corrected once it
@@ -256,14 +263,17 @@ export class MeshCoreClient {
   // pubkey prefix, so a reply is tied to the one request that asked for it —
   // a straggler from a timed-out read can never be claimed by the next one.
   private binaryWaiters = new Map<number, PushWaiter<Uint8Array>>();
-  // A binary response that arrived before its requester learned the tag it
+  // Binary responses that arrived before their requester learned the tag it
   // must wait on — possible because the frame parser dispatches a read chunk's
   // frames synchronously, so a push sharing a chunk with the SENT receipt lands
-  // before the `await` on that receipt resumes. `remoteChain` allows one binary
-  // request in flight, so a single slot holds every such case; it is cleared
-  // when a request starts and again as soon as that request claims (or
-  // declines) it.
-  private orphanBinaryResponse: { tag: number; data: Uint8Array } | null = null;
+  // before the `await` on that receipt resumes.
+  //
+  // Keyed by tag rather than held in a single slot, because more than one can
+  // land in that window: a straggler owed to an earlier request that already
+  // timed out arrives unmatched too, and with one slot it would overwrite the
+  // response actually being waited for — losing a good reply and timing the
+  // request out. Bounded and cleared when a request starts, so it cannot grow.
+  private orphanBinaryResponses = new Map<number, Uint8Array>();
   // Set once this radio rejects SEND_BINARY_REQ as a command it does not know,
   // so every later structured request skips straight to its fallback instead of
   // paying another round trip to be told the same thing. A property of the
@@ -634,7 +644,7 @@ export class MeshCoreClient {
         if (this.binaryWaiters.has(res.tag)) {
           this.settlePush(this.binaryWaiters, res.tag, res.data);
         } else {
-          this.orphanBinaryResponse = res;
+          this.stashOrphanBinaryResponse(res.tag, res.data);
         }
       }
       return;
@@ -1731,7 +1741,13 @@ export class MeshCoreClient {
   // reveals. The orphan slot covers the gap that leaves, so a response sharing
   // a read chunk with that receipt is still delivered.
   private async runBinaryRequest(payload: Uint8Array): Promise<Uint8Array> {
-    this.orphanBinaryResponse = null;
+    // Checked here, inside the serialized operation, so it also covers requests
+    // queued before the first rejection settled — and so every caller is
+    // covered, not only the ones that consult the flag themselves.
+    if (this.binaryReqUnsupported) {
+      throw new Error('Radio does not support SEND_BINARY_REQ');
+    }
+    this.orphanBinaryResponses.clear();
     let sent: Uint8Array;
     try {
       sent = await this.cmd(payload, [RESP.SENT], 5000);
@@ -1770,13 +1786,25 @@ export class MeshCoreClient {
     });
   }
 
-  // Claims the orphan slot for `tag`, emptying it either way: a response parked
-  // there under a different tag answers no live request, and leaving it would
-  // only let a later one mistake it for its own.
+  // Claims the unmatched response carrying `tag`, if one is parked. Only that
+  // tag is taken: anything else belongs to a request that has already given up,
+  // and is left to be discarded when the next request clears the map.
   private takeOrphanBinaryResponse(tag: number): Uint8Array | null {
-    const orphan = this.orphanBinaryResponse;
-    this.orphanBinaryResponse = null;
-    return orphan && orphan.tag === tag ? orphan.data : null;
+    const data = this.orphanBinaryResponses.get(tag);
+    if (data === undefined) return null;
+    this.orphanBinaryResponses.delete(tag);
+    return data;
+  }
+
+  // Parks a response nobody is waiting on yet, evicting the oldest once the map
+  // is full. Insertion order is arrival order, so the oldest is the least
+  // likely to still be claimed.
+  private stashOrphanBinaryResponse(tag: number, data: Uint8Array): void {
+    if (this.orphanBinaryResponses.size >= ORPHAN_BINARY_LIMIT) {
+      const oldest = this.orphanBinaryResponses.keys().next().value;
+      if (oldest !== undefined) this.orphanBinaryResponses.delete(oldest);
+    }
+    this.orphanBinaryResponses.set(tag, data);
   }
 
   // Resolves the login/status/telemetry waiter matching an inbound push's
@@ -1809,7 +1837,7 @@ export class MeshCoreClient {
     this.rejectWaiterMap(this.statusWaiters, err);
     this.rejectWaiterMap(this.telemetryWaiters, err);
     this.rejectWaiterMap(this.binaryWaiters, err);
-    this.orphanBinaryResponse = null;
+    this.orphanBinaryResponses.clear();
   }
 
   private rejectWaiterMap<K, T>(

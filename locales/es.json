@@ -796,6 +796,7 @@
     "neighbors": {
       "empty": "No se han escuchado vecinos recientemente.",
       "error": "No se pudieron cargar los vecinos. Intenta actualizar.",
+      "stale": "Se muestra la última lista de vecinos leída. La actualización más reciente falló, así que puede estar desactualizada.",
       "loading": "Cargando vecinos…",
       "listLabel": "Vecinos",
       "viewLabel": "Vista de vecinos",

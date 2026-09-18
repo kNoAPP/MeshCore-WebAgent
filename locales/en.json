@@ -795,6 +795,7 @@
     "neighbors": {
       "empty": "No neighbors heard recently.",
       "error": "Couldn't load neighbors. Try refreshing.",
+      "stale": "Showing the last neighbors read. The latest refresh failed, so it may be out of date.",
       "loading": "Loading neighbors…",
       "listLabel": "Neighbors",
       "viewLabel": "Neighbors view",

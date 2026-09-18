@@ -796,6 +796,7 @@
     "neighbors": {
       "empty": "Aucun voisin entendu récemment.",
       "error": "Impossible de charger les voisins. Essayez d’actualiser.",
+      "stale": "Affiche la dernière liste de voisins lue. La dernière actualisation a échoué, elle peut donc être obsolète.",
       "loading": "Chargement des voisins…",
       "listLabel": "Voisins",
       "viewLabel": "Vue des voisins",
