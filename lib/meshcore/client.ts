@@ -996,9 +996,13 @@ export class MeshCoreClient {
    * 160-byte text message.
    *
    * @remarks
-   * Requires a prior admin {@link login}. The returned `total` counts the
-   * repeater's whole table, so a caller pages by re-requesting with a larger
-   * `offset` until it has that many rows.
+   * Requires a prior {@link login}, but **not** an admin one: unlike the
+   * `neighbors` CLI command it replaces, the firmware's `GET_NEIGHBOURS`
+   * handler has no `isAdmin()` check, so any authenticated session may call it.
+   * (The app still gates its Neighbors tab on admin, an assumption inherited
+   * from the CLI path.) The returned `total` counts the repeater's whole table,
+   * so a caller pages by re-requesting with a larger `offset` until it has that
+   * many rows.
    * @throws on a timeout, which is also how firmware with no `GET_NEIGHBOURS`
    * handler answers — it returns an empty reply that the companion radio never
    * pushes. A local radio too old to know `SEND_BINARY_REQ` rejects it sooner,

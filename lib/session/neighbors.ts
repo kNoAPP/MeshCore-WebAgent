@@ -27,6 +27,17 @@ const CLI_ONLY_STRIKES = 2;
 // like the CLI queues beside it, and cleared with them on teardown.
 const structuredFailures = new Map<string, number>();
 
+// Raised when the walk finished but came up short of the total the repeater
+// reported. Distinct from "the node did not answer": the request works, so it
+// must not count toward a downgrade, and falling back to the CLI would replace
+// a nearly complete list with a definitely shorter one.
+class IncompleteWalkError extends Error {
+  constructor(collected: number, total: number) {
+    super(`Read ${collected} of ${total} neighbors`);
+    this.name = 'IncompleteWalkError';
+  }
+}
+
 /**
  * Reads a repeater's neighbor table, preferring the structured
  * `GET_NEIGHBOURS` binary request and falling back to scraping the `neighbors`
@@ -59,14 +70,18 @@ export async function readNeighbors(
     (structuredFailures.get(prefix) ?? 0) < CLI_ONLY_STRIKES;
   if (structured) {
     try {
-      const neighbors = await readNeighborsPaged(client, contact);
+      const neighbors = await readNeighborsWhole(client, contact);
       // This node does answer, so any earlier failures were the link.
       structuredFailures.delete(prefix);
       return neighbors;
-    } catch {
-      // Any failure falls through to the CLI: an unsupported command, an
-      // unanswered request, or a response this client could not decode all
-      // leave the same thing worth trying.
+    } catch (err) {
+      // An incomplete walk is not a reason to fall back. The node answered, so
+      // the CLI would only return a shorter list than the one just collected —
+      // raising instead leaves the tab on its error state with whatever it had
+      // cached, and a Refresh retries the structured read.
+      if (err instanceof IncompleteWalkError) throw err;
+      // Everything else — an unsupported command, an unanswered request, a
+      // response this client could not decode — leaves the CLI worth trying.
     }
   }
   const neighbors = await readNeighborsViaCli(client, contact);
@@ -80,6 +95,27 @@ export async function readNeighbors(
   return neighbors;
 }
 
+// Runs the paged walk, retrying once if it comes up short of the total the
+// repeater reported. Each page is sorted from the live table afresh, so a
+// neighbor heard mid-walk can shift into a window already read and be dropped
+// as a duplicate while `read` still advances past it — leaving fewer unique
+// rows than the node says it holds. That is transient, so a second walk usually
+// closes it; a walk still short after that is reported rather than cached as
+// the complete table.
+async function readNeighborsWhole(
+  client: MeshCoreClient,
+  contact: Contact,
+): Promise<Neighbor[]> {
+  let last: { neighbors: Neighbor[]; total: number } | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const walk = await readNeighborsPaged(client, contact);
+    if (walk.neighbors.length >= walk.total) return walk.neighbors;
+    // Keep whichever attempt saw more, so the error reports the best figure.
+    if (!last || walk.neighbors.length > last.neighbors.length) last = walk;
+  }
+  throw new IncompleteWalkError(last!.neighbors.length, last!.total);
+}
+
 // Walks the repeater's table one page at a time. Each page is its own mesh
 // round trip, so the walk stops as soon as the reported total is covered, and
 // is bounded by the largest table the firmware can hold — a node reporting an
@@ -87,12 +123,19 @@ export async function readNeighbors(
 async function readNeighborsPaged(
   client: MeshCoreClient,
   contact: Contact,
-): Promise<Neighbor[]> {
+): Promise<{ neighbors: Neighbor[]; total: number }> {
   const neighbors: Neighbor[] = [];
   const seen = new Set<string>();
+  // The table size as the node last reported it. Tracked so the caller can tell
+  // a complete walk from one that ran out of rows, pages, or budget.
+  let total = 0;
   // Counts rows the repeater handed over, not rows kept: it is the window
   // position, and advancing it by the deduplicated count would leave a node
-  // that keeps repeating a page asking for that same page forever.
+  // that keeps repeating a page asking for that same page forever. It is also
+  // why the walk can finish with fewer unique rows than `total` — dropped
+  // duplicates are counted here but not kept — which is what the caller checks
+  // for. A total above NEIGHBORS_READ_LIMIT ends the walk the same way, so the
+  // cap cannot pass for a complete table either.
   let read = 0;
   while (read < NEIGHBORS_READ_LIMIT) {
     // A page lost part-way through the walk is deliberately *not* salvaged into
@@ -106,6 +149,7 @@ async function readNeighborsPaged(
       offset: read,
       orderBy: NEIGHBOR_ORDER.NEWEST_FIRST,
     });
+    total = page.total;
     if (page.neighbors.length === 0) {
       // Nothing came back. That is the normal end of the walk when the total
       // agrees, but a node still claiming more rows than it has handed over has
@@ -138,7 +182,7 @@ async function readNeighborsPaged(
     }
     if (read >= page.total) break;
   }
-  return neighbors;
+  return { neighbors, total };
 }
 
 // The legacy path: ask the repeater's console for `neighbors` and parse the

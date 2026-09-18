@@ -63,6 +63,12 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
   // back; the store is its source of truth.
   const entries = useMeshStore((s) => s.adminSessions[prefix]?.accessList);
   const setRepeaterAccessList = useMeshStore((s) => s.setRepeaterAccessList);
+  // Whether the newest attempt failed. In the session rather than in this
+  // component because the tab unmounts on navigation: local state would reset,
+  // the cached-list branch below would skip the automatic re-read, and the
+  // stale rows would come back with nothing saying so.
+  const stale = useMeshStore((s) => s.adminSessions[prefix]?.accessListStale);
+  const setRepeaterAccessStale = useMeshStore((s) => s.setRepeaterAccessStale);
 
   const [loading, setLoading] = useState(false);
   // Three things land here identically: a reply lost on the mesh (the common
@@ -70,6 +76,9 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
   // whose ACL is empty (the firmware suppresses a reply with no entries), and
   // firmware that has no handler at all. Nothing on the wire tells them apart,
   // so they share one message that leads with the retry.
+  //
+  // Only drives the no-cache notice. A failure with rows cached is recorded on
+  // the session instead, so it survives navigation.
   const [errored, setErrored] = useState(false);
   const fetched = useRef(false);
   const hadCache = useRef(entries != null);
@@ -90,14 +99,15 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     setErrored(false);
+    // The session this read belongs to. A log-out and re-login while it is in
+    // flight mints a new token, and this list is admin-only — so it must not
+    // land on whatever session replaced the one that asked. The token is in the
+    // shared-read key too: joining the previous session's read would stamp its
+    // result with this session's token and walk straight past the guard in
+    // `setRepeaterAccessList`. Read outside the try so the failure path can
+    // scope its own write to the same session.
+    const token = useMeshStore.getState().adminSessions[prefix]?.token;
     try {
-      // The session this read belongs to. A log-out and re-login while it is in
-      // flight mints a new token, and this list is admin-only — so it must not
-      // land on whatever session replaced the one that asked. The token is in
-      // the shared-read key too: joining the previous session's read would
-      // stamp its result with this session's token and walk straight past the
-      // guard in `setRepeaterAccessList`.
-      const token = useMeshStore.getState().adminSessions[prefix]?.token;
       const entries = await joinRead(
         sessionReadKey('access', prefix, token),
         () => repeaterAccessList(contact),
@@ -105,10 +115,17 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
       setRepeaterAccessList(prefix, entries, token);
     } catch {
       setErrored(true);
+      setRepeaterAccessStale(prefix, token);
     } finally {
       setLoading(false);
     }
-  }, [contact, prefix, repeaterAccessList, setRepeaterAccessList]);
+  }, [
+    contact,
+    prefix,
+    repeaterAccessList,
+    setRepeaterAccessList,
+    setRepeaterAccessStale,
+  ]);
 
   // Read once on first entry unless a cached list is already showing. The ref
   // guard survives StrictMode's double mount, and `refresh` joins an
@@ -129,8 +146,10 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
         <RefreshButton onClick={() => void refresh()} busy={loading} />
       </div>
       {/* A failed refresh with rows still cached would otherwise leave the old
-          table looking freshly confirmed, so say so above it. */}
-      {errored && rows.length > 0 && (
+          table looking freshly confirmed, so say so above it. Driven by session
+          state, so navigating away and back cannot clear the warning while
+          leaving the rows it was about. */}
+      {stale && rows.length > 0 && (
         <p className='rounded-lg border border-border p-3 text-sm text-text2'>
           {t('repeaterAdmin.accessList.stale')}
         </p>

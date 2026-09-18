@@ -423,6 +423,14 @@ export interface AdminSession {
    * always has rows.
    */
   accessList?: AclEntry[];
+  /**
+   * Whether the newest attempt to refresh {@link accessList} failed, so the
+   * cached rows are the last good read rather than a confirmed current one.
+   * Kept here rather than in the tab because the tab unmounts on navigation:
+   * component state would reset and the stale list would come back looking
+   * freshly confirmed.
+   */
+  accessListStale?: boolean;
 }
 
 /**
@@ -873,6 +881,12 @@ interface MeshActions {
     entries: AclEntry[],
     token?: number,
   ) => void;
+  /**
+   * Marks a node's cached access list as not confirmed by the latest attempt.
+   *
+   * @param token - as {@link MeshActions.setRepeaterAccessList}.
+   */
+  setRepeaterAccessStale: (prefix: string, token?: number) => void;
   /** Merges loaded/confirmed Config values into a repeater's session cache. */
   mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
@@ -1477,7 +1491,19 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({
       adminSessions: {
         ...adminSessions,
-        [prefix]: { ...session, accessList: entries },
+        [prefix]: { ...session, accessList: entries, accessListStale: false },
+      },
+    });
+  },
+  setRepeaterAccessStale: (prefix, token) => {
+    const { adminSessions } = get();
+    const session = adminSessions[prefix];
+    if (!isAuthedLogin(session?.login)) return;
+    if (token !== undefined && session?.token !== token) return;
+    set({
+      adminSessions: {
+        ...adminSessions,
+        [prefix]: { ...session, accessListStale: true },
       },
     });
   },
