@@ -166,7 +166,10 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
         // `applyRoutePolicy`'s two-failures-then-reset: one loss is not enough
         // to throw away a path every other message to this node also uses.
         if (i === total && total > 1 && liveContact().outPathLen !== NO_PATH) {
-          await resetPathRef.current(liveContact());
+          // Quiet, like the attempts around it: the user asked to open a node,
+          // not to reset its route, so this one stays part of the sign-in the
+          // gate is already narrating.
+          await resetPathRef.current(liveContact(), true);
           if (!live()) return;
         }
         setAttempt(i);
