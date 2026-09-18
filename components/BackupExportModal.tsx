@@ -71,8 +71,10 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
         ),
       );
     } finally {
-      // The key only ever existed in this array and inside the ciphertext; drop
-      // the plaintext copy as soon as the file is written, success or not.
+      // Zero the one copy we own, success or not. JS strings are immutable, so
+      // the hex and JSON forms inside encryptBackup stay readable until GC —
+      // this bounds the exposure, it does not eliminate it. What it does
+      // guarantee is that no copy outlives this handler.
       identity?.fill(0);
       setBusy(false);
     }
