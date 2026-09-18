@@ -712,12 +712,9 @@ interface MeshActions {
   setMapPrefs: (prefs: MapPrefs) => void;
   setMapFilters: (filters: MapFilters) => void;
   /**
-   * Folds a decrypted per-radio preferences blob into the store on connect,
-   * normalizing every field so a corrupt or partial record falls back to
-   * defaults. See {@link RadioPreferences}.
-   */
-  /**
-   * Loads a per-radio preferences blob into the store.
+   * Folds a decrypted per-radio preferences blob into the store, normalizing
+   * every field so a corrupt or partial record falls back to defaults. See
+   * {@link RadioPreferences}.
    *
    * @param explicit - true for a deliberate restore (a backup import), which
    * overrides the map viewport and filters the user touched this session.

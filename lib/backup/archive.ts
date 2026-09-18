@@ -394,9 +394,15 @@ function optionalMicroDeg(v: unknown, max: number): boolean {
 function isAdvert(v: unknown): v is Advert {
   return (
     isRecord(v) &&
+    // The prefix is what the UI shows; the full key is what Add Contact
+    // actually writes to the radio (`addDiscoveredContact` hands
+    // `advert.pubkey` to the contact frame). They come off the same bytes on
+    // the wire, so requiring the prefix to be the key's own first six bytes
+    // costs nothing and stops a file naming one node while enrolling another.
     typeof v.pubkey === 'string' &&
+    /^[0-9a-f]{64}$/.test(v.pubkey) &&
     typeof v.pubkeyPrefix === 'string' &&
-    !!v.pubkeyPrefix &&
+    v.pubkey.startsWith(v.pubkeyPrefix) &&
     typeof v.name === 'string' &&
     typeof v.advType === 'number' &&
     typeof v.lastHeard === 'number' &&
@@ -506,12 +512,19 @@ function isBackupChannel(v: unknown): v is BackupChannel {
   );
 }
 
-// Conversation keys are `convoId()` output — `channel:<n>` or `direct:<hex>`.
-// Checking the shape is not pedantry: these keys index plain objects all over
-// the app, so a key like `constructor` or `toString` resolves to an inherited
-// `Object` member instead of a missing conversation, and the first `.map` on it
-// throws — in `previewImport`, before the user has agreed to anything.
-const CONVO_ID_RE = /^(channel:\d+|direct:[0-9a-fA-F]+)$/;
+// Conversation keys are `convoId()` output: a slot number for `channel`, a
+// pubkey prefix for the three that address a node. All four `ActiveConvo` kinds
+// are listed even though a `repeater` transcript is currently unreachable (the
+// admin view has no composer) — this is the shape of the key space, and a
+// validator that tracks which kinds happen to carry messages today would reject
+// a valid file the day that changes.
+//
+// Checking the shape at all is not pedantry: these keys index plain objects
+// across the app, so a key like `constructor` or `toString` resolves to an
+// inherited `Object` member instead of a missing conversation, and the first
+// `.map` on it throws — in `previewImport`, before the user has agreed to
+// anything.
+const CONVO_ID_RE = /^(channel:\d+|(direct|repeater|room):[0-9a-fA-F]+)$/;
 
 // An advert cache key is a `pubkeyPrefix`: the first six bytes of the node's
 // public key, lower-case hex, as `parsers.ts` mints them.

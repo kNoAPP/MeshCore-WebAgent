@@ -68,24 +68,31 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     let identity: Uint8Array | undefined;
+    // Both awaits below can straddle a link drop, and neither the modal nor
+    // this closure is torn down by one: `beginReconnect` resets `view` to
+    // 'chat', which unmounts Settings and this portal while the work carries
+    // on. So the session is rechecked after each — before reading the store,
+    // which would file the next radio's data under the captured pubkey, and
+    // again before the download, which would otherwise hand the user a file
+    // (with an opted-in identity in it) for a radio that is no longer there.
+    const stillOurs = () => {
+      if (backupSessionPubkey() !== selfInfo.pubkey) {
+        throw new Error(t('settings.backup.sessionChanged'));
+      }
+    };
     try {
       if (includeIdentity) {
         if (!client) throw new PrivateKeyError('unsupported');
         identity = await client.exportPrivateKey();
       }
-      // The identity read is a radio round-trip, and a drop during it would
-      // leave the session mid-reconnect. `buildBackupPayload` reads the live
-      // store, so continuing would file the next radio's data under the pubkey
-      // captured before the await.
-      if (backupSessionPubkey() !== selfInfo.pubkey) {
-        throw new Error(t('settings.backup.sessionChanged'));
-      }
+      stillOurs();
       const payload = buildBackupPayload(
         selfInfo.pubkey,
         selfInfo.name,
         identity,
       );
       const bytes = await encryptBackup(payload, passphrase);
+      stillOurs();
       downloadBackup(bytes, backupFilename(selfInfo.name, selfInfo.pubkey));
       showToast(t('settings.backup.exportDone'), 'success');
       onClose();
