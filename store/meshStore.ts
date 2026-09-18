@@ -1447,11 +1447,19 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         cli: [],
         token: nextAdminSessionToken(),
       };
+      const next: AdminSession = { ...session, login };
+      // The role can change without the token doing so, and the access list is
+      // the one cached read that requires `admin`. Dropping it on the way out
+      // is what makes the next admin login read the node again rather than show
+      // the previous login's copy: the tab skips its automatic read whenever a
+      // list is already cached, so leaving it would outlive the session that
+      // earned it.
+      if (login !== 'admin') {
+        delete next.accessList;
+        delete next.accessListStale;
+      }
       return {
-        adminSessions: {
-          ...state.adminSessions,
-          [prefix]: { ...session, login },
-        },
+        adminSessions: { ...state.adminSessions, [prefix]: next },
       };
     }),
   setRepeaterStatus: (prefix, status, token) => {

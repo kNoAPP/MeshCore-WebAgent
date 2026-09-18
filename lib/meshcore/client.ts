@@ -1754,8 +1754,16 @@ export class MeshCoreClient {
     } catch (err) {
       // `UNSUPPORTED_CMD` here is the radio disowning the command byte itself,
       // not the target node declining the request — so it is the whole radio
-      // that cannot do this, for every node.
-      if ((err as { code?: number }).code === ERR_CODE.UNSUPPORTED_CMD) {
+      // that cannot do this, for every node. Matched on the full shape
+      // `resolveHandler` builds, message included: this decision is permanent
+      // for the session, and `UNSUPPORTED_CMD` is 1, which a transport
+      // `DOMException` (`INDEX_SIZE_ERR`) also carries — a dropped link would
+      // otherwise disown a command the radio speaks perfectly well.
+      if (
+        err instanceof Error &&
+        err.message.startsWith('Device error code ') &&
+        (err as { code?: number }).code === ERR_CODE.UNSUPPORTED_CMD
+      ) {
         this.binaryReqUnsupported = true;
       }
       throw err;

@@ -43,9 +43,12 @@ const ROLE_LABELS = [
  * `GET_ACCESS_LIST` binary request.
  *
  * @remarks
- * Not an admin-only roster: a repeater returns every non-deleted entry, so
- * guest and read-only clients appear alongside admins. (A room server is the
- * exception — it filters its reply to admin entries.) Read-only by design, as
+ * Not an admin-only roster: a repeater returns every entry whose permissions
+ * byte is non-zero, so read-only and read/write clients appear alongside
+ * admins. (A room server is the exception — it filters its reply to admin
+ * entries.) A plain guest is the one role that cannot appear: the firmware
+ * spends zero for both "deleted" and the guest role, and skips those entries
+ * when building the reply. Read-only by design, as
  * the firmware exposes no way to edit the list remotely; the point of showing
  * it is that an operator can see who else holds a role on a node they
  * administer. Each entry carries only a 6-byte key prefix, so it is named only

@@ -11,7 +11,7 @@ import {
   NEIGHBORS_READ_LIMIT,
 } from '@/lib/meshcore/constants';
 import i18n from '@/lib/i18n';
-import type { Contact, Neighbor } from '@/types/meshcore';
+import type { Contact, Neighbor, NeighborsPage } from '@/types/meshcore';
 
 // Raised when the walk finished but came up short of the total the repeater
 // reported. Distinct from "the node did not answer": the request plainly works,
@@ -88,7 +88,18 @@ async function readNeighborsWhole(
 ): Promise<Neighbor[]> {
   let last: { neighbors: Neighbor[]; total: number } | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const walk = await readNeighborsPaged(client, contact);
+    let walk: { neighbors: Neighbor[]; total: number };
+    try {
+      walk = await readNeighborsPaged(client, contact);
+    } catch (err) {
+      // A retry that fails outright does not undo what the first attempt saw.
+      // Once this repeater has answered a page it has proven it implements the
+      // request, so the capped CLI list must not be allowed to replace the
+      // longer one already collected — report the walk instead.
+      if (last)
+        throw new IncompleteWalkError(last.neighbors.length, last.total);
+      throw err;
+    }
     if (walk.neighbors.length >= walk.total) return walk.neighbors;
     // Keep whichever attempt saw more, so the error reports the best figure.
     if (!last || walk.neighbors.length > last.neighbors.length) last = walk;
@@ -117,30 +128,33 @@ async function readNeighborsPaged(
   // for. A total above NEIGHBORS_READ_LIMIT ends the walk the same way, so the
   // cap cannot pass for a complete table either.
   let read = 0;
+  // Set by the first page that arrives. Until then, silence is exactly what
+  // firmware without a handler produces, so the caller should try the CLI.
+  // Afterwards it is not: the node has demonstrated it implements the request,
+  // and the CLI's eight-row cap would be a downgrade from whatever this walk
+  // already holds. A short walk is returned for the caller to report rather
+  // than cached, so nothing here presents a partial table as a complete one.
+  let answered = false;
   while (read < NEIGHBORS_READ_LIMIT) {
-    // A page lost part-way through the walk is deliberately *not* salvaged into
-    // a partial success. The caller caches whatever it gets as the repeater's
-    // table with no indication it is short, so returning the rows read so far
-    // would silently truncate the list — the exact failure this whole path
-    // exists to fix. Letting it raise hands the caller its fallback and error
-    // paths instead.
-    const page = await client.requestNeighbors(contact, {
-      count: NEIGHBORS_PAGE_SIZE,
-      offset: read,
-      orderBy: NEIGHBOR_ORDER.NEWEST_FIRST,
-    });
+    let page: NeighborsPage;
+    try {
+      page = await client.requestNeighbors(contact, {
+        count: NEIGHBORS_PAGE_SIZE,
+        offset: read,
+        orderBy: NEIGHBOR_ORDER.NEWEST_FIRST,
+      });
+    } catch (err) {
+      if (!answered) throw err;
+      break;
+    }
+    answered = true;
     total = page.total;
     if (page.neighbors.length === 0) {
       // Nothing came back. That is the normal end of the walk when the total
-      // agrees, but a node still claiming more rows than it has handed over has
-      // contradicted itself — returning the rows so far would cache a list the
-      // repeater itself says is short, which is the truncation this path exists
-      // to remove. Raising also keeps an over-reported total from looping.
-      if (page.total > read) {
-        throw new Error(
-          `Repeater reported ${page.total} neighbors but returned ${read}`,
-        );
-      }
+      // agrees; a node still claiming more rows than it has handed over has
+      // contradicted itself, and stopping here leaves the walk short of the
+      // total it reported, which the caller reports rather than caches. Ending
+      // the loop also keeps an over-reported total from spinning on it.
       break;
     }
     read += page.neighbors.length;

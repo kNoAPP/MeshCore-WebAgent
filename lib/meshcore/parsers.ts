@@ -675,6 +675,9 @@ export function parseAccessList(data: Uint8Array): AclEntry[] | null {
   const entries: AclEntry[] = [];
   for (let at = 0; at + 7 <= data.length; at += 7) {
     const permissions = data[at + 6];
+    // The firmware skips its own zero-permission entries when building the
+    // reply ("deleted"), so a zero byte here is cipher padding rather than a
+    // member. It is also why a plain guest (role 0, no flags) can never appear.
     if (permissions === 0) continue;
     entries.push({
       pubkeyPrefix: hexBytes(data, at, at + 6),
