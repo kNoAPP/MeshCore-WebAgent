@@ -731,7 +731,8 @@
       "telemetry": "Telemetrie",
       "config": "Konfiguration",
       "neighbors": "Nachbarn",
-      "console": "Konsole"
+      "console": "Konsole",
+      "access": "Zugriff"
     },
     "tabsLabel": "Knotenverwaltung",
     "login": {
@@ -812,6 +813,19 @@
       "hiddenByAge_other": "{{count}} Nachbarn wurden vor längerer Zeit als im Zeitfenster oben gehört.",
       "noLocation": "Nachbarn wurden gehört, aber keiner konnte auf der Karte platziert werden — kein bekannter Standort.",
       "noAnchor": "Dieser Repeater hat keinen angekündigten Standort, daher können seine Nachbarn nicht auf der Karte angezeigt werden."
+    },
+    "accessList": {
+      "caption": "Clients, die diesen Knoten verwalten dürfen.",
+      "label": "Zugriffsliste",
+      "loading": "Zugriffsliste wird geladen…",
+      "unavailable": "Die Zugriffsliste konnte nicht geladen werden. Versuche es erneut — die Antwort ging möglicherweise verloren, oder der Knoten hat keine Einträge bzw. keine Firmware für diese Anfrage.",
+      "empty": "Keine Zugriffseinträge.",
+      "colClient": "Client",
+      "colRole": "Rolle",
+      "roleGuest": "Gast",
+      "roleReadOnly": "Nur Lesen",
+      "roleReadWrite": "Mitglied",
+      "roleAdmin": "Administrator"
     },
     "console": {
       "empty": "Noch keine Ausgabe. Senden Sie einen Befehl, um zu beginnen, oder öffnen Sie mit der Schaltfläche ? die Befehlsliste.",

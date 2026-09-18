@@ -3,9 +3,12 @@
 
 import {
   CMD,
+  BINARY_REQ,
   MAX_MSG_BYTES,
   PRIVATE_KEY_BYTES,
   MAX_ADVERT_NAME_BYTES,
+  NEIGHBOR_PREFIX_BYTES,
+  NEIGHBOR_ORDER,
   RADIO_PARAM_SCALE,
   LATLON_SCALE,
   TXT_TYPE,
@@ -273,6 +276,90 @@ export function buildSendTelemetryReq(pubkey: Uint8Array): Uint8Array {
   p[0] = CMD.SEND_TELEMETRY_REQ;
   p.set(pubkey.slice(0, 32), 4);
   return p;
+}
+
+/**
+ * Builds a structured request to another node:
+ * `[0x32][32-byte pubkey][request code][params…]`. The radio answers `SENT`
+ * with the tag that identifies the eventual `PUSH_BINARY_RESPONSE`.
+ *
+ * @param pubkey - the target node's 32-byte public key.
+ * @param reqCode - one of {@link BINARY_REQ}.
+ * @param params - request-specific bytes following the code; omitted for a
+ *   request that takes none.
+ * @see the `CMD_SEND_BINARY_REQ` handler in the firmware's
+ * `examples/companion_radio/MyMesh.cpp`, which forwards everything past the
+ * public key verbatim as the request packet.
+ */
+export function buildSendBinaryReq(
+  pubkey: Uint8Array,
+  reqCode: number,
+  params: Uint8Array = new Uint8Array(0),
+): Uint8Array {
+  const p = new Uint8Array(1 + 32 + 1 + params.length);
+  p[0] = CMD.SEND_BINARY_REQ;
+  p.set(pubkey.slice(0, 32), 1);
+  p[33] = reqCode;
+  p.set(params, 34);
+  return p;
+}
+
+/** One page of a repeater's neighbor table to ask for. */
+export interface NeighborsQuery {
+  /** How many rows this page may carry. */
+  count: number;
+  /** How many rows to skip, counted in the requested order. */
+  offset: number;
+  /**
+   * One of {@link NEIGHBOR_ORDER}; the repeater sorts before paging. Defaults
+   * to {@link NEIGHBOR_ORDER.NEWEST_FIRST}.
+   */
+  orderBy?: number;
+}
+
+/**
+ * Builds a `GET_NEIGHBOURS` request: request version 0, then the page window,
+ * ordering, and how many bytes of each neighbor's public key to return.
+ *
+ * @remarks
+ * The trailing four bytes are random. They are not a correlation id — the tag
+ * on the `SENT` receipt is — but padding that varies per request, so two
+ * identical queries do not hash to the same packet and get suppressed as
+ * duplicates by the mesh.
+ * @see the `REQ_TYPE_GET_NEIGHBOURS` branch of `MyMesh::handleRequest` in
+ * `examples/simple_repeater/MyMesh.cpp`.
+ */
+export function buildGetNeighborsReq(
+  pubkey: Uint8Array,
+  { count, offset, orderBy = NEIGHBOR_ORDER.NEWEST_FIRST }: NeighborsQuery,
+): Uint8Array {
+  const params = new Uint8Array(10);
+  const v = new DataView(params.buffer);
+  params[0] = 0; // request_version
+  params[1] = count;
+  v.setUint16(2, offset, true);
+  params[4] = orderBy;
+  params[5] = NEIGHBOR_PREFIX_BYTES;
+  crypto.getRandomValues(params.subarray(6, 10));
+  return buildSendBinaryReq(pubkey, BINARY_REQ.GET_NEIGHBOURS, params);
+}
+
+/**
+ * Builds a `GET_ACCESS_LIST` request. The two zero bytes are reserved query
+ * params the firmware insists on: it answers only when both are zero.
+ *
+ * @remarks Admin-only, and answered only when the list is non-empty — the
+ * firmware suppresses a reply body of nothing but the tag, so a node with an
+ * empty ACL is indistinguishable from one that never answered.
+ * @see the `REQ_TYPE_GET_ACCESS_LIST` branch of `MyMesh::handleRequest` in
+ * `examples/simple_repeater/MyMesh.cpp`.
+ */
+export function buildGetAccessListReq(pubkey: Uint8Array): Uint8Array {
+  return buildSendBinaryReq(
+    pubkey,
+    BINARY_REQ.GET_ACCESS_LIST,
+    new Uint8Array(2),
+  );
 }
 
 /**

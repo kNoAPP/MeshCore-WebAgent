@@ -18,8 +18,6 @@ import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useClockTick } from '@/hooks/useClockTick';
 import { loadRepeaterCred, clearRepeaterCred } from '@/lib/meshcore/adminCreds';
-import { parseNeighborsReply, type Neighbor } from '@/lib/meshcore/repeaterCli';
-import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
 import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import {
   repeaterAnchorNode,
@@ -43,12 +41,14 @@ import { HintToken } from './MessageBubble';
 import { RouteChip } from './RouteChip';
 import { StatCard } from './StatCard';
 import { RefreshButton } from './RefreshButton';
+import { RepeaterAccessTab } from './RepeaterAccessTab';
 import { RepeaterConfigTab } from './RepeaterConfigTab';
 import { RepeaterConsoleTab } from './RepeaterConsoleTab';
 import { TelemetryPanel } from './TelemetryPanel';
 import type {
   Contact,
   LoginKind,
+  Neighbor,
   RepeaterAccess,
   RepeaterStatus,
 } from '@/types/meshcore';
@@ -72,7 +72,13 @@ function approxBatteryPercent(milliVolts: number): number {
 }
 
 type RepeaterTab =
-  'posts' | 'status' | 'telemetry' | 'config' | 'neighbors' | 'console';
+  | 'posts'
+  | 'status'
+  | 'telemetry'
+  | 'config'
+  | 'neighbors'
+  | 'access'
+  | 'console';
 
 /**
  * The main-window view for a repeater or room server, shown in place of the
@@ -139,7 +145,9 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
       : ['status', 'telemetry'];
     if (isAdmin) list.push('config');
     if (isAdmin && isRepeater) list.push('neighbors');
-    if (isAdmin) list.push('console');
+    // The access list is admin-only but not repeater-only: a room server
+    // answers the same request, reporting just its admin entries.
+    if (isAdmin) list.push('access', 'console');
     return list;
   }, [isAdmin, isRepeater, isRoom]);
   // Where a fresh selection of this node lands. Returning from the map picker
@@ -291,6 +299,7 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
             )}
             {activeTab === 'config' && <RepeaterConfigTab contact={contact} />}
             {activeTab === 'neighbors' && <NeighborsTab contact={contact} />}
+            {activeTab === 'access' && <RepeaterAccessTab contact={contact} />}
             {activeTab === 'console' && (
               <RepeaterConsoleTab contact={contact} />
             )}
@@ -811,15 +820,15 @@ function StatusDashboard({
 // Held at module scope, not per-tab, so a remount (tab switch) joins the
 // outstanding read instead of starting a duplicate or briefly showing a false
 // empty. Storing the promise — rather than a flag — lets every mount await the
-// same reply text. The entry is removed once the read settles.
-const neighborsRequests = new Map<string, Promise<string>>();
+// same list. The entry is removed once the read settles.
+const neighborsRequests = new Map<string, Promise<Neighbor[]>>();
 
 const NEIGHBOR_VIEWS = ['map', 'list'] as const;
 type NeighborView = (typeof NEIGHBOR_VIEWS)[number];
 
 function NeighborsTab({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
-  const { repeaterCliRequest } = useMeshCore();
+  const { repeaterNeighbors } = useMeshCore();
   const contacts = useMeshStore((s) => s.contacts);
   const advertCache = useMeshStore((s) => s.advertCache);
   const prefix = contact.pubkeyPrefix;
@@ -882,28 +891,21 @@ function NeighborsTab({ contact }: { contact: Contact }) {
       // await the same settlement instead of showing a transient false empty.
       let request = neighborsRequests.get(prefix);
       if (!request) {
-        request = repeaterCliRequest(contact, 'neighbors').finally(() => {
+        request = repeaterNeighbors(contact).finally(() => {
           neighborsRequests.delete(prefix);
         });
         neighborsRequests.set(prefix, request);
       }
-      const reply = await request;
-      // A protocol-level rejection (`Err …`/`Unknown command`, e.g. on firmware
-      // without the command) resolves the request but is not an empty list —
-      // treat it as an error so it isn't cached as "no neighbors".
-      if (isErrorReply(reply)) {
-        setErrored(true);
-        return;
-      }
-      setRepeaterNeighbors(prefix, parseNeighborsReply(reply));
+      setRepeaterNeighbors(prefix, await request);
     } catch {
-      // A timeout or dropped link is an error, not "no neighbors": surface an
-      // error state and preserve any cached list rather than clearing it.
+      // A timeout, a rejected reply, or a dropped link is an error, not "no
+      // neighbors": surface an error state and preserve any cached list rather
+      // than clearing it.
       setErrored(true);
     } finally {
       setLoading(false);
     }
-  }, [contact, prefix, repeaterCliRequest, setRepeaterNeighbors]);
+  }, [contact, prefix, repeaterNeighbors, setRepeaterNeighbors]);
 
   // Fetch once on first entry, unless a cached list is already showing. The
   // ref guard survives StrictMode's double mount; `refresh` itself joins an
@@ -915,12 +917,12 @@ function NeighborsTab({ contact }: { contact: Contact }) {
     void refresh();
   }, [refresh]);
 
-  // The in-flight `neighbors` request is deliberately *not* cancelled on
-  // unmount. Cancelling would reject its queued CLI slot, letting the queue
-  // advance while the repeater is still replying — a late reply could then
-  // resolve the next command's waiter (e.g. one sent from the Console tab). The
-  // result is cached in the store, so letting the request run to completion is
-  // both correct and harmless when the user has navigated away.
+  // The in-flight neighbors read is deliberately *not* cancelled on unmount.
+  // On the CLI fallback path, cancelling would reject its queued slot and let
+  // the queue advance while the repeater is still replying — a late reply could
+  // then resolve the next command's waiter (e.g. one sent from the Console
+  // tab). The result is cached in the store, so letting the read run to
+  // completion is both correct and harmless when the user has navigated away.
 
   // Shown whenever the map has nothing to draw, which on the map side doubles
   // as the explanation of why — so the switcher stays available either way.
@@ -1075,7 +1077,7 @@ function NeighborsList({ rows }: { rows: NeighborRow[] }) {
               ? advertCache[node.pubkeyPrefix]
               : undefined;
           return (
-            // A 4-byte prefix is not unique on its own, so the reply position
+            // A key prefix is not unique on its own, so the reply position
             // discriminates two rows that happen to share one.
             <tr
               key={`${neighbor.prefix}:${index}`}

@@ -70,6 +70,7 @@ import {
   repeaterCliRequest as sendCliRequest,
   runStatusRequest,
 } from '@/lib/session/cliQueue';
+import { readNeighbors } from '@/lib/session/neighbors';
 import {
   ADV_TYPE_ROOM,
   FAVORITE_FLAG,
@@ -97,6 +98,8 @@ import type {
   Message,
   LoginKind,
   ITransport,
+  Neighbor,
+  AclEntry,
 } from '@/types/meshcore';
 import type { AutomationRule } from '@/types/automation';
 
@@ -910,6 +913,47 @@ export function useMeshCore() {
   );
 
   /**
+   * Reads a repeater's neighbor table, structured where the firmware supports
+   * it and scraped from the `neighbors` CLI reply where it does not.
+   *
+   * @remarks See {@link readNeighbors} for why the structured path is preferred
+   * and how the fallback is chosen.
+   * @throws if the link is down, or neither path produced a list — a repeater
+   * with no neighbors resolves with an empty array instead.
+   */
+  const repeaterNeighbors = useCallback(
+    (contact: Contact): Promise<Neighbor[]> => {
+      if (!canTransmit(client)) {
+        return Promise.reject(
+          new Error(i18n.t('repeaterAdmin.cli.disconnected')),
+        );
+      }
+      return readNeighbors(client, contact);
+    },
+    [client],
+  );
+
+  /**
+   * Reads which clients may administer a repeater or room server.
+   *
+   * @remarks Structured-only — there is no CLI command that lists the ACL — so
+   * a node whose firmware predates `GET_ACCESS_LIST` simply never answers.
+   * @throws if the link is down, or the node did not answer. A node with an
+   * empty list answers with nothing at all, so it fails the same way.
+   */
+  const repeaterAccessList = useCallback(
+    (contact: Contact): Promise<AclEntry[]> => {
+      if (!canTransmit(client)) {
+        return Promise.reject(
+          new Error(i18n.t('repeaterAdmin.cli.disconnected')),
+        );
+      }
+      return client.requestAccessList(contact);
+    },
+    [client],
+  );
+
+  /**
    * Sends a CLI command to a repeater and resolves with its reply text, for the
    * structured Config editor's `get`/`set` round-trips.
    *
@@ -1512,6 +1556,8 @@ export function useMeshCore() {
     requestTelemetry,
     repeaterCli,
     repeaterCliRequest,
+    repeaterNeighbors,
+    repeaterAccessList,
     clearRepeaterCli,
     addDiscoveredContact,
     importContact,

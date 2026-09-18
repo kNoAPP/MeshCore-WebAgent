@@ -731,7 +731,8 @@
       "telemetry": "Telemetría",
       "config": "Configuración",
       "neighbors": "Vecinos",
-      "console": "Consola"
+      "console": "Consola",
+      "access": "Acceso"
     },
     "tabsLabel": "Administración del nodo",
     "login": {
@@ -812,6 +813,19 @@
       "hiddenByAge_other": "{{count}} vecinos se escucharon hace más tiempo que el intervalo de arriba.",
       "noLocation": "Se escucharon vecinos, pero ninguno pudo ubicarse en el mapa: no tienen una ubicación conocida.",
       "noAnchor": "Este repetidor no tiene una ubicación anunciada, por lo que sus vecinos no pueden mostrarse en el mapa."
+    },
+    "accessList": {
+      "caption": "Clientes autorizados a administrar este nodo.",
+      "label": "Lista de control de acceso",
+      "loading": "Cargando lista de acceso…",
+      "unavailable": "No se pudo cargar la lista de acceso. Prueba a actualizar: puede que la respuesta se haya perdido, o que el nodo no tenga entradas o carezca de firmware compatible con esta petición.",
+      "empty": "Sin entradas de acceso.",
+      "colClient": "Cliente",
+      "colRole": "Rol",
+      "roleGuest": "Invitado",
+      "roleReadOnly": "Solo lectura",
+      "roleReadWrite": "Miembro",
+      "roleAdmin": "Administrador"
     },
     "console": {
       "empty": "Aún no hay salida. Envía un comando para empezar, o pulsa el botón ? para ver la lista de comandos.",

@@ -18,6 +18,8 @@ import type {
   RepeaterStatus,
   RepeaterAccess,
   NodeTelemetry,
+  NeighborsPage,
+  AclEntry,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import { MeshConnectError, PrivateKeyError } from './errors';
@@ -65,6 +67,9 @@ import {
   buildSendLogin,
   buildSendStatusReq,
   buildSendTelemetryReq,
+  buildGetNeighborsReq,
+  buildGetAccessListReq,
+  type NeighborsQuery,
 } from './frames';
 import {
   parseSelfInfo,
@@ -89,6 +94,9 @@ import {
   parseLoginPush,
   parseTelemetryResponse,
   parsePrivateKey,
+  parseBinaryResponse,
+  parseNeighborsResponse,
+  parseAccessList,
 } from './parsers';
 import { sortByHeardAge, toHex } from '@/lib/utils';
 
@@ -152,12 +160,12 @@ interface PendingCmd {
 }
 
 // A caller awaiting an asynchronous push (PUSH_LOGIN_SUCCESS /
-// PUSH_STATUS_RESPONSE / PUSH_TELEMETRY_RESPONSE) that the radio delivers well
-// after its SENT receipt.
-// Keyed by the target node's 6-byte pubkey prefix so concurrent requests to
-// different repeaters never cross-talk. `timer` is armed only once the SENT
-// receipt reveals the estimated round-trip, so it is null between registration
-// and that receipt.
+// PUSH_STATUS_RESPONSE / PUSH_TELEMETRY_RESPONSE / PUSH_BINARY_RESPONSE) that
+// the radio delivers well after its SENT receipt.
+// Keyed by the target node's 6-byte pubkey prefix — or, for a binary request,
+// by the tag the receipt carried — so concurrent requests never cross-talk.
+// `timer` is armed only once the SENT receipt reveals the estimated round-trip,
+// so it is null between registration and that receipt.
 interface PushWaiter<T> {
   resolve: (value: T) => void;
   reject: (err: Error) => void;
@@ -244,6 +252,23 @@ export class MeshCoreClient {
   private loginWaiters = new Map<string, PushWaiter<RepeaterAccess | null>>();
   private statusWaiters = new Map<string, PushWaiter<RepeaterStatus>>();
   private telemetryWaiters = new Map<string, PushWaiter<NodeTelemetry>>();
+  // Binary requests correlate by the tag from their SENT receipt instead of by
+  // pubkey prefix, so a reply is tied to the one request that asked for it —
+  // a straggler from a timed-out read can never be claimed by the next one.
+  private binaryWaiters = new Map<number, PushWaiter<Uint8Array>>();
+  // A binary response that arrived before its requester learned the tag it
+  // must wait on — possible because the frame parser dispatches a read chunk's
+  // frames synchronously, so a push sharing a chunk with the SENT receipt lands
+  // before the `await` on that receipt resumes. `remoteChain` allows one binary
+  // request in flight, so a single slot holds every such case; it is cleared
+  // when a request starts and again as soon as that request claims (or
+  // declines) it.
+  private orphanBinaryResponse: { tag: number; data: Uint8Array } | null = null;
+  // Set once this radio rejects SEND_BINARY_REQ as a command it does not know,
+  // so every later structured request skips straight to its fallback instead of
+  // paying another round trip to be told the same thing. A property of the
+  // connected radio, so it dies with this client.
+  private binaryReqUnsupported = false;
   // Serializes the full login/status/telemetry handshake (the SENT receipt
   // *and* the async push that follows). Current firmware retains only one
   // pending remote request and clears it on each request command
@@ -599,6 +624,21 @@ export class MeshCoreClient {
         );
       return;
     }
+    if (type === RESP.PUSH_BINARY_RESPONSE) {
+      // A node answered a structured request. The tag names the exact request,
+      // so a response nobody is waiting on is either a duplicate or one whose
+      // requester has not resumed from its SENT receipt yet — hold the latter
+      // case in the orphan slot for `runBinaryRequest` to claim.
+      const res = parseBinaryResponse(d);
+      if (res) {
+        if (this.binaryWaiters.has(res.tag)) {
+          this.settlePush(this.binaryWaiters, res.tag, res.data);
+        } else {
+          this.orphanBinaryResponse = res;
+        }
+      }
+      return;
+    }
 
     if (this.collectingContacts) {
       if (type === RESP.CONTACTS_START) {
@@ -933,6 +973,64 @@ export class MeshCoreClient {
       this.telemetryWaiters,
       contact.pubkeyBytes,
       buildSendTelemetryReq(contact.pubkeyBytes),
+    );
+  }
+
+  /**
+   * Whether this radio has already rejected {@link CMD.SEND_BINARY_REQ} as an
+   * unknown command. Lets a caller with a fallback path take it directly
+   * instead of re-learning the same answer one round trip at a time.
+   *
+   * @remarks Only ever set by a rejection actually seen, so it is `false` until
+   * a structured request has been attempted — never a prediction from a version
+   * number.
+   */
+  get binaryRequestsUnsupported(): boolean {
+    return this.binaryReqUnsupported;
+  }
+
+  /**
+   * Reads one page of a repeater's neighbor table over a structured
+   * `GET_NEIGHBOURS` request — the binary path that replaces scraping the
+   * `neighbors` CLI reply, whose rows the firmware truncates to fit one
+   * 160-byte text message.
+   *
+   * @remarks
+   * Requires a prior admin {@link login}. The returned `total` counts the
+   * repeater's whole table, so a caller pages by re-requesting with a larger
+   * `offset` until it has that many rows.
+   * @throws on a timeout, which is also how firmware with no `GET_NEIGHBOURS`
+   * handler answers — it returns an empty reply that the companion radio never
+   * pushes. A local radio too old to know `SEND_BINARY_REQ` rejects it sooner,
+   * with a device error carrying {@link ERR_CODE.UNSUPPORTED_CMD}.
+   */
+  async requestNeighbors(
+    contact: Contact,
+    query: NeighborsQuery,
+  ): Promise<NeighborsPage> {
+    const data = await this.binaryRequest(
+      buildGetNeighborsReq(contact.pubkeyBytes, query),
+    );
+    const page = parseNeighborsResponse(data);
+    if (!page) throw new Error('Malformed GET_NEIGHBOURS response');
+    return page;
+  }
+
+  /**
+   * Reads a repeater's or room server's access control list — which clients
+   * may administer it.
+   *
+   * @remarks
+   * Requires a prior admin {@link login}: the firmware answers this request
+   * only for `isAdmin()` senders, and a room server reports only its admin
+   * entries where a repeater reports every role.
+   * @throws on a timeout. A node whose list is empty answers with nothing at
+   * all, so an empty ACL is indistinguishable from silence and surfaces the
+   * same way.
+   */
+  async requestAccessList(contact: Contact): Promise<AclEntry[]> {
+    return parseAccessList(
+      await this.binaryRequest(buildGetAccessListReq(contact.pubkeyBytes)),
     );
   }
 
@@ -1608,6 +1706,71 @@ export class MeshCoreClient {
     return promise;
   }
 
+  // Runs one binary request, serialized on `remoteChain` alongside the
+  // login/status/telemetry handshakes: the radio keeps a single pending-request
+  // slot (`clearPendingReqs`), so an overlapping request would cancel this one
+  // radio-side.
+  private binaryRequest(payload: Uint8Array): Promise<Uint8Array> {
+    const { run, tail } = this.serialize(this.remoteChain, () =>
+      this.runBinaryRequest(payload),
+    );
+    this.remoteChain = tail;
+    return run;
+  }
+
+  // The handshake body. Unlike `runRemoteRequest` the waiter cannot be
+  // registered before sending: its key is the tag, which only the SENT receipt
+  // reveals. The orphan slot covers the gap that leaves, so a response sharing
+  // a read chunk with that receipt is still delivered.
+  private async runBinaryRequest(payload: Uint8Array): Promise<Uint8Array> {
+    this.orphanBinaryResponse = null;
+    let sent: Uint8Array;
+    try {
+      sent = await this.cmd(payload, [RESP.SENT], 5000);
+    } catch (err) {
+      // `UNSUPPORTED_CMD` here is the radio disowning the command byte itself,
+      // not the target node declining the request — so it is the whole radio
+      // that cannot do this, for every node.
+      if ((err as { code?: number }).code === ERR_CODE.UNSUPPORTED_CMD) {
+        this.binaryReqUnsupported = true;
+      }
+      throw err;
+    }
+    const receipt = parseMsgSent(sent);
+    // Every SENT the firmware writes for this command carries the tag, so a
+    // receipt without one is a frame this client cannot correlate at all.
+    if (!receipt) throw new Error('Binary request receipt carried no tag');
+    const tag = receipt.expectedAck;
+
+    const early = this.takeOrphanBinaryResponse(tag);
+    if (early) return early;
+
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const waiter: PushWaiter<Uint8Array> = { resolve, reject, timer: null };
+      this.binaryWaiters.set(tag, waiter);
+      // Same budget as the other remote requests: the radio's estimated
+      // round-trip plus a grace margin, falling back to a safe figure when the
+      // receipt carries no usable estimate.
+      const base =
+        receipt.suggestedTimeoutMs > 0
+          ? receipt.suggestedTimeoutMs
+          : PUSH_FALLBACK_TIMEOUT_MS;
+      waiter.timer = setTimeout(() => {
+        this.binaryWaiters.delete(tag);
+        reject(new Error(`Timeout waiting for binary response ${tag}`));
+      }, base + PUSH_GRACE_MS);
+    });
+  }
+
+  // Claims the orphan slot for `tag`, emptying it either way: a response parked
+  // there under a different tag answers no live request, and leaving it would
+  // only let a later one mistake it for its own.
+  private takeOrphanBinaryResponse(tag: number): Uint8Array | null {
+    const orphan = this.orphanBinaryResponse;
+    this.orphanBinaryResponse = null;
+    return orphan && orphan.tag === tag ? orphan.data : null;
+  }
+
   // Resolves the login/status/telemetry waiter matching an inbound push's
   // pubkey prefix. A push with no pending waiter is dropped (a stray or
   // duplicate reply), mirroring meshcore.js.
@@ -1618,30 +1781,38 @@ export class MeshCoreClient {
   // straggler from the earlier request can resolve the later waiter with its
   // (still real, but staler) snapshot. Serialization via `remoteChain` keeps at
   // most one waiter per prefix, bounding this to the retry/duplicate window.
-  private settlePush<T>(
-    waiters: Map<string, PushWaiter<T>>,
-    prefixHex: string,
+  private settlePush<K, T>(
+    waiters: Map<K, PushWaiter<T>>,
+    key: K,
     value: T,
   ): void {
-    const w = waiters.get(prefixHex);
+    const w = waiters.get(key);
     if (!w) return;
-    waiters.delete(prefixHex);
+    waiters.delete(key);
     if (w.timer) clearTimeout(w.timer);
     w.resolve(value);
   }
 
-  // Rejects every pending login/status/telemetry push waiter on teardown so
-  // callers awaiting a remote reply unwind with the link error instead of
-  // hanging until their derived timeout.
+  // Rejects every pending push waiter on teardown so callers awaiting a remote
+  // reply unwind with the link error instead of hanging until their derived
+  // timeout.
   private rejectPushWaiters(err: Error): void {
-    const all = [this.loginWaiters, this.statusWaiters, this.telemetryWaiters];
-    for (const waiters of all) {
-      for (const w of waiters.values()) {
-        if (w.timer) clearTimeout(w.timer);
-        w.reject(err);
-      }
-      waiters.clear();
+    this.rejectWaiterMap(this.loginWaiters, err);
+    this.rejectWaiterMap(this.statusWaiters, err);
+    this.rejectWaiterMap(this.telemetryWaiters, err);
+    this.rejectWaiterMap(this.binaryWaiters, err);
+    this.orphanBinaryResponse = null;
+  }
+
+  private rejectWaiterMap<K, T>(
+    waiters: Map<K, PushWaiter<T>>,
+    err: Error,
+  ): void {
+    for (const w of waiters.values()) {
+      if (w.timer) clearTimeout(w.timer);
+      w.reject(err);
     }
+    waiters.clear();
   }
 
   // Shared teardown for both an unexpected drop and a deliberate destroy: mark

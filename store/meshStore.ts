@@ -29,7 +29,7 @@ import type {
   AuditEntry,
 } from '@/types/automation';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
-import type { Neighbor } from '@/lib/meshcore/repeaterCli';
+import type { AclEntry, Neighbor } from '@/types/meshcore';
 import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import { convoId } from '@/lib/utils';
 import i18n from '@/lib/i18n';
@@ -415,6 +415,14 @@ export interface AdminSession {
    * until the first read; an empty array is a settled "no neighbors" result.
    */
   neighbors?: Neighbor[];
+  /**
+   * Cache of the node's last-read access control list. Ephemeral like the rest
+   * of the session — it names who may administer this node, so it must not
+   * outlive the admin login that was allowed to read it. `undefined` until the
+   * first read; the firmware cannot report an empty list, so an entry here
+   * always has rows.
+   */
+  accessList?: AclEntry[];
 }
 
 /**
@@ -844,6 +852,8 @@ interface MeshActions {
   ) => void;
   /** Caches the last-read neighbors list for a repeater's admin session. */
   setRepeaterNeighbors: (prefix: string, neighbors: Neighbor[]) => void;
+  /** Caches the last-read access control list for a node's admin session. */
+  setRepeaterAccessList: (prefix: string, entries: AclEntry[]) => void;
   /** Merges loaded/confirmed Config values into a repeater's session cache. */
   mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
@@ -1430,6 +1440,20 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       adminSessions: {
         ...adminSessions,
         [prefix]: { ...session, neighbors },
+      },
+    });
+  },
+  setRepeaterAccessList: (prefix, entries) => {
+    const { adminSessions } = get();
+    const session = adminSessions[prefix];
+    // Same rule as the neighbors cache, and it matters more here: the list is
+    // readable only by an admin, so a reply landing after that session ended
+    // must not be kept.
+    if (!isAuthedLogin(session?.login)) return;
+    set({
+      adminSessions: {
+        ...adminSessions,
+        [prefix]: { ...session, accessList: entries },
       },
     });
   },

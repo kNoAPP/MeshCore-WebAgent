@@ -730,7 +730,8 @@
       "telemetry": "Telemetry",
       "config": "Config",
       "neighbors": "Neighbors",
-      "console": "Console"
+      "console": "Console",
+      "access": "Access"
     },
     "tabsLabel": "Node administration",
     "login": {
@@ -811,6 +812,19 @@
       "hiddenByAge_other": "{{count}} neighbors were heard longer ago than the window above.",
       "noLocation": "Neighbors were heard, but none could be placed on the map — they have no known location.",
       "noAnchor": "This repeater has no advertised location, so its neighbors can't be shown on the map."
+    },
+    "accessList": {
+      "caption": "Clients allowed to administer this node.",
+      "label": "Access control list",
+      "loading": "Loading access list…",
+      "unavailable": "Couldn't load the access list. Try refreshing — the reply may have been lost, or this node may have no entries or firmware without this request.",
+      "empty": "No access entries.",
+      "colClient": "Client",
+      "colRole": "Role",
+      "roleGuest": "Guest",
+      "roleReadOnly": "Read-only",
+      "roleReadWrite": "Member",
+      "roleAdmin": "Admin"
     },
     "console": {
       "empty": "No output yet. Send a command to get started, or press the ? button for the command list.",
