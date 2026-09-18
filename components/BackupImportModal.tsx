@@ -188,14 +188,18 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
           <p className='mb-4 text-xs text-text2'>
             {t('settings.backup.importIntro')}
           </p>
+          {/* Both inputs freeze while the passphrase is being stretched, so
+              the fields cannot drift from the file and passphrase the in-flight
+              unlock is actually using. */}
           <input
             type='file'
             accept={BACKUP_FILE_EXT}
+            disabled={busy}
             onChange={(e) => {
               setFile(e.target.files?.[0] ?? null);
               setError(null);
             }}
-            className='w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm text-text2 file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-1 file:text-sm file:text-text'
+            className='w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm text-text2 file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-1 file:text-sm file:text-text disabled:cursor-not-allowed disabled:opacity-50'
           />
 
           <label
@@ -209,11 +213,12 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
             type='password'
             autoComplete='current-password'
             value={passphrase}
+            disabled={busy}
             onChange={(e) => setPassphrase(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') void unlock();
             }}
-            className='w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent-solid'
+            className='w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent-solid disabled:cursor-not-allowed disabled:opacity-50'
           />
 
           {error && (
@@ -321,11 +326,15 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
 
             {preview.hasIdentity && (
               <div className='mt-4 rounded-md border border-red bg-red/10 p-3'>
+                {/* Also frozen while the restore runs: `apply` captured this
+                    choice at the click, and the awaited flush leaves a window
+                    where switching it off would suggest the irreversible step
+                    had been called back. */}
                 <Switch
                   label={t('settings.backup.restoreIdentity')}
                   checked={restoreIdentity}
                   onChange={setRestoreIdentity}
-                  disabled={!client}
+                  disabled={!client || busy}
                 />
                 <p className='mt-2 text-xs leading-relaxed text-text'>
                   {t('settings.backup.restoreIdentityWarning')}

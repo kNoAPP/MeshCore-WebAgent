@@ -124,13 +124,18 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
       <label htmlFor={passId} className='mb-1 block text-xs text-text2'>
         {t('settings.backup.passphrase')}
       </label>
+      {/* Frozen while the export runs, like the identity switch below: `run`
+          captured this value before the 600k-iteration KDF started, so an edit
+          made during it would leave the field showing a passphrase that does
+          not open the file being written. */}
       <input
         id={passId}
         type='password'
         autoComplete='new-password'
         value={passphrase}
+        disabled={busy}
         onChange={(e) => setPassphrase(e.target.value)}
-        className='w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent-solid'
+        className='w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent-solid disabled:cursor-not-allowed disabled:opacity-50'
       />
       <p className='mt-1 text-xs text-text2'>
         {tooShort
@@ -148,8 +153,9 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
         type='password'
         autoComplete='new-password'
         value={confirm}
+        disabled={busy}
         onChange={(e) => setConfirm(e.target.value)}
-        className='w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent-solid'
+        className='w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent-solid disabled:cursor-not-allowed disabled:opacity-50'
       />
       {mismatch && (
         <p className='mt-1 text-xs text-red'>
@@ -158,10 +164,14 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
       )}
 
       <div className='mt-5 rounded-md border border-red bg-red/10 p-3'>
+        {/* `run` captured this choice when Back up was clicked, so leaving the
+            switch live would let it read "excluded" while an identity-bearing
+            file is still being written. */}
         <Switch
           label={t('settings.backup.includeIdentity')}
           checked={includeIdentity}
           onChange={setIncludeIdentity}
+          disabled={busy}
         />
         <p className='mt-2 text-xs text-text2'>
           {t('settings.backup.includeIdentityWarning')}

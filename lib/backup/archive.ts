@@ -513,6 +513,10 @@ function isBackupChannel(v: unknown): v is BackupChannel {
 // throws — in `previewImport`, before the user has agreed to anything.
 const CONVO_ID_RE = /^(channel:\d+|direct:[0-9a-fA-F]+)$/;
 
+// An advert cache key is a `pubkeyPrefix`: the first six bytes of the node's
+// public key, lower-case hex, as `parsers.ts` mints them.
+const ADVERT_PREFIX_RE = /^[0-9a-f]{12}$/;
+
 function validateHistory(raw: unknown): Record<string, Message[]> | null {
   if (raw === undefined) return {};
   if (!isRecord(raw)) return null;
@@ -532,12 +536,17 @@ function validateAdvertCache(raw: unknown): Record<string, Advert> | null {
   const out: Record<string, Advert> = {};
   for (const [prefix, advert] of Object.entries(raw)) {
     if (!isAdvert(advert)) return null;
-    // The key and the record's own prefix must agree: the import's staleness
-    // filter looks entries up by key while `mergeAdvertCache` writes them back
-    // by `pubkeyPrefix`, so a mismatched pair would skip the freshness check,
-    // be counted against the wrong node in the preview, and overwrite newer
-    // metadata under the key it really carries.
-    if (advert.pubkeyPrefix !== prefix) return null;
+    // Both the shape and the agreement are checked. The shape, because these
+    // keys index plain objects: `toString` resolves to an inherited
+    // `Object.prototype` member and is counted as an advert this browser
+    // already holds, and `__proto__` is swallowed entirely by the assignment
+    // below. The agreement, because the import's staleness filter looks entries
+    // up by key while `mergeAdvertCache` writes them back by `pubkeyPrefix`, so
+    // a mismatched pair skips the freshness check and overwrites newer metadata
+    // under the key it really carries.
+    if (!ADVERT_PREFIX_RE.test(prefix) || advert.pubkeyPrefix !== prefix) {
+      return null;
+    }
     out[prefix] = advert;
   }
   return out;
