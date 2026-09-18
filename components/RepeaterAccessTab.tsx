@@ -42,15 +42,18 @@ const ROLE_LABELS = [
 >;
 
 /**
- * The repeater admin Access tab: who else may administer this node, read from
- * its `GET_ACCESS_LIST` binary request.
+ * The repeater admin Access tab: the node's access control list — every client
+ * it holds an entry for and the role each was granted — read from its
+ * `GET_ACCESS_LIST` binary request.
  *
  * @remarks
- * Read-only by design — the firmware exposes no way to edit the list remotely,
- * and the point of showing it is that an operator can see which other clients
- * hold admin on a node they administer. Each entry carries only a 6-byte key
- * prefix, so it is named only as far as this browser's contacts and advert
- * cache can resolve it.
+ * Not an admin-only roster: a repeater returns every non-deleted entry, so
+ * guest and read-only clients appear alongside admins. (A room server is the
+ * exception — it filters its reply to admin entries.) Read-only by design, as
+ * the firmware exposes no way to edit the list remotely; the point of showing
+ * it is that an operator can see who else holds a role on a node they
+ * administer. Each entry carries only a 6-byte key prefix, so it is named only
+ * as far as this browser's contacts and advert cache can resolve it.
  * @param contact - the node, which must already have an admin session.
  */
 export function RepeaterAccessTab({ contact }: { contact: Contact }) {
@@ -92,6 +95,10 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
     setLoading(true);
     setErrored(false);
     try {
+      // The session this read belongs to. A log-out and re-login while it is in
+      // flight mints a new token, and this list is admin-only — so it must not
+      // land on whatever session replaced the one that asked.
+      const token = useMeshStore.getState().adminSessions[prefix]?.token;
       let request = accessRequests.get(prefix);
       if (!request) {
         request = repeaterAccessList(contact).finally(() => {
@@ -99,7 +106,7 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
         });
         accessRequests.set(prefix, request);
       }
-      setRepeaterAccessList(prefix, await request);
+      setRepeaterAccessList(prefix, await request, token);
     } catch {
       setErrored(true);
     } finally {
@@ -125,6 +132,13 @@ export function RepeaterAccessTab({ contact }: { contact: Contact }) {
         </p>
         <RefreshButton onClick={() => void refresh()} busy={loading} />
       </div>
+      {/* A failed refresh with rows still cached would otherwise leave the old
+          table looking freshly confirmed, so say so above it. */}
+      {errored && rows.length > 0 && (
+        <p className='rounded-lg border border-border p-3 text-sm text-text2'>
+          {t('repeaterAdmin.accessList.stale')}
+        </p>
+      )}
       {rows.length === 0 ? (
         <div className='rounded-lg border border-border p-6'>
           <p className='text-center text-sm text-text2'>

@@ -13,13 +13,19 @@ import {
 import i18n from '@/lib/i18n';
 import type { Contact, Neighbor } from '@/types/meshcore';
 
-// Repeaters known not to answer a structured GET_NEIGHBOURS, so the next read
-// goes straight to the CLI instead of waiting out another full timeout. Only
-// recorded when the structured read went unanswered *and* the CLI then
-// answered: a node that answered neither was unreachable, which says nothing
-// about its firmware. Keyed by pubkeyPrefix, module-level like the CLI queues
-// beside it, and cleared with them on teardown.
-const cliOnlyNeighbors = new Set<string>();
+// How many structured reads in a row must fail — each with the CLI then
+// answering — before a repeater is taken to lack GET_NEIGHBOURS. One is not
+// evidence: a single binary response lost on the mesh while the later CLI round
+// trip happened to survive looks exactly the same, and downgrading on that
+// would give up the untruncated read for the rest of the session over one
+// dropped packet.
+const CLI_ONLY_STRIKES = 2;
+
+// Consecutive structured-read failures per repeater (keyed by pubkeyPrefix),
+// counted only where the CLI then answered. Reset by a structured read that
+// succeeds, so a node is downgraded only on a sustained pattern. Module-level
+// like the CLI queues beside it, and cleared with them on teardown.
+const structuredFailures = new Map<string, number>();
 
 /**
  * Reads a repeater's neighbor table, preferring the structured
@@ -49,10 +55,14 @@ export async function readNeighbors(
 ): Promise<Neighbor[]> {
   const prefix = contact.pubkeyPrefix;
   const structured =
-    !client.binaryRequestsUnsupported && !cliOnlyNeighbors.has(prefix);
+    !client.binaryRequestsUnsupported &&
+    (structuredFailures.get(prefix) ?? 0) < CLI_ONLY_STRIKES;
   if (structured) {
     try {
-      return await readNeighborsPaged(client, contact);
+      const neighbors = await readNeighborsPaged(client, contact);
+      // This node does answer, so any earlier failures were the link.
+      structuredFailures.delete(prefix);
+      return neighbors;
     } catch {
       // Any failure falls through to the CLI: an unsupported command, an
       // unanswered request, or a response this client could not decode all
@@ -60,9 +70,13 @@ export async function readNeighbors(
     }
   }
   const neighbors = await readNeighborsViaCli(client, contact);
-  // The CLI answering after the structured read did not is the one combination
-  // that points at the firmware rather than at the link.
-  if (structured) cliOnlyNeighbors.add(prefix);
+  // The CLI answering where the structured read did not is weak evidence about
+  // the firmware — a lost response looks the same — so it counts a strike
+  // rather than settling the question. A node that answered neither was
+  // unreachable and says nothing at all, so it is not counted.
+  if (structured) {
+    structuredFailures.set(prefix, (structuredFailures.get(prefix) ?? 0) + 1);
+  }
   return neighbors;
 }
 
@@ -81,20 +95,17 @@ async function readNeighborsPaged(
   // that keeps repeating a page asking for that same page forever.
   let read = 0;
   while (read < NEIGHBORS_READ_LIMIT) {
-    let page;
-    try {
-      page = await client.requestNeighbors(contact, {
-        count: NEIGHBORS_PAGE_SIZE,
-        offset: read,
-        orderBy: NEIGHBOR_ORDER.NEWEST_FIRST,
-      });
-    } catch (err) {
-      // A page lost part-way through the walk still leaves the rows already
-      // read, and those are the ones the CLI fallback would have truncated
-      // away. Only a walk that got nothing is worth falling back from.
-      if (neighbors.length > 0) return neighbors;
-      throw err;
-    }
+    // A page lost part-way through the walk is deliberately *not* salvaged into
+    // a partial success. The caller caches whatever it gets as the repeater's
+    // table with no indication it is short, so returning the rows read so far
+    // would silently truncate the list — the exact failure this whole path
+    // exists to fix. Letting it raise hands the caller its fallback and error
+    // paths instead.
+    const page = await client.requestNeighbors(contact, {
+      count: NEIGHBORS_PAGE_SIZE,
+      offset: read,
+      orderBy: NEIGHBOR_ORDER.NEWEST_FIRST,
+    });
     // A page that carried nothing means the window ran past the table, whatever
     // the total claimed — without this an over-reported total would loop.
     if (page.neighbors.length === 0) break;
@@ -129,11 +140,11 @@ async function readNeighborsViaCli(
 }
 
 /**
- * Forgets which repeaters were found to need the CLI fallback.
+ * Forgets which repeaters have been failing structured neighbor reads.
  *
  * @remarks Called on session teardown: the finding belongs to one radio's view
  * of one mesh, and a repeater can be reflashed between sessions.
  */
 export function resetNeighborCapabilities(): void {
-  cliOnlyNeighbors.clear();
+  structuredFailures.clear();
 }

@@ -652,14 +652,19 @@ export function parseNeighborsResponse(data: Uint8Array): NeighborsPage | null {
  * `[6-byte pubkey prefix][permissions]`.
  *
  * @remarks
- * A trailing partial entry is dropped rather than decoded from whatever
- * follows it. The list is never empty in practice — the companion radio
- * suppresses a reply with no body, so an empty ACL reaches the caller as a
- * timeout.
+ * The firmware only ever writes whole entries, so a body that is not a
+ * multiple of seven has been truncated or corrupted in transit. That is
+ * rejected rather than decoded as far as it goes: a short read salvaged into a
+ * shorter list would be cached and shown as the node's complete access list,
+ * which is exactly the failure this request exists to avoid. The list is never
+ * legitimately empty either — the companion radio suppresses a reply with no
+ * body, so an empty ACL reaches the caller as a timeout.
+ * @returns null when the body is not a whole number of entries.
  * @see the `REQ_TYPE_GET_ACCESS_LIST` reply built in `MyMesh::handleRequest`
  * (`examples/simple_repeater/MyMesh.cpp`).
  */
-export function parseAccessList(data: Uint8Array): AclEntry[] {
+export function parseAccessList(data: Uint8Array): AclEntry[] | null {
+  if (data.length === 0 || data.length % 7 !== 0) return null;
   const entries: AclEntry[] = [];
   for (let at = 0; at + 7 <= data.length; at += 7) {
     entries.push({

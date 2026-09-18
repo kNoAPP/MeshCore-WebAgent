@@ -814,10 +814,11 @@
       "noAnchor": "This repeater has no advertised location, so its neighbors can't be shown on the map."
     },
     "accessList": {
-      "caption": "Clients allowed to administer this node.",
+      "caption": "Clients this node holds an access entry for, and the role each was granted.",
       "label": "Access control list",
       "loading": "Loading access list…",
       "unavailable": "Couldn't load the access list. Try refreshing — the reply may have been lost, or this node may have no entries or firmware without this request.",
+      "stale": "Showing the last access list read. The latest refresh failed, so it may be out of date.",
       "empty": "No access entries.",
       "colClient": "Client",
       "colRole": "Role",

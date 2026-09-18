@@ -1024,14 +1024,16 @@ export class MeshCoreClient {
    * Requires a prior admin {@link login}: the firmware answers this request
    * only for `isAdmin()` senders, and a room server reports only its admin
    * entries where a repeater reports every role.
-   * @throws on a timeout. A node whose list is empty answers with nothing at
-   * all, so an empty ACL is indistinguishable from silence and surfaces the
-   * same way.
+   * @throws on a timeout, or when the reply is not a whole number of entries.
+   * A node whose list is empty answers with nothing at all, so an empty ACL is
+   * indistinguishable from silence and surfaces the same way.
    */
   async requestAccessList(contact: Contact): Promise<AclEntry[]> {
-    return parseAccessList(
+    const entries = parseAccessList(
       await this.binaryRequest(buildGetAccessListReq(contact.pubkeyBytes)),
     );
+    if (!entries) throw new Error('Malformed GET_ACCESS_LIST response');
+    return entries;
   }
 
   /**

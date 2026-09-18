@@ -815,10 +815,11 @@
       "noAnchor": "Ce répéteur n’a pas d’emplacement annoncé, ses voisins ne peuvent donc pas être affichés sur la carte."
     },
     "accessList": {
-      "caption": "Clients autorisés à administrer ce nœud.",
+      "caption": "Clients pour lesquels ce nœud a une entrée d'accès, et le rôle accordé à chacun.",
       "label": "Liste de contrôle d'accès",
       "loading": "Chargement de la liste d'accès…",
       "unavailable": "Impossible de charger la liste d'accès. Essayez d'actualiser : la réponse s'est peut-être perdue, ou ce nœud n'a aucune entrée ou pas de micrologiciel prenant en charge cette requête.",
+      "stale": "Affiche la dernière liste d'accès lue. La dernière actualisation a échoué, elle peut donc être obsolète.",
       "empty": "Aucune entrée d'accès.",
       "colClient": "Client",
       "colRole": "Rôle",

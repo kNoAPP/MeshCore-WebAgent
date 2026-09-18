@@ -889,6 +889,10 @@ function NeighborsTab({ contact }: { contact: Contact }) {
       // Join an outstanding read for this repeater if one exists, else start
       // one. Sharing the promise dedupes concurrent reads and lets a remount
       // await the same settlement instead of showing a transient false empty.
+      // The session this read belongs to. A structured read walks several
+      // pages, so a log-out and re-login can easily land mid-flight; the new
+      // session must not inherit the old one's list.
+      const token = useMeshStore.getState().adminSessions[prefix]?.token;
       let request = neighborsRequests.get(prefix);
       if (!request) {
         request = repeaterNeighbors(contact).finally(() => {
@@ -896,7 +900,7 @@ function NeighborsTab({ contact }: { contact: Contact }) {
         });
         neighborsRequests.set(prefix, request);
       }
-      setRepeaterNeighbors(prefix, await request);
+      setRepeaterNeighbors(prefix, await request, token);
     } catch {
       // A timeout, a rejected reply, or a dropped link is an error, not "no
       // neighbors": surface an error state and preserve any cached list rather

@@ -850,10 +850,29 @@ interface MeshActions {
     status: RepeaterStatus,
     token?: number,
   ) => void;
-  /** Caches the last-read neighbors list for a repeater's admin session. */
-  setRepeaterNeighbors: (prefix: string, neighbors: Neighbor[]) => void;
-  /** Caches the last-read access control list for a node's admin session. */
-  setRepeaterAccessList: (prefix: string, entries: AclEntry[]) => void;
+  /**
+   * Caches the last-read neighbors list for a repeater's admin session.
+   *
+   * @param token - the {@link AdminSession.token} the read was issued under;
+   *   the result is dropped when the session has since been replaced.
+   */
+  setRepeaterNeighbors: (
+    prefix: string,
+    neighbors: Neighbor[],
+    token?: number,
+  ) => void;
+  /**
+   * Caches the last-read access control list for a node's admin session.
+   *
+   * @param token - as {@link MeshActions.setRepeaterNeighbors}, and more
+   *   load-bearing here: only an admin may read this list, so a reply landing
+   *   in a session that replaced the one which asked must not be kept.
+   */
+  setRepeaterAccessList: (
+    prefix: string,
+    entries: AclEntry[],
+    token?: number,
+  ) => void;
   /** Merges loaded/confirmed Config values into a repeater's session cache. */
   mergeRepeaterConfig: (prefix: string, patch: Record<string, string>) => void;
   /** Appends one line to a repeater's CLI transcript, capped to the newest. */
@@ -1429,13 +1448,16 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       },
     });
   },
-  setRepeaterNeighbors: (prefix, neighbors) => {
+  setRepeaterNeighbors: (prefix, neighbors, token) => {
     const { adminSessions } = get();
     const session = adminSessions[prefix];
-    // Neighbors belong to a live, authenticated session. Drop a late reply
-    // that lands after log-out or before login completes, matching
-    // setRepeaterStatus, so it can't resurrect a logged-out session.
+    // Neighbors belong to the live, authenticated session that asked for them.
+    // Drop a late reply that lands after log-out or before login completes, and
+    // one issued under a session since replaced by a log-out and re-login —
+    // matching setRepeaterStatus. A structured read walks several pages, so
+    // that window is wide enough to hit in practice.
     if (!isAuthedLogin(session?.login)) return;
+    if (token !== undefined && session?.token !== token) return;
     set({
       adminSessions: {
         ...adminSessions,
@@ -1443,13 +1465,15 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       },
     });
   },
-  setRepeaterAccessList: (prefix, entries) => {
+  setRepeaterAccessList: (prefix, entries, token) => {
     const { adminSessions } = get();
     const session = adminSessions[prefix];
-    // Same rule as the neighbors cache, and it matters more here: the list is
-    // readable only by an admin, so a reply landing after that session ended
-    // must not be kept.
+    // Same rule as the neighbors cache, and it matters more here: only an admin
+    // may read this list, so a reply arriving in the session that replaced the
+    // admin one — a re-login as guest still satisfies isAuthedLogin — would
+    // otherwise hand that session a privileged result it never earned.
     if (!isAuthedLogin(session?.login)) return;
+    if (token !== undefined && session?.token !== token) return;
     set({
       adminSessions: {
         ...adminSessions,
