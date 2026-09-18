@@ -323,6 +323,9 @@ function isMessage(v: unknown): v is Message {
   if (typeof v.text !== 'string') return false;
   return (
     optionalType(v.id, 'string') &&
+    // Truthiness-tested by the bubble, so the string "false" would restore
+    // an incoming message as one the user sent.
+    optionalType(v.own, 'boolean') &&
     optionalType(v.timestamp, 'number') &&
     optionalType(v.channelIdx, 'number') &&
     optionalType(v.pubkeyPrefix, 'string') &&
@@ -351,6 +354,9 @@ function optionalType(
   return v === undefined || typeof v === type;
 }
 
+// The optional coordinates are checked as well: map code arithmetic turns a
+// non-numeric value into NaN, so a malformed archive would break rendering
+// after the restore had already committed.
 function isAdvert(v: unknown): v is Advert {
   return (
     isRecord(v) &&
@@ -359,7 +365,9 @@ function isAdvert(v: unknown): v is Advert {
     !!v.pubkeyPrefix &&
     typeof v.name === 'string' &&
     typeof v.advType === 'number' &&
-    typeof v.lastHeard === 'number'
+    typeof v.lastHeard === 'number' &&
+    optionalType(v.advLat, 'number') &&
+    optionalType(v.advLon, 'number')
   );
 }
 

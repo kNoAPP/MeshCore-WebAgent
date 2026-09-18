@@ -83,8 +83,9 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
     } finally {
       // Zero the one copy we own, success or not. JS strings are immutable, so
       // the hex and JSON forms inside encryptBackup stay readable until GC —
-      // this bounds the exposure, it does not eliminate it. What it does
-      // guarantee is that no copy outlives this handler.
+      // this bounds the lifetime of the *erasable* copy, nothing more. What
+      // holds unconditionally is that no copy is written to the store,
+      // IndexedDB, the DOM, or a log.
       identity?.fill(0);
       setBusy(false);
     }

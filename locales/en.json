@@ -448,7 +448,7 @@
       "hint": "Back up everything this browser stores for the connected radio — message history, discovered nodes, automation rules, preferences, and channel metadata — into a single file encrypted with a passphrase you choose. The file restores on any machine, even one that has never seen this radio.",
       "secretsExcluded": "Your LLM API key is never included in a backup. It stays in its own encrypted store on this device.",
       "exportTitle": "Back up this radio",
-      "exportIntro": "Choose a passphrase to encrypt the backup. There is no way to recover the file if you forget it — nothing is stored anywhere but the file itself.",
+      "exportIntro": "Choose a passphrase to encrypt the backup. It is never stored — not in the file, not on this device — so if you forget it the backup cannot be opened by anyone, including you.",
       "exportAction": "Back up",
       "exporting": "Encrypting…",
       "exportDone": "Backup downloaded",

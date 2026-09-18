@@ -143,10 +143,10 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell
       title={t('settings.backup.importTitle')}
-      // Restoring writes channel slots and can replace the radio's identity,
-      // and dismissal cannot cancel a command already in flight. Suppress every
-      // close path while it runs so closing the dialog never reads as having
-      // stopped a destructive write that is still going.
+      // A restore persists the imported data and can replace the radio's
+      // identity, and dismissal cannot cancel either once started. Suppress
+      // every close path while it runs so closing the dialog never reads as
+      // having stopped work that is still going.
       onClose={busy ? noop : onClose}
       widthClass='w-140'
       confirmClose={!busy && payload !== null}

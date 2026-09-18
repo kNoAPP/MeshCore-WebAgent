@@ -3,7 +3,12 @@
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { useMeshStore, selectPreferences } from '@/store/meshStore';
-import { saveRadioData, saveAdvertCache, savePreferences } from '@/lib/storage';
+import {
+  saveRadioData,
+  saveAdvertCache,
+  savePreferences,
+  saveAutomationRules,
+} from '@/lib/storage';
 
 const SAVE_DEBOUNCE_MS = 1000;
 
@@ -94,21 +99,30 @@ export function flushSession(client: MeshCoreClient | null): void {
  * have been attempted.
  *
  * @remarks For the backup restore, which must not report success (or start a
- * radio write) while the imported history is still only in memory: a reload in
+ * radio write) while the imported data is still only in memory: a reload in
  * that window would lose it. Individual writes are best-effort and swallow
  * their own failures, so this resolves rather than rejecting.
+ *
+ * Covers automation rules too, which the debounced path above does not: they
+ * are saved by an effect in `useAutomation` that nothing awaits, so a restore
+ * ending in a reboot would otherwise race that write.
+ *
+ * @returns false when no session key is bound yet, so a caller can tell "the
+ * writes completed" from "there was nothing to write them with".
  */
 export async function flushSessionAsync(
   client: MeshCoreClient | null,
-): Promise<void> {
+): Promise<boolean> {
   const pubkey = client?.selfInfo?.pubkey;
-  if (!pubkey || !storageKey) return;
+  if (!pubkey || !storageKey) return false;
   const state = useMeshStore.getState();
   await Promise.all([
     saveRadioData(pubkey, storageKey, { msgHistory: state.msgHistory }),
     saveAdvertCache(pubkey, storageKey, state.advertCache),
     savePreferences(pubkey, storageKey, selectPreferences(state)),
+    saveAutomationRules(pubkey, storageKey, state.automationRules),
   ]);
+  return true;
 }
 
 /**

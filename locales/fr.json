@@ -449,7 +449,7 @@
       "hint": "Sauvegardez tout ce que ce navigateur conserve pour la radio connectée — historique des messages, nœuds découverts, règles d'automatisation, préférences et métadonnées de canaux — dans un seul fichier chiffré avec une phrase secrète de votre choix. Le fichier se restaure sur n'importe quelle machine, même une qui n'a jamais vu cette radio.",
       "secretsExcluded": "Votre clé d'API LLM n'est jamais incluse dans une sauvegarde. Elle reste dans son propre stockage chiffré sur cet appareil.",
       "exportTitle": "Sauvegarder cette radio",
-      "exportIntro": "Choisissez une phrase secrète pour chiffrer la sauvegarde. Si vous l'oubliez, le fichier est irrécupérable : elle n'est stockée nulle part ailleurs que dans le fichier lui-même.",
+      "exportIntro": "Choisissez une phrase secrète pour chiffrer la sauvegarde. Elle n'est jamais stockée — ni dans le fichier, ni sur cet appareil — donc si vous l'oubliez, personne ne pourra ouvrir la sauvegarde, vous compris.",
       "exportAction": "Sauvegarder",
       "exporting": "Chiffrement…",
       "exportDone": "Sauvegarde téléchargée",

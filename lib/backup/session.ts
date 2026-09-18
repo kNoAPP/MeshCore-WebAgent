@@ -26,9 +26,11 @@ import { freshAdverts, mergeAutomationRules } from './merge';
 /**
  * Snapshots everything this browser holds for the connected radio.
  *
- * @param identity - the radio's raw private key, when the user chose to include
- * it. It is hex-encoded into the payload and never copied anywhere else; the
- * caller still owns the array and should zero it afterwards.
+ * @param identity - the radio's raw private key, when the user chose to
+ * include it. Hex-encoding it creates an immutable string, and encryption then
+ * creates JSON and UTF-8 plaintext copies, none of which can be wiped — see
+ * {@link BackupPayload.identityHex}. The caller still owns the array and should
+ * zero it afterwards to bound the erasable copy's lifetime.
  */
 export function buildBackupPayload(
   pubkey: string,

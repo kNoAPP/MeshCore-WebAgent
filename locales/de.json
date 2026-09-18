@@ -449,7 +449,7 @@
       "hint": "Sichere alles, was dieser Browser zur verbundenen Funkeinheit speichert — Nachrichtenverlauf, entdeckte Knoten, Automatisierungsregeln, Einstellungen und Kanal-Metadaten — in einer einzigen Datei, verschlüsselt mit einer von dir gewählten Passphrase. Die Datei lässt sich auf jedem Rechner wiederherstellen, auch auf einem, der diese Funkeinheit nie gesehen hat.",
       "secretsExcluded": "Dein LLM-API-Schlüssel ist nie in einer Sicherung enthalten. Er bleibt in seinem eigenen verschlüsselten Speicher auf diesem Gerät.",
       "exportTitle": "Diese Funkeinheit sichern",
-      "exportIntro": "Wähle eine Passphrase zum Verschlüsseln der Sicherung. Vergisst du sie, lässt sich die Datei nicht wiederherstellen — sie wird nirgendwo außer in der Datei selbst gespeichert.",
+      "exportIntro": "Wähle eine Passphrase zum Verschlüsseln der Sicherung. Sie wird nirgends gespeichert — weder in der Datei noch auf diesem Gerät — vergisst du sie, kann die Sicherung niemand mehr öffnen, auch du nicht.",
       "exportAction": "Sichern",
       "exporting": "Wird verschlüsselt…",
       "exportDone": "Sicherung heruntergeladen",

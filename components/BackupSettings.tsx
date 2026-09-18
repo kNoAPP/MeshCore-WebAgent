@@ -22,12 +22,18 @@ export function BackupSettingsBody() {
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);
   const client = useMeshStore((s) => s.client);
+  const prefsHydrated = useMeshStore((s) => s.prefsHydrated);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  // Mirrors the other radio-touching cards: 'connected' flips before the
-  // post-init hydrate finishes, so a live, open client handle is also required.
-  const connected = status === 'connected' && !!client && !client.closed;
+  // Stricter than the other radio-touching cards, and deliberately so: those
+  // need a live link, but these need the *stored* per-radio data to be in
+  // memory. `status` flips to 'connected' before the derived key and the
+  // IndexedDB blobs have loaded, so opening either dialog during that window
+  // would export a half-empty backup, or import onto state the pending hydrate
+  // is about to overwrite. `prefsHydrated` marks the end of that load.
+  const ready =
+    status === 'connected' && !!client && !client.closed && prefsHydrated;
 
   return (
     <>
@@ -37,14 +43,14 @@ export function BackupSettingsBody() {
       <div className='flex flex-wrap gap-2'>
         <button
           onClick={() => setExporting(true)}
-          disabled={!connected}
+          disabled={!ready}
           className='rounded-md bg-accent-solid px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-accent-solid'
         >
           {t('settings.backup.exportAction')}
         </button>
         <button
           onClick={() => setImporting(true)}
-          disabled={!connected}
+          disabled={!ready}
           className='rounded-md border border-border-control px-3 py-1.5 text-xs font-semibold text-text hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent'
         >
           {t('settings.backup.importAction')}

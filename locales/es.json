@@ -449,7 +449,7 @@
       "hint": "Haz una copia de todo lo que este navegador guarda de la radio conectada — historial de mensajes, nodos descubiertos, reglas de automatización, preferencias y metadatos de canales — en un único archivo cifrado con una contraseña que elijas. El archivo se restaura en cualquier equipo, incluso en uno que nunca haya visto esta radio.",
       "secretsExcluded": "Tu clave de API de LLM nunca se incluye en una copia de seguridad. Permanece en su propio almacén cifrado en este dispositivo.",
       "exportTitle": "Copia de seguridad de esta radio",
-      "exportIntro": "Elige una contraseña para cifrar la copia. No hay forma de recuperar el archivo si la olvidas: no se guarda en ningún sitio salvo en el propio archivo.",
+      "exportIntro": "Elige una contraseña para cifrar la copia. Nunca se guarda — ni en el archivo ni en este dispositivo — así que si la olvidas nadie podrá abrir la copia, tú incluido.",
       "exportAction": "Crear copia",
       "exporting": "Cifrando…",
       "exportDone": "Copia descargada",
