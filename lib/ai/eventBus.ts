@@ -85,13 +85,14 @@ export function emitAdvertDiff(adverts: Record<string, Advert>): void {
   }
   for (const [key, advert] of Object.entries(adverts)) {
     const prev = lastAdverts[key];
-    // Keyed on `lastHeard` alone deliberately. One advert reaches this map
-    // twice — our clock when the push lands, then the sender's timestamp when
-    // the resync folds it in — and the firmware only sends the pubkey-only
-    // push for a node already in its contact table, so the fold always
-    // follows. Watching `observedAt` as well would fire a second event, and
-    // an `advert` trigger has no cooldown by default.
-    if (!prev || prev.lastHeard !== advert.lastHeard) {
+    // Keyed on `observedAt` — our clock at the moment we heard the node. One
+    // advert reaches this map twice, as the push and then as the resync that
+    // folds in the sender's timestamp, but only the push writes `observedAt`,
+    // so this emits exactly once per sighting. `lastHeard` would emit twice
+    // for an ordinary advert (and an `advert` trigger has no cooldown by
+    // default) while emitting nothing at all when a coalesced resync leaves
+    // the sender's claim unchanged.
+    if (!prev || prev.observedAt !== advert.observedAt) {
       emit({ type: 'advert', advert });
     }
   }

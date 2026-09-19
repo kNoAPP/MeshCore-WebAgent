@@ -802,6 +802,20 @@ export class MeshCoreClient {
       nowSecs - observation.at <= ADVERT_OBSERVATION_WINDOW_SECS
         ? observation
         : undefined;
+    // A claim that moved further than wall time allows means the node's clock
+    // jumped rather than that time passed, so any skew measured against the
+    // old one is void. Taken as a magnitude, this catches a correction in
+    // either direction — including a clock that ran *behind* and was fixed,
+    // which no future-timestamp check can see, and whose stale offset would
+    // otherwise make the node read fresher than it is.
+    const sinceObserved =
+      existing?.observedAt === undefined
+        ? undefined
+        : nowSecs - existing.observedAt;
+    const clockJumped =
+      sinceObserved !== undefined &&
+      Math.abs(lastHeard - existing!.lastHeard) >
+        sinceObserved + ADVERT_OBSERVATION_WINDOW_SECS;
     this.adverts[c.pubkeyPrefix] = {
       pubkey: c.pubkey,
       pubkeyPrefix: c.pubkeyPrefix,
@@ -817,7 +831,9 @@ export class MeshCoreClient {
       clockSkewSecs:
         observed?.measure === true
           ? lastHeard - observed.at
-          : existing?.clockSkewSecs,
+          : clockJumped
+            ? undefined
+            : existing?.clockSkewSecs,
     };
     this.evictOldAdverts();
     this.callbacks.onAdvertsUpdated?.(this.adverts);
@@ -866,23 +882,30 @@ export class MeshCoreClient {
   private foldAdvertObservations(): void {
     const nowSecs = Math.floor(Date.now() / 1000);
     for (const [prefix, seen] of Object.entries(this.advertObservations)) {
+      const expired = nowSecs - seen.at > ADVERT_OBSERVATION_WINDOW_SECS;
       const contact = this.contacts[prefix];
+      // `scheduleContactResync` drops its resync when a sync is already in
+      // flight, so this enumeration may have started *before* the push and
+      // still carry the previous advert's timestamp. Only a claim that has
+      // moved past the one we held when the push landed is demonstrably the
+      // advert we heard. No reference at all — a push during the very first
+      // enumeration, before either map is filled — proves nothing either, so
+      // it measures nothing rather than pairing our clock with whatever row
+      // happens to arrive. (A row can still be one advert behind if two
+      // arrived inside a single enumeration, which bounds the error by that
+      // enumeration rather than by the gap between adverts.)
+      const measure =
+        contact?.lastAdvert !== undefined &&
+        seen.claim !== undefined &&
+        contact.lastAdvert > seen.claim;
+      // Record the sighting either way, so a coalesced resync cannot lose it.
       if (contact?.lastAdvert) {
-        delete this.advertObservations[prefix];
-        // `scheduleContactResync` drops its resync when a sync is already in
-        // flight, so this enumeration may have started *before* the push and
-        // still carry the previous advert's timestamp. A claim that has moved
-        // past the one we held when the push landed is a later advert; an
-        // unchanged one proves nothing, so record the sighting and leave the
-        // skew to a provable pairing. (A row can still be one advert behind
-        // if two arrived inside a single enumeration, which bounds the error
-        // by that enumeration rather than by the gap between adverts.)
-        const measure =
-          seen.claim === undefined || contact.lastAdvert > seen.claim;
         this.recordAdvert(contact, { at: seen.at, measure });
-      } else if (nowSecs - seen.at > ADVERT_OBSERVATION_WINDOW_SECS) {
-        delete this.advertObservations[prefix];
       }
+      // An unproven observation stays pending: the enumeration that answered
+      // it may simply have predated the advert, and a later one can still
+      // complete the pairing inside the window.
+      if (measure || expired) delete this.advertObservations[prefix];
     }
   }
 
