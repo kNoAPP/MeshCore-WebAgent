@@ -185,9 +185,13 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   }, [feedVisible, prefix, setVisibleRoomFeed]);
 
   // Logging out also forgets any remembered credential, so the next visit
-  // re-prompts instead of silently auto-logging back in.
+  // re-prompts instead of silently auto-logging back in. The encrypted record
+  // and the copy the sign-in hook holds in memory both have to go: clearing
+  // only the record would leave the gate still offering to replay a password
+  // the user just told us to forget.
   const logOut = () => {
     resetAdminSession(contact.pubkeyPrefix);
+    autoLogin.forget();
     void clearRepeaterCred(contact.pubkeyPrefix);
   };
 

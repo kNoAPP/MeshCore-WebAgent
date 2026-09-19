@@ -35,26 +35,37 @@ export interface RepeaterAutoLogin {
   /** True only while the encrypted store is probed, before any attempt. */
   checking: boolean;
   /**
-   * Which password {@link RepeaterAutoLogin.retry} would replay — the one
-   * remembered for this node, or the one just typed — and null when there is
-   * none. The password itself is deliberately not exposed: it never leaves the
-   * hook.
+   * Which password the encrypted store holds for this node, or null when it
+   * holds none. Strictly the *remembered* credential — a password merely typed
+   * into the form never lands here, so this stays a true answer to "is there
+   * something to replay?". The password itself is deliberately not exposed: it
+   * never leaves the hook.
    */
   credAccess: LoginKind | null;
   /** 1-based attempt in flight, or 0 when idle. */
   attempt: number;
   /** Attempts the cycle in flight budgets — {@link LOGIN_ATTEMPTS} or 1. */
   attempts: number;
-  /** How the last attempt ended, cleared when a new one starts. */
+  /**
+   * How the last attempt ended, or null when the last one succeeded. A dropped
+   * link leaves it untouched: the reconnect overlay owns that story, and the
+   * failure it would erase is still the last thing the node actually said.
+   */
   failure: LoginFailure | null;
   /**
-   * Replays the last credential once. `resetRoute` discards the node's stored
-   * path first, so the attempt floods to rediscover one. A no-op when there is
-   * nothing to replay.
+   * Replays the remembered credential once. `resetRoute` discards the node's
+   * stored path first, so the attempt floods to rediscover one. A no-op when
+   * nothing is remembered.
    */
   retry: (resetRoute: boolean) => void;
   /** Signs in with a password the user just typed — always a single attempt. */
   signIn: (password: string, kind: LoginKind, remember: boolean) => void;
+  /**
+   * Drops the remembered credential from memory and cancels any cycle using
+   * it. The caller pairs this with `clearRepeaterCred` on an explicit log-out,
+   * so forgetting a credential on disk also forgets the copy this hook holds.
+   */
+  forget: () => void;
 }
 
 const delay = (ms: number): Promise<void> =>
@@ -88,17 +99,11 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
   const [attempts, setAttempts] = useState(1);
   const [failure, setFailure] = useState<LoginFailure | null>(null);
 
-  // The credential a retry replays, held here rather than in state so the
-  // password is never a render input and can never reach the Zustand store, a
-  // toast, or a DOM value. Its lifetime is the mounted view — the same as the
-  // lifetime a typed password already had in the login form. `remember` rides
-  // along so a retry of a password the user declined to save cannot persist it
-  // by succeeding the second time.
-  const credRef = useRef<{
-    password: string;
-    kind: LoginKind;
-    remember: boolean;
-  } | null>(null);
+  // The remembered credential a retry replays, held here rather than in state
+  // so the password is never a render input and can never reach the Zustand
+  // store, a toast, or a DOM value. Cleared by `forget` on log-out, so it never
+  // outlives the record it was read from.
+  const credRef = useRef<{ password: string; kind: LoginKind } | null>(null);
   // Bumped by every new cycle and by unmount. A cycle compares its own snapshot
   // against this before touching anything after an await, so a straggling
   // attempt can neither clobber a login that has since resolved nor write back
@@ -147,7 +152,13 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
     ) => {
       const run = ++runRef.current;
       const live = () => runRef.current === run;
-      setFailure(null);
+      // The previous failure is deliberately left standing until this cycle
+      // produces an outcome of its own. Clearing it here would make a cycle cut
+      // short by a dropped link erase the banner and its retry buttons, leaving
+      // a bare form over a credential that is still remembered — and nothing
+      // remounts this view on reconnect to bring it back. The gate renders the
+      // attempt counter, not the banner, while `attempt` is non-zero, so
+      // holding it costs no stale UI.
       setAttempts(total);
       setAttempt(1);
 
@@ -160,7 +171,10 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
         // A login that resolved while this cycle sat between attempts — a
         // manual one, or the node answering late — is the outcome already;
         // don't send over the top of it.
-        if (isAuthedLogin(loginRef.current)) break;
+        if (isAuthedLogin(loginRef.current)) {
+          setFailure(null);
+          break;
+        }
         // Two timeouts have condemned the stored route, so let the last attempt
         // flood rather than repeat the same lost path. Mirrors
         // `applyRoutePolicy`'s two-failures-then-reset: one loss is not enough
@@ -183,9 +197,14 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
           i < total,
         );
         if (!live()) return;
+        if (outcome === 'ok') {
+          setFailure(null);
+          break;
+        }
         // A dropped link is the reconnect overlay's story, not a sign-in
-        // failure, so it leaves the gate exactly as it was.
-        if (outcome === 'ok' || outcome === 'offline') break;
+        // failure, so it leaves the gate exactly as it was — including any
+        // earlier failure, which is still the last thing the node said.
+        if (outcome === 'offline') break;
         if (outcome === 'failed') {
           setFailure('failed');
           break;
@@ -219,11 +238,7 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
       if (!cred) return;
       // A failed cycle leaves the stale credential in place: the failure may be
       // transient, and only an explicit log-out forgets it.
-      credRef.current = {
-        password: cred.password,
-        kind: cred.access,
-        remember: true,
-      };
+      credRef.current = { password: cred.password, kind: cred.access };
       setCredAccess(cred.access);
       void runCycle(cred.password, cred.access, true, LOGIN_ATTEMPTS);
     })();
@@ -236,7 +251,9 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
     (resetRoute: boolean) => {
       const cred = credRef.current;
       if (!cred) return;
-      void runCycle(cred.password, cred.kind, cred.remember, 1, resetRoute);
+      // Already remembered by definition — this is the stored credential — so
+      // a success simply rewrites the record it came from.
+      void runCycle(cred.password, cred.kind, true, 1, resetRoute);
     },
     [runCycle],
   );
@@ -245,14 +262,33 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
     (password: string, kind: LoginKind, remember: boolean) => {
       // The user is standing here and can decide, so a typed password gets one
       // attempt — and it supersedes whatever the automatic cycle was doing. It
-      // also becomes what a retry replays, so a timeout on a password the user
-      // just typed is one click to try again rather than a retype.
-      credRef.current = { password, kind, remember };
-      setCredAccess(kind);
+      // deliberately does *not* become the remembered credential: only a
+      // successful login is ever persisted, and treating a typed password as
+      // remembered would offer to replay a wrong one under copy promising the
+      // password is not the problem.
       void runCycle(password, kind, remember, 1);
     },
     [runCycle],
   );
 
-  return { checking, credAccess, attempt, attempts, failure, retry, signIn };
+  const forget = useCallback(() => {
+    // Cancels any cycle mid-flight, so a straggling attempt can't sign back in
+    // with the credential the user just told us to forget.
+    runRef.current++;
+    credRef.current = null;
+    setCredAccess(null);
+    setFailure(null);
+    setAttempt(0);
+  }, []);
+
+  return {
+    checking,
+    credAccess,
+    attempt,
+    attempts,
+    failure,
+    retry,
+    signIn,
+    forget,
+  };
 }

@@ -60,9 +60,12 @@ export function RepeaterLoginGate({
   }
 
   const name = contact.name || contact.pubkeyPrefix.slice(0, 8);
-  // A stored credential that failed is the whole point of this state: it exists
-  // and is still stored, so the user gets it replayed on a click rather than a
-  // blank form that has silently forgotten it.
+  // A *remembered* credential that failed is the whole point of this state: it
+  // exists and is still stored, so the user gets it replayed on a click rather
+  // than a blank form that has silently forgotten it. `credAccess` is null for
+  // a password merely typed into the form, which is what keeps this panel —
+  // and its "the password is probably fine" copy — off a wrong one the user
+  // just entered. That case keeps the form, as it did before.
   const stranded = failure !== null && credAccess !== null;
 
   return (
@@ -109,7 +112,11 @@ export function RepeaterLoginGate({
             type='button'
             onClick={() => setManual((v) => !v)}
             aria-expanded={manual}
-            aria-controls={formId}
+            // Only while the form is actually rendered: `aria-controls` naming
+            // an element that isn't in the tree is a dangling reference, which
+            // assistive tech reports as a broken relationship rather than a
+            // collapsed one. `aria-expanded` alone carries the collapsed state.
+            aria-controls={manual ? formId : undefined}
             className='flex items-center gap-1 text-xs text-text2 hover:text-text'
           >
             <ChevronDown
