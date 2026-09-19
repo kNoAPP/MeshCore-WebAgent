@@ -217,6 +217,13 @@ export function parseBattAndStorage(d: Uint8Array): BatteryInfo {
  * bytes), `d[100..131]` name(32), `d[132..135]` last_advert ts,
  * `d[136..139]` gps_lat, `d[140..143]` gps_lon. The trailing GPS fields are
  * present only on newer firmware.
+ *
+ * `last_advert` is the *advertising node's* clock, not ours — the firmware
+ * declares it `uint32_t last_advert_timestamp; // by THEIR clock`
+ * (`src/helpers/ContactInfo.h`) and writes it straight out in
+ * `MyMesh::writeContactRespFrame`. Most nodes run without GPS or NTP, so it
+ * can sit arbitrarily far in the future; read it through
+ * `normalizedLastHeard` rather than subtracting it from now.
  */
 export function parseContact(d: Uint8Array): Contact | null {
   if (d.length < 132) return null;

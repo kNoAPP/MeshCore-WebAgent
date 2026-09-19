@@ -7,7 +7,7 @@ import {
   ADV_TYPE_SENSOR,
   PUBLIC_CHANNEL_SECRET,
 } from '@/lib/meshcore/constants';
-import type { ActiveConvo, Contact } from '@/types/meshcore';
+import type { ActiveConvo, Advert, Contact } from '@/types/meshcore';
 
 /**
  * Hex-encodes bytes as lowercase, two chars per byte.
@@ -41,6 +41,50 @@ export function heardAgeSecs(
   nowSecs: number = Math.floor(Date.now() / 1000),
 ): number {
   return Math.abs(nowSecs - lastHeard);
+}
+
+/**
+ * Our-clock estimate of when a node was last heard, across the contact table
+ * and the advert cache, or `undefined` when neither carries a sighting. Never
+ * returns a future timestamp, so callers may subtract it from now directly.
+ *
+ * @remarks The raw timestamps are the *sender's* clock and MeshCore nodes
+ * routinely run without a synchronized RTC, so this is the single place the
+ * two are reconciled. Precedence:
+ *
+ * 1. `advert.observedAt` — our clock at a live `PUSH_ADVERT`, so exact.
+ * 2. the freshest raw claim minus {@link Advert.clockSkewSecs} — the receive
+ *    time recovered from a skew measured earlier, which is what makes a
+ *    contact-table read usable long after the push that measured it.
+ * 3. the freshest raw claim folded into the past by {@link heardAgeSecs} —
+ *    skew unknown, so fall back to the magnitude. That is the same rule
+ *    `sortByHeardAge` and the map age filters already apply, which is why a
+ *    node's displayed age now agrees with where it sorts.
+ *
+ * Every surface that shows or filters on this age shares this helper, or
+ * selecting a row would change the apparent age of the node it selects.
+ *
+ * @param nowSecs - the reference clock in epoch seconds; pass one captured
+ * value when ranking or filtering a whole set.
+ */
+export function normalizedLastHeard(
+  contact?: Contact,
+  advert?: Advert,
+  nowSecs: number = Math.floor(Date.now() / 1000),
+): number | undefined {
+  if (advert?.observedAt !== undefined) return advert.observedAt;
+  const claims = [contact?.lastAdvert, advert?.lastHeard].filter(
+    (t): t is number => typeof t === 'number' && t > 0,
+  );
+  if (claims.length === 0) return undefined;
+  // Not `Math.max`: a contact row still holding a future timestamp would
+  // outrank the advert that just corrected it.
+  const claimed = claims.reduce((best, t) =>
+    heardAgeSecs(t, nowSecs) < heardAgeSecs(best, nowSecs) ? t : best,
+  );
+  const skew = advert?.clockSkewSecs;
+  if (skew !== undefined) return Math.min(claimed - skew, nowSecs);
+  return nowSecs - heardAgeSecs(claimed, nowSecs);
 }
 
 /**

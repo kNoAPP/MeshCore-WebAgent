@@ -109,11 +109,11 @@ export function toggleCategory(
 }
 
 /**
- * The subset of {@link nodes} that {@link filters} leaves visible. Age is
- * measured with `heardAgeSecs` against {@link nowSecs}, so a node whose RTC
- * runs ahead is judged by how far off it is rather than passing every window;
- * a node neither store carries a timestamp for is *not* claimed to have been
- * heard recently, so a window excludes it.
+ * The subset of {@link nodes} that {@link filters} leaves visible. Ages come
+ * in already normalized to our clock by `normalizedLastHeard`, so a window
+ * admits exactly the nodes the list shows as that recent — including a node
+ * whose RTC runs ahead. A node neither store carries a timestamp for is *not*
+ * claimed to have been heard recently, so a window excludes it.
  *
  * @param nowSecs - the reference clock in epoch seconds. Taken as a parameter
  * rather than read here, so the caller decides when the window advances — read

@@ -4,11 +4,11 @@
 import {
   contactCategory,
   heardAgeSecs,
+  normalizedLastHeard,
   type ContactCategory,
 } from '@/lib/utils';
 import { FAVORITE_FLAG, NO_PATH } from '@/lib/meshcore/constants';
 import { LEGEND_CATEGORIES } from '@/lib/map/markers';
-import { freshestHeard } from '@/lib/map/nodes';
 import type { Advert, Contact, Message } from '@/types/meshcore';
 
 /**
@@ -36,9 +36,9 @@ export interface DirectoryNode {
   /** Favorited on the radio; a heard-only node can never be favorited. */
   favorite: boolean;
   /**
-   * Unix epoch seconds of the freshest advert across both stores, or
-   * `undefined` when neither carries one. The *sender's* clock — measure it
-   * with `heardAgeSecs`, never by subtracting.
+   * Unix epoch seconds of the freshest advert across both stores, normalized
+   * to our clock by `normalizedLastHeard`, or `undefined` when neither carries
+   * one. Never in the future, so readers may subtract it from now.
    */
   lastHeard?: number;
   /**
@@ -107,7 +107,8 @@ function conversationReadings(messages: Message[]): Map<string, SnrReading> {
  * entry supersedes an earlier one. Two conversations share no such order — a
  * node's prefix appears on its direct messages and on anything it posts to a
  * channel — so those are reconciled by clock-clamped age, the rule
- * `freshestHeard` already applies to last-advert timestamps. That comparison
+ * `normalizedLastHeard` already applies to last-advert timestamps. That
+ * comparison
  * is the only part that depends on the clock, and it runs over the cached
  * per-conversation results rather than over the messages themselves.
  *
@@ -184,7 +185,7 @@ export function collectDirectoryNodes(
       contact,
       advert,
       favorite: (contact.flags & FAVORITE_FLAG) !== 0,
-      lastHeard: freshestHeard(contact, advert ?? undefined, nowSecs),
+      lastHeard: normalizedLastHeard(contact, advert ?? undefined, nowSecs),
       // The cache keeps a position the contact table may not have yet.
       ...advertisedCoords(contact, advert),
       outPathLen: contact.outPathLen,
@@ -205,7 +206,7 @@ export function collectDirectoryNodes(
       contact: null,
       advert,
       favorite: false,
-      lastHeard: advert.lastHeard,
+      lastHeard: normalizedLastHeard(undefined, advert, nowSecs),
       ...advertisedCoords(advert),
       snr: snrByPrefix[prefix],
     });
@@ -270,10 +271,11 @@ export function toggleNodeCategory(
 }
 
 /**
- * The subset of {@link nodes} that {@link filters} leaves listed. Age is
- * measured with `heardAgeSecs`, so a node whose clock runs ahead is judged by
- * how far off it is rather than passing every window, and a node with no
- * timestamp at all is excluded by any window rather than assumed recent.
+ * The subset of {@link nodes} that {@link filters} leaves listed. Ages come in
+ * already normalized to our clock by `normalizedLastHeard`, so a window admits
+ * exactly the nodes the table shows as that recent — including a node whose
+ * clock runs ahead. A node with no timestamp at all is excluded by any window
+ * rather than assumed recent.
  *
  * @param nowSecs - reference clock in epoch seconds. Taken as a parameter so
  * the caller decides when the window advances.

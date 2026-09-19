@@ -26,8 +26,10 @@ import {
   isPublicChannelSecret,
   formatLatLon,
   formatPubkey,
+  normalizedLastHeard,
 } from '@/lib/utils';
 import {
+  formatClockSkew,
   formatDateTime,
   formatDistanceBearing,
   formatRelative,
@@ -130,6 +132,10 @@ function ManagePanelView() {
   if (managePanel.kind === 'advert') {
     const advert = advertCache[managePanel.id];
     if (!advert) return null;
+    // Normalized to our clock, so this row reads the same age as the map popup
+    // and the Nodes table show for the same node at the same moment.
+    const advertHeard = normalizedLastHeard(undefined, advert);
+    const advertSkew = formatClockSkew(advert.clockSkewSecs);
     const location = formatLatLon(advert.advLat, advert.advLon);
     const distance = formatDistanceBearing(
       selfInfo?.advLat,
@@ -157,9 +163,16 @@ function ManagePanelView() {
           />
           <DetailRow
             label={t('manage.lastAdvert')}
-            value={formatRelative(advert.lastHeard)}
+            value={formatRelative(advertHeard ?? advert.lastHeard)}
             hint={formatDateTime(advert.lastHeard)}
           />
+          {advertSkew && (
+            <DetailRow
+              label={t('manage.clockSkew')}
+              value={advertSkew}
+              hint={formatDateTime(advert.lastHeard)}
+            />
+          )}
           {location && (
             <DetailRow label={t('manage.location')} value={location} />
           )}
@@ -191,6 +204,12 @@ function ManagePanelView() {
 
   const isFav = (contact.flags & FAVORITE_FLAG) !== 0;
   const hasRoute = contact.outPathLen !== NO_PATH;
+  // The contact row carries the sender's clock; the cached advert is what
+  // carries our measurement of how far off it is. Reading them together is
+  // what stops this panel disagreeing with the map about the same node.
+  const contactAdvert = advertCache[contact.pubkeyPrefix];
+  const contactHeard = normalizedLastHeard(contact, contactAdvert);
+  const contactSkew = formatClockSkew(contactAdvert?.clockSkewSecs);
   const location = formatLatLon(contact.advLat, contact.advLon);
   const distance = formatDistanceBearing(
     selfInfo?.advLat,
@@ -243,8 +262,8 @@ function ManagePanelView() {
             <DetailRow
               label={t('manage.lastAdvert')}
               value={
-                contact.lastAdvert
-                  ? formatRelative(contact.lastAdvert)
+                contactHeard
+                  ? formatRelative(contactHeard)
                   : t('common.unknown')
               }
               hint={
@@ -253,6 +272,17 @@ function ManagePanelView() {
                   : undefined
               }
             />
+            {contactSkew && (
+              <DetailRow
+                label={t('manage.clockSkew')}
+                value={contactSkew}
+                hint={
+                  contact.lastAdvert
+                    ? formatDateTime(contact.lastAdvert)
+                    : undefined
+                }
+              />
+            )}
             {location && (
               <DetailRow label={t('manage.location')} value={location} />
             )}

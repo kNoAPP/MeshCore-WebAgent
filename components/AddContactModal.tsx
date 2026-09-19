@@ -16,6 +16,7 @@ import {
   formatLatLon,
   formatPubkey,
   fromHex,
+  normalizedLastHeard,
   parseContactUri,
   sortByHeardAge,
 } from '@/lib/utils';
@@ -253,8 +254,12 @@ export function AddContactModal() {
                                   a.advType as keyof typeof ADV_LABEL_KEY
                                 ] ?? 'discover.node',
                               )}{' '}
-                              · {formatRelative(a.lastHeard)} ·{' '}
-                              {formatPubkey(a.pubkey, showFullPublicKeys)}
+                              ·{' '}
+                              {formatRelative(
+                                normalizedLastHeard(undefined, a) ??
+                                  a.lastHeard,
+                              )}{' '}
+                              · {formatPubkey(a.pubkey, showFullPublicKeys)}
                             </div>
                             {location && (
                               <div className='truncate text-xs text-text2'>

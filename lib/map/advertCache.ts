@@ -55,6 +55,15 @@ export function mergeAdvertCache(
             existing.lastHeard > nowSecs
               ? advert.lastHeard
               : Math.max(existing.lastHeard, advert.lastHeard),
+          // The most recent time we actually heard the node, from whichever
+          // side observed it. Always our clock, so it is never in the future.
+          observedAt:
+            Math.max(existing.observedAt ?? 0, advert.observedAt ?? 0) ||
+            undefined,
+          // A measured skew describes the node's clock rather than any one
+          // advert, and measuring it needs a live push to pair with a contact
+          // read — so an advert that arrives without one must not erase it.
+          clockSkewSecs: advert.clockSkewSecs ?? existing.clockSkewSecs,
           // An empty name is the "unset" case (not undefined), so a re-advert
           // that arrives without one must not clobber a known name — fall back
           // to the cached value, mirroring the location handling below.

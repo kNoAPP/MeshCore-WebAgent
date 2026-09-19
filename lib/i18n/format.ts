@@ -39,26 +39,23 @@ function formatDate(timestamp: number): string {
   });
 }
 
-// How far a timestamp may sit in the future before it is reported as a skewed
-// clock rather than as a fresh sighting. Advert timestamps are the *sender's*
-// clock, and MeshCore nodes routinely run without a synchronized RTC.
-const CLOCK_SKEW_TOLERANCE_SECS = 60;
-
 /** Ages at or past this are rendered as an absolute date, not a day count. */
 const ABSOLUTE_DATE_AFTER_SECS = 30 * 86400;
 
 /**
  * Formats a Unix epoch-seconds timestamp as a relative age (`just now`,
- * `5m ago`, `2h ago`, `3d ago`). A timestamp more than a minute in the future
- * is a skewed sender clock, not a fresh sighting, so it reads as a clock-skew
- * notice carrying the absolute timestamp instead of `just now`; an age of 30
- * days or more likewise falls back to an absolute locale date rather than an
- * unbounded day count.
+ * `5m ago`, `2h ago`, `3d ago`). An age of 30 days or more falls back to an
+ * absolute locale date rather than an unbounded day count.
+ *
+ * @remarks A future timestamp clamps to `just now`. Advert timestamps are the
+ * *sender's* clock and can sit far ahead of ours, so those surfaces pass a
+ * value from `normalizedLastHeard` and never reach that clamp; the remaining
+ * callers read our clock or the radio's synced clock, where a future value is
+ * sub-threshold drift. Clock skew is reported on its own by
+ * {@link formatClockSkew}, not folded in here.
  */
 export function formatRelative(timestamp: number): string {
   const secs = Math.floor(Date.now() / 1000) - timestamp;
-  if (secs < -CLOCK_SKEW_TOLERANCE_SECS)
-    return i18n.t('relative.clockAhead', { date: formatDateTime(timestamp) });
   if (secs < 60) return i18n.t('relative.justNow');
   if (secs < 3600)
     return i18n.t('relative.minutes', { count: Math.floor(secs / 60) });
@@ -222,6 +219,34 @@ export function formatSnr(db: number): string {
 export function formatSkew(secs: number): string {
   if (secs === 0) return '0s';
   return `${secs > 0 ? '+' : '-'}${formatUptime(Math.abs(secs))}`;
+}
+
+// Below this, a node's clock offset is ordinary drift rather than a clock
+// someone set wrong, and reporting it would be noise on every row.
+const CLOCK_SKEW_NOTABLE_SECS = 60;
+
+/**
+ * Formats another node's clock offset from ours as magnitude plus direction,
+ * e.g. `22h 4m 0s ahead` / `1h 12m 0s behind`. Returns `null` when there is
+ * nothing worth reporting, so a caller renders the row only when this is
+ * non-null.
+ *
+ * @remarks Unlike {@link formatSkew}, which reports our own radio's drift as a
+ * signed value, this names the direction: the offset belongs to a node whose
+ * RTC its owner set by hand, and "ahead"/"behind" is what makes it actionable.
+ *
+ * @param secs - signed offset (`lastHeard − observedAt`), positive when the
+ * node's clock runs ahead of ours, or `undefined` when never measured —
+ * unmeasured is absent, not zero.
+ */
+export function formatClockSkew(secs: number | undefined): string | null {
+  if (secs === undefined || Math.abs(secs) <= CLOCK_SKEW_NOTABLE_SECS) {
+    return null;
+  }
+  return i18n.t(
+    secs > 0 ? 'relative.clockSkewAhead' : 'relative.clockSkewBehind',
+    { duration: formatUptime(Math.abs(secs)) },
+  );
 }
 
 /** Formats a received-power reading in dBm, e.g. `-104 dBm`. */

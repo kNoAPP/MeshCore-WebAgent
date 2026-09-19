@@ -104,6 +104,13 @@ import { sortByHeardAge, toHex } from '@/lib/utils';
 // unbounded
 const ADVERTS_LIMIT = 200;
 
+// How long a live-push observation stays paired with the contact-table read
+// that follows it, for the clock-skew measurement in `recordAdvert`.
+// `scheduleContactResync` coalesces bursts on a 2 s timer, so the resync
+// carrying the same advert lands well inside this window; the slack absorbs a
+// slow sync without ever reaching the next advert from the same node.
+const ADVERT_OBSERVATION_WINDOW_SECS = 30;
+
 // Extra time added to a login/status push wait beyond the radio's estimated
 // round-trip (read from the SENT receipt), absorbing push-delivery jitter on
 // top of that estimate. Kept small so a genuinely unanswered request (e.g. a
@@ -246,6 +253,12 @@ export class MeshCoreClient {
   adverts: Record<string, Advert> = {};
   selfInfo: SelfInfo | null = null;
   deviceInfo: DeviceInfo | null = null;
+
+  // Prefix → our clock when a live advert push was seen, waiting on the
+  // contact read that carries that same advert's sender timestamp. Entries are
+  // consumed by `foldAdvertObservations` and expire with
+  // ADVERT_OBSERVATION_WINDOW_SECS.
+  private advertObservations: Record<string, number> = {};
 
   private handlers: PendingCmd[] = [];
   // Slots whose SET_CHANNEL clear has been sent but not yet acked. The mirror
@@ -573,7 +586,9 @@ export class MeshCoreClient {
       // it).
       const c = parseContact(d);
       if (c) {
-        this.recordAdvert(c);
+        // This push *is* the sighting and it carries the node's own timestamp,
+        // so both clocks are already in hand — no resync pairing needed.
+        this.recordAdvert(c, Math.floor(Date.now() / 1000));
         this.scheduleContactResync();
       }
       return;
@@ -685,6 +700,7 @@ export class MeshCoreClient {
         // contacts deleted on the radio (evicted, or removed from another
         // client) disappear instead of lingering for the session.
         if (this.pendingContacts) this.contacts = this.pendingContacts;
+        this.foldAdvertObservations();
         this.contactsResolve?.();
         return;
       }
@@ -754,15 +770,40 @@ export class MeshCoreClient {
     }, 2000);
   }
 
-  private recordAdvert(c: Contact): void {
+  /**
+   * Folds a contact-shaped advert record into the heard-adverts map.
+   *
+   * @param observedAt - our clock at the live push this record came from, when
+   * one is known. Only then are both clocks known for the *same* advert, which
+   * is what makes "how far off is this node's clock" a fact distinct from "how
+   * old is this sighting" — so this is the only path that measures skew. A
+   * stamp older than {@link ADVERT_OBSERVATION_WINDOW_SECS} belongs to an
+   * earlier advert and is ignored, which is also why a full contact sync at
+   * connect (no pending observations at all) measures nothing.
+   */
+  private recordAdvert(c: Contact, observedAt?: number): void {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const existing = this.adverts[c.pubkeyPrefix];
+    const lastHeard = c.lastAdvert ?? nowSecs;
+    const observed =
+      observedAt !== undefined &&
+      nowSecs - observedAt <= ADVERT_OBSERVATION_WINDOW_SECS
+        ? observedAt
+        : undefined;
     this.adverts[c.pubkeyPrefix] = {
       pubkey: c.pubkey,
       pubkeyPrefix: c.pubkeyPrefix,
       name: c.name,
       advType: c.advType,
-      lastHeard: c.lastAdvert ?? Math.floor(Date.now() / 1000),
+      lastHeard,
       advLat: c.advLat,
       advLon: c.advLon,
+      observedAt: observed ?? existing?.observedAt,
+      // Skew is a property of the node's badly-set clock, not of one advert,
+      // so a measurement outlives the observation that produced it and keeps
+      // normalizing later contact-table reads.
+      clockSkewSecs:
+        observed !== undefined ? lastHeard - observed : existing?.clockSkewSecs,
     };
     this.evictOldAdverts();
     this.callbacks.onAdvertsUpdated?.(this.adverts);
@@ -781,15 +822,41 @@ export class MeshCoreClient {
     }
   }
 
+  // A known node re-advertised. The 0x80 push carries only the pubkey, so the
+  // matching sender timestamp arrives with the contact resync this schedules —
+  // hold our clock until then rather than writing it over `lastHeard`, which
+  // is what used to leave the two facts indistinguishable.
   private touchAdvert(d: Uint8Array): void {
     const prefix = toHex(d.slice(1, 7));
+    const nowSecs = Math.floor(Date.now() / 1000);
+    // Kept whether or not this node has an advert record yet: a saved contact
+    // that has never been in the cache still gets its skew measured, by the
+    // fold that creates the record from the contact row.
+    this.advertObservations[prefix] = nowSecs;
     const existing = this.adverts[prefix];
     if (existing) {
-      this.adverts[prefix] = {
-        ...existing,
-        lastHeard: Math.floor(Date.now() / 1000),
-      };
+      this.adverts[prefix] = { ...existing, observedAt: nowSecs };
       this.callbacks.onAdvertsUpdated?.(this.adverts);
+    }
+  }
+
+  // Pairs each pending live-push observation with the contact row the resync
+  // just delivered, which carries that advert's sender timestamp. Both clocks
+  // for one advert are known only here, so this is where skew is measured.
+  // Entries that no contact row answered, or that have aged past the window,
+  // are dropped rather than left to measure a later advert.
+  private foldAdvertObservations(): void {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    for (const [prefix, observedAt] of Object.entries(
+      this.advertObservations,
+    )) {
+      const contact = this.contacts[prefix];
+      if (contact?.lastAdvert) {
+        delete this.advertObservations[prefix];
+        this.recordAdvert(contact, observedAt);
+      } else if (nowSecs - observedAt > ADVERT_OBSERVATION_WINDOW_SECS) {
+        delete this.advertObservations[prefix];
+      }
     }
   }
 

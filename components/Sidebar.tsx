@@ -40,6 +40,7 @@ import {
 import {
   ADV_ICON,
   contactCategory,
+  heardAgeSecs,
   isPublicChannelSecret,
   type ContactCategory,
 } from '@/lib/utils';
@@ -49,6 +50,7 @@ import {
   FAVORITE_FLAG,
 } from '@/lib/meshcore/constants';
 import { useClickOutside } from '@/hooks/useClickOutside';
+import { useClockTick } from '@/hooks/useClockTick';
 import { Switch } from './Switch';
 import type { Contact, Message } from '@/types/meshcore';
 
@@ -134,10 +136,17 @@ function compareBySort(
   b: Contact,
   sort: ContactSort,
   latestTimes: ReadonlyMap<string, number>,
+  nowSecs: number,
 ): number {
   switch (sort) {
     case 'heard': {
-      const diff = (b.lastAdvert ?? 0) - (a.lastAdvert ?? 0);
+      // `lastAdvert` is the sender's clock, so rank by clock-clamped age — the
+      // rule every other list applies — or a node advertising from the future
+      // would pin itself to the top here while the Nodes table ages it
+      // normally. A never-heard contact sorts last rather than as brand new.
+      const age = (c: Contact): number =>
+        c.lastAdvert ? heardAgeSecs(c.lastAdvert, nowSecs) : Infinity;
+      const diff = age(a) - age(b);
       // Fall back to A–Z so contacts sharing a timestamp (e.g. never-heard
       // contacts all at 0) keep a stable, alphabetical order.
       return diff !== 0 ? diff : a.name.localeCompare(b.name);
@@ -270,6 +279,10 @@ export function Sidebar() {
   // order needs it, so other orders reuse a shared empty map — that keeps this
   // memo's result stable across message arrivals and stops them from forcing a
   // re-sort below.
+  // One instant for the whole sort, advancing on a tick so the "heard" order
+  // keeps ageing while the sidebar sits open rather than freezing at whenever
+  // the contact table last changed.
+  const nowSecs = useClockTick();
   const latestTimes = useMemo(() => {
     if (contactSort !== 'latest') return EMPTY_LATEST_TIMES;
     const times = new Map<string, number>();
@@ -290,9 +303,17 @@ export function Sidebar() {
         const bFav = (b.flags & FAVORITE_FLAG) !== 0;
         if (aFav !== bFav) return aFav ? -1 : 1;
       }
-      return compareBySort(a, b, contactSort, latestTimes);
+      return compareBySort(a, b, contactSort, latestTimes, nowSecs);
     });
-  }, [contacts, contactFilter, contactSort, pinFavorites, latestTimes, query]);
+  }, [
+    contacts,
+    contactFilter,
+    contactSort,
+    pinFavorites,
+    latestTimes,
+    query,
+    nowSecs,
+  ]);
   const hasContacts = Object.keys(contacts).length > 0;
 
   // Scroll the active row into view when the open conversation changes, so a
