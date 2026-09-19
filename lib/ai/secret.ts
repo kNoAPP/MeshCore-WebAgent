@@ -18,10 +18,37 @@ const API_KEY_NAME = 'llm-api-key';
 let apiKey: string | null = null;
 let persisted = false;
 
+/**
+ * The per-radio crypto context every encrypted record is read and written
+ * under: the radio's public key hex (the record namespace) and the AES-256-GCM
+ * key derived from that radio's own secrets.
+ */
+export interface StorageContext {
+  pubkey: string;
+  storageKey: CryptoKey;
+}
+
 // The per-radio crypto context used for at-rest encryption, set on connect and
 // cleared on teardown. Reuses the CryptoKey derived by useMeshCore — there is
 // no second key-derivation path.
-let ctx: { pubkey: string; storageKey: CryptoKey } | null = null;
+let ctx: StorageContext | null = null;
+
+// Binding that context is asynchronous — useMeshCore derives the key with
+// PBKDF2 at 100k iterations — and every encrypted read is gated on it, so a
+// read that arrives first would take the unbound context for an empty store and
+// keep that answer forever. The connect flow declares the binding pending as
+// soon as it knows which radio is there; `awaitStorageContext` holds those
+// reads until it lands, or until the session ends without one.
+let pendingCtx: {
+  promise: Promise<StorageContext | null>;
+  settle: (value: StorageContext | null) => void;
+} | null = null;
+
+/** Releases every read waiting on the binding with its outcome. */
+function settlePending(value: StorageContext | null): void {
+  pendingCtx?.settle(value);
+  pendingCtx = null;
+}
 
 // Bumped by every explicit key mutation (set/forget/wipe). A key mutation
 // racing an in-flight async op (persist, or a restore reading from disk) is
@@ -94,6 +121,27 @@ export function getApiKey(): string | null {
 }
 
 /**
+ * Declares that a per-radio encryption context is on its way, so encrypted
+ * reads made before it is bound wait for it rather than concluding that
+ * nothing is stored.
+ *
+ * @remarks
+ * Called by the connect flow as soon as the radio's pubkey is known and before
+ * the key derivation it then awaits. {@link setSecretContext} settles the wait
+ * with the context; {@link wipeApiKey} settles it with null when the session
+ * ends without ever binding one. A second call while one is already pending
+ * keeps the first — both are waiting on the same binding.
+ */
+export function expectSecretContext(): void {
+  if (pendingCtx) return;
+  let settle!: (value: StorageContext | null) => void;
+  const promise = new Promise<StorageContext | null>((resolve) => {
+    settle = resolve;
+  });
+  pendingCtx = { promise, settle };
+}
+
+/**
  * Binds the per-radio encryption context for later persistence. Called once
  * per session after {@link deriveStorageKey} in useMeshCore.
  */
@@ -110,6 +158,7 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
     syncStatus();
   }
   ctx = { pubkey, storageKey };
+  settlePending(ctx);
   // Settle a deletion the user asked for but that never landed — before this
   // context existed, or because its write failed — so a remembered copy they
   // declined or forgot can't survive into this session. `enqueue` runs it ahead
@@ -124,12 +173,30 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
  * The active per-radio storage context (pubkey + AES key), or null when no
  * session is bound. Reused by automation-rule persistence so it shares the
  * single {@link deriveStorageKey} path rather than inventing a second one.
+ *
+ * @remarks
+ * Null here means "not bound *yet*" just as readily as "no session", so a read
+ * that must tell an empty store from an unfinished connect uses
+ * {@link awaitStorageContext} instead.
  */
-export function getStorageContext(): {
-  pubkey: string;
-  storageKey: CryptoKey;
-} | null {
+export function getStorageContext(): StorageContext | null {
   return ctx;
+}
+
+/**
+ * The active per-radio storage context, waiting for the binding when the
+ * connect flow has declared one is coming.
+ *
+ * @returns the bound context, or null once it is settled that there will be
+ * none — which, unlike a null from {@link getStorageContext}, is a final answer
+ * and so safe to read as "this radio has nothing stored".
+ */
+export function awaitStorageContext(): Promise<StorageContext | null> {
+  // A reconnect declares a fresh binding while the previous one is still live
+  // and still correct (same radio), so an already-bound context answers now
+  // rather than waiting on the re-derivation.
+  if (ctx) return Promise.resolve(ctx);
+  return pendingCtx?.promise ?? Promise.resolve(null);
 }
 
 /**
@@ -256,6 +323,9 @@ export function wipeApiKey(): void {
   apiKey = null;
   persisted = false;
   ctx = null;
+  // A session that ends before its context was ever bound still owes every
+  // waiting read an answer, and for a torn-down session that answer is null.
+  settlePending(null);
   syncStatus();
 }
 

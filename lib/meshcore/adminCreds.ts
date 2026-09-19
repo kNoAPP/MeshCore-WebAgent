@@ -4,7 +4,7 @@
 'use client';
 
 import { saveSecret, loadSecret, clearSecret } from '@/lib/storage';
-import { getStorageContext } from '@/lib/ai/secret';
+import { getStorageContext, awaitStorageContext } from '@/lib/ai/secret';
 import type { LoginKind } from '@/types/meshcore';
 
 // A remembered repeater login lives ONLY as an encrypted record in the
@@ -77,11 +77,18 @@ export async function saveRepeaterCred(
 /**
  * Loads a repeater's remembered credential for the connected radio, or null if
  * none is stored (or the record is missing/corrupt/from another radio).
+ *
+ * @remarks
+ * Waits for the session's encryption context instead of reading its absence as
+ * "none stored": this is called from a gate that mounts the moment the app
+ * reports connected, which can be before the connect flow has finished
+ * deriving the key, and a null answer there is terminal — the gate shows a
+ * bare login form and never probes again.
  */
 export async function loadRepeaterCred(
   prefix: string,
 ): Promise<RememberedCred | null> {
-  const ctx = getStorageContext();
+  const ctx = await awaitStorageContext();
   if (!ctx) return null;
   const raw = await enqueue(() =>
     loadSecret(ctx.pubkey, ctx.storageKey, credName(prefix)),
