@@ -36,6 +36,7 @@ export function useAutomation(): void {
   const enabled = useMeshStore((s) => s.automationEnabled);
   const connected = useMeshStore((s) => s.status === 'connected');
   const rules = useMeshStore((s) => s.automationRules);
+  const prefsHydrated = useMeshStore((s) => s.prefsHydrated);
 
   // The useMeshCore actions read the live client from their own closure and get
   // new identities as it changes; hold the latest in a ref so the stable
@@ -158,11 +159,15 @@ export function useAutomation(): void {
   }, [enabled, connected]);
 
   // Persist rule edits per-radio, encrypted with the same key as history. Only
-  // once a session is bound (getStorageContext non-null); the initial restore
-  // re-saves the loaded set harmlessly.
+  // once a session is bound *and* hydrated: this runner mounts with the app's
+  // empty default set the moment the link reports connected, which is before
+  // the connect flow's restore lands, and writing there would put that empty
+  // set over the radio's saved rules — permanently, if the session ends before
+  // the restore. `prefsHydrated` marks the end of that read, so the first write
+  // this fires is the restored set being saved back harmlessly.
   useEffect(() => {
     const ctx = getStorageContext();
-    if (!ctx) return;
+    if (!ctx || !prefsHydrated) return;
     void saveAutomationRules(ctx.pubkey, ctx.storageKey, rules);
-  }, [rules]);
+  }, [rules, prefsHydrated]);
 }

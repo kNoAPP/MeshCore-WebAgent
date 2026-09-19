@@ -207,11 +207,13 @@ export function getStorageContext(): StorageContext | null {
  * and so safe to read as "this radio has nothing stored".
  */
 export function awaitStorageContext(): Promise<StorageContext | null> {
-  // A reconnect declares a fresh binding while the previous one is still live
-  // and still correct (same radio), so an already-bound context answers now
-  // rather than waiting on the re-derivation.
-  if (ctx) return Promise.resolve(ctx);
-  return pendingCtx?.promise ?? Promise.resolve(null);
+  // A declared binding wins over one already bound, because a reconnect can
+  // land on a *different* radio (see setSecretContext) — answering from the
+  // previous session's context would hand out the wrong radio's key, and the
+  // whole point of deriving one per radio is that it cannot read another's
+  // records.
+  if (pendingCtx) return pendingCtx.promise;
+  return Promise.resolve(ctx);
 }
 
 /**
