@@ -1,7 +1,7 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-import { sortByHeardAge } from '@/lib/utils';
+import { sortAdvertsByHeard } from '@/lib/utils';
 import type { Advert } from '@/types/meshcore';
 
 /**
@@ -42,6 +42,11 @@ export function mergeAdvertCache(
 
   for (const advert of Object.values(incoming)) {
     const existing = merged[advert.pubkeyPrefix];
+    // A cached timestamp in the future means the node's clock was set wrong
+    // when we cached it. Anything derived from that clock is void once the
+    // incoming advert supersedes it — see `clockSkewSecs` below.
+    const cachedClockWasWrong =
+      existing !== undefined && existing.lastHeard > nowSecs;
     merged[advert.pubkeyPrefix] = existing
       ? {
           ...existing,
@@ -51,19 +56,25 @@ export function mergeAdvertCache(
           // skewed clock rather than a recent sighting — take the incoming
           // value outright there, or `Math.max` would pin the bad timestamp
           // until wall time catches up even after the node is corrected.
-          lastHeard:
-            existing.lastHeard > nowSecs
-              ? advert.lastHeard
-              : Math.max(existing.lastHeard, advert.lastHeard),
+          lastHeard: cachedClockWasWrong
+            ? advert.lastHeard
+            : Math.max(existing.lastHeard, advert.lastHeard),
           // The most recent time we actually heard the node, from whichever
-          // side observed it. Always our clock, so it is never in the future.
+          // side observed it. Always our clock, so neither a skewed sender nor
+          // a corrected one affects it.
           observedAt:
             Math.max(existing.observedAt ?? 0, advert.observedAt ?? 0) ||
             undefined,
           // A measured skew describes the node's clock rather than any one
           // advert, and measuring it needs a live push to pair with a contact
           // read — so an advert that arrives without one must not erase it.
-          clockSkewSecs: advert.clockSkewSecs ?? existing.clockSkewSecs,
+          // Unless the clock it measured is gone: dropping the cached future
+          // `lastHeard` above is exactly that signal, and keeping the old
+          // offset would then age every later read by a skew that no longer
+          // exists.
+          clockSkewSecs: cachedClockWasWrong
+            ? advert.clockSkewSecs
+            : (advert.clockSkewSecs ?? existing.clockSkewSecs),
           // An empty name is the "unset" case (not undefined), so a re-advert
           // that arrives without one must not clobber a known name — fall back
           // to the cached value, mirroring the location handling below.
@@ -82,7 +93,7 @@ export function mergeAdvertCache(
 
   // Keep only the most-recently-heard nodes when over the cap.
   const capped: Record<string, Advert> = {};
-  for (const advert of sortByHeardAge(Object.values(merged)).slice(
+  for (const advert of sortAdvertsByHeard(Object.values(merged)).slice(
     0,
     ADVERT_CACHE_LIMIT,
   )) {

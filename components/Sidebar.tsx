@@ -40,8 +40,8 @@ import {
 import {
   ADV_ICON,
   contactCategory,
-  heardAgeSecs,
   isPublicChannelSecret,
+  normalizedLastHeard,
   type ContactCategory,
 } from '@/lib/utils';
 import {
@@ -52,7 +52,7 @@ import {
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { useClockTick } from '@/hooks/useClockTick';
 import { Switch } from './Switch';
-import type { Contact, Message } from '@/types/meshcore';
+import type { Advert, Contact, Message } from '@/types/meshcore';
 
 const MIN_SECTION_PX = 40;
 // One arrow-key press on either resize handle.
@@ -130,23 +130,30 @@ function lastMessageTime(
 
 // Shared, so orders that don't need per-contact times keep a stable reference.
 const EMPTY_LATEST_TIMES: ReadonlyMap<string, number> = new Map();
+const EMPTY_ADVERTS: Record<string, Advert> = {};
 
 function compareBySort(
   a: Contact,
   b: Contact,
   sort: ContactSort,
   latestTimes: ReadonlyMap<string, number>,
+  adverts: Record<string, Advert>,
   nowSecs: number,
 ): number {
   switch (sort) {
     case 'heard': {
-      // `lastAdvert` is the sender's clock, so rank by clock-clamped age — the
-      // rule every other list applies — or a node advertising from the future
-      // would pin itself to the top here while the Nodes table ages it
-      // normally. A never-heard contact sorts last rather than as brand new.
-      const age = (c: Contact): number =>
-        c.lastAdvert ? heardAgeSecs(c.lastAdvert, nowSecs) : Infinity;
-      const diff = age(a) - age(b);
+      // Through the shared helper, like every other last-heard surface:
+      // `lastAdvert` is the sender's clock, and the cached advert is what
+      // carries our correction for it. Ranking on the raw field would pin a
+      // node advertising from the future to the top of this list while the
+      // Nodes table ages it normally — the same disagreement, relocated.
+      const heard = (c: Contact): number | undefined =>
+        normalizedLastHeard(c, adverts[c.pubkeyPrefix], nowSecs);
+      // Never-heard contacts sort last, and compare equal to each other rather
+      // than subtracting to NaN, which would strand them in map order.
+      const at = heard(a) ?? -Infinity;
+      const bt = heard(b) ?? -Infinity;
+      const diff = at === bt ? 0 : bt - at;
       // Fall back to A–Z so contacts sharing a timestamp (e.g. never-heard
       // contacts all at 0) keep a stable, alphabetical order.
       return diff !== 0 ? diff : a.name.localeCompare(b.name);
@@ -279,10 +286,14 @@ export function Sidebar() {
   // order needs it, so other orders reuse a shared empty map — that keeps this
   // memo's result stable across message arrivals and stops them from forcing a
   // re-sort below.
-  // One instant for the whole sort, advancing on a tick so the "heard" order
-  // keeps ageing while the sidebar sits open rather than freezing at whenever
-  // the contact table last changed.
-  const nowSecs = useClockTick();
+  const tick = useClockTick();
+  const advertCache = useMeshStore((s) => s.advertCache);
+  // Only the "heard" order reads the clock or the advert cache. The other
+  // orders pin both to a constant so a 30 s tick — or any advert on a busy
+  // mesh — can't churn the memo below, the same trick as EMPTY_LATEST_TIMES.
+  const heardOrder = contactSort === 'heard';
+  const nowSecs = heardOrder ? tick : 0;
+  const adverts = heardOrder ? advertCache : EMPTY_ADVERTS;
   const latestTimes = useMemo(() => {
     if (contactSort !== 'latest') return EMPTY_LATEST_TIMES;
     const times = new Map<string, number>();
@@ -303,7 +314,7 @@ export function Sidebar() {
         const bFav = (b.flags & FAVORITE_FLAG) !== 0;
         if (aFav !== bFav) return aFav ? -1 : 1;
       }
-      return compareBySort(a, b, contactSort, latestTimes, nowSecs);
+      return compareBySort(a, b, contactSort, latestTimes, adverts, nowSecs);
     });
   }, [
     contacts,
@@ -312,6 +323,7 @@ export function Sidebar() {
     pinFavorites,
     latestTimes,
     query,
+    adverts,
     nowSecs,
   ]);
   const hasContacts = Object.keys(contacts).length > 0;

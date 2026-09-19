@@ -14,7 +14,11 @@ import { useMeshStore } from '@/store/meshStore';
 import i18n from '@/lib/i18n';
 import type { ToolSchema } from '@/lib/ai/provider';
 import { FAVORITE_FLAG, MAX_MSG_BYTES } from '@/lib/meshcore/constants';
-import { sortByHeardAge, utf8ByteLength } from '@/lib/utils';
+import {
+  normalizedLastHeard,
+  sortAdvertsByHeard,
+  utf8ByteLength,
+} from '@/lib/utils';
 
 /** Every tool the engine can call, in menu order. */
 export const TOOL_NAMES = [
@@ -406,13 +410,18 @@ export async function callTool(
       }));
     case 'read_adverts': {
       // Most recently heard first so a cap keeps the freshest nodes, not an
-      // arbitrary insertion-order (roughly first-heard) prefix.
-      const rows = sortByHeardAge(Object.values(state.adverts)).map((a) => ({
-        name: a.name,
-        pubkeyPrefix: a.pubkeyPrefix,
-        advType: a.advType,
-        lastHeard: a.lastHeard,
-      }));
+      // arbitrary insertion-order (roughly first-heard) prefix. `lastHeard` is
+      // normalized to our clock for the same reason every display surface is:
+      // the raw field is the sender's, and a node advertising from next week
+      // would otherwise be handed to the model as heard in the future.
+      const rows = sortAdvertsByHeard(Object.values(state.adverts)).map(
+        (a) => ({
+          name: a.name,
+          pubkeyPrefix: a.pubkeyPrefix,
+          advType: a.advType,
+          lastHeard: normalizedLastHeard(undefined, a) ?? a.lastHeard,
+        }),
+      );
       return capRows(rows, READ_TABLE_CAP);
     }
     case 'read_messages': {

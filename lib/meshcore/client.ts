@@ -98,7 +98,7 @@ import {
   parseNeighborsResponse,
   parseAccessList,
 } from './parsers';
-import { sortByHeardAge, toHex } from '@/lib/utils';
+import { sortAdvertsByHeard, toHex } from '@/lib/utils';
 
 // Cap the heard-adverts log so a long session on a busy mesh can't grow
 // unbounded
@@ -587,8 +587,12 @@ export class MeshCoreClient {
       const c = parseContact(d);
       if (c) {
         // This push *is* the sighting and it carries the node's own timestamp,
-        // so both clocks are already in hand — no resync pairing needed.
-        this.recordAdvert(c, Math.floor(Date.now() / 1000));
+        // so both clocks are already in hand for one advert — no resync
+        // pairing needed, and the measurement is proven by construction.
+        this.recordAdvert(c, {
+          at: Math.floor(Date.now() / 1000),
+          measure: true,
+        });
         this.scheduleContactResync();
       }
       return;
@@ -773,22 +777,27 @@ export class MeshCoreClient {
   /**
    * Folds a contact-shaped advert record into the heard-adverts map.
    *
-   * @param observedAt - our clock at the live push this record came from, when
-   * one is known. Only then are both clocks known for the *same* advert, which
-   * is what makes "how far off is this node's clock" a fact distinct from "how
-   * old is this sighting" — so this is the only path that measures skew. A
-   * stamp older than {@link ADVERT_OBSERVATION_WINDOW_SECS} belongs to an
-   * earlier advert and is ignored, which is also why a full contact sync at
-   * connect (no pending observations at all) measures nothing.
+   * @param observation - the live sighting this record came from, when there
+   * was one. `at` is our clock at the push; a stamp older than
+   * {@link ADVERT_OBSERVATION_WINDOW_SECS} belongs to an earlier advert and is
+   * dropped. `measure` says whether `c.lastAdvert` is known to be the *same*
+   * advert we heard at `at` — only then are both clocks known for one advert,
+   * which is what makes "how far off is this node's clock" a fact distinct
+   * from "how old is this sighting". Pairing our clock with a contact row that
+   * has not moved would invent a skew the size of the gap between two adverts,
+   * so an unproven pairing records the sighting and leaves the skew alone.
    */
-  private recordAdvert(c: Contact, observedAt?: number): void {
+  private recordAdvert(
+    c: Contact,
+    observation?: { at: number; measure: boolean },
+  ): void {
     const nowSecs = Math.floor(Date.now() / 1000);
     const existing = this.adverts[c.pubkeyPrefix];
     const lastHeard = c.lastAdvert ?? nowSecs;
     const observed =
-      observedAt !== undefined &&
-      nowSecs - observedAt <= ADVERT_OBSERVATION_WINDOW_SECS
-        ? observedAt
+      observation !== undefined &&
+      nowSecs - observation.at <= ADVERT_OBSERVATION_WINDOW_SECS
+        ? observation
         : undefined;
     this.adverts[c.pubkeyPrefix] = {
       pubkey: c.pubkey,
@@ -798,12 +807,14 @@ export class MeshCoreClient {
       lastHeard,
       advLat: c.advLat,
       advLon: c.advLon,
-      observedAt: observed ?? existing?.observedAt,
+      observedAt: observed?.at ?? existing?.observedAt,
       // Skew is a property of the node's badly-set clock, not of one advert,
       // so a measurement outlives the observation that produced it and keeps
       // normalizing later contact-table reads.
       clockSkewSecs:
-        observed !== undefined ? lastHeard - observed : existing?.clockSkewSecs,
+        observed?.measure === true
+          ? lastHeard - observed.at
+          : existing?.clockSkewSecs,
     };
     this.evictOldAdverts();
     this.callbacks.onAdvertsUpdated?.(this.adverts);
@@ -813,7 +824,7 @@ export class MeshCoreClient {
     const entries = Object.values(this.adverts);
     if (entries.length <= ADVERTS_LIMIT) return;
     const kept = new Set(
-      sortByHeardAge(entries)
+      sortAdvertsByHeard(entries)
         .slice(0, ADVERTS_LIMIT)
         .map((a) => a.pubkeyPrefix),
     );
@@ -853,7 +864,15 @@ export class MeshCoreClient {
       const contact = this.contacts[prefix];
       if (contact?.lastAdvert) {
         delete this.advertObservations[prefix];
-        this.recordAdvert(contact, observedAt);
+        // `scheduleContactResync` drops its resync when a sync is already in
+        // flight, so this enumeration may have started *before* the push and
+        // be carrying the previous advert's timestamp. A row whose claim has
+        // moved past what we already hold can only be the advert we just
+        // heard; an unchanged one proves nothing, so record the sighting but
+        // leave the skew to a later, provable pairing.
+        const known = this.adverts[prefix]?.lastHeard;
+        const measure = known !== undefined && contact.lastAdvert > known;
+        this.recordAdvert(contact, { at: observedAt, measure });
       } else if (nowSecs - observedAt > ADVERT_OBSERVATION_WINDOW_SECS) {
         delete this.advertObservations[prefix];
       }

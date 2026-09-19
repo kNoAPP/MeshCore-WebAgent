@@ -85,7 +85,14 @@ export function emitAdvertDiff(adverts: Record<string, Advert>): void {
   }
   for (const [key, advert] of Object.entries(adverts)) {
     const prev = lastAdverts[key];
-    if (!prev || prev.lastHeard !== advert.lastHeard) {
+    // `observedAt` too: a live push records our clock without touching
+    // `lastHeard`, so keying on the sender's claim alone would miss the
+    // re-advert of a node the radio no longer holds as a contact.
+    if (
+      !prev ||
+      prev.lastHeard !== advert.lastHeard ||
+      prev.observedAt !== advert.observedAt
+    ) {
       emit({ type: 'advert', advert });
     }
   }

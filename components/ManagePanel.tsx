@@ -164,7 +164,7 @@ function ManagePanelView() {
           <DetailRow
             label={t('manage.lastAdvert')}
             value={formatRelative(advertHeard ?? advert.lastHeard)}
-            hint={formatDateTime(advert.lastHeard)}
+            hint={formatDateTime(advertHeard ?? advert.lastHeard)}
           />
           {advertSkew && (
             <DetailRow
@@ -266,11 +266,7 @@ function ManagePanelView() {
                   ? formatRelative(contactHeard)
                   : t('common.unknown')
               }
-              hint={
-                contact.lastAdvert
-                  ? formatDateTime(contact.lastAdvert)
-                  : undefined
-              }
+              hint={contactHeard ? formatDateTime(contactHeard) : undefined}
             />
             {contactSkew && (
               <DetailRow

@@ -50,16 +50,23 @@ export function heardAgeSecs(
  *
  * @remarks The raw timestamps are the *sender's* clock and MeshCore nodes
  * routinely run without a synchronized RTC, so this is the single place the
- * two are reconciled. Precedence:
+ * two are reconciled. Each source is converted to our clock independently and
+ * the most recent estimate wins:
  *
- * 1. `advert.observedAt` — our clock at a live `PUSH_ADVERT`, so exact.
- * 2. the freshest raw claim minus {@link Advert.clockSkewSecs} — the receive
- *    time recovered from a skew measured earlier, which is what makes a
- *    contact-table read usable long after the push that measured it.
- * 3. the freshest raw claim folded into the past by {@link heardAgeSecs} —
- *    skew unknown, so fall back to the magnitude. That is the same rule
- *    `sortByHeardAge` and the map age filters already apply, which is why a
- *    node's displayed age now agrees with where it sorts.
+ * - `advert.observedAt` — our clock at a live push, so exact.
+ * - a raw claim minus {@link Advert.clockSkewSecs} — the receive time
+ *   recovered from a skew measured earlier, which is what makes a
+ *   contact-table read usable long after the push that measured it.
+ * - a raw claim folded into the past by {@link heardAgeSecs} — skew unknown,
+ *   so fall back to the magnitude. That is the same rule the age filters
+ *   already apply, which is why a node's displayed age agrees with where it
+ *   sorts.
+ *
+ * Taking the most recent rather than preferring one source matters because
+ * `observedAt` persists in the advert cache: a sighting from a previous
+ * session would otherwise outrank a contact row showing the node advertised
+ * minutes ago. Each estimate is a lower bound on "last heard", so the newest
+ * is the best one.
  *
  * Every surface that shows or filters on this age shares this helper, or
  * selecting a row would change the apparent age of the node it selects.
@@ -72,38 +79,41 @@ export function normalizedLastHeard(
   advert?: Advert,
   nowSecs: number = Math.floor(Date.now() / 1000),
 ): number | undefined {
-  if (advert?.observedAt !== undefined) return advert.observedAt;
-  const claims = [contact?.lastAdvert, advert?.lastHeard].filter(
-    (t): t is number => typeof t === 'number' && t > 0,
-  );
-  if (claims.length === 0) return undefined;
-  // Not `Math.max`: a contact row still holding a future timestamp would
-  // outrank the advert that just corrected it.
-  const claimed = claims.reduce((best, t) =>
-    heardAgeSecs(t, nowSecs) < heardAgeSecs(best, nowSecs) ? t : best,
-  );
   const skew = advert?.clockSkewSecs;
-  if (skew !== undefined) return Math.min(claimed - skew, nowSecs);
-  return nowSecs - heardAgeSecs(claimed, nowSecs);
+  const estimates: number[] = [];
+  if (advert?.observedAt !== undefined) estimates.push(advert.observedAt);
+  for (const claim of [contact?.lastAdvert, advert?.lastHeard]) {
+    if (typeof claim !== 'number' || claim <= 0) continue;
+    estimates.push(
+      skew === undefined
+        ? nowSecs - heardAgeSecs(claim, nowSecs)
+        : claim - skew,
+    );
+  }
+  if (estimates.length === 0) return undefined;
+  // Clamped even though every branch above aims at the past: a skew measured
+  // against a different advert, or a caller holding a tick a few seconds
+  // stale, can still push an estimate past `nowSecs`.
+  return Math.min(Math.max(...estimates), nowSecs);
 }
 
 /**
- * Orders entries carrying a `lastHeard` timestamp freshest first, returning a
- * new array. `lastHeard` is the *sender's* clock and MeshCore nodes routinely
- * run without a synchronized RTC, so entries are ranked by the magnitude of
- * their offset from now: a node whose clock runs ahead ranks by how far ahead
- * it is instead of permanently outranking a node we genuinely just heard. Used
- * for both display order and cache eviction, so a skewed timestamp can neither
- * top a list nor evict a fresher entry. The clock is read once, keeping the
- * comparator consistent for the whole sort.
+ * Orders adverts freshest first by {@link normalizedLastHeard}, returning a
+ * new array.
+ *
+ * @remarks Ranked on the our-clock estimate rather than the raw `lastHeard`,
+ * which is the sender's claim: a live push records `observedAt` without
+ * touching `lastHeard`, so ranking on the raw value would sort a node we just
+ * heard by whatever its own clock last claimed. Used for display order and for
+ * cache eviction, so a node heard moments ago can neither rank below nor be
+ * evicted by one we have not heard since.
  */
-export function sortByHeardAge<T extends { lastHeard: number }>(
-  items: readonly T[],
-): T[] {
+export function sortAdvertsByHeard(adverts: readonly Advert[]): Advert[] {
   const nowSecs = Math.floor(Date.now() / 1000);
-  return [...items].sort(
+  return [...adverts].sort(
     (a, b) =>
-      heardAgeSecs(a.lastHeard, nowSecs) - heardAgeSecs(b.lastHeard, nowSecs),
+      (normalizedLastHeard(undefined, b, nowSecs) ?? 0) -
+      (normalizedLastHeard(undefined, a, nowSecs) ?? 0),
   );
 }
 

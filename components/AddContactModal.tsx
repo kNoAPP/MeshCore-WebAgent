@@ -18,7 +18,7 @@ import {
   fromHex,
   normalizedLastHeard,
   parseContactUri,
-  sortByHeardAge,
+  sortAdvertsByHeard,
 } from '@/lib/utils';
 import {
   ADV_TYPE_REPEATER,
@@ -137,7 +137,7 @@ export function AddContactModal() {
   // so a node whose clock runs ahead cannot hold the top of the list forever.
   const cachedAdverts = Object.values(advertCache);
   const discoverTerm = discoverQuery.trim().toLowerCase();
-  const heard = sortByHeardAge(
+  const heard = sortAdvertsByHeard(
     cachedAdverts.filter(
       (a) =>
         !discoverTerm ||
