@@ -29,6 +29,8 @@ import {
   loadPreferences,
 } from '@/lib/storage';
 import {
+  expectSecretContext,
+  releaseSecretContext,
   setSecretContext,
   loadPersistedApiKey,
   wipeApiKey,
@@ -422,6 +424,48 @@ export function useMeshCore() {
           throw new Error('Closed during sync');
         }
         setSyncProgress(null);
+
+        // Bind this radio's encryption key BEFORE reporting 'connected': the
+        // whole connected UI mounts off that status, and every encrypted read
+        // is gated on the context, so a view that mounts while it is unbound
+        // reads an empty store and keeps that answer. Deriving it is PBKDF2 at
+        // 100k iterations, so the window is tens to hundreds of milliseconds,
+        // not a knife-edge. Setting the history key here too means a send the
+        // now-live link accepts can't land before there is a key to save it
+        // under.
+        const pubkey = c.selfInfo?.pubkey;
+        // This session's key, kept for the hydrate reads below; null when the
+        // radio reported no pubkey to derive one from, which leaves the session
+        // running with persistence off rather than under a shared key.
+        let key: CryptoKey | null = null;
+        if (pubkey && sessionAlive()) {
+          // Declared before the await, so a read that still beats the binding
+          // waits for it rather than concluding nothing is stored; the finally
+          // answers those reads on every path that never binds one.
+          expectSecretContext();
+          try {
+            const secrets = Object.values(c.channels)
+              .map((ch) => ch.secret)
+              .filter((s): s is Uint8Array => s != null && s.length > 0);
+            key = await deriveStorageKey(secrets, pubkey);
+            // This is now the last await before the UI goes live, and a drop or
+            // a Disconnect during it is nobody else's to catch: `onDisconnect`
+            // stands down while the status is still 'connecting'. Bail exactly
+            // like the post-sync check above, so the catch routes a drop into
+            // the reconnect loop instead of parking the connected UI on a dead
+            // link — and so a torn-down session can't be re-armed with a key.
+            if (!sessionAlive()) {
+              throw new Error('Closed during sync');
+            }
+            setStorageKey(key);
+            // Reuse the same per-radio key for secret storage — there is no
+            // second key-derivation path.
+            setSecretContext(pubkey, key);
+          } finally {
+            releaseSecretContext();
+          }
+        }
+
         setStatus('connected');
         clearReconnect();
         const deviceName =
@@ -430,23 +474,15 @@ export function useMeshCore() {
 
         // Wire history persistence FIRST — before the best-effort hydrate
         // round-trips below — so the now-'connected' link can't accept a send
-        // that lands before the storage key and subscriptions exist and so goes
-        // unpersisted. Skip it if the link dropped or the user disconnected
-        // during the post-sync hydrate, so we don't bind a save subscription to
-        // a torn-down session.
-        const pubkey = c.selfInfo?.pubkey;
-        if (pubkey && sessionAlive()) {
-          const secrets = Object.values(c.channels)
-            .map((ch) => ch.secret)
-            .filter((s): s is Uint8Array => s != null && s.length > 0);
-          const key = await deriveStorageKey(secrets, pubkey);
-          setStorageKey(key);
-
-          // Reuse the same per-radio key for secret storage, then restore a
-          // "remembered" LLM API key, the saved history, any per-radio
-          // automation rules, and the advert cache in parallel — independent
-          // IndexedDB reads with no ordering dependency.
-          setSecretContext(pubkey, key);
+        // that lands before the subscriptions exist and so goes unpersisted.
+        // Skip it if the link dropped or the user disconnected during the key
+        // derivation or the post-sync hydrate, so we don't bind a save
+        // subscription to a torn-down session.
+        if (pubkey && key && sessionAlive()) {
+          // Restore a "remembered" LLM API key, the saved history, any
+          // per-radio automation rules, the advert cache, and the preferences
+          // blob in parallel — independent IndexedDB reads with no ordering
+          // dependency.
           const [, saved, rules, advertCache, prefs] = await Promise.all([
             loadPersistedApiKey(),
             loadRadioData(pubkey, key),
