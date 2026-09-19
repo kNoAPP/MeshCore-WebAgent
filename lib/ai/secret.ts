@@ -128,9 +128,10 @@ export function getApiKey(): string | null {
  * @remarks
  * Called by the connect flow as soon as the radio's pubkey is known and before
  * the key derivation it then awaits. {@link setSecretContext} settles the wait
- * with the context; {@link wipeApiKey} settles it with null when the session
- * ends without ever binding one. A second call while one is already pending
- * keeps the first — both are waiting on the same binding.
+ * with the context, {@link releaseSecretContext} with whatever is bound when
+ * the attempt ends without binding one, and {@link wipeApiKey} with null on a
+ * teardown. A second call while one is already pending keeps the first — both
+ * are waiting on the same binding.
  */
 export function expectSecretContext(): void {
   if (pendingCtx) return;
@@ -139,6 +140,20 @@ export function expectSecretContext(): void {
     settle = resolve;
   });
   pendingCtx = { promise, settle };
+}
+
+/**
+ * Answers every read waiting on a declared binding with the context as it now
+ * stands — null when none was ever bound. A no-op once
+ * {@link setSecretContext} has settled the wait.
+ *
+ * @remarks
+ * Pairs with {@link expectSecretContext} in a `finally`, so a key derivation
+ * that throws, or a session torn down while it ran, cannot leave a read
+ * waiting on a binding that will never be made.
+ */
+export function releaseSecretContext(): void {
+  settlePending(ctx);
 }
 
 /**

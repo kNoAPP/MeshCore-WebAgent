@@ -30,6 +30,7 @@ import {
 } from '@/lib/storage';
 import {
   expectSecretContext,
+  releaseSecretContext,
   setSecretContext,
   loadPersistedApiKey,
   wipeApiKey,
@@ -439,16 +440,30 @@ export function useMeshCore() {
         let key: CryptoKey | null = null;
         if (pubkey && sessionAlive()) {
           // Declared before the await, so a read that still beats the binding
-          // waits for it rather than concluding nothing is stored.
+          // waits for it rather than concluding nothing is stored; the finally
+          // answers those reads on every path that never binds one.
           expectSecretContext();
-          const secrets = Object.values(c.channels)
-            .map((ch) => ch.secret)
-            .filter((s): s is Uint8Array => s != null && s.length > 0);
-          key = await deriveStorageKey(secrets, pubkey);
-          setStorageKey(key);
-          // Reuse the same per-radio key for secret storage — there is no
-          // second key-derivation path.
-          setSecretContext(pubkey, key);
+          try {
+            const secrets = Object.values(c.channels)
+              .map((ch) => ch.secret)
+              .filter((s): s is Uint8Array => s != null && s.length > 0);
+            key = await deriveStorageKey(secrets, pubkey);
+            // This is now the last await before the UI goes live, and a drop or
+            // a Disconnect during it is nobody else's to catch: `onDisconnect`
+            // stands down while the status is still 'connecting'. Bail exactly
+            // like the post-sync check above, so the catch routes a drop into
+            // the reconnect loop instead of parking the connected UI on a dead
+            // link — and so a torn-down session can't be re-armed with a key.
+            if (!sessionAlive()) {
+              throw new Error('Closed during sync');
+            }
+            setStorageKey(key);
+            // Reuse the same per-radio key for secret storage — there is no
+            // second key-derivation path.
+            setSecretContext(pubkey, key);
+          } finally {
+            releaseSecretContext();
+          }
         }
 
         setStatus('connected');
