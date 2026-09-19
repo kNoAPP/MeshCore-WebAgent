@@ -143,17 +143,20 @@ export function expectSecretContext(): void {
 }
 
 /**
- * Answers every read waiting on a declared binding with the context as it now
- * stands — null when none was ever bound. A no-op once
+ * Answers every read still waiting on a declared binding with null, the
+ * truthful answer for a session that ended before it bound one. A no-op once
  * {@link setSecretContext} has settled the wait.
  *
  * @remarks
  * Pairs with {@link expectSecretContext} in a `finally`, so a key derivation
  * that throws, or a session torn down while it ran, cannot leave a read
- * waiting on a binding that will never be made.
+ * waiting on a binding that will never be made. Deliberately not the context
+ * that happens to be bound: a reconnect keeps the previous session's one
+ * alive, and that session may be a different radio (see
+ * {@link setSecretContext}) whose key must never answer this radio's read.
  */
 export function releaseSecretContext(): void {
-  settlePending(ctx);
+  settlePending(null);
 }
 
 /**
