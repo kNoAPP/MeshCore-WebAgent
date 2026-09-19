@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.31.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.30.0...v1.31.0) (2026-09-19)
+
+
+### Features
+
+* **backup:** add encrypted backup and restore for radio data and identity ([#331](https://github.com/kNoAPP/MeshCore-WebAgent/issues/331)) ([ee4176c](https://github.com/kNoAPP/MeshCore-WebAgent/commit/ee4176c6013cbbc4ecb72deff4ec082df84a2dde))
+* **protocol:** read neighbors and access lists over binary requests ([#334](https://github.com/kNoAPP/MeshCore-WebAgent/issues/334)) ([19be93f](https://github.com/kNoAPP/MeshCore-WebAgent/commit/19be93f65d21bd9ca0a48fd76a1917c97ad5299e))
+* **repeater:** retry a timed-out sign-in and never strand a saved credential ([#336](https://github.com/kNoAPP/MeshCore-WebAgent/issues/336)) ([99495ea](https://github.com/kNoAPP/MeshCore-WebAgent/commit/99495ea7b0159bd38eedaea962c296bec11ebc04))
+
+
+### Bug Fixes
+
+* **session:** bind the per-radio storage key before reporting connected ([#338](https://github.com/kNoAPP/MeshCore-WebAgent/issues/338)) ([89ca6a8](https://github.com/kNoAPP/MeshCore-WebAgent/commit/89ca6a8b5e6605381c736db969aa84963b703e0f))
+
 ## [1.30.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.29.0...v1.30.0) (2026-09-17)
 
 
