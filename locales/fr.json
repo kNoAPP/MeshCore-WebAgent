@@ -749,7 +749,15 @@
       "submit": "Se connecter",
       "loggingIn": "Connexion…",
       "checking": "Vérification des identifiants enregistrés…",
-      "remember": "Mémoriser ces identifiants"
+      "remember": "Mémoriser ces identifiants",
+      "attempt": "Connexion… ({{attempt}} sur {{total}})",
+      "timedOutTitle": "Impossible de joindre {{name}}",
+      "timedOutBody": "La connexion a expiré. Cela signifie généralement que la route doit être redécouverte, et non que le mot de passe est incorrect.",
+      "failedTitle": "Impossible de se connecter à {{name}}",
+      "failedBody": "La demande de connexion n’a pas pu être envoyée. Réessayez dans un instant.",
+      "retry": "Réessayer la connexion",
+      "retryFlood": "Réinitialiser la route et réessayer",
+      "differentPassword": "Saisir un autre mot de passe"
     },
     "dashboard": {
       "accessAdmin": "Accès administrateur",
@@ -1361,6 +1369,7 @@
     "rebooting": "Redémarrage… reconnexion dès le retour de l'appareil",
     "rebootFailed": "Échec du redémarrage : {{error}}",
     "repeaterLoginFailed": "Échec de la connexion : {{error}}",
+    "repeaterLoginTimedOut": "Aucune réponse de {{name}}. La route doit peut-être être réinitialisée, ou le mot de passe a changé.",
     "repeaterStatusFailed": "Échec de la récupération du statut : {{error}}",
     "telemetryFailed": "Échec de la récupération de la télémétrie : {{error}}",
     "repeaterCliFailed": "Échec de l'envoi de la commande : {{error}}",

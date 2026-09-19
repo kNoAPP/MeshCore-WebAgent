@@ -748,7 +748,15 @@
       "submit": "Log in",
       "loggingIn": "Logging in…",
       "checking": "Checking saved credentials…",
-      "remember": "Remember these credentials"
+      "remember": "Remember these credentials",
+      "attempt": "Signing in… ({{attempt}} of {{total}})",
+      "timedOutTitle": "Couldn't reach {{name}}",
+      "timedOutBody": "Sign-in timed out. This usually means the route needs rediscovering, not that the password is wrong.",
+      "failedTitle": "Couldn't sign in to {{name}}",
+      "failedBody": "The sign-in request couldn't be sent. Try again in a moment.",
+      "retry": "Retry sign-in",
+      "retryFlood": "Reset route and retry",
+      "differentPassword": "Enter a different password"
     },
     "dashboard": {
       "accessAdmin": "Admin access",
@@ -1360,6 +1368,7 @@
     "rebooting": "Rebooting… reconnecting when the device comes back",
     "rebootFailed": "Failed to reboot: {{error}}",
     "repeaterLoginFailed": "Login failed: {{error}}",
+    "repeaterLoginTimedOut": "No response from {{name}}. The route may need resetting, or the password may have changed.",
     "repeaterStatusFailed": "Failed to fetch status: {{error}}",
     "telemetryFailed": "Failed to fetch telemetry: {{error}}",
     "repeaterCliFailed": "Failed to send command: {{error}}",

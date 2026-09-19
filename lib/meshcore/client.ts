@@ -22,7 +22,7 @@ import type {
   AclEntry,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
-import { MeshConnectError, PrivateKeyError } from './errors';
+import { MeshConnectError, PrivateKeyError, PushTimeoutError } from './errors';
 import {
   RESP,
   ERR_CODE,
@@ -1717,7 +1717,7 @@ export class MeshCoreClient {
         estimate && estimate > 0 ? estimate : PUSH_FALLBACK_TIMEOUT_MS;
       waiter.timer = setTimeout(() => {
         waiters.delete(prefixHex);
-        waiter.reject(new Error(`Timeout waiting for push from ${prefixHex}`));
+        waiter.reject(new PushTimeoutError(prefixHex));
       }, base + PUSH_GRACE_MS);
     }
     return promise;

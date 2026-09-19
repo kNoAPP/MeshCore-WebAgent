@@ -5,7 +5,7 @@
 
 import { useCallback, useRef } from 'react';
 import { MeshCoreClient } from '@/lib/meshcore/client';
-import { PickerDismissedError } from '@/lib/meshcore/errors';
+import { PickerDismissedError, PushTimeoutError } from '@/lib/meshcore/errors';
 import {
   createUSBTransport,
   createBLETransport,
@@ -97,6 +97,7 @@ import type {
   RadioParams,
   Message,
   LoginKind,
+  RepeaterLoginOutcome,
   ITransport,
   Neighbor,
   AclEntry,
@@ -741,13 +742,18 @@ export function useMeshCore() {
   /**
    * Resets a contact's route on the radio so its next message floods to
    * rediscover a path.
+   *
+   * @param quiet - suppress the success toast, for a reset the user did not
+   * ask for. Announcing a background route reset would put an unexplained
+   * green toast on screen mid-way through an operation of its own; a failure
+   * still speaks, since it changes what that operation can expect.
    */
   const resetContactPath = useCallback(
-    async (contact: Contact) => {
+    async (contact: Contact, quiet = false) => {
       if (!canTransmit(client)) return;
       try {
         await client.resetPath(contact);
-        showToast(i18n.t('toast.routeReset'), 'success');
+        if (!quiet) showToast(i18n.t('toast.routeReset'), 'success');
       } catch (err) {
         showToast(
           i18n.t('toast.routeResetFailed', { error: (err as Error).message }),
@@ -793,6 +799,14 @@ export function useMeshCore() {
    * is set, the password is persisted encrypted per-radio in the `secrets`
    * store (never in the store, prefs blob, or localStorage); otherwise it is
    * not persisted.
+   *
+   * @param quiet - suppress the *timeout* toast, for a caller that shows the
+   * outcome itself. An automatic retry cycle sets it on every attempt but its
+   * last, so one unreachable node raises one toast rather than one per attempt.
+   * A rejection the radio reported still speaks: it ends such a cycle at once,
+   * so its message has no later attempt to carry it.
+   * @returns how the attempt ended, so a caller can retry only the transient
+   * shape. See {@link RepeaterLoginOutcome}.
    */
   const repeaterLogin = useCallback(
     async (
@@ -800,13 +814,14 @@ export function useMeshCore() {
       password: string,
       kind: LoginKind,
       remember: boolean,
-    ) => {
-      if (!canTransmit(client)) return;
+      quiet = false,
+    ): Promise<RepeaterLoginOutcome> => {
+      if (!canTransmit(client)) return 'offline';
       setAdminLogin(contact.pubkeyPrefix, 'pending');
       try {
         const granted = await client.login(contact, password);
         // A drop during login can tear the session down; don't revive it.
-        if (!canTransmit(client)) return;
+        if (!canTransmit(client)) return 'offline';
         // A room grants three roles and the middle one (the room password)
         // is what decides whether the composer may post, so its
         // server-reported role is authoritative. A repeater reflects the
@@ -825,6 +840,7 @@ export function useMeshCore() {
             password,
           });
         }
+        return 'ok';
       } catch (err) {
         // A disconnect/drop rejects the pending login and runs its own
         // teardown; don't clobber that outcome with a stale login error. A full
@@ -834,15 +850,29 @@ export function useMeshCore() {
           if (useMeshStore.getState().adminSessions[contact.pubkeyPrefix]) {
             setAdminLogin(contact.pubkeyPrefix, 'loggedOut');
           }
-          return;
+          return 'offline';
         }
         setAdminLogin(contact.pubkeyPrefix, 'loggedOut');
-        showToast(
-          i18n.t('toast.repeaterLoginFailed', {
-            error: (err as Error).message,
-          }),
-          'error',
-        );
+        // The node never answered — the raw "Timeout waiting for push from
+        // <prefix>" says nothing a user can act on, so name the two causes it
+        // actually has instead.
+        const timedOut = err instanceof PushTimeoutError;
+        // `quiet` covers only the silence a retry cycle is about to answer for
+        // itself. A reported rejection stops that cycle where it stands, so
+        // swallowing its message would lose the one thing that explains why.
+        if (!quiet || !timedOut) {
+          showToast(
+            timedOut
+              ? i18n.t('toast.repeaterLoginTimedOut', {
+                  name: contact.name || contact.pubkeyPrefix.slice(0, 8),
+                })
+              : i18n.t('toast.repeaterLoginFailed', {
+                  error: (err as Error).message,
+                }),
+            'error',
+          );
+        }
+        return timedOut ? 'timeout' : 'failed';
       }
     },
     [client, setAdminLogin, showToast],

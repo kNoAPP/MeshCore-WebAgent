@@ -64,3 +64,20 @@ export class PrivateKeyError extends Error {
     this.name = 'PrivateKeyError';
   }
 }
+
+/**
+ * Thrown when a remote request's answering push never arrives — the node was
+ * sent the request but said nothing back within the receipt-derived budget.
+ *
+ * @remarks
+ * Typed rather than a bare `Error` so a caller can tell this transient shape
+ * (a lost packet over a stale multi-hop route) from a rejection the radio
+ * actually reported, and retry only the former. A wrong repeater password
+ * produces no response either, so this never proves the route was at fault.
+ */
+export class PushTimeoutError extends Error {
+  constructor(prefixHex: string) {
+    super(`Timeout waiting for push from ${prefixHex}`);
+    this.name = 'PushTimeoutError';
+  }
+}
