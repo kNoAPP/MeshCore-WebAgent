@@ -49,9 +49,12 @@ const ABSOLUTE_DATE_AFTER_SECS = 30 * 86400;
  *
  * @remarks A future timestamp clamps to `just now`. Advert timestamps are the
  * *sender's* clock and can sit far ahead of ours, so those surfaces pass a
- * value from `normalizedLastHeard` and never reach that clamp; the remaining
- * callers read our clock or the radio's synced clock, where a future value is
- * sub-threshold drift. Clock skew is reported on its own by
+ * value from `normalizedLastHeard` and never reach that clamp. Telemetry and
+ * stats read our clock or the radio's synced clock, where a future value is
+ * sub-threshold drift. Message timestamps are the sender's clock too — the
+ * firmware notes it "could be wrong" — and the command palette renders them
+ * relative, so a message from a badly-set node reads `just now` there rather
+ * than as a skew notice. Clock skew is reported on its own by
  * {@link formatClockSkew}, not folded in here.
  */
 export function formatRelative(timestamp: number): string {

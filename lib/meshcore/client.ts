@@ -254,11 +254,14 @@ export class MeshCoreClient {
   selfInfo: SelfInfo | null = null;
   deviceInfo: DeviceInfo | null = null;
 
-  // Prefix → our clock when a live advert push was seen, waiting on the
-  // contact read that carries that same advert's sender timestamp. Entries are
-  // consumed by `foldAdvertObservations` and expire with
+  // Prefix → a live advert push we have seen, waiting on the contact read
+  // that carries that same advert's sender timestamp. `at` is our clock;
+  // `claim` is the node's own timestamp as we knew it *before* the push, which
+  // is what later proves a contact row has moved on to the advert we heard.
+  // Entries are consumed by `foldAdvertObservations` and expire with
   // ADVERT_OBSERVATION_WINDOW_SECS.
-  private advertObservations: Record<string, number> = {};
+  private advertObservations: Record<string, { at: number; claim?: number }> =
+    {};
 
   private handlers: PendingCmd[] = [];
   // Slots whose SET_CHANNEL clear has been sent but not yet acked. The mirror
@@ -840,11 +843,15 @@ export class MeshCoreClient {
   private touchAdvert(d: Uint8Array): void {
     const prefix = toHex(d.slice(1, 7));
     const nowSecs = Math.floor(Date.now() / 1000);
-    // Kept whether or not this node has an advert record yet: a saved contact
-    // that has never been in the cache still gets its skew measured, by the
-    // fold that creates the record from the contact row.
-    this.advertObservations[prefix] = nowSecs;
     const existing = this.adverts[prefix];
+    // The claim we already hold, read before the resync overwrites it. The
+    // contact table is the reference that matters: the radio only sends this
+    // pubkey-only push for a node it already holds as a contact, and
+    // `this.adverts` starts empty on every connect, so without it the first
+    // advert of every saved contact each session would have nothing to prove
+    // itself against and could never be measured.
+    const claim = this.contacts[prefix]?.lastAdvert ?? existing?.lastHeard;
+    this.advertObservations[prefix] = { at: nowSecs, claim };
     if (existing) {
       this.adverts[prefix] = { ...existing, observedAt: nowSecs };
       this.callbacks.onAdvertsUpdated?.(this.adverts);
@@ -858,22 +865,22 @@ export class MeshCoreClient {
   // are dropped rather than left to measure a later advert.
   private foldAdvertObservations(): void {
     const nowSecs = Math.floor(Date.now() / 1000);
-    for (const [prefix, observedAt] of Object.entries(
-      this.advertObservations,
-    )) {
+    for (const [prefix, seen] of Object.entries(this.advertObservations)) {
       const contact = this.contacts[prefix];
       if (contact?.lastAdvert) {
         delete this.advertObservations[prefix];
         // `scheduleContactResync` drops its resync when a sync is already in
         // flight, so this enumeration may have started *before* the push and
-        // be carrying the previous advert's timestamp. A row whose claim has
-        // moved past what we already hold can only be the advert we just
-        // heard; an unchanged one proves nothing, so record the sighting but
-        // leave the skew to a later, provable pairing.
-        const known = this.adverts[prefix]?.lastHeard;
-        const measure = known !== undefined && contact.lastAdvert > known;
-        this.recordAdvert(contact, { at: observedAt, measure });
-      } else if (nowSecs - observedAt > ADVERT_OBSERVATION_WINDOW_SECS) {
+        // still carry the previous advert's timestamp. A claim that has moved
+        // past the one we held when the push landed is a later advert; an
+        // unchanged one proves nothing, so record the sighting and leave the
+        // skew to a provable pairing. (A row can still be one advert behind
+        // if two arrived inside a single enumeration, which bounds the error
+        // by that enumeration rather than by the gap between adverts.)
+        const measure =
+          seen.claim === undefined || contact.lastAdvert > seen.claim;
+        this.recordAdvert(contact, { at: seen.at, measure });
+      } else if (nowSecs - seen.at > ADVERT_OBSERVATION_WINDOW_SECS) {
         delete this.advertObservations[prefix];
       }
     }

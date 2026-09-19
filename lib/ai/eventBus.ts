@@ -85,14 +85,13 @@ export function emitAdvertDiff(adverts: Record<string, Advert>): void {
   }
   for (const [key, advert] of Object.entries(adverts)) {
     const prev = lastAdverts[key];
-    // `observedAt` too: a live push records our clock without touching
-    // `lastHeard`, so keying on the sender's claim alone would miss the
-    // re-advert of a node the radio no longer holds as a contact.
-    if (
-      !prev ||
-      prev.lastHeard !== advert.lastHeard ||
-      prev.observedAt !== advert.observedAt
-    ) {
+    // Keyed on `lastHeard` alone deliberately. One advert reaches this map
+    // twice — our clock when the push lands, then the sender's timestamp when
+    // the resync folds it in — and the firmware only sends the pubkey-only
+    // push for a node already in its contact table, so the fold always
+    // follows. Watching `observedAt` as well would fire a second event, and
+    // an `advert` trigger has no cooldown by default.
+    if (!prev || prev.lastHeard !== advert.lastHeard) {
       emit({ type: 'advert', advert });
     }
   }

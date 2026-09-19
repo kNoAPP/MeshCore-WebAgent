@@ -286,13 +286,13 @@ export function Sidebar() {
   // order needs it, so other orders reuse a shared empty map — that keeps this
   // memo's result stable across message arrivals and stops them from forcing a
   // re-sort below.
-  const tick = useClockTick();
-  const advertCache = useMeshStore((s) => s.advertCache);
   // Only the "heard" order reads the clock or the advert cache. The other
-  // orders pin both to a constant so a 30 s tick — or any advert on a busy
-  // mesh — can't churn the memo below, the same trick as EMPTY_LATEST_TIMES.
+  // orders run no timer at all and pin both to a constant, so neither a tick
+  // nor an advert on a busy mesh re-renders these rows — the same trick as
+  // EMPTY_LATEST_TIMES.
   const heardOrder = contactSort === 'heard';
-  const nowSecs = heardOrder ? tick : 0;
+  const nowSecs = useClockTick(heardOrder);
+  const advertCache = useMeshStore((s) => s.advertCache);
   const adverts = heardOrder ? advertCache : EMPTY_ADVERTS;
   const latestTimes = useMemo(() => {
     if (contactSort !== 'latest') return EMPTY_LATEST_TIMES;

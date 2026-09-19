@@ -43,6 +43,14 @@ export function heardAgeSecs(
   return Math.abs(nowSecs - lastHeard);
 }
 
+// How far past now a skew-corrected claim may land and still be trusted. A
+// small overshoot is drift between the measurement and this claim, and clamps
+// to "just now". A large one means the node's clock moved again after we
+// measured it, so the correction no longer describes this claim at all —
+// without this, a node whose owner set its RTC forward and then powered it
+// off would read "just now" and pass every freshness window forever.
+const SKEW_OVERSHOOT_TOLERANCE_SECS = 60;
+
 /**
  * Our-clock estimate of when a node was last heard, across the contact table
  * and the advert cache, or `undefined` when neither carries a sighting. Never
@@ -84,16 +92,18 @@ export function normalizedLastHeard(
   if (advert?.observedAt !== undefined) estimates.push(advert.observedAt);
   for (const claim of [contact?.lastAdvert, advert?.lastHeard]) {
     if (typeof claim !== 'number' || claim <= 0) continue;
+    const corrected = skew === undefined ? undefined : claim - skew;
     estimates.push(
-      skew === undefined
-        ? nowSecs - heardAgeSecs(claim, nowSecs)
-        : claim - skew,
+      corrected !== undefined &&
+        corrected <= nowSecs + SKEW_OVERSHOOT_TOLERANCE_SECS
+        ? corrected
+        : nowSecs - heardAgeSecs(claim, nowSecs),
     );
   }
   if (estimates.length === 0) return undefined;
-  // Clamped even though every branch above aims at the past: a skew measured
-  // against a different advert, or a caller holding a tick a few seconds
-  // stale, can still push an estimate past `nowSecs`.
+  // Clamped even though every branch above aims at the past: `observedAt` is
+  // written from a live `Date.now()` while callers pass a tick that can be
+  // seconds stale, and a correction may land just inside the tolerance above.
   return Math.min(Math.max(...estimates), nowSecs);
 }
 

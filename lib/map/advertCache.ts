@@ -42,11 +42,16 @@ export function mergeAdvertCache(
 
   for (const advert of Object.values(incoming)) {
     const existing = merged[advert.pubkeyPrefix];
-    // A cached timestamp in the future means the node's clock was set wrong
-    // when we cached it. Anything derived from that clock is void once the
-    // incoming advert supersedes it — see `clockSkewSecs` below.
-    const cachedClockWasWrong =
-      existing !== undefined && existing.lastHeard > nowSecs;
+    // The cached timestamp sits in the future (its clock was wrong when we
+    // cached it) and the incoming one does not, so the node's clock has since
+    // been corrected. Requiring the incoming claim to be sane matters: a node
+    // that is simply *still* skewed re-adverts from the future every time, and
+    // treating that as a correction would throw away a good measurement on
+    // every merge — see `clockSkewSecs` below.
+    const clockWasCorrected =
+      existing !== undefined &&
+      existing.lastHeard > nowSecs &&
+      advert.lastHeard <= nowSecs;
     merged[advert.pubkeyPrefix] = existing
       ? {
           ...existing,
@@ -56,9 +61,10 @@ export function mergeAdvertCache(
           // skewed clock rather than a recent sighting — take the incoming
           // value outright there, or `Math.max` would pin the bad timestamp
           // until wall time catches up even after the node is corrected.
-          lastHeard: cachedClockWasWrong
-            ? advert.lastHeard
-            : Math.max(existing.lastHeard, advert.lastHeard),
+          lastHeard:
+            existing.lastHeard > nowSecs
+              ? advert.lastHeard
+              : Math.max(existing.lastHeard, advert.lastHeard),
           // The most recent time we actually heard the node, from whichever
           // side observed it. Always our clock, so neither a skewed sender nor
           // a corrected one affects it.
@@ -68,11 +74,10 @@ export function mergeAdvertCache(
           // A measured skew describes the node's clock rather than any one
           // advert, and measuring it needs a live push to pair with a contact
           // read — so an advert that arrives without one must not erase it.
-          // Unless the clock it measured is gone: dropping the cached future
-          // `lastHeard` above is exactly that signal, and keeping the old
-          // offset would then age every later read by a skew that no longer
-          // exists.
-          clockSkewSecs: cachedClockWasWrong
+          // Unless the clock it measured is gone: keeping the old offset
+          // after the node's clock was corrected would age every later read
+          // by a skew that no longer exists.
+          clockSkewSecs: clockWasCorrected
             ? advert.clockSkewSecs
             : (advert.clockSkewSecs ?? existing.clockSkewSecs),
           // An empty name is the "unset" case (not undefined), so a re-advert

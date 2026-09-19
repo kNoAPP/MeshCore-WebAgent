@@ -14,17 +14,22 @@ const TICK_MS = 30_000;
  * the stats surfaces, which would otherwise sit at "just now" for as long as
  * the page stays open. The timer runs only while the component is mounted.
  *
+ * @param enabled - pass `false` where the caller is mounted but nothing it
+ * renders reads the clock, e.g. a list under a sort order that ignores time.
+ * No timer runs then, so the caller stops re-rendering on the tick, and the
+ * returned value freezes at mount — do not read it while disabled.
  * @returns the current Unix epoch seconds, so the value that drives the
  * rendered text is the same one that changed.
  */
-export function useClockTick(): number {
+export function useClockTick(enabled = true): number {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => {
+    if (!enabled) return;
     const id = setInterval(
       () => setNow(Math.floor(Date.now() / 1000)),
       TICK_MS,
     );
     return () => clearInterval(id);
-  }, []);
+  }, [enabled]);
   return now;
 }
