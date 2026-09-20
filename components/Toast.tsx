@@ -8,10 +8,10 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore, openConvo } from '@/store/meshStore';
 
 /**
- * Renders the current store toast (top-center), color-coded by variant. Error
- * toasts persist until dismissed via their button and wrap; a toast carrying a
- * conversation is a button that opens it and likewise waits to be dismissed.
- * Everything else is non-interactive and auto-clears.
+ * Renders the current store toast (top-center), color-coded by variant. Every
+ * toast auto-clears; an error or warning wraps and carries a dismiss button,
+ * and a toast carrying a conversation is a button that opens it. Everything
+ * else is non-interactive.
  *
  * Both live regions stay mounted whether or not a toast is set — the card
  * moves in and out of them — because a region inserted together with its text
@@ -44,10 +44,9 @@ export function Toast() {
   // don't offer the jump.
   const blocked = openModals > 0 || reconnecting;
   const convo = blocked ? undefined : toast?.convo;
-  // Withholding the jump must not also withhold the exit: an error, a warning
-  // and a conversation toast are all off the timer, so each keeps its dismiss
-  // button even when the action is suppressed, or the card lingers with no way
-  // to clear it.
+  // Every toast is on a timer, but the ones worth reading twice keep a
+  // dismiss button so they can be cleared early — and so withholding the jump
+  // does not leave a card with no control on it at all.
   const dismissible = isError || toast?.variant === 'warning' || !!toast?.convo;
   const interaction = dismissible
     ? 'pointer-events-auto flex max-w-[90vw] items-start gap-2 text-left'

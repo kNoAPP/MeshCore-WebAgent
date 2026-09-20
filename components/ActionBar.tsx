@@ -186,26 +186,36 @@ function NotificationDrawer({
   // a row outright. Either way focus must not end up on `body`, outside the
   // drawer, where the arrow handler never sees their keys.
   //
-  // Only this commit's own blur is worth undoing, hence `heldFocus`: focus
-  // that was already gone before the list changed was given up elsewhere, and
-  // hauling it back would be a theft dressed as a recovery.
+  // Only a blur the list caused is worth undoing. `heldFocus` says the reader
+  // had not already left (the blur handler clears it when focus moves to a
+  // real element elsewhere), and `hasFocus` rules out the one case that looks
+  // identical from inside the document: tabbing out to the browser's own
+  // chrome, which also reads as `body`.
   useLayoutEffect(() => {
-    if (!heldFocus.current || document.activeElement !== document.body) {
-      heldFocus.current = !!ref.current?.contains(document.activeElement);
-      return;
-    }
+    const buttons = () => [...(ref.current?.querySelectorAll('button') ?? [])];
     const el = lastFocused.current;
-    if (el && ref.current?.contains(el)) {
-      el.focus();
-    } else {
-      // The control itself is gone. Prefer the control next to it over the
-      // container, which has a name but nothing a reader can act on.
-      const buttons = [...(ref.current?.querySelectorAll('button') ?? [])];
-      const near = buttons[Math.min(lastFocusedAt.current, buttons.length - 1)];
-      (near ?? ref.current)?.focus();
+    if (
+      heldFocus.current &&
+      document.activeElement === document.body &&
+      document.hasFocus()
+    ) {
+      if (el && ref.current?.contains(el)) {
+        el.focus();
+      } else {
+        // The control itself is gone. Prefer the one next to it over the
+        // container, which has a name but nothing a reader can act on.
+        const list = buttons();
+        const near = list[Math.min(lastFocusedAt.current, list.length - 1)];
+        (near ?? ref.current)?.focus();
+      }
     }
-    heldFocus.current = !!ref.current?.contains(document.activeElement);
-  });
+    // Rows arriving above the focused control push its index along without
+    // raising a focus event, so the fallback's aim has to be re-taken here or
+    // it drifts further off with every arrival.
+    if (el && ref.current?.contains(el)) {
+      lastFocusedAt.current = Math.max(0, buttons().indexOf(el as never));
+    }
+  }, [notifications]);
 
   // Removing a row destroys the button that has focus, and focus falling to
   // `body` puts the reader outside the drawer — where the arrow handler below
@@ -268,12 +278,20 @@ function NotificationDrawer({
       onKeyDown={onKeyDown}
       onFocusCapture={(e) => {
         const el = e.target as HTMLElement;
+        heldFocus.current = true;
         lastFocused.current = el;
         const buttons = [...(ref.current?.querySelectorAll('button') ?? [])];
         lastFocusedAt.current = Math.max(
           0,
           buttons.indexOf(el as HTMLButtonElement),
         );
+      }}
+      onBlurCapture={(e) => {
+        // A blur that names where focus went is the reader moving on. One
+        // that names nothing is the list pulling the element out from under
+        // them, which is exactly what the effect above undoes.
+        const to = e.relatedTarget as Node | null;
+        if (to && !ref.current?.contains(to)) heldFocus.current = false;
       }}
       className='absolute right-0 bottom-full z-20 mb-1 flex max-h-[60vh] w-80 flex-col overflow-hidden rounded-md border border-border bg-surface2 shadow-pop'
     >

@@ -835,7 +835,8 @@ interface MeshActions {
   ) => void;
   /**
    * Raises a toast. Pass `convo` to make the banner open that conversation
-   * when clicked.
+   * when clicked. Every toast clears itself within five seconds; the drawer
+   * keeps the lasting record.
    */
   showToast: (
     text: string,
@@ -1085,6 +1086,12 @@ let notificationSeq = 0;
 
 /** How many notification rows the drawer keeps before dropping the oldest. */
 const NOTIFICATION_LIMIT = 50;
+
+/** How long a plain toast stays up. */
+const TOAST_PLAIN_MS = 3000;
+
+/** How long a toast the reader may want to click stays up. */
+const TOAST_ACTIONABLE_MS = 5000;
 
 /** Toast variant → the drawer level it records under. */
 const NOTIFICATION_LEVEL: Record<Toast['variant'], NotificationLevel> = {
@@ -1419,15 +1426,18 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       convo,
     );
     set({ toast: { text, variant, id, convo } });
-    // Errors and toasts that carry an action both wait to be dismissed: three
-    // seconds is not long enough to tab to a button that was only just
-    // inserted, and yanking it away can drop focus mid-reach. A warning waits
-    // too — it reports an operation that did not do what was asked, and three
-    // seconds is not long enough to be sure that was read.
-    if (variant === 'error' || variant === 'warning' || convo) return;
+    // Every toast clears itself — none of them wait to be dismissed. The
+    // banner is a glance, and the drawer now holds the record, so nothing is
+    // lost by letting it go. Ones carrying a control (a dismiss button, or a
+    // jump to the conversation) get the longer window: three seconds is not
+    // long enough to reach a button that was only just inserted.
+    const after =
+      variant === 'error' || variant === 'warning' || convo
+        ? TOAST_ACTIONABLE_MS
+        : TOAST_PLAIN_MS;
     setTimeout(() => {
       if (get().toast?.id === id) set({ toast: null });
-    }, 3000);
+    }, after);
   },
 
   dismissToast: () => set({ toast: null }),
