@@ -22,9 +22,6 @@ import {
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { formatRelative } from '@/lib/i18n/format';
 
-/** Badge counts above this render as `99+` rather than growing the bar. */
-const BADGE_CAP = 99;
-
 const LEVEL_ICON = {
   info: Info,
   success: CheckCircle2,
@@ -45,9 +42,9 @@ const LEVEL_COLOR = {
  * overlay, so it never covers the chat composer.
  *
  * @remarks Rendered only while connected — the connect screen has no ambient
- * state to report — and mounted inside the subtree a modal or the reconnect
- * overlay marks `inert`, so it dims and goes unreachable with the rest of the
- * app.
+ * state to report, and a drop unmounts the bar rather than dimming it. It
+ * sits inside the subtree a modal marks `inert`, so it goes unreachable with
+ * the rest of the app behind a dialog.
  */
 export function ActionBar() {
   const { t } = useTranslation();
@@ -130,7 +127,7 @@ function NotificationBell() {
             aria-hidden='true'
             className='rounded-full bg-accent-solid px-1 text-[10px] leading-4 font-semibold text-white'
           >
-            {unread > BADGE_CAP ? `${BADGE_CAP}+` : unread}
+            {unread}
           </span>
         )}
       </button>

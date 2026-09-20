@@ -259,7 +259,10 @@ export type NotificationLevel = 'info' | 'success' | 'warning' | 'error';
  * event the transient {@link Toast} only shows for three seconds.
  */
 export interface Notification {
-  /** Monotonic; also the ordering and unread high-water key. */
+  /**
+   * Monotonic, assigned once and stable for the row's whole life; also the
+   * ordering and unread high-water key.
+   */
   id: number;
   level: NotificationLevel;
   /** Already localized at push time, like {@link Toast.text}. */
@@ -834,8 +837,8 @@ interface MeshActions {
   dismissToast: () => void;
   /**
    * Appends a row to the notification history. When `key` matches the newest
-   * row the two collapse: that row's `count`, `at` and `id` are bumped in
-   * place — the fresh `id` is what makes the repeat count as unread again.
+   * row the two collapse: that row's `count` and `at` are bumped in place and
+   * its `id` is left alone, so the row keeps one identity for its whole life.
    *
    * @param key - dedup key; `convo.id` for a message arrival, otherwise a
    * value that distinguishes the event (the rendered text will do).
@@ -1413,12 +1416,13 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   pushNotification: (text, level, key, convo) =>
     set((state) => {
       const at = Math.floor(Date.now() / 1000);
-      const id = ++notificationSeq;
       const [newest, ...rest] = state.notifications;
+      // A merge keeps the row's `id`: the drawer renders rows keyed by it, and
+      // a fresh one would remount the row and drop the keyboard focus a reader
+      // may be holding on its buttons.
       if (newest?.key === key) {
         const merged: Notification = {
           ...newest,
-          id,
           text,
           level,
           at,
@@ -1427,6 +1431,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         };
         return { notifications: [merged, ...rest] };
       }
+      const id = ++notificationSeq;
       const row: Notification = { id, level, text, at, convo, count: 1, key };
       return {
         notifications: [row, ...state.notifications].slice(

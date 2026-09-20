@@ -216,6 +216,8 @@ export function useMeshCore() {
     setActiveConvo,
     setDraft,
     showToast,
+    clearNotifications,
+    dismissNotification,
     setConnectError,
     setLastConnectFailure,
   } = useMeshStore();
@@ -404,6 +406,11 @@ export function useMeshCore() {
         clearUserDisconnect();
         clearReconnect();
         wipeApiKey();
+        // `reset()` clears the notification history, but the Disconnect notice
+        // is toasted *after* the teardown that runs it, so that row outlives
+        // the session it describes. Drop it here rather than opening this
+        // radio's drawer on the last one's sign-off.
+        clearNotifications();
       }
       clearSessionState();
       const c = new MeshCoreClient(transport);
@@ -591,6 +598,7 @@ export function useMeshCore() {
       setClient,
       setDeviceName,
       setBattery,
+      clearNotifications,
       setSyncProgress,
       showToast,
       setConnectError,
@@ -1336,7 +1344,14 @@ export function useMeshCore() {
         if (activeConvo?.kind === 'channel' && activeConvo.rawId === idx) {
           setActiveConvo(null);
         }
-        setDraft(channelConvoId(idx), '');
+        const convoId = channelConvoId(idx);
+        setDraft(convoId, '');
+        // Same reason again: a notification row aimed at the freed slot would
+        // open the replacement channel, and its dedup key would merge that
+        // channel's next arrival into the old channel's row.
+        for (const n of useMeshStore.getState().notifications) {
+          if (n.convo?.id === convoId) dismissNotification(n.id);
+        }
         showToast(i18n.t('toast.channelRemoved'));
       } catch (err) {
         showToast(
@@ -1347,7 +1362,7 @@ export function useMeshCore() {
         );
       }
     },
-    [client, setActiveConvo, setDraft, showToast],
+    [client, setActiveConvo, setDraft, dismissNotification, showToast],
   );
 
   /**
