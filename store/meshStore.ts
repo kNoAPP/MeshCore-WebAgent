@@ -848,8 +848,9 @@ interface MeshActions {
    * place while its `id` is left alone, so the row keeps one identity for its
    * whole life and still reads as unread again.
    *
-   * @param key - dedup key; `convo.id` for a message arrival, otherwise a
-   * value that distinguishes the event (the rendered text will do).
+   * @param key - dedup key; anything that identifies "the same event again".
+   * It has to separate events a reader would not want conflated, so for a
+   * message arrival that is the conversation *and* the rendered text.
    */
   pushNotification: (
     text: string,
@@ -1406,14 +1407,20 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     get().pushNotification(
       text,
       NOTIFICATION_LEVEL[variant],
-      convo?.id ?? text,
+      // The conversation alone is too coarse a key: a channel arrival renders
+      // as "{sender} in {channel}", so merging on it would relabel the older
+      // senders' rows as the newest one. The text alone is too coarse the
+      // other way, since two contacts can share a name.
+      convo ? `${convo.id}\n${text}` : text,
       convo,
     );
     set({ toast: { text, variant, id, convo } });
     // Errors and toasts that carry an action both wait to be dismissed: three
     // seconds is not long enough to tab to a button that was only just
-    // inserted, and yanking it away can drop focus mid-reach.
-    if (variant === 'error' || convo) return;
+    // inserted, and yanking it away can drop focus mid-reach. A warning waits
+    // too — it reports an operation that did not do what was asked, and three
+    // seconds is not long enough to be sure that was read.
+    if (variant === 'error' || variant === 'warning' || convo) return;
     setTimeout(() => {
       if (get().toast?.id === id) set({ toast: null });
     }, 3000);

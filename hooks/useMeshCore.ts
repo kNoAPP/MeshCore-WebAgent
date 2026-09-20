@@ -216,7 +216,6 @@ export function useMeshCore() {
     setActiveConvo,
     setDraft,
     showToast,
-    dismissToast,
     clearNotifications,
     dismissNotification,
     setConnectError,
@@ -1347,16 +1346,13 @@ export function useMeshCore() {
         }
         const convoId = channelConvoId(idx);
         setDraft(convoId, '');
-        // Same reason again, for both records of an arrival on the slot: a
-        // notification row would open the replacement channel and merge that
-        // channel's next arrival into the old channel's row, and a toast
-        // carrying a convo never auto-dismisses, so it can still be sitting
-        // there pointing at the slot when the replacement lands.
-        const { notifications, toast } = useMeshStore.getState();
-        for (const n of notifications) {
+        // Same reason again: a notification row aimed at the freed slot would
+        // open the replacement channel, and its dedup key would merge that
+        // channel's next arrival into the old channel's row. The live toast
+        // needs no such handling — the channelRemoved toast below replaces it.
+        for (const n of useMeshStore.getState().notifications) {
           if (n.convo?.id === convoId) dismissNotification(n.id);
         }
-        if (toast?.convo?.id === convoId) dismissToast();
         showToast(i18n.t('toast.channelRemoved'));
       } catch (err) {
         showToast(
@@ -1367,14 +1363,7 @@ export function useMeshCore() {
         );
       }
     },
-    [
-      client,
-      setActiveConvo,
-      setDraft,
-      dismissNotification,
-      dismissToast,
-      showToast,
-    ],
+    [client, setActiveConvo, setDraft, dismissNotification, showToast],
   );
 
   /**

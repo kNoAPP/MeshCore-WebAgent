@@ -76,25 +76,22 @@ function NotificationBell() {
 
   const unread = notifications.filter((n) => n.seq > seenAt).length;
 
-  // A deliberate close always hands focus back. An outside click is the one
-  // exception: it closes on `mousedown`, before the click's own focus lands,
-  // so reclaiming unconditionally would yank focus off whatever was clicked —
-  // there, only focus the drawer still holds is worth taking back.
-  const close = useCallback(
-    (viaOutsideClick = false) => {
-      const held =
-        !viaOutsideClick || !!rootRef.current?.contains(document.activeElement);
-      setOpen(false);
-      // Rows that landed while the drawer was open were on screen the whole
-      // time; marking again on the way out keeps them from re-lighting the
-      // bell the moment it closes.
-      markSeen();
-      if (held) bellRef.current?.focus();
-    },
-    [markSeen],
-  );
+  // Dismissing the drawer hands focus back to the bell, except when the close
+  // is itself a move somewhere else: opening a conversation sends the reader
+  // to the chat view, and parking them on the bell would put the next Enter
+  // back on the drawer they just left.
+  const close = useCallback((restoreFocus = true) => {
+    setOpen(false);
+    if (restoreFocus) bellRef.current?.focus();
+  }, []);
 
-  useClickOutside(rootRef, open, () => close(true));
+  // An outside click fires on `mousedown`, before the click's own focus has
+  // landed, so only focus the drawer still holds is worth taking back.
+  const closeFromOutside = useCallback(() => {
+    close(!!rootRef.current?.contains(document.activeElement));
+  }, [close]);
+
+  useClickOutside(rootRef, open, closeFromOutside);
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -145,7 +142,7 @@ function NotificationBell() {
           id={drawerId}
           notifications={notifications}
           onClear={clearAll}
-          onClose={close}
+          onNavigate={() => close(false)}
         />
       )}
     </div>
@@ -156,12 +153,13 @@ function NotificationDrawer({
   id,
   notifications,
   onClear,
-  onClose,
+  onNavigate,
 }: {
   id: string;
   notifications: Notification[];
   onClear: () => void;
-  onClose: () => void;
+  /** Closes the drawer because a row is sending the reader somewhere else. */
+  onNavigate: () => void;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -202,7 +200,11 @@ function NotificationDrawer({
             className='min-h-0 flex-1 overflow-y-auto'
           >
             {notifications.map((n) => (
-              <NotificationRow key={n.id} notification={n} onOpen={onClose} />
+              <NotificationRow
+                key={n.id}
+                notification={n}
+                onOpen={onNavigate}
+              />
             ))}
           </ul>
           <button

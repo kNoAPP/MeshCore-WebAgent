@@ -42,10 +42,11 @@ export function Toast() {
   // don't offer the jump.
   const blocked = openModals > 0 || reconnecting;
   const convo = blocked ? undefined : toast?.convo;
-  // Withholding the jump must not also withhold the exit: neither an error nor
-  // a conversation toast is on a timer, so both keep their dismiss button even
-  // when the action is suppressed, or the card lingers with no way to clear it.
-  const dismissible = isError || !!toast?.convo;
+  // Withholding the jump must not also withhold the exit: an error, a warning
+  // and a conversation toast are all off the timer, so each keeps its dismiss
+  // button even when the action is suppressed, or the card lingers with no way
+  // to clear it.
+  const dismissible = isError || toast?.variant === 'warning' || !!toast?.convo;
   const interaction = dismissible
     ? 'pointer-events-auto flex max-w-[90vw] items-start gap-2 text-left'
     : 'pointer-events-none whitespace-nowrap';
