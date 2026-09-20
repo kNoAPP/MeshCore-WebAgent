@@ -143,6 +143,13 @@ function arrivedAt(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+// How many messages the background drain has handed over since it started.
+// One summary stands in for every per-message notification the drain
+// suppresses, and this is the count it reports. Module scope like the rest of
+// the session's bookkeeping: the hook mounts in several components but wires
+// the client callbacks once.
+let backlogDelivered = 0;
+
 // A message that landed unread raises a desktop notification when the tab
 // isn't the one the user is looking at, the radio's notification preference
 // covers it, and permission has been granted. The visibility test is the same
@@ -213,6 +220,7 @@ export function useMeshCore() {
     setAutoAddConfig,
     addMessage,
     setLatestInbound,
+    setBacklogDraining,
     updateMessage,
     restoreHistory,
     restoreAdvertCache,
@@ -244,6 +252,21 @@ export function useMeshCore() {
         onDeviceInfo: (info) => setDeviceInfo(info),
         onBattery: (b) => setBattery(b),
         onSyncProgress: (p) => setSyncProgress(p),
+        onBacklogDraining: (draining) => {
+          setBacklogDraining(draining);
+          if (draining) {
+            backlogDelivered = 0;
+            return;
+          }
+          const count = backlogDelivered;
+          backlogDelivered = 0;
+          // A drop or a Disconnect ends the drain loop too, and that session's
+          // summary has nobody left to read it — it would land on the connect
+          // screen reporting a radio that is already gone.
+          if (count > 0 && useMeshStore.getState().status === 'connected') {
+            showToast(i18n.t('toast.caughtUp', { count }), 'success');
+          }
+        },
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
         onContactsFull: () =>
           showToast(i18n.t('toast.contactsFull'), 'warning'),
@@ -277,6 +300,7 @@ export function useMeshCore() {
             const state = useMeshStore.getState();
             const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
+            if (state.backlogDraining) backlogDelivered++;
             // `c.init()` drains the radio's backlog while the connect screen is
             // still up, where a "go to this conversation" cue leads nowhere —
             // the action bar isn't mounted either. Those messages stay unread
@@ -301,8 +325,13 @@ export function useMeshCore() {
                 at: arrivedAt(),
               });
               // The quick link takes every arrival; the toast and the desktop
-              // banner still only cover a conversation that is off screen.
-              if (!visible) {
+              // banner still only cover a conversation that is off screen —
+              // and, while the backlog drains, not even then. That drain runs
+              // past 'connected', so without this the exemption above would
+              // stop at the connect-time pass and the rest of a 300-message
+              // queue would raise a banner each, every one superseding the
+              // last. One summary covers them when the drain ends.
+              if (!visible && !state.backlogDraining) {
                 showToast(
                   sender
                     ? i18n.t('toast.newMessageInFrom', {
@@ -357,6 +386,7 @@ export function useMeshCore() {
             const state = useMeshStore.getState();
             const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
+            if (state.backlogDraining) backlogDelivered++;
             if (state.status === 'connected') {
               const room = contact?.name || prefix.slice(0, 8);
               const convo: ActiveConvo = {
@@ -376,7 +406,9 @@ export function useMeshCore() {
                   : sender,
                 at: arrivedAt(),
               });
-              if (!visible) {
+              // Silent while the backlog drains, for the reason given on the
+              // channel branch above.
+              if (!visible && !state.backlogDraining) {
                 showToast(
                   isRoom
                     ? i18n.t('toast.newPostIn', { room })
@@ -417,6 +449,7 @@ export function useMeshCore() {
       cacheAdverts,
       addMessage,
       setLatestInbound,
+      setBacklogDraining,
       showToast,
     ],
   );

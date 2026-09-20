@@ -17,6 +17,7 @@ import {
   Bell,
   CheckCircle2,
   Info,
+  LoaderCircle,
   MessageSquare,
   X,
   XCircle,
@@ -66,9 +67,30 @@ export function ActionBar() {
       aria-label={t('actionBar.label')}
       className='flex h-6 shrink-0 items-center gap-3 border-t border-border bg-surface px-2 text-xs text-text2'
     >
+      <CatchUp />
       <LatestMessage />
       <NotificationBell />
     </footer>
+  );
+}
+
+// The connect-time drain is capped so the UI comes up promptly, and a deeper
+// offline queue finishes in the background. This is the only standing sign
+// that it is still running — without it the remainder arrives unannounced,
+// since the arrivals themselves are collapsed into one summary at the end.
+//
+// Indeterminate by necessity: the companion protocol has no queue-depth query,
+// so neither a percentage nor a remaining count is knowable. The spinner says
+// "still going" and nothing it cannot back up.
+function CatchUp() {
+  const { t } = useTranslation();
+  const draining = useMeshStore((s) => s.backlogDraining);
+  if (!draining) return null;
+  return (
+    <span className='flex min-w-0 items-center gap-1'>
+      <LoaderCircle size={13} aria-hidden='true' className='animate-spin' />
+      <span className='truncate'>{t('actionBar.catchingUp')}</span>
+    </span>
   );
 }
 

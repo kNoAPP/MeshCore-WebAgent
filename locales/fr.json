@@ -85,7 +85,8 @@
     "latestMessageLabel": "Ouvrir le dernier message de {{sender}}, {{age}}",
     "latestMessageIn": "Ouvrir le dernier message dans {{convo}}, {{age}}",
     "latestMessageFromIn": "Ouvrir le dernier message de {{sender}} dans {{convo}}, {{age}}",
-    "latestMessageSenderIn": "{{sender}} dans {{convo}}"
+    "latestMessageSenderIn": "{{sender}} dans {{convo}}",
+    "catchingUp": "Rattrapage des messages…"
   },
   "notifications": {
     "title": "Notifications",
@@ -1342,6 +1343,8 @@
     "newMessageInFrom": "{{sender}} dans {{channel}}",
     "newMessageFrom": "Nouveau message de {{sender}}",
     "newPostIn": "Nouvelle publication dans {{room}}",
+    "caughtUp_one": "Rattrapé · {{count}} message",
+    "caughtUp_other": "Rattrapé · {{count}} messages",
     "roomPostNoAccess": "Vous n’avez plus l’autorisation de publier dans ce salon",
     "connected": "Connecté — {{device}}",
     "connectionFailed": "Échec de la connexion",
