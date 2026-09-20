@@ -217,6 +217,18 @@ function NotificationDrawer({
     }
   }, [notifications]);
 
+  // `hasFocus()` below is a point-in-time read, and focus can leave the
+  // document long before the list next changes. Clear the flag when it does,
+  // so a reader who steps away and comes back with nothing focused does not
+  // get hauled onto a row by the next arrival.
+  useEffect(() => {
+    const onWindowBlur = () => {
+      heldFocus.current = false;
+    };
+    window.addEventListener('blur', onWindowBlur);
+    return () => window.removeEventListener('blur', onWindowBlur);
+  }, []);
+
   // Removing a row destroys the button that has focus, and focus falling to
   // `body` puts the reader outside the drawer — where the arrow handler below
   // never sees their keys. Hand it to the adjacent row's dismiss button,
