@@ -797,13 +797,19 @@ export class MeshCoreClient {
     c: Contact,
     observation?: { at: number; measure: boolean },
   ): void {
-    const nowSecs = Math.floor(Date.now() / 1000);
     const existing = this.adverts[c.pubkeyPrefix];
     // `parseContact` reports an unset RTC as `0`, not `undefined`, so a plain
     // `??` would treat the epoch as a timestamp and measure a skew of every
     // second since 1970. The fold applies the same truthiness test.
+    //
+    // An unknown claim stays `0` rather than borrowing our clock. This field
+    // is the sender's, and `addDiscoveredContact` writes it straight back to
+    // the radio's contact record: a value of ours would sit far above
+    // anything the node's own clock can produce, and the firmware drops every
+    // advert whose timestamp is not greater than the stored one as a replay —
+    // so adding such a node would permanently stop its row updating.
     const claimed = c.lastAdvert ? c.lastAdvert : undefined;
-    const lastHeard = claimed ?? nowSecs;
+    const lastHeard = claimed ?? 0;
     this.adverts[c.pubkeyPrefix] = {
       pubkey: c.pubkey,
       pubkeyPrefix: c.pubkeyPrefix,

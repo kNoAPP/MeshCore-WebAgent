@@ -31,8 +31,9 @@ export interface Advert {
   /**
    * Unix epoch seconds this node stamped on its advert — the *sender's* clock
    * (firmware `ContactInfo::last_advert_timestamp`, "by THEIR clock"), so it
-   * can sit in the future. Never subtract it from now; read it through
-   * `normalizedLastHeard`.
+   * can sit in the future. `0` is the firmware's "RTC never set" sentinel and
+   * means the claim is unknown, not 1970. Never subtract it from now; read it
+   * through `normalizedLastHeard`.
    */
   lastHeard: number;
   advLat?: number;

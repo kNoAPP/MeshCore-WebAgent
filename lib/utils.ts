@@ -130,11 +130,16 @@ export function normalizedLastHeard(
  */
 export function sortAdvertsByHeard(adverts: readonly Advert[]): Advert[] {
   const nowSecs = Math.floor(Date.now() / 1000);
-  return [...adverts].sort(
-    (a, b) =>
-      (normalizedLastHeard(undefined, b, nowSecs) ?? 0) -
-      (normalizedLastHeard(undefined, a, nowSecs) ?? 0),
-  );
+  // Keyed once per entry rather than on each comparison: the Discover list
+  // re-sorts the whole cache (up to ADVERT_CACHE_LIMIT) on every keystroke,
+  // and this helper walks both claim sources per call.
+  return adverts
+    .map((advert) => ({
+      advert,
+      heard: normalizedLastHeard(undefined, advert, nowSecs) ?? 0,
+    }))
+    .sort((a, b) => b.heard - a.heard)
+    .map(({ advert }) => advert);
 }
 
 const utf8 = new TextEncoder();
