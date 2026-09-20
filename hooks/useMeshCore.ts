@@ -136,6 +136,13 @@ function reconnectDeps(connect: ConnectFn): ReconnectDeps {
   return { connect, teardown: () => teardownSession() };
 }
 
+// When a message reached us, in epoch seconds. Our clock rather than the
+// frame's: a sender's timestamp is its own RTC — the firmware notes it "could
+// be wrong" — and the bar counts up from the moment it landed here.
+function arrivedAt(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
 // A message that landed unread raises a desktop notification when the tab
 // isn't the one the user is looking at, the radio's notification preference
 // covers it, and permission has been granted. The visibility test is the same
@@ -205,6 +212,7 @@ export function useMeshCore() {
     cacheAdverts,
     setAutoAddConfig,
     addMessage,
+    setLatestInbound,
     updateMessage,
     restoreHistory,
     restoreAdvertCache,
@@ -270,9 +278,10 @@ export function useMeshCore() {
             const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
             // `c.init()` drains the radio's backlog while the connect screen is
-            // still up, where a "go to this conversation" toast leads nowhere.
-            // Those messages stay unread instead.
-            if (!visible && state.status === 'connected') {
+            // still up, where a "go to this conversation" cue leads nowhere —
+            // the action bar isn't mounted either. Those messages stay unread
+            // instead.
+            if (state.status === 'connected') {
               const chName =
                 c.channels[msg.channelIdx]?.name ||
                 i18n.t('common.channelName', { index: msg.channelIdx });
@@ -283,21 +292,30 @@ export function useMeshCore() {
                 rawId: msg.channelIdx,
                 label: chName,
               };
-              showToast(
-                sender
-                  ? i18n.t('toast.newMessageInFrom', {
-                      sender,
-                      channel: chName,
-                    })
-                  : i18n.t('toast.newMessageIn', { channel: chName }),
-                '',
+              setLatestInbound({
                 convo,
-              );
-              notifyArrival(
-                convo,
-                sender || i18n.t('common.unknown'),
-                sender ? body : msg.text,
-              );
+                sender: sender || i18n.t('common.unknown'),
+                at: arrivedAt(),
+              });
+              // The quick link takes every arrival; the toast and the desktop
+              // banner still only cover a conversation that is off screen.
+              if (!visible) {
+                showToast(
+                  sender
+                    ? i18n.t('toast.newMessageInFrom', {
+                        sender,
+                        channel: chName,
+                      })
+                    : i18n.t('toast.newMessageIn', { channel: chName }),
+                  '',
+                  convo,
+                );
+                notifyArrival(
+                  convo,
+                  sender || i18n.t('common.unknown'),
+                  sender ? body : msg.text,
+                );
+              }
             }
             // Emit after the store update so subscribers see a settled world.
             emit({ type: 'message', msg: enriched });
@@ -336,7 +354,7 @@ export function useMeshCore() {
             const state = useMeshStore.getState();
             const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
-            if (!visible && state.status === 'connected') {
+            if (state.status === 'connected') {
               const room = contact?.name || prefix.slice(0, 8);
               const convo: ActiveConvo = {
                 kind: isRoom ? 'room' : 'direct',
@@ -344,14 +362,17 @@ export function useMeshCore() {
                 rawId: prefix,
                 label: isRoom ? room : sender,
               };
-              showToast(
-                isRoom
-                  ? i18n.t('toast.newPostIn', { room })
-                  : i18n.t('toast.newMessageFrom', { sender }),
-                '',
-                convo,
-              );
-              notifyArrival(convo, sender, msg.text);
+              setLatestInbound({ convo, sender, at: arrivedAt() });
+              if (!visible) {
+                showToast(
+                  isRoom
+                    ? i18n.t('toast.newPostIn', { room })
+                    : i18n.t('toast.newMessageFrom', { sender }),
+                  '',
+                  convo,
+                );
+                notifyArrival(convo, sender, msg.text);
+              }
             }
             emit({ type: 'message', msg: enriched });
           }
@@ -382,6 +403,7 @@ export function useMeshCore() {
       setAdverts,
       cacheAdverts,
       addMessage,
+      setLatestInbound,
       showToast,
     ],
   );

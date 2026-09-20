@@ -8,6 +8,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useReducer,
   useRef,
   useState,
 } from 'react';
@@ -16,6 +17,7 @@ import {
   Bell,
   CheckCircle2,
   Info,
+  MessageSquare,
   X,
   XCircle,
 } from 'lucide-react';
@@ -27,7 +29,7 @@ import {
   type NotificationLevel,
 } from '@/store/meshStore';
 import { useClickOutside } from '@/hooks/useClickOutside';
-import { formatRelative } from '@/lib/i18n/format';
+import { formatRelative, formatRelativePrecise } from '@/lib/i18n/format';
 
 const LEVEL_ICON = {
   info: Info,
@@ -63,8 +65,69 @@ export function ActionBar() {
       aria-label={t('actionBar.label')}
       className='flex h-6 shrink-0 items-center gap-3 border-t border-border bg-surface px-2 text-xs text-text2'
     >
+      <LatestMessage />
       <NotificationBell />
     </footer>
+  );
+}
+
+/** How often the quick link's stamp re-renders while it still reads seconds. */
+const TICK_SECONDS_MS = 1000;
+
+/** And once it doesn't: a per-second timer for `3h ago` is pure waste. */
+const TICK_MINUTES_MS = 60_000;
+
+// The session's newest inbound message, as a way back to the conversation it
+// landed in: the sidebar's unread badges only exist on the chat view, so on
+// Nodes, Map, Stats or Settings this is the only standing cue that traffic
+// arrived.
+function LatestMessage() {
+  const { t } = useTranslation();
+  const latest = useMeshStore((s) => s.latestInbound);
+  const setView = useMeshStore((s) => s.setView);
+  const at = latest?.at;
+  // A browser clock with no store equivalent: nothing but this one label
+  // changes when it advances, so the re-render is scoped to this component.
+  const [, advance] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    if (at === undefined) return;
+    const period = () =>
+      Math.floor(Date.now() / 1000) - at < 60
+        ? TICK_SECONDS_MS
+        : TICK_MINUTES_MS;
+    // Re-armed rather than an interval, so crossing the first minute changes
+    // the rate without the effect having to re-run.
+    let timer = window.setTimeout(function tick() {
+      advance();
+      timer = window.setTimeout(tick, period());
+    }, period());
+    return () => window.clearTimeout(timer);
+  }, [at]);
+
+  if (!latest) return null;
+  const { convo, sender } = latest;
+  const age = formatRelativePrecise(latest.at);
+
+  const openTarget = () => {
+    // Open first: switching the view catches the *then*-open conversation up
+    // on its unread backlog, and the one being left behind shouldn't be it.
+    openConvo(convo);
+    setView('chat');
+  };
+
+  return (
+    <button
+      type='button'
+      onClick={openTarget}
+      aria-label={t('actionBar.latestMessageLabel', { sender, age })}
+      title={t('actionBar.latestMessage', { sender, age })}
+      className='focus-inset flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent'
+    >
+      <MessageSquare size={13} aria-hidden='true' className='shrink-0' />
+      <span className='max-w-40 truncate'>{sender}</span>
+      <span className='shrink-0'>·</span>
+      <span className='shrink-0 whitespace-nowrap'>{age}</span>
+    </button>
   );
 }
 

@@ -81,7 +81,9 @@
     "storage": "Speicher"
   },
   "actionBar": {
-    "label": "Statusleiste"
+    "label": "Statusleiste",
+    "latestMessage": "{{sender}} · {{age}}",
+    "latestMessageLabel": "Letzte Nachricht von {{sender}} öffnen, {{age}}"
   },
   "notifications": {
     "title": "Benachrichtigungen",
@@ -1325,6 +1327,7 @@
     "justNow": "gerade eben",
     "clockSkewAhead": "{{duration}} voraus",
     "clockSkewBehind": "{{duration}} zurück",
+    "seconds": "vor {{count}}s",
     "minutes": "vor {{count}}m",
     "hours": "vor {{count}}h",
     "days": "vor {{count}}d",

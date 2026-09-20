@@ -81,7 +81,9 @@
     "storage": "Almacenamiento"
   },
   "actionBar": {
-    "label": "Barra de estado"
+    "label": "Barra de estado",
+    "latestMessage": "{{sender}} · {{age}}",
+    "latestMessageLabel": "Abrir el último mensaje de {{sender}}, {{age}}"
   },
   "notifications": {
     "title": "Notificaciones",
@@ -1325,6 +1327,7 @@
     "justNow": "ahora mismo",
     "clockSkewAhead": "{{duration}} adelantado",
     "clockSkewBehind": "{{duration}} atrasado",
+    "seconds": "hace {{count}}s",
     "minutes": "hace {{count}}m",
     "hours": "hace {{count}}h",
     "days": "hace {{count}}d",

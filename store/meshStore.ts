@@ -314,6 +314,25 @@ export interface MessageArrival {
    */
   visible: boolean;
 }
+
+/**
+ * The newest inbound message of the session, for the action bar's quick link
+ * back to the conversation it landed in.
+ *
+ * @remarks Separate from {@link MessageArrival}, which is shaped for the
+ * screen-reader announcer: that one is withheld for own sends and for an
+ * arrival that would displace an announcement still pending, and names its
+ * conversation by id alone. This one carries the descriptor {@link openConvo}
+ * needs and is written for every inbound message, on screen or not.
+ */
+export interface LatestInbound {
+  convo: ActiveConvo;
+  /** Display name of whoever wrote it — the author, for a room post. */
+  sender: string;
+  /** Epoch seconds, for the bar's live-ticking relative stamp. */
+  at: number;
+}
+
 /**
  * Whether the newest message in a conversation was on screen when it landed.
  * Recorded for *every* append, including the user's own sends and arrivals
@@ -563,6 +582,12 @@ interface MeshState {
    */
   lastArrival: MessageArrival | null;
   /**
+   * The newest inbound message of the session, or `null` until one arrives.
+   * One slot: a newer arrival replaces it outright. Session state, so a
+   * disconnect clears it with everything else.
+   */
+  latestInbound: LatestInbound | null;
+  /**
    * The newest append to each conversation, and whether that conversation was
    * on screen at that moment. Unlike {@link lastArrival} this is written on
    * every append, because withholding it to protect a pending announcement
@@ -802,6 +827,8 @@ interface MeshActions {
    */
   restorePreferences: (raw: unknown, explicit?: boolean) => void;
   addMessage: (id: string, msg: Message) => void;
+  /** Records the arrival the action bar's quick link points at. */
+  setLatestInbound: (latest: LatestInbound) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
   setScrollToMsgId: (msgId: string | null) => void;
@@ -1034,6 +1061,7 @@ const initialState: MeshState = {
   autoAddConfig: DEFAULT_AUTOADD_CONFIG,
   msgHistory: {},
   lastArrival: null,
+  latestInbound: null,
   lastAppends: {},
   activeConvo: null,
   convoOpenSeq: 0,
@@ -1302,6 +1330,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
             },
       };
     }),
+
+  setLatestInbound: (latestInbound) => set({ latestInbound }),
 
   updateMessage: (id, msgId, patch) =>
     set((state) => {
