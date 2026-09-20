@@ -262,8 +262,15 @@ export function useMeshCore() {
           backlogDelivered = 0;
           // A drop or a Disconnect ends the drain loop too, and that session's
           // summary has nobody left to read it — it would land on the connect
-          // screen reporting a radio that is already gone.
-          if (count > 0 && useMeshStore.getState().status === 'connected') {
+          // screen reporting a radio that is already gone. The test is the
+          // session, not the status: `init` hands back before
+          // `setStatus('connected')`, and the key derivation in between is
+          // PBKDF2 at 100k iterations, so a short overflow drain can finish
+          // inside that window and a status test would silently drop its
+          // summary. `c` stays the store's client from before `init` until a
+          // teardown replaces it, which is exactly the span that should
+          // report.
+          if (count > 0 && useMeshStore.getState().client === c && !c.closed) {
             showToast(i18n.t('toast.caughtUp', { count }), 'success');
           }
         },
