@@ -150,7 +150,35 @@ export function previewImport(
  * metadata backwards, so the stale entries are removed before that merge sees
  * them — and {@link previewImport} counts the same way, so the preview promises
  * exactly what lands.
+ *
+ * Both records describe the *same* node, so their raw claims share that node's
+ * clock and rank correctly even when it is wrong — normalizing them instead
+ * would invert the order, because the magnitude fallback reads the larger of
+ * two future claims as the older one. Our own `observedAt` is preferred when
+ * both sides carry it: it is the one reading that survives the node's clock
+ * being corrected between the backup and now.
  */
+// Whether the cached record is at least as recent as the backup's. Our own
+// observation decides it when both sides carry one — that is the reading
+// which survives the node's clock being corrected between the backup and now.
+// Failing that, the raw claims decide: they share this node's clock, so they
+// rank correctly even when it is wrong. A `0` claim carries no time at all,
+// so whichever side holds an observation of ours outranks it rather than
+// losing to a number the other side happens to have.
+function keepsCached(cached: Advert, backup: Advert): boolean {
+  const cachedSeen = cached.observedAt;
+  const backupSeen = backup.observedAt;
+  if (cachedSeen !== undefined && backupSeen !== undefined) {
+    return cachedSeen >= backupSeen;
+  }
+  if (cached.lastHeard > 0 && backup.lastHeard > 0) {
+    return cached.lastHeard >= backup.lastHeard;
+  }
+  if (cachedSeen !== undefined) return true;
+  if (backupSeen !== undefined) return false;
+  return cached.lastHeard >= backup.lastHeard;
+}
+
 export function freshAdverts(
   incoming: Record<string, Advert>,
   cached: Record<string, Advert>,
@@ -158,7 +186,7 @@ export function freshAdverts(
   const out: Record<string, Advert> = {};
   for (const [prefix, advert] of Object.entries(incoming)) {
     const existing = cached[prefix];
-    if (existing && existing.lastHeard >= advert.lastHeard) continue;
+    if (existing && keepsCached(existing, advert)) continue;
     out[prefix] = advert;
   }
   return out;

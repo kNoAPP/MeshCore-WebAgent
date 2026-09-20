@@ -7,15 +7,16 @@ import { useTranslation } from 'react-i18next';
 import { contactConvo, openConvo, useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useClockTick } from '@/hooks/useClockTick';
-import { ADV_ICON, ADV_LABEL_KEY } from '@/lib/utils';
+import { ADV_ICON, ADV_LABEL_KEY, normalizedLastHeard } from '@/lib/utils';
 import {
+  formatClockSkew,
   formatDateTime,
   formatDistanceBearing,
   formatRelative,
   formatRoute,
 } from '@/lib/i18n/format';
 import { ADV_TYPE_REPEATER, FAVORITE_FLAG } from '@/lib/meshcore/constants';
-import { freshestHeard, type MapNode } from '@/lib/map/nodes';
+import { type MapNode } from '@/lib/map/nodes';
 
 /**
  * The body of the popup anchored to a clicked map marker: the spatial facts
@@ -49,9 +50,10 @@ export function MapNodePopup({
   const nowSecs = useClockTick();
 
   const name = contact?.name || advert?.name || node.name;
-  // The same clock-clamped choice the node list and the age filter make, so
+  // The same normalization the node list and the age filter apply, so
   // selecting a row can't change the age the node appears to have.
-  const lastHeard = freshestHeard(contact, advert, nowSecs);
+  const lastHeard = normalizedLastHeard(contact, advert, nowSecs);
+  const clockSkew = formatClockSkew(advert?.clockSkewSecs);
   // Taken as a pair, the way `contactCoords` reads it: `0` is the firmware's
   // unset coordinate, and a half-set contact position falls through to the
   // cached advert whole rather than pairing one field from each record — which
@@ -122,6 +124,15 @@ export function MapNodePopup({
           value={lastHeard ? formatRelative(lastHeard) : t('common.unknown')}
           title={lastHeard ? formatDateTime(lastHeard) : undefined}
         />
+        {clockSkew && (
+          <PopupRow
+            label={t('manage.clockSkew')}
+            value={clockSkew}
+            title={
+              advert?.lastHeard ? formatDateTime(advert.lastHeard) : undefined
+            }
+          />
+        )}
         <PopupRow
           label={t('manage.publicKey')}
           value={node.pubkeyPrefix}

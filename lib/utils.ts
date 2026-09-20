@@ -7,7 +7,7 @@ import {
   ADV_TYPE_SENSOR,
   PUBLIC_CHANNEL_SECRET,
 } from '@/lib/meshcore/constants';
-import type { ActiveConvo, Contact } from '@/types/meshcore';
+import type { ActiveConvo, Advert, Contact } from '@/types/meshcore';
 
 /**
  * Hex-encodes bytes as lowercase, two chars per byte.
@@ -43,24 +43,103 @@ export function heardAgeSecs(
   return Math.abs(nowSecs - lastHeard);
 }
 
+// How far past now a skew-corrected claim may land and still be trusted. A
+// small overshoot is drift between the measurement and this claim, and clamps
+// to "just now". A large one means the node's clock moved again after we
+// measured it, so the correction no longer describes this claim at all —
+// without this, a node whose owner set its RTC forward and then powered it
+// off would read "just now" and pass every freshness window forever.
+const SKEW_OVERSHOOT_TOLERANCE_SECS = 60;
+
 /**
- * Orders entries carrying a `lastHeard` timestamp freshest first, returning a
- * new array. `lastHeard` is the *sender's* clock and MeshCore nodes routinely
- * run without a synchronized RTC, so entries are ranked by the magnitude of
- * their offset from now: a node whose clock runs ahead ranks by how far ahead
- * it is instead of permanently outranking a node we genuinely just heard. Used
- * for both display order and cache eviction, so a skewed timestamp can neither
- * top a list nor evict a fresher entry. The clock is read once, keeping the
- * comparator consistent for the whole sort.
+ * Our-clock estimate of when a node was last heard, across the contact table
+ * and the advert cache, or `undefined` when neither carries a sighting. Never
+ * returns a future timestamp, so callers may subtract it from now directly.
+ *
+ * @remarks The raw timestamps are the *sender's* clock and MeshCore nodes
+ * routinely run without a synchronized RTC, so this is the single place the
+ * two are reconciled. Each source is converted to our clock independently and
+ * the most recent estimate wins:
+ *
+ * - `advert.observedAt` — our clock at a live push, so exact.
+ * - a raw claim minus {@link Advert.clockSkewSecs} — the receive time
+ *   recovered from a skew measured earlier, which is what makes a
+ *   contact-table read usable long after the push that measured it.
+ * - a raw claim folded into the past by {@link heardAgeSecs} — skew unknown,
+ *   so fall back to the magnitude. That is the same rule the age filters
+ *   already apply, which is why a node's displayed age agrees with where it
+ *   sorts.
+ *
+ * Taking the most recent rather than preferring one source matters because
+ * `observedAt` persists in the advert cache: a sighting from a previous
+ * session would otherwise outrank a contact row showing the node advertised
+ * minutes ago. Each estimate is a lower bound on "last heard", so the newest
+ * is the best one.
+ *
+ * A measured skew is believed until a later sighting replaces it, so a node
+ * whose owner corrects its clock and then goes quiet keeps being aged by the
+ * offset it no longer has. That cannot be detected from a claim alone: given
+ * one timestamp and a skew, "corrected clock, heard minutes ago" and "still
+ * skewed, heard a day ago" are the same two numbers. Ranking the corrected
+ * estimate against the uncorrected one does not resolve it either — it would
+ * trade this case for the commoner one of a genuinely skewed node heard
+ * longer ago than its own offset, which the uncorrected estimate reads as far
+ * too fresh. The next advert we hear live re-measures and heals it.
+ *
+ * Every surface that shows or filters on this age shares this helper, or
+ * selecting a row would change the apparent age of the node it selects.
+ *
+ * @param nowSecs - the reference clock in epoch seconds; pass one captured
+ * value when ranking or filtering a whole set.
  */
-export function sortByHeardAge<T extends { lastHeard: number }>(
-  items: readonly T[],
-): T[] {
+export function normalizedLastHeard(
+  contact?: Contact,
+  advert?: Advert,
+  nowSecs: number = Math.floor(Date.now() / 1000),
+): number | undefined {
+  const skew = advert?.clockSkewSecs;
+  const estimates: number[] = [];
+  if (advert?.observedAt !== undefined) estimates.push(advert.observedAt);
+  for (const claim of [contact?.lastAdvert, advert?.lastHeard]) {
+    if (typeof claim !== 'number' || claim <= 0) continue;
+    const corrected = skew === undefined ? undefined : claim - skew;
+    estimates.push(
+      corrected !== undefined &&
+        corrected <= nowSecs + SKEW_OVERSHOOT_TOLERANCE_SECS
+        ? corrected
+        : nowSecs - heardAgeSecs(claim, nowSecs),
+    );
+  }
+  if (estimates.length === 0) return undefined;
+  // Clamped even though every branch above aims at the past: `observedAt` is
+  // written from a live `Date.now()` while callers pass a tick that can be
+  // seconds stale, and a correction may land just inside the tolerance above.
+  return Math.min(Math.max(...estimates), nowSecs);
+}
+
+/**
+ * Orders adverts freshest first by {@link normalizedLastHeard}, returning a
+ * new array.
+ *
+ * @remarks Ranked on the our-clock estimate rather than the raw `lastHeard`,
+ * which is the sender's claim: a live push records `observedAt` without
+ * touching `lastHeard`, so ranking on the raw value would sort a node we just
+ * heard by whatever its own clock last claimed. Used for display order and for
+ * cache eviction, so a node heard moments ago can neither rank below nor be
+ * evicted by one we have not heard since.
+ */
+export function sortAdvertsByHeard(adverts: readonly Advert[]): Advert[] {
   const nowSecs = Math.floor(Date.now() / 1000);
-  return [...items].sort(
-    (a, b) =>
-      heardAgeSecs(a.lastHeard, nowSecs) - heardAgeSecs(b.lastHeard, nowSecs),
-  );
+  // Keyed once per entry rather than on each comparison: the Discover list
+  // re-sorts the whole cache (up to ADVERT_CACHE_LIMIT) on every keystroke,
+  // and this helper walks both claim sources per call.
+  return adverts
+    .map((advert) => ({
+      advert,
+      heard: normalizedLastHeard(undefined, advert, nowSecs) ?? 0,
+    }))
+    .sort((a, b) => b.heard - a.heard)
+    .map(({ advert }) => advert);
 }
 
 const utf8 = new TextEncoder();

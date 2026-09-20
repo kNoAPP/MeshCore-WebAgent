@@ -692,6 +692,7 @@
     "route": "Route",
     "path": "Chemin",
     "lastAdvert": "Dernière annonce",
+    "clockSkew": "Décalage de l'horloge",
     "location": "Position",
     "distance": "Distance",
     "distanceValue": "{{distance}} km · {{compass}}",
@@ -1309,7 +1310,8 @@
   },
   "relative": {
     "justNow": "à l'instant",
-    "clockAhead": "horloge en avance ({{date}})",
+    "clockSkewAhead": "{{duration}} en avance",
+    "clockSkewBehind": "{{duration}} en retard",
     "minutes": "il y a {{count}}m",
     "hours": "il y a {{count}}h",
     "days": "il y a {{count}}j",

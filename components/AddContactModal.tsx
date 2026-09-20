@@ -16,8 +16,9 @@ import {
   formatLatLon,
   formatPubkey,
   fromHex,
+  normalizedLastHeard,
   parseContactUri,
-  sortByHeardAge,
+  sortAdvertsByHeard,
 } from '@/lib/utils';
 import {
   ADV_TYPE_REPEATER,
@@ -25,6 +26,7 @@ import {
   ADV_TYPE_SENSOR,
 } from '@/lib/meshcore/constants';
 import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
+import type { Advert } from '@/types/meshcore';
 
 type Mode = 'discover' | 'paste' | 'manual';
 
@@ -136,7 +138,7 @@ export function AddContactModal() {
   // so a node whose clock runs ahead cannot hold the top of the list forever.
   const cachedAdverts = Object.values(advertCache);
   const discoverTerm = discoverQuery.trim().toLowerCase();
-  const heard = sortByHeardAge(
+  const heard = sortAdvertsByHeard(
     cachedAdverts.filter(
       (a) =>
         !discoverTerm ||
@@ -144,6 +146,12 @@ export function AddContactModal() {
         a.pubkeyPrefix.toLowerCase().includes(discoverTerm),
     ),
   );
+  // A node whose RTC has never been set offers no claim, and we may not have
+  // heard it live this session either, so there is genuinely no age to show.
+  const advertHeard = (a: Advert): string => {
+    const heard = normalizedLastHeard(undefined, a);
+    return heard ? formatRelative(heard) : t('common.unknown');
+  };
 
   return (
     <ModalShell
@@ -253,7 +261,7 @@ export function AddContactModal() {
                                   a.advType as keyof typeof ADV_LABEL_KEY
                                 ] ?? 'discover.node',
                               )}{' '}
-                              · {formatRelative(a.lastHeard)} ·{' '}
+                              · {advertHeard(a)} ·{' '}
                               {formatPubkey(a.pubkey, showFullPublicKeys)}
                             </div>
                             {location && (

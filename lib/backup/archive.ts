@@ -406,6 +406,10 @@ function isAdvert(v: unknown): v is Advert {
     typeof v.name === 'string' &&
     typeof v.advType === 'number' &&
     typeof v.lastHeard === 'number' &&
+    // Both feed arithmetic behind every displayed age, so a non-numeric value
+    // would render NaN across the node list after the restore has committed.
+    optionalType(v.observedAt, 'number') &&
+    optionalType(v.clockSkewSecs, 'number') &&
     optionalMicroDeg(v.advLat, MAX_LAT_MICRO) &&
     optionalMicroDeg(v.advLon, MAX_LON_MICRO)
   );

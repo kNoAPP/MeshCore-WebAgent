@@ -692,6 +692,7 @@
     "route": "Route",
     "path": "Pfad",
     "lastAdvert": "Letzte Ankündigung",
+    "clockSkew": "Zeitabweichung",
     "location": "Standort",
     "distance": "Entfernung",
     "distanceValue": "{{distance}} km · {{compass}}",
@@ -1309,7 +1310,8 @@
   },
   "relative": {
     "justNow": "gerade eben",
-    "clockAhead": "Uhr voraus ({{date}})",
+    "clockSkewAhead": "{{duration}} voraus",
+    "clockSkewBehind": "{{duration}} zurück",
     "minutes": "vor {{count}}m",
     "hours": "vor {{count}}h",
     "days": "vor {{count}}d",

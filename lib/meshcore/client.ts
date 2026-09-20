@@ -98,11 +98,18 @@ import {
   parseNeighborsResponse,
   parseAccessList,
 } from './parsers';
-import { sortByHeardAge, toHex } from '@/lib/utils';
+import { sortAdvertsByHeard, toHex } from '@/lib/utils';
 
 // Cap the heard-adverts log so a long session on a busy mesh can't grow
 // unbounded
 const ADVERTS_LIMIT = 200;
+
+// How long a live-push observation stays paired with the contact-table read
+// that follows it, for the clock-skew measurement in `recordAdvert`.
+// `scheduleContactResync` coalesces bursts on a 2 s timer, so the resync
+// carrying the same advert lands well inside this window; the slack absorbs a
+// slow sync without ever reaching the next advert from the same node.
+const ADVERT_OBSERVATION_WINDOW_SECS = 30;
 
 // Extra time added to a login/status push wait beyond the radio's estimated
 // round-trip (read from the SENT receipt), absorbing push-delivery jitter on
@@ -246,6 +253,15 @@ export class MeshCoreClient {
   adverts: Record<string, Advert> = {};
   selfInfo: SelfInfo | null = null;
   deviceInfo: DeviceInfo | null = null;
+
+  // Prefix → a live advert push we have seen, waiting on the contact read
+  // that carries that same advert's sender timestamp. `at` is our clock;
+  // `claim` is the node's own timestamp as we knew it *before* the push, which
+  // is what later proves a contact row has moved on to the advert we heard.
+  // Entries are consumed by `foldAdvertObservations` and expire with
+  // ADVERT_OBSERVATION_WINDOW_SECS.
+  private advertObservations: Record<string, { at: number; claim?: number }> =
+    {};
 
   private handlers: PendingCmd[] = [];
   // Slots whose SET_CHANNEL clear has been sent but not yet acked. The mirror
@@ -573,7 +589,17 @@ export class MeshCoreClient {
       // it).
       const c = parseContact(d);
       if (c) {
-        this.recordAdvert(c);
+        // This push *is* the sighting and it carries the node's own timestamp,
+        // so both clocks are already in hand for one advert — no resync
+        // pairing needed, and the measurement is proven by construction.
+        // Supersedes any pending 0x80 observation for this node: this record
+        // measures its own skew, and folding the older one afterwards would
+        // re-measure against a staler push.
+        delete this.advertObservations[c.pubkeyPrefix];
+        this.recordAdvert(c, {
+          at: Math.floor(Date.now() / 1000),
+          measure: true,
+        });
         this.scheduleContactResync();
       }
       return;
@@ -685,6 +711,7 @@ export class MeshCoreClient {
         // contacts deleted on the radio (evicted, or removed from another
         // client) disappear instead of lingering for the session.
         if (this.pendingContacts) this.contacts = this.pendingContacts;
+        this.foldAdvertObservations();
         this.contactsResolve?.();
         return;
       }
@@ -754,15 +781,55 @@ export class MeshCoreClient {
     }, 2000);
   }
 
-  private recordAdvert(c: Contact): void {
+  /**
+   * Folds a contact-shaped advert record into the heard-adverts map.
+   *
+   * @param observation - the live sighting this record came from, when there
+   * was one. `at` is our clock at the push. `measure` says whether
+   * `c.lastAdvert` is known to be the *same*
+   * advert we heard at `at` — only then are both clocks known for one advert,
+   * which is what makes "how far off is this node's clock" a fact distinct
+   * from "how old is this sighting". Pairing our clock with a contact row that
+   * has not moved would invent a skew the size of the gap between two adverts,
+   * so an unproven pairing records the sighting and leaves the skew alone.
+   */
+  private recordAdvert(
+    c: Contact,
+    observation?: { at: number; measure: boolean },
+  ): void {
+    const existing = this.adverts[c.pubkeyPrefix];
+    // `parseContact` reports an unset RTC as `0`, not `undefined`, so a plain
+    // `??` would treat the epoch as a timestamp and measure a skew of every
+    // second since 1970. The fold applies the same truthiness test.
+    //
+    // An unknown claim stays `0` rather than borrowing our clock. This field
+    // is the sender's, and `addDiscoveredContact` writes it straight back to
+    // the radio's contact record: a value of ours would sit far above
+    // anything the node's own clock can produce, and the firmware drops every
+    // advert whose timestamp is not greater than the stored one as a replay —
+    // so adding such a node would permanently stop its row updating.
+    const claimed = c.lastAdvert ? c.lastAdvert : undefined;
+    const lastHeard = claimed ?? 0;
     this.adverts[c.pubkeyPrefix] = {
       pubkey: c.pubkey,
       pubkeyPrefix: c.pubkeyPrefix,
       name: c.name,
       advType: c.advType,
-      lastHeard: c.lastAdvert ?? Math.floor(Date.now() / 1000),
+      lastHeard,
       advLat: c.advLat,
       advLon: c.advLon,
+      // Never rewound: a pending observation folded after a newer sighting
+      // would otherwise move our own record of hearing the node backwards,
+      // which the automation diff would read as a second sighting.
+      observedAt:
+        Math.max(observation?.at ?? 0, existing?.observedAt ?? 0) || undefined,
+      // Skew is a property of the node's badly-set clock, not of one advert,
+      // so a measurement outlives the observation that produced it and keeps
+      // normalizing later contact-table reads.
+      clockSkewSecs:
+        observation?.measure === true && claimed !== undefined
+          ? claimed - observation.at
+          : existing?.clockSkewSecs,
     };
     this.evictOldAdverts();
     this.callbacks.onAdvertsUpdated?.(this.adverts);
@@ -772,7 +839,7 @@ export class MeshCoreClient {
     const entries = Object.values(this.adverts);
     if (entries.length <= ADVERTS_LIMIT) return;
     const kept = new Set(
-      sortByHeardAge(entries)
+      sortAdvertsByHeard(entries)
         .slice(0, ADVERTS_LIMIT)
         .map((a) => a.pubkeyPrefix),
     );
@@ -781,15 +848,77 @@ export class MeshCoreClient {
     }
   }
 
+  // A known node re-advertised. The 0x80 push carries only the pubkey, so the
+  // matching sender timestamp arrives with the contact resync this schedules —
+  // hold our clock until then rather than writing it over `lastHeard`, which
+  // is what used to leave the two facts indistinguishable.
   private touchAdvert(d: Uint8Array): void {
     const prefix = toHex(d.slice(1, 7));
+    const nowSecs = Math.floor(Date.now() / 1000);
     const existing = this.adverts[prefix];
+    // The claim we already hold, read before the resync overwrites it. The
+    // contact table is the reference that matters: the radio only sends this
+    // pubkey-only push for a node it already holds as a contact, and
+    // `this.adverts` starts empty on every connect, so without it the first
+    // advert of every saved contact each session would have nothing to prove
+    // itself against and could never be measured.
+    // `||`, not `??`: a `0` claim is the firmware's "RTC never set", not a
+    // reference. Left in place, every positive row value would beat it and
+    // "prove" a pairing — including one carrying an advert we never heard.
+    const claim =
+      this.contacts[prefix]?.lastAdvert || existing?.lastHeard || undefined;
+    this.advertObservations[prefix] = { at: nowSecs, claim };
     if (existing) {
-      this.adverts[prefix] = {
-        ...existing,
-        lastHeard: Math.floor(Date.now() / 1000),
-      };
+      this.adverts[prefix] = { ...existing, observedAt: nowSecs };
       this.callbacks.onAdvertsUpdated?.(this.adverts);
+    }
+  }
+
+  // Pairs each pending live-push observation with the contact row the resync
+  // just delivered, which carries that advert's sender timestamp. Both clocks
+  // for one advert are known only here, so this is where skew is measured.
+  // Entries that no contact row answered, or that have aged past the window,
+  // are dropped rather than left to measure a later advert.
+  private foldAdvertObservations(): void {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    for (const [prefix, seen] of Object.entries(this.advertObservations)) {
+      const expired = nowSecs - seen.at > ADVERT_OBSERVATION_WINDOW_SECS;
+      const contact = this.contacts[prefix];
+      // `scheduleContactResync` drops its resync when a sync is already in
+      // flight, so this enumeration may have started *before* the push and
+      // still carry the previous advert's timestamp. Only a claim that has
+      // moved past the one we held when the push landed is demonstrably the
+      // advert we heard. No reference at all — a push during the very first
+      // enumeration, before either map is filled — proves nothing either, so
+      // it measures nothing rather than pairing our clock with whatever row
+      // happens to arrive. (A row can still be one advert behind if two
+      // arrived inside a single enumeration, which bounds the error by that
+      // enumeration rather than by the gap between adverts.)
+      //
+      // Past the window the pairing is refused outright, however the claim
+      // looks: an observation can sit pending across a quiet stretch with no
+      // enumeration, and by the time one arrives the row may carry a later
+      // advert whose own push never reached us. Measuring then would pin our
+      // stale clock to it and invent a skew the size of that gap. Failing to
+      // measure costs one sighting's worth of data; measuring wrongly is
+      // persisted and ages the node from then on.
+      const measure =
+        !expired &&
+        contact?.lastAdvert !== undefined &&
+        seen.claim !== undefined &&
+        contact.lastAdvert > seen.claim;
+      // Record the sighting either way, so a coalesced resync cannot lose it.
+      // Gated on the contact, not on its claim: a node whose RTC is unset has
+      // no claim to offer, and dropping it here would leave it with no advert
+      // record at all — reading as "unknown" and hidden by every "heard
+      // within" window seconds after we heard it live.
+      if (contact) {
+        this.recordAdvert(contact, { at: seen.at, measure });
+      }
+      // An unproven observation stays pending: the enumeration that answered
+      // it may simply have predated the advert, and a later one can still
+      // complete the pairing inside the window.
+      if (measure || expired) delete this.advertObservations[prefix];
     }
   }
 

@@ -1,7 +1,7 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-import { heardAgeSecs, microToDeg } from '@/lib/utils';
+import { microToDeg, normalizedLastHeard } from '@/lib/utils';
 import { FAVORITE_FLAG } from '@/lib/meshcore/constants';
 import type { Advert, Contact, SelfInfo } from '@/types/meshcore';
 
@@ -23,9 +23,9 @@ export interface MapNode {
   /** Favorited contact — flagged with a gold marker outline. */
   favorite: boolean;
   /**
-   * Unix epoch seconds of the most recent advert from this node, or
-   * `undefined` when neither store carries one. It is the *sender's* clock, so
-   * every reader must measure it with `heardAgeSecs` rather than subtracting.
+   * Unix epoch seconds of the most recent advert from this node, normalized to
+   * our clock by `normalizedLastHeard`, or `undefined` when neither store
+   * carries one. Never in the future, so readers may subtract it from now.
    */
   lastHeard?: number;
 }
@@ -51,35 +51,6 @@ export interface MapEdge {
 }
 
 type DegCoords = { lat: number; lon: number } | null;
-
-/**
- * The freshest last-advert timestamp a node has, across the contact table and
- * the advert cache, or `undefined` when neither carries one.
- *
- * @remarks Not `Math.max`: these are the *sender's* clocks, so a contact row
- * still holding a future timestamp would outrank the advert that just corrected
- * it — and the node would then fail every "heard within" window while still
- * reading as freshly heard. Ranking by clock-clamped age is the rule
- * `sortByHeardAge` and `mergeAdvertCache` already apply. Every surface that
- * shows or filters on this age shares this helper, or selecting a row would
- * change the apparent age of the node it selects.
- *
- * @param nowSecs - the reference clock in epoch seconds; pass one captured
- * value when ranking a whole set.
- */
-export function freshestHeard(
-  contact?: Contact,
-  advert?: Advert,
-  nowSecs: number = Math.floor(Date.now() / 1000),
-): number | undefined {
-  const known = [contact?.lastAdvert, advert?.lastHeard].filter(
-    (t): t is number => typeof t === 'number' && t > 0,
-  );
-  if (known.length === 0) return undefined;
-  return known.reduce((best, t) =>
-    heardAgeSecs(t, nowSecs) < heardAgeSecs(best, nowSecs) ? t : best,
-  );
-}
 
 // The firmware writes `0` for an unset coordinate, so a zero (or missing) lat
 // or lon — including `(0, 0)` "Null Island" — counts as no location.
@@ -149,7 +120,11 @@ export function collectMapNodes(
       lon: coords.lon,
       kind: 'contact',
       favorite: (contact.flags & FAVORITE_FLAG) !== 0,
-      lastHeard: freshestHeard(contact, adverts[contact.pubkeyPrefix], nowSecs),
+      lastHeard: normalizedLastHeard(
+        contact,
+        adverts[contact.pubkeyPrefix],
+        nowSecs,
+      ),
     });
   }
 
@@ -167,7 +142,7 @@ export function collectMapNodes(
       lon: coords.lon,
       kind: 'advert',
       favorite: false,
-      lastHeard: advert.lastHeard,
+      lastHeard: normalizedLastHeard(undefined, advert, nowSecs),
     });
   }
 

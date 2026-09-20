@@ -41,6 +41,7 @@ import {
   ADV_ICON,
   contactCategory,
   isPublicChannelSecret,
+  normalizedLastHeard,
   type ContactCategory,
 } from '@/lib/utils';
 import {
@@ -49,8 +50,9 @@ import {
   FAVORITE_FLAG,
 } from '@/lib/meshcore/constants';
 import { useClickOutside } from '@/hooks/useClickOutside';
+import { useClockTick } from '@/hooks/useClockTick';
 import { Switch } from './Switch';
-import type { Contact, Message } from '@/types/meshcore';
+import type { Advert, Contact, Message } from '@/types/meshcore';
 
 const MIN_SECTION_PX = 40;
 // One arrow-key press on either resize handle.
@@ -128,16 +130,30 @@ function lastMessageTime(
 
 // Shared, so orders that don't need per-contact times keep a stable reference.
 const EMPTY_LATEST_TIMES: ReadonlyMap<string, number> = new Map();
+const EMPTY_ADVERTS: Record<string, Advert> = {};
 
 function compareBySort(
   a: Contact,
   b: Contact,
   sort: ContactSort,
   latestTimes: ReadonlyMap<string, number>,
+  adverts: Record<string, Advert>,
+  nowSecs: number,
 ): number {
   switch (sort) {
     case 'heard': {
-      const diff = (b.lastAdvert ?? 0) - (a.lastAdvert ?? 0);
+      // Through the shared helper, like every other last-heard surface:
+      // `lastAdvert` is the sender's clock, and the cached advert is what
+      // carries our correction for it. Ranking on the raw field would pin a
+      // node advertising from the future to the top of this list while the
+      // Nodes table ages it normally — the same disagreement, relocated.
+      const heard = (c: Contact): number | undefined =>
+        normalizedLastHeard(c, adverts[c.pubkeyPrefix], nowSecs);
+      // Never-heard contacts sort last, and compare equal to each other rather
+      // than subtracting to NaN, which would strand them in map order.
+      const at = heard(a) ?? -Infinity;
+      const bt = heard(b) ?? -Infinity;
+      const diff = at === bt ? 0 : bt - at;
       // Fall back to A–Z so contacts sharing a timestamp (e.g. never-heard
       // contacts all at 0) keep a stable, alphabetical order.
       return diff !== 0 ? diff : a.name.localeCompare(b.name);
@@ -270,6 +286,17 @@ export function Sidebar() {
   // order needs it, so other orders reuse a shared empty map — that keeps this
   // memo's result stable across message arrivals and stops them from forcing a
   // re-sort below.
+  // Only the "heard" order reads the clock or the advert cache. The other
+  // orders run no timer and select a constant, so neither a tick nor an
+  // advert on a busy mesh re-renders these rows — the same trick as
+  // EMPTY_LATEST_TIMES. The selector must return the shared empty object
+  // rather than be skipped: a fresh `{}` per store change would re-render on
+  // every advert anyway.
+  const heardOrder = contactSort === 'heard';
+  const nowSecs = useClockTick(heardOrder);
+  const adverts = useMeshStore((s) =>
+    heardOrder ? s.advertCache : EMPTY_ADVERTS,
+  );
   const latestTimes = useMemo(() => {
     if (contactSort !== 'latest') return EMPTY_LATEST_TIMES;
     const times = new Map<string, number>();
@@ -290,9 +317,18 @@ export function Sidebar() {
         const bFav = (b.flags & FAVORITE_FLAG) !== 0;
         if (aFav !== bFav) return aFav ? -1 : 1;
       }
-      return compareBySort(a, b, contactSort, latestTimes);
+      return compareBySort(a, b, contactSort, latestTimes, adverts, nowSecs);
     });
-  }, [contacts, contactFilter, contactSort, pinFavorites, latestTimes, query]);
+  }, [
+    contacts,
+    contactFilter,
+    contactSort,
+    pinFavorites,
+    latestTimes,
+    query,
+    adverts,
+    nowSecs,
+  ]);
   const hasContacts = Object.keys(contacts).length > 0;
 
   // Scroll the active row into view when the open conversation changes, so a

@@ -14,17 +14,31 @@ const TICK_MS = 30_000;
  * the stats surfaces, which would otherwise sit at "just now" for as long as
  * the page stays open. The timer runs only while the component is mounted.
  *
+ * @param enabled - pass `false` where the caller is mounted but nothing it
+ * renders reads the clock, e.g. a list under a sort order that ignores time.
+ * No timer runs then, so the caller stops re-rendering on the tick, and the
+ * returned value is frozen — do not read it while disabled. Switching back to
+ * `true` re-seeds it, but one turn of the event loop later rather than
+ * synchronously, so the first render after enabling still sees the stale
+ * value.
  * @returns the current Unix epoch seconds, so the value that drives the
  * rendered text is the same one that changed.
  */
-export function useClockTick(): number {
+export function useClockTick(enabled = true): number {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => {
-    const id = setInterval(
-      () => setNow(Math.floor(Date.now() / 1000)),
-      TICK_MS,
-    );
-    return () => clearInterval(id);
-  }, []);
+    if (!enabled) return;
+    const read = (): void => setNow(Math.floor(Date.now() / 1000));
+    // Re-seed on enable: the initializer ran at mount, so a caller disabled
+    // then would otherwise read a session-stale clock until the first
+    // interval fires. Deferred rather than called here, so enabling does not
+    // set state during the effect.
+    const seed = setTimeout(read, 0);
+    const id = setInterval(read, TICK_MS);
+    return () => {
+      clearTimeout(seed);
+      clearInterval(id);
+    };
+  }, [enabled]);
   return now;
 }

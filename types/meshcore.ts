@@ -28,9 +28,28 @@ export interface Advert {
   pubkeyPrefix: string;
   name: string;
   advType: number;
-  lastHeard: number; // Unix epoch secs we last heard this node
+  /**
+   * Unix epoch seconds this node stamped on its advert — the *sender's* clock
+   * (firmware `ContactInfo::last_advert_timestamp`, "by THEIR clock"), so it
+   * can sit in the future. `0` is the firmware's "RTC never set" sentinel and
+   * means the claim is unknown, not 1970. Never subtract it from now; read it
+   * through `normalizedLastHeard`.
+   */
+  lastHeard: number;
   advLat?: number;
   advLon?: number;
+  /**
+   * Our clock when we actually heard this node, known only where a live
+   * `PUSH_ADVERT` was observed. Absent on records restored from the cache or
+   * built from a contact-table sync alone.
+   */
+  observedAt?: number;
+  /**
+   * `lastHeard − observedAt`, signed: positive means the node's clock runs
+   * ahead of ours. Absent means the skew has never been measured — which is
+   * not the same as zero.
+   */
+  clockSkewSecs?: number;
 }
 
 /**
