@@ -74,18 +74,27 @@ function NotificationBell() {
   const bellRef = useRef<HTMLButtonElement>(null);
   const drawerId = useId();
 
-  const unread = notifications.filter((n) => n.id > seenAt).length;
+  const unread = notifications.filter((n) => n.seq > seenAt).length;
 
-  // Only reclaim focus the drawer actually held: an outside click closes on
-  // `mousedown`, before the click's own focus lands, so pulling focus back
-  // unconditionally would yank it off whatever the user just clicked.
-  const close = useCallback(() => {
-    const held = rootRef.current?.contains(document.activeElement);
-    setOpen(false);
-    if (held) bellRef.current?.focus();
-  }, []);
+  // A deliberate close always hands focus back. An outside click is the one
+  // exception: it closes on `mousedown`, before the click's own focus lands,
+  // so reclaiming unconditionally would yank focus off whatever was clicked —
+  // there, only focus the drawer still holds is worth taking back.
+  const close = useCallback(
+    (viaOutsideClick = false) => {
+      const held =
+        !viaOutsideClick || !!rootRef.current?.contains(document.activeElement);
+      setOpen(false);
+      // Rows that landed while the drawer was open were on screen the whole
+      // time; marking again on the way out keeps them from re-lighting the
+      // bell the moment it closes.
+      markSeen();
+      if (held) bellRef.current?.focus();
+    },
+    [markSeen],
+  );
 
-  useClickOutside(rootRef, open, close);
+  useClickOutside(rootRef, open, () => close(true));
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {

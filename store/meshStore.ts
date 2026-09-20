@@ -260,10 +260,17 @@ export type NotificationLevel = 'info' | 'success' | 'warning' | 'error';
  */
 export interface Notification {
   /**
-   * Monotonic, assigned once and stable for the row's whole life; also the
-   * ordering and unread high-water key.
+   * Stable for the row's whole life, including across a merge, so the drawer
+   * can key on it without remounting a row that merely grew a repeat.
    */
   id: number;
+  /**
+   * Bumped on every push that touches the row, a merge included. This — not
+   * {@link Notification.id} — is what {@link MeshState.notificationsSeenAt}
+   * is measured against, so a repeat of an already-read event counts as
+   * unread again.
+   */
+  seq: number;
   level: NotificationLevel;
   /** Already localized at push time, like {@link Toast.text}. */
   text: string;
@@ -630,8 +637,8 @@ interface MeshState {
    */
   notifications: Notification[];
   /**
-   * The {@link Notification.id} high-water mark from the last time the drawer
-   * was opened. The bell badge counts the rows above it.
+   * The {@link Notification.seq} high-water mark from the last time the
+   * drawer was open. The bell badge counts the rows above it.
    */
   notificationsSeenAt: number;
   /**
@@ -837,8 +844,9 @@ interface MeshActions {
   dismissToast: () => void;
   /**
    * Appends a row to the notification history. When `key` matches the newest
-   * row the two collapse: that row's `count` and `at` are bumped in place and
-   * its `id` is left alone, so the row keeps one identity for its whole life.
+   * row the two collapse: that row's `count`, `at` and `seq` are bumped in
+   * place while its `id` is left alone, so the row keeps one identity for its
+   * whole life and still reads as unread again.
    *
    * @param key - dedup key; `convo.id` for a message arrival, otherwise a
    * value that distinguishes the event (the rendered text will do).
@@ -1416,13 +1424,16 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   pushNotification: (text, level, key, convo) =>
     set((state) => {
       const at = Math.floor(Date.now() / 1000);
+      const seq = ++notificationSeq;
       const [newest, ...rest] = state.notifications;
-      // A merge keeps the row's `id`: the drawer renders rows keyed by it, and
-      // a fresh one would remount the row and drop the keyboard focus a reader
-      // may be holding on its buttons.
+      // A merge keeps the row's `id` — the drawer keys on it, and a fresh one
+      // would remount the row and drop the keyboard focus a reader may be
+      // holding on its buttons — but still takes the new `seq`, or a repeat
+      // of an already-read event would never light the bell again.
       if (newest?.key === key) {
         const merged: Notification = {
           ...newest,
+          seq,
           text,
           level,
           at,
@@ -1431,8 +1442,16 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         };
         return { notifications: [merged, ...rest] };
       }
-      const id = ++notificationSeq;
-      const row: Notification = { id, level, text, at, convo, count: 1, key };
+      const row: Notification = {
+        id: seq,
+        seq,
+        level,
+        text,
+        at,
+        convo,
+        count: 1,
+        key,
+      };
       return {
         notifications: [row, ...state.notifications].slice(
           0,
