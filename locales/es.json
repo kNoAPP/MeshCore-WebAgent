@@ -83,7 +83,9 @@
   "actionBar": {
     "label": "Barra de estado",
     "latestMessageLabel": "Abrir el último mensaje de {{sender}}, {{age}}",
-    "latestMessageIn": "Abrir el último mensaje en {{convo}}, {{age}}"
+    "latestMessageIn": "Abrir el último mensaje en {{convo}}, {{age}}",
+    "latestMessageFromIn": "Abrir el último mensaje de {{sender}} en {{convo}}, {{age}}",
+    "latestMessageSenderIn": "{{sender}} en {{convo}}"
   },
   "notifications": {
     "title": "Notificaciones",

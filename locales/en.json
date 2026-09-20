@@ -82,7 +82,9 @@
   "actionBar": {
     "label": "Status bar",
     "latestMessageLabel": "Open latest message from {{sender}}, {{age}}",
-    "latestMessageIn": "Open latest message in {{convo}}, {{age}}"
+    "latestMessageIn": "Open latest message in {{convo}}, {{age}}",
+    "latestMessageFromIn": "Open latest message from {{sender}} in {{convo}}, {{age}}",
+    "latestMessageSenderIn": "{{sender}} in {{convo}}"
   },
   "notifications": {
     "title": "Notifications",

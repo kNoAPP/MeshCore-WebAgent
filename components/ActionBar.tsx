@@ -112,16 +112,27 @@ function LatestMessage() {
   // stamp. An accessible name that changed once a second would be re-announced
   // that often by NVDA and JAWS for as long as the button held focus, and a
   // `title` rewritten that often tears down the very tooltip it exists to
-  // show — the only way to read a sender the row has truncated. So the name
-  // takes a coarse age (`just now` carries the only fact that matters at that
-  // range) and the tooltip takes the sender alone, the part that truncates.
+  // show — the only way to read a name the row has truncated. So the
+  // accessible name takes a coarse age (`just now` carries the only fact that
+  // matters at that range) and the tooltip takes the name alone, the part
+  // that truncates.
   const coarseAge = formatRelative(latest.at);
   // A frame that names nobody — a channel text with no `sender: ` prefix, an
   // unsigned room post — falls back to the conversation, and the accessible
   // name switches preposition with it. "from General" would assert that the
   // channel wrote the message, which is why the toast has a separate `…In`
   // string rather than a substituted one.
-  const name = sender ?? convo.label;
+  //
+  // With both in hand the bar names both: on a channel or a room, who wrote it
+  // is only half the cue — whether it is worth leaving the current view turns
+  // on which of the reader's channels it landed in. A direct message's
+  // conversation *is* its sender, so pairing them there would say the same
+  // thing twice.
+  const inConvo = sender !== null && convo.kind !== 'direct';
+  const vars = { sender, convo: convo.label, age: coarseAge };
+  const name = inConvo
+    ? t('actionBar.latestMessageSenderIn', vars)
+    : (sender ?? convo.label);
 
   const openTarget = () => {
     // This is the one control that routinely aims at the conversation already
@@ -150,18 +161,17 @@ function LatestMessage() {
       type='button'
       onClick={openTarget}
       aria-label={
-        sender
-          ? t('actionBar.latestMessageLabel', { sender, age: coarseAge })
-          : t('actionBar.latestMessageIn', {
-              convo: convo.label,
-              age: coarseAge,
-            })
+        inConvo
+          ? t('actionBar.latestMessageFromIn', vars)
+          : sender
+            ? t('actionBar.latestMessageLabel', vars)
+            : t('actionBar.latestMessageIn', vars)
       }
       title={name}
       className='focus-inset flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent'
     >
       <MessageSquare size={13} aria-hidden='true' className='shrink-0' />
-      <span className='max-w-40 truncate'>{name}</span>
+      <span className='max-w-64 truncate'>{name}</span>
       <span className='shrink-0'>·</span>
       <span className='shrink-0 whitespace-nowrap'>{age}</span>
     </button>
