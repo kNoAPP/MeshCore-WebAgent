@@ -3,7 +3,14 @@
 
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   AlertTriangle,
   Bell,
@@ -168,22 +175,44 @@ function NotificationDrawer({
   const { t } = useTranslation();
   const dismiss = useMeshStore((s) => s.dismissNotification);
   const ref = useRef<HTMLDivElement>(null);
+  const lastFocused = useRef<HTMLElement | null>(null);
+
+  // A merge hoists its row to the top, and React commits that reorder by
+  // re-inserting every row above the hoisted one. Re-inserting an element
+  // takes it out of the document for an instant, which blurs it — so a
+  // reorder can drop focus even though nothing was removed. Put it back.
+  useLayoutEffect(() => {
+    const el = lastFocused.current;
+    if (!el || document.activeElement !== document.body) return;
+    if (ref.current?.contains(el)) el.focus();
+  }, [notifications]);
 
   // Removing a row destroys the button that has focus, and focus falling to
   // `body` puts the reader outside the drawer — where the arrow handler below
-  // never sees their keys. Hand it to the next control first, or to the bell
-  // when this was the last row and the footer goes with it.
+  // never sees their keys. Hand it to the adjacent row's dismiss button,
+  // so repeated Enter clears the list one row at a time; anything else here
+  // would be the *open conversation* button or Clear all, and a second Enter
+  // would navigate away or wipe the history.
   const dismissRow = (id: number, button: HTMLButtonElement) => {
-    const buttons = [...(ref.current?.querySelectorAll('button') ?? [])];
-    const next = buttons[buttons.indexOf(button) + 1];
+    // Only the keyboard needs the handoff. Safari and Firefox on macOS do not
+    // focus a button on click, so a mouse user's focus is still wherever they
+    // left it — the composer, say — and moving it would be a theft.
+    const held = document.activeElement === button;
+    const row = button.closest('li');
+    const sibling = row?.nextElementSibling ?? row?.previousElementSibling;
+    const next = sibling
+      ? [...sibling.querySelectorAll('button')].pop()
+      : undefined;
     dismiss(id);
-    if (notifications.length > 1 && next) next.focus();
+    if (!held) return;
+    if (next) next.focus();
     else onExhausted();
   };
 
   const clearAll = () => {
+    const held = !!ref.current?.contains(document.activeElement);
     onClear();
-    onExhausted();
+    if (held) onExhausted();
   };
 
   // Roving focus: the rows are a list, not a tab stop each, so the arrows walk
@@ -209,6 +238,9 @@ function NotificationDrawer({
       id={id}
       ref={ref}
       onKeyDown={onKeyDown}
+      onFocusCapture={(e) => {
+        lastFocused.current = e.target as HTMLElement;
+      }}
       className='absolute right-0 bottom-full z-20 mb-1 flex max-h-[60vh] w-80 flex-col overflow-hidden rounded-md border border-border bg-surface2 shadow-pop'
     >
       {notifications.length === 0 ? (
