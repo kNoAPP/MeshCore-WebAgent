@@ -255,8 +255,9 @@ export interface Toast {
 export type NotificationLevel = 'info' | 'success' | 'warning' | 'error';
 
 /**
- * One row of the action bar's notification history — the durable record of an
- * event the transient {@link Toast} only shows for three seconds.
+ * One row of the action bar's notification history — the record that outlives
+ * the {@link Toast} raised for the same event, whether that banner cleared on
+ * its timer or was dismissed.
  */
 export interface Notification {
   /**
@@ -281,9 +282,9 @@ export interface Notification {
   /** Repeats of the same event collapse into one row and bump this. */
   count: number;
   /**
-   * Dedup key. A push whose key matches the newest row bumps that row's
-   * `count` instead of inserting, so a chatty conversation cannot flood the
-   * list.
+   * Dedup key. A push whose key matches *any* row bumps that row's `count`
+   * and moves it back to the top instead of inserting, so a repeated event
+   * cannot flood the list even when other notices land between the repeats.
    */
   key: string;
 }

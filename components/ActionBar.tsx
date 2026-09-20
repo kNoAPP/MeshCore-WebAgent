@@ -177,14 +177,18 @@ function NotificationDrawer({
   const ref = useRef<HTMLDivElement>(null);
   const lastFocused = useRef<HTMLElement | null>(null);
 
-  // A merge hoists its row to the top, and React commits that reorder by
-  // re-inserting every row above the hoisted one. Re-inserting an element
-  // takes it out of the document for an instant, which blurs it — so a
-  // reorder can drop focus even though nothing was removed. Put it back.
+  // Two ways the list can blur the reader without being asked to. A merge
+  // hoists its row to the top, and React commits that reorder by re-inserting
+  // every row above the hoisted one — briefly out of the document, which
+  // blurs. An arrival at the 50-row cap, or a channel being removed, destroys
+  // a row outright. Either way focus must not end up on `body`, outside the
+  // drawer, where the arrow handler never sees their keys: put it back on the
+  // same control if it survived, and on the drawer itself if it did not.
   useLayoutEffect(() => {
     const el = lastFocused.current;
     if (!el || document.activeElement !== document.body) return;
     if (ref.current?.contains(el)) el.focus();
+    else ref.current?.focus();
   }, [notifications]);
 
   // Removing a row destroys the button that has focus, and focus falling to
@@ -194,11 +198,12 @@ function NotificationDrawer({
   // would be the *open conversation* button or Clear all, and a second Enter
   // would navigate away or wipe the history.
   const dismissRow = (id: number, button: HTMLButtonElement) => {
-    // Only the keyboard needs the handoff. Safari and Firefox on macOS do not
-    // focus a button on click, so a mouse user's focus is still wherever they
-    // left it — the composer, say — and moving it would be a theft.
-    const held = document.activeElement === button;
     const row = button.closest('li');
+    // Whether the row about to go holds focus — not whether this button does,
+    // since the row's other control counts too. A mouse user's focus is
+    // usually somewhere else entirely (Safari and Firefox on macOS do not
+    // focus a button on click), and moving it would be a theft.
+    const held = !!row?.contains(document.activeElement);
     const sibling = row?.nextElementSibling ?? row?.previousElementSibling;
     const next = sibling
       ? [...sibling.querySelectorAll('button')].pop()
@@ -237,6 +242,9 @@ function NotificationDrawer({
     <div
       id={id}
       ref={ref}
+      // Focusable so the effect above has somewhere to put a reader whose row
+      // was destroyed under them; never a tab stop.
+      tabIndex={-1}
       onKeyDown={onKeyDown}
       onFocusCapture={(e) => {
         lastFocused.current = e.target as HTMLElement;
