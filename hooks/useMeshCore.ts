@@ -1368,13 +1368,16 @@ export function useMeshCore() {
         }
         const convoId = channelConvoId(idx);
         setDraft(convoId, '');
-        // Same reason again: a notification row aimed at the freed slot would
-        // open the replacement channel, and its dedup key would merge that
-        // channel's next arrival into the old channel's row. The live toast
-        // needs no such handling — the channelRemoved toast below replaces it.
-        for (const n of useMeshStore.getState().notifications) {
+        // Same reason again: a notification row or the action bar's quick link
+        // aimed at the freed slot would open the replacement channel, and the
+        // row's dedup key would merge that channel's next arrival into the old
+        // channel's row. The live toast needs no such handling — the
+        // channelRemoved toast below replaces it.
+        const { notifications, latestInbound } = useMeshStore.getState();
+        for (const n of notifications) {
           if (n.convo?.id === convoId) dismissNotification(n.id);
         }
+        if (latestInbound?.convo.id === convoId) setLatestInbound(null);
         showToast(i18n.t('toast.channelRemoved'));
       } catch (err) {
         showToast(
@@ -1385,7 +1388,14 @@ export function useMeshCore() {
         );
       }
     },
-    [client, setActiveConvo, setDraft, dismissNotification, showToast],
+    [
+      client,
+      setActiveConvo,
+      setDraft,
+      dismissNotification,
+      setLatestInbound,
+      showToast,
+    ],
   );
 
   /**

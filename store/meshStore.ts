@@ -827,8 +827,12 @@ interface MeshActions {
    */
   restorePreferences: (raw: unknown, explicit?: boolean) => void;
   addMessage: (id: string, msg: Message) => void;
-  /** Records the arrival the action bar's quick link points at. */
-  setLatestInbound: (latest: LatestInbound) => void;
+  /**
+   * Records the arrival the action bar's quick link points at, or retracts it
+   * with `null` when its conversation stops being one the link may open — a
+   * removed channel slot, which the radio can hand to an unrelated channel.
+   */
+  setLatestInbound: (latest: LatestInbound | null) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
   setScrollToMsgId: (msgId: string | null) => void;
