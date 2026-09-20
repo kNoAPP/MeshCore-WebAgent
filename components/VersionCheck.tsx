@@ -78,7 +78,7 @@ export function VersionCheck() {
     <div
       role='status'
       aria-live='polite'
-      className='fixed bottom-5 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg border border-accent bg-surface2 px-4 py-2.5 text-sm shadow-pop'
+      className='fixed bottom-8 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg border border-accent bg-surface2 px-4 py-2.5 text-sm shadow-pop'
     >
       <div className='min-w-0'>
         <p className='font-semibold'>{t('update.available')}</p>

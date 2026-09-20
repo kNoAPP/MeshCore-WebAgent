@@ -79,6 +79,19 @@
     "advertise": "Advertise this node",
     "storage": "Storage"
   },
+  "actionBar": {
+    "label": "Status bar"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "bell": "Notifications",
+    "bellUnread_one": "Notifications, {{count}} unread",
+    "bellUnread_other": "Notifications, {{count}} unread",
+    "empty": "No notifications",
+    "repeat": "×{{count}}",
+    "dismiss": "Dismiss notification",
+    "clearAll": "Clear all"
+  },
   "theme": {
     "toggle": "Toggle light/dark theme"
   },

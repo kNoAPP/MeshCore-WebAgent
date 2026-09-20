@@ -3,15 +3,17 @@
 
 'use client';
 
+import { useLayoutEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore, openConvo } from '@/store/meshStore';
 
 /**
- * Renders the current store toast (top-center), color-coded by variant. Error
- * toasts persist until dismissed via their button and wrap; a toast carrying a
- * conversation is a button that opens it and likewise waits to be dismissed.
- * Everything else is non-interactive and auto-clears.
+ * Renders the current store toast (top-center), color-coded by variant. Every
+ * toast auto-clears; an error or warning wraps and carries a dismiss button,
+ * and a toast carrying a conversation is a button that opens it. Everything
+ * else is non-interactive. A card that expires while holding focus hands it
+ * to the main landmark rather than dropping it.
  *
  * Both live regions stay mounted whether or not a toast is set — the card
  * moves in and out of them — because a region inserted together with its text
@@ -24,10 +26,33 @@ export function Toast() {
   const setView = useMeshStore((s) => s.setView);
   const openModals = useMeshStore((s) => s.openModals);
   const reconnecting = useMeshStore((s) => s.status === 'reconnecting');
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const heldFocus = useRef(false);
+  const blocked = openModals > 0 || reconnecting;
+
+  // A dismissible card carries real buttons, and they go away under the
+  // reader: on the timer, when a newer toast supersedes this one (the card is
+  // keyed by id, so it remounts), and when a dialog opens and the jump button
+  // becomes a plain span. Focus would fall to `body`, restarting the next Tab
+  // at the top of the document, so hand it somewhere deliberate — the dialog
+  // if one is up, since `#main` is inert behind it and is the background the
+  // dialog exists to exclude, otherwise the main landmark the skip link uses.
+  useLayoutEffect(() => {
+    if (!heldFocus.current) return;
+    heldFocus.current = false;
+    if (document.activeElement !== document.body || !document.hasFocus())
+      return;
+    const dialog = document.querySelector<HTMLElement>('[aria-modal="true"]');
+    (dialog ?? document.getElementById('main'))?.focus();
+  }, [toast?.id, blocked]);
 
   const colors = {
     success: 'border-green text-green',
     error: 'border-red text-red',
+    // Not red — these did not fail — but not the neutral border either: a
+    // warning reports an operation that did not do what was asked, and it
+    // gets the longer timer, so it is worth telling apart at a glance.
+    warning: 'border-amber text-amber',
     '': 'border-border text-text',
   };
 
@@ -38,12 +63,11 @@ export function Toast() {
   // count as an open modal, so it gets the same treatment: while the link is
   // down, Disconnect is the only way out. Announce the message either way, but
   // don't offer the jump.
-  const blocked = openModals > 0 || reconnecting;
   const convo = blocked ? undefined : toast?.convo;
-  // Withholding the jump must not also withhold the exit: neither an error nor
-  // a conversation toast is on a timer, so both keep their dismiss button even
-  // when the action is suppressed, or the card lingers with no way to clear it.
-  const dismissible = isError || !!toast?.convo;
+  // Every toast is on a timer, but the ones worth reading twice keep a
+  // dismiss button so they can be cleared early — and so withholding the jump
+  // does not leave a card with no control on it at all.
+  const dismissible = isError || toast?.variant === 'warning' || !!toast?.convo;
   const interaction = dismissible
     ? 'pointer-events-auto flex max-w-[90vw] items-start gap-2 text-left'
     : 'pointer-events-none whitespace-nowrap';
@@ -98,7 +122,19 @@ export function Toast() {
     ));
 
   return (
-    <div className='pointer-events-none fixed top-5 left-1/2 z-50 -translate-x-1/2'>
+    <div
+      ref={wrapRef}
+      onFocusCapture={() => {
+        heldFocus.current = true;
+      }}
+      onBlurCapture={(e) => {
+        // A blur naming somewhere else is the reader moving on; one naming
+        // nothing is the timer pulling the card out from under them.
+        const to = e.relatedTarget as Node | null;
+        if (to && !wrapRef.current?.contains(to)) heldFocus.current = false;
+      }}
+      className='pointer-events-none fixed top-5 left-1/2 z-50 -translate-x-1/2'
+    >
       <div role='status' aria-live='polite'>
         {!isError && card}
       </div>

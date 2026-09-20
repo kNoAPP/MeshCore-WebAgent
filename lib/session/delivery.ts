@@ -194,7 +194,7 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
     !canPostToRoom(store.adminSessions[cycle.contactKey]?.login)
   ) {
     settleUndelivered(cycle);
-    store.showToast(i18n.t('toast.roomPostNoAccess'), 'error');
+    store.showToast(i18n.t('toast.roomPostNoAccess'), 'warning');
     return;
   }
   store.updateMessage(cycle.convo.id, cycle.msgId, {

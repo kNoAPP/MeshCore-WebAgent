@@ -241,9 +241,52 @@ export interface RadioPreferences {
  */
 export interface Toast {
   text: string;
-  variant: 'success' | 'error' | '';
+  variant: 'success' | 'error' | 'warning' | '';
   id: number;
   convo?: ActiveConvo;
+}
+
+/**
+ * Severity of a {@link Notification} row, driving its icon and color in the
+ * action bar's drawer. `warning` covers a degraded success — an operation that
+ * completed with nothing to do, or declined for a reason that is not a
+ * failure.
+ */
+export type NotificationLevel = 'info' | 'success' | 'warning' | 'error';
+
+/**
+ * One row of the action bar's notification history — the record that outlives
+ * the {@link Toast} raised for the same event, whether that banner cleared on
+ * its timer or was dismissed.
+ */
+export interface Notification {
+  /**
+   * Stable for the row's whole life, including across a merge, so the drawer
+   * can key on it without remounting a row that merely grew a repeat.
+   */
+  id: number;
+  /**
+   * Bumped on every push that touches the row, a merge included. This — not
+   * {@link Notification.id} — is what {@link MeshState.notificationsSeenAt}
+   * is measured against, so a repeat of an already-read event counts as
+   * unread again.
+   */
+  seq: number;
+  level: NotificationLevel;
+  /** Already localized at push time, like {@link Toast.text}. */
+  text: string;
+  /** Epoch seconds, for the drawer's relative timestamp. */
+  at: number;
+  /** When set, the row is a button that opens this conversation. */
+  convo?: ActiveConvo;
+  /** Repeats of the same event collapse into one row and bump this. */
+  count: number;
+  /**
+   * Dedup key. A push whose key matches *any* row bumps that row's `count`
+   * and moves it back to the top instead of inserting, so a repeated event
+   * cannot flood the list even when other notices land between the repeats.
+   */
+  key: string;
 }
 
 /**
@@ -588,6 +631,18 @@ interface MeshState {
   prefsHydrated: boolean;
   toast: Toast | null;
   /**
+   * Notification history for the action bar's drawer, newest first and
+   * capped at 50 rows. Session-only: rows carry message text, so persisting
+   * them would mean a new encrypted per-radio record for what is no more
+   * than a log of the current session.
+   */
+  notifications: Notification[];
+  /**
+   * The {@link Notification.seq} high-water mark from the last time the
+   * drawer was open. The bell badge counts the rows above it.
+   */
+  notificationsSeenAt: number;
+  /**
    * True once a newer build has been deployed while a session was live, so the
    * update banner offers a reload instead of taking one unasked.
    */
@@ -780,7 +835,8 @@ interface MeshActions {
   ) => void;
   /**
    * Raises a toast. Pass `convo` to make the banner open that conversation
-   * when clicked.
+   * when clicked. Every toast clears itself within five seconds; the drawer
+   * keeps the lasting record.
    */
   showToast: (
     text: string,
@@ -788,6 +844,31 @@ interface MeshActions {
     convo?: ActiveConvo,
   ) => void;
   dismissToast: () => void;
+  /**
+   * Appends a row to the notification history. When `key` matches a row
+   * already in the list the two collapse: that row's `count`, `at` and `seq`
+   * are bumped and it moves back to the top, while its `id` is left alone, so
+   * the row keeps one identity for its whole life and still reads as unread
+   * again. Matching the whole list rather than only the newest row is what
+   * keeps two people talking in one channel from alternating their way
+   * through all 50 slots.
+   *
+   * @param key - dedup key; anything that identifies "the same event again".
+   * It has to separate events a reader would not want conflated, so for a
+   * message arrival that is the conversation *and* the rendered text.
+   */
+  pushNotification: (
+    text: string,
+    level: NotificationLevel,
+    key: string,
+    convo?: ActiveConvo,
+  ) => void;
+  /** Removes one row from the history; unknown ids are a no-op. */
+  dismissNotification: (id: number) => void;
+  /** Empties the history. Does not reset the unread high-water mark. */
+  clearNotifications: () => void;
+  /** Marks every current row read, clearing the bell badge but keeping rows. */
+  markNotificationsSeen: () => void;
   /** Raises (or dismisses) the "new version deployed" update banner. */
   setUpdateAvailable: (available: boolean) => void;
   /** Sets (or clears, with `null`) the inline connect-screen error code. */
@@ -970,6 +1051,8 @@ const initialState: MeshState = {
   mapFilters: DEFAULT_MAP_FILTERS,
   prefsHydrated: false,
   toast: null,
+  notifications: [],
+  notificationsSeenAt: 0,
   updateAvailable: false,
   connectError: null,
   lastConnectFailure: null,
@@ -999,6 +1082,24 @@ const initialState: MeshState = {
 };
 
 let toastSeq = 0;
+let notificationSeq = 0;
+
+/** How many notification rows the drawer keeps before dropping the oldest. */
+const NOTIFICATION_LIMIT = 50;
+
+/** How long a plain toast stays up. */
+const TOAST_PLAIN_MS = 3000;
+
+/** How long a toast the reader may want to click stays up. */
+const TOAST_ACTIONABLE_MS = 5000;
+
+/** Toast variant → the drawer level it records under. */
+const NOTIFICATION_LEVEL: Record<Toast['variant'], NotificationLevel> = {
+  '': 'info',
+  success: 'success',
+  warning: 'warning',
+  error: 'error',
+};
 
 // Whether the *user* has moved the map since the current session began
 // hydrating. `restorePreferences` may only carry a live `mapPrefs` over the
@@ -1312,17 +1413,87 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   showToast: (text, variant = '', convo) => {
     const id = ++toastSeq;
+    // The banner is the glance; the drawer is the record. Every toast writes
+    // both, so no call site has to know the history exists.
+    get().pushNotification(
+      text,
+      NOTIFICATION_LEVEL[variant],
+      // The conversation alone is too coarse a key: a channel arrival renders
+      // as "{sender} in {channel}", so merging on it would relabel the older
+      // senders' rows as the newest one. The text alone is too coarse the
+      // other way, since two contacts can share a name.
+      convo ? `${convo.id}\n${text}` : text,
+      convo,
+    );
     set({ toast: { text, variant, id, convo } });
-    // Errors and toasts that carry an action both wait to be dismissed: three
-    // seconds is not long enough to tab to a button that was only just
-    // inserted, and yanking it away can drop focus mid-reach.
-    if (variant === 'error' || convo) return;
+    // Every toast clears itself — none of them wait to be dismissed. The
+    // banner is a glance, and the drawer now holds the record, so nothing is
+    // lost by letting it go. Ones carrying a control (a dismiss button, or a
+    // jump to the conversation) get the longer window: three seconds is not
+    // long enough to reach a button that was only just inserted.
+    const after =
+      variant === 'error' || variant === 'warning' || convo
+        ? TOAST_ACTIONABLE_MS
+        : TOAST_PLAIN_MS;
     setTimeout(() => {
       if (get().toast?.id === id) set({ toast: null });
-    }, 3000);
+    }, after);
   },
 
   dismissToast: () => set({ toast: null }),
+
+  pushNotification: (text, level, key, convo) =>
+    set((state) => {
+      const at = Math.floor(Date.now() / 1000);
+      const seq = ++notificationSeq;
+      const index = state.notifications.findIndex((n) => n.key === key);
+      // A merge keeps the row's `id` — the drawer keys on it, and a fresh one
+      // would remount the row and drop the keyboard focus a reader may be
+      // holding on its buttons — but still takes the new `seq`, or a repeat
+      // of an already-read event would never light the bell again.
+      if (index >= 0) {
+        const prev = state.notifications[index];
+        const merged: Notification = {
+          ...prev,
+          seq,
+          text,
+          level,
+          at,
+          convo,
+          count: prev.count + 1,
+        };
+        const rest = state.notifications.filter((_, i) => i !== index);
+        return { notifications: [merged, ...rest] };
+      }
+      const row: Notification = {
+        id: seq,
+        seq,
+        level,
+        text,
+        at,
+        convo,
+        count: 1,
+        key,
+      };
+      return {
+        notifications: [row, ...state.notifications].slice(
+          0,
+          NOTIFICATION_LIMIT,
+        ),
+      };
+    }),
+
+  dismissNotification: (id) =>
+    set((state) => ({
+      notifications: state.notifications.filter((n) => n.id !== id),
+    })),
+
+  clearNotifications: () => set({ notifications: [] }),
+
+  // The sequence, not the newest row's id: dismissing the top row must not
+  // walk the high-water mark back down.
+  markNotificationsSeen: () => set({ notificationsSeenAt: notificationSeq }),
+
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
   setConnectError: (code) => set({ connectError: code }),
 
