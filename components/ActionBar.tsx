@@ -131,7 +131,7 @@ function NotificationBell() {
         }
         title={t('notifications.title')}
         aria-expanded={open}
-        aria-controls={drawerId}
+        aria-controls={open ? drawerId : undefined}
         className='focus-inset flex items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent'
       >
         <Bell size={13} aria-hidden='true' />
@@ -176,20 +176,36 @@ function NotificationDrawer({
   const dismiss = useMeshStore((s) => s.dismissNotification);
   const ref = useRef<HTMLDivElement>(null);
   const lastFocused = useRef<HTMLElement | null>(null);
+  const lastFocusedAt = useRef(0);
+  const heldFocus = useRef(false);
 
   // Two ways the list can blur the reader without being asked to. A merge
   // hoists its row to the top, and React commits that reorder by re-inserting
   // every row above the hoisted one — briefly out of the document, which
   // blurs. An arrival at the 50-row cap, or a channel being removed, destroys
   // a row outright. Either way focus must not end up on `body`, outside the
-  // drawer, where the arrow handler never sees their keys: put it back on the
-  // same control if it survived, and on the drawer itself if it did not.
+  // drawer, where the arrow handler never sees their keys.
+  //
+  // Only this commit's own blur is worth undoing, hence `heldFocus`: focus
+  // that was already gone before the list changed was given up elsewhere, and
+  // hauling it back would be a theft dressed as a recovery.
   useLayoutEffect(() => {
+    if (!heldFocus.current || document.activeElement !== document.body) {
+      heldFocus.current = !!ref.current?.contains(document.activeElement);
+      return;
+    }
     const el = lastFocused.current;
-    if (!el || document.activeElement !== document.body) return;
-    if (ref.current?.contains(el)) el.focus();
-    else ref.current?.focus();
-  }, [notifications]);
+    if (el && ref.current?.contains(el)) {
+      el.focus();
+    } else {
+      // The control itself is gone. Prefer the control next to it over the
+      // container, which has a name but nothing a reader can act on.
+      const buttons = [...(ref.current?.querySelectorAll('button') ?? [])];
+      const near = buttons[Math.min(lastFocusedAt.current, buttons.length - 1)];
+      (near ?? ref.current)?.focus();
+    }
+    heldFocus.current = !!ref.current?.contains(document.activeElement);
+  });
 
   // Removing a row destroys the button that has focus, and focus falling to
   // `body` puts the reader outside the drawer — where the arrow handler below
@@ -243,11 +259,21 @@ function NotificationDrawer({
       id={id}
       ref={ref}
       // Focusable so the effect above has somewhere to put a reader whose row
-      // was destroyed under them; never a tab stop.
+      // was destroyed under them; never a tab stop. Named, because a div
+      // with no role and no name is announced as nothing at all when it
+      // becomes the focus target.
       tabIndex={-1}
+      role='group'
+      aria-label={t('notifications.title')}
       onKeyDown={onKeyDown}
       onFocusCapture={(e) => {
-        lastFocused.current = e.target as HTMLElement;
+        const el = e.target as HTMLElement;
+        lastFocused.current = el;
+        const buttons = [...(ref.current?.querySelectorAll('button') ?? [])];
+        lastFocusedAt.current = Math.max(
+          0,
+          buttons.indexOf(el as HTMLButtonElement),
+        );
       }}
       className='absolute right-0 bottom-full z-20 mb-1 flex max-h-[60vh] w-80 flex-col overflow-hidden rounded-md border border-border bg-surface2 shadow-pop'
     >
@@ -257,10 +283,7 @@ function NotificationDrawer({
         </p>
       ) : (
         <>
-          <ul
-            aria-label={t('notifications.title')}
-            className='min-h-0 flex-1 overflow-y-auto'
-          >
+          <ul className='min-h-0 flex-1 overflow-y-auto'>
             {notifications.map((n) => (
               <NotificationRow
                 key={n.id}
