@@ -172,7 +172,9 @@ function ManagePanelView() {
             <DetailRow
               label={t('manage.clockSkew')}
               value={advertSkew}
-              hint={formatDateTime(advert.lastHeard)}
+              hint={
+                advert.lastHeard ? formatDateTime(advert.lastHeard) : undefined
+              }
             />
           )}
           {location && (

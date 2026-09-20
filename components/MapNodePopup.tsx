@@ -128,7 +128,9 @@ export function MapNodePopup({
           <PopupRow
             label={t('manage.clockSkew')}
             value={clockSkew}
-            title={advert ? formatDateTime(advert.lastHeard) : undefined}
+            title={
+              advert?.lastHeard ? formatDateTime(advert.lastHeard) : undefined
+            }
           />
         )}
         <PopupRow
