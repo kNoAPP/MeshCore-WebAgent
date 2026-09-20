@@ -108,9 +108,8 @@ function conversationReadings(messages: Message[]): Map<string, SnrReading> {
  * node's prefix appears on its direct messages and on anything it posts to a
  * channel — so those are reconciled by clock-clamped age, the rule
  * `normalizedLastHeard` already applies to last-advert timestamps. That
- * comparison
- * is the only part that depends on the clock, and it runs over the cached
- * per-conversation results rather than over the messages themselves.
+ * comparison is the only part that depends on the clock, and it runs over the
+ * cached per-conversation results rather than over the messages themselves.
  *
  * @param nowSecs - reference clock in epoch seconds for that age comparison.
  */

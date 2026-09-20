@@ -168,11 +168,18 @@ export function freshAdverts(
     if (existing) {
       const cachedSeen = existing.observedAt;
       const backupSeen = advert.observedAt;
-      const [cachedAt, backupAt] =
+      // Our own observation when both sides carry one, else the raw claims,
+      // which share this node's clock. A `0` claim carries no time at all, so
+      // a side holding one of our observations outranks it instead of losing
+      // to any positive number the other side happens to have.
+      const keepCached =
         cachedSeen !== undefined && backupSeen !== undefined
-          ? [cachedSeen, backupSeen]
-          : [existing.lastHeard, advert.lastHeard];
-      if (cachedAt >= backupAt) continue;
+          ? cachedSeen >= backupSeen
+          : existing.lastHeard > 0 && advert.lastHeard > 0
+            ? existing.lastHeard >= advert.lastHeard
+            : cachedSeen !== undefined ||
+              existing.lastHeard >= advert.lastHeard;
+      if (keepCached) continue;
     }
     out[prefix] = advert;
   }

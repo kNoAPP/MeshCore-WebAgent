@@ -862,7 +862,11 @@ export class MeshCoreClient {
     // `this.adverts` starts empty on every connect, so without it the first
     // advert of every saved contact each session would have nothing to prove
     // itself against and could never be measured.
-    const claim = this.contacts[prefix]?.lastAdvert ?? existing?.lastHeard;
+    // `||`, not `??`: a `0` claim is the firmware's "RTC never set", not a
+    // reference. Left in place, every positive row value would beat it and
+    // "prove" a pairing — including one carrying an advert we never heard.
+    const claim =
+      this.contacts[prefix]?.lastAdvert || existing?.lastHeard || undefined;
     this.advertObservations[prefix] = { at: nowSecs, claim };
     if (existing) {
       this.adverts[prefix] = { ...existing, observedAt: nowSecs };
@@ -904,7 +908,11 @@ export class MeshCoreClient {
         seen.claim !== undefined &&
         contact.lastAdvert > seen.claim;
       // Record the sighting either way, so a coalesced resync cannot lose it.
-      if (contact?.lastAdvert) {
+      // Gated on the contact, not on its claim: a node whose RTC is unset has
+      // no claim to offer, and dropping it here would leave it with no advert
+      // record at all — reading as "unknown" and hidden by every "heard
+      // within" window seconds after we heard it live.
+      if (contact) {
         this.recordAdvert(contact, { at: seen.at, measure });
       }
       // An unproven observation stays pending: the enumeration that answered

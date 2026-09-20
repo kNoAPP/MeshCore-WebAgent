@@ -26,6 +26,7 @@ import {
   ADV_TYPE_SENSOR,
 } from '@/lib/meshcore/constants';
 import { formatDistanceBearing, formatRelative } from '@/lib/i18n/format';
+import type { Advert } from '@/types/meshcore';
 
 type Mode = 'discover' | 'paste' | 'manual';
 
@@ -145,6 +146,12 @@ export function AddContactModal() {
         a.pubkeyPrefix.toLowerCase().includes(discoverTerm),
     ),
   );
+  // A node whose RTC has never been set offers no claim, and we may not have
+  // heard it live this session either, so there is genuinely no age to show.
+  const advertHeard = (a: Advert): string => {
+    const heard = normalizedLastHeard(undefined, a);
+    return heard ? formatRelative(heard) : t('common.unknown');
+  };
 
   return (
     <ModalShell
@@ -254,12 +261,8 @@ export function AddContactModal() {
                                   a.advType as keyof typeof ADV_LABEL_KEY
                                 ] ?? 'discover.node',
                               )}{' '}
-                              ·{' '}
-                              {formatRelative(
-                                normalizedLastHeard(undefined, a) ??
-                                  a.lastHeard,
-                              )}{' '}
-                              · {formatPubkey(a.pubkey, showFullPublicKeys)}
+                              · {advertHeard(a)} ·{' '}
+                              {formatPubkey(a.pubkey, showFullPublicKeys)}
                             </div>
                             {location && (
                               <div className='truncate text-xs text-text2'>
