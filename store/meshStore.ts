@@ -241,9 +241,41 @@ export interface RadioPreferences {
  */
 export interface Toast {
   text: string;
-  variant: 'success' | 'error' | '';
+  variant: 'success' | 'error' | 'warning' | '';
   id: number;
   convo?: ActiveConvo;
+}
+
+/**
+ * Severity of a {@link Notification} row, driving its icon and color in the
+ * action bar's drawer. `warning` covers a degraded success — an operation that
+ * completed with nothing to do, or declined for a reason that is not a
+ * failure.
+ */
+export type NotificationLevel = 'info' | 'success' | 'warning' | 'error';
+
+/**
+ * One row of the action bar's notification history — the durable record of an
+ * event the transient {@link Toast} only shows for three seconds.
+ */
+export interface Notification {
+  /** Monotonic; also the ordering and unread high-water key. */
+  id: number;
+  level: NotificationLevel;
+  /** Already localized at push time, like {@link Toast.text}. */
+  text: string;
+  /** Epoch seconds, for the drawer's relative timestamp. */
+  at: number;
+  /** When set, the row is a button that opens this conversation. */
+  convo?: ActiveConvo;
+  /** Repeats of the same event collapse into one row and bump this. */
+  count: number;
+  /**
+   * Dedup key. A push whose key matches the newest row bumps that row's
+   * `count` instead of inserting, so a chatty conversation cannot flood the
+   * list.
+   */
+  key: string;
 }
 
 /**
@@ -588,6 +620,18 @@ interface MeshState {
   prefsHydrated: boolean;
   toast: Toast | null;
   /**
+   * Notification history for the action bar's drawer, newest first and
+   * capped at 50 rows. Session-only: rows carry message text, so persisting
+   * them would mean a new encrypted per-radio record for what is no more
+   * than a log of the current session.
+   */
+  notifications: Notification[];
+  /**
+   * The {@link Notification.id} high-water mark from the last time the drawer
+   * was opened. The bell badge counts the rows above it.
+   */
+  notificationsSeenAt: number;
+  /**
    * True once a newer build has been deployed while a session was live, so the
    * update banner offers a reload instead of taking one unasked.
    */
@@ -788,6 +832,26 @@ interface MeshActions {
     convo?: ActiveConvo,
   ) => void;
   dismissToast: () => void;
+  /**
+   * Appends a row to the notification history. When `key` matches the newest
+   * row the two collapse: that row's `count`, `at` and `id` are bumped in
+   * place — the fresh `id` is what makes the repeat count as unread again.
+   *
+   * @param key - dedup key; `convo.id` for a message arrival, otherwise a
+   * value that distinguishes the event (the rendered text will do).
+   */
+  pushNotification: (
+    text: string,
+    level: NotificationLevel,
+    key: string,
+    convo?: ActiveConvo,
+  ) => void;
+  /** Removes one row from the history; unknown ids are a no-op. */
+  dismissNotification: (id: number) => void;
+  /** Empties the history. Does not reset the unread high-water mark. */
+  clearNotifications: () => void;
+  /** Marks every current row read, clearing the bell badge but keeping rows. */
+  markNotificationsSeen: () => void;
   /** Raises (or dismisses) the "new version deployed" update banner. */
   setUpdateAvailable: (available: boolean) => void;
   /** Sets (or clears, with `null`) the inline connect-screen error code. */
@@ -970,6 +1034,8 @@ const initialState: MeshState = {
   mapFilters: DEFAULT_MAP_FILTERS,
   prefsHydrated: false,
   toast: null,
+  notifications: [],
+  notificationsSeenAt: 0,
   updateAvailable: false,
   connectError: null,
   lastConnectFailure: null,
@@ -999,6 +1065,18 @@ const initialState: MeshState = {
 };
 
 let toastSeq = 0;
+let notificationSeq = 0;
+
+/** How many notification rows the drawer keeps before dropping the oldest. */
+const NOTIFICATION_LIMIT = 50;
+
+/** Toast variant → the drawer level it records under. */
+const NOTIFICATION_LEVEL: Record<Toast['variant'], NotificationLevel> = {
+  '': 'info',
+  success: 'success',
+  warning: 'warning',
+  error: 'error',
+};
 
 // Whether the *user* has moved the map since the current session began
 // hydrating. `restorePreferences` may only carry a live `mapPrefs` over the
@@ -1312,6 +1390,14 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   showToast: (text, variant = '', convo) => {
     const id = ++toastSeq;
+    // The banner is the glance; the drawer is the record. Every toast writes
+    // both, so no call site has to know the history exists.
+    get().pushNotification(
+      text,
+      NOTIFICATION_LEVEL[variant],
+      convo?.id ?? text,
+      convo,
+    );
     set({ toast: { text, variant, id, convo } });
     // Errors and toasts that carry an action both wait to be dismissed: three
     // seconds is not long enough to tab to a button that was only just
@@ -1323,6 +1409,44 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   },
 
   dismissToast: () => set({ toast: null }),
+
+  pushNotification: (text, level, key, convo) =>
+    set((state) => {
+      const at = Math.floor(Date.now() / 1000);
+      const id = ++notificationSeq;
+      const [newest, ...rest] = state.notifications;
+      if (newest?.key === key) {
+        const merged: Notification = {
+          ...newest,
+          id,
+          text,
+          level,
+          at,
+          convo,
+          count: newest.count + 1,
+        };
+        return { notifications: [merged, ...rest] };
+      }
+      const row: Notification = { id, level, text, at, convo, count: 1, key };
+      return {
+        notifications: [row, ...state.notifications].slice(
+          0,
+          NOTIFICATION_LIMIT,
+        ),
+      };
+    }),
+
+  dismissNotification: (id) =>
+    set((state) => ({
+      notifications: state.notifications.filter((n) => n.id !== id),
+    })),
+
+  clearNotifications: () => set({ notifications: [] }),
+
+  // The sequence, not the newest row's id: dismissing the top row must not
+  // walk the high-water mark back down.
+  markNotificationsSeen: () => set({ notificationsSeenAt: notificationSeq }),
+
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
   setConnectError: (code) => set({ connectError: code }),
 

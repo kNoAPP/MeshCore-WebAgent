@@ -533,7 +533,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       ) {
         showToast(t('toast.repeaterActionSent'), 'success');
       } else if (outcome === 'timeout') {
-        showToast(t('toast.repeaterCliNoReply'), 'error');
+        showToast(t('toast.repeaterCliNoReply'), 'warning');
       }
     },
     [contact, repeaterCli, showToast, t],

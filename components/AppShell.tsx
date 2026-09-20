@@ -26,6 +26,7 @@ import { AutomationRunner } from './AutomationRunner';
 import { MessageAnnouncer } from './MessageAnnouncer';
 import { SyncAnnouncer } from './SyncProgressView';
 import { Toast } from './Toast';
+import { ActionBar } from './ActionBar';
 
 // Leaflet and the map view are loaded only when the map opens, keeping the
 // initial bundle lean. `ssr: false` skips it during the static export, since
@@ -38,7 +39,8 @@ const MapView = dynamic(
 /**
  * Top-level app layout. Restricts the client to desktop browsers; otherwise
  * shows the header and toast, swaps the connect panel for the sidebar + chat
- * once connected, and mounts the management modals only while connected.
+ * once connected, and mounts the management modals and the bottom action bar
+ * only while connected.
  */
 export function AppShell() {
   useUrlState();
@@ -111,6 +113,7 @@ export function AppShell() {
             )}
           </main>
         </div>{' '}
+        <ActionBar />
       </div>{' '}
       {reconnecting && <ReconnectingOverlay />}
       {connected && (

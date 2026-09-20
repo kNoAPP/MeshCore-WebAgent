@@ -28,6 +28,8 @@ export function Toast() {
   const colors = {
     success: 'border-green text-green',
     error: 'border-red text-red',
+    // A degraded success is neutral here; the drawer is where the level shows.
+    warning: 'border-border text-text',
     '': 'border-border text-text',
   };
 

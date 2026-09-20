@@ -80,6 +80,19 @@
     "advertise": "Annoncer ce nœud",
     "storage": "Stockage"
   },
+  "actionBar": {
+    "label": "Barre d’état"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "bell": "Notifications",
+    "bellUnread_one": "Notifications, {{count}} non lue",
+    "bellUnread_other": "Notifications, {{count}} non lues",
+    "empty": "Aucune notification",
+    "repeat": "×{{count}}",
+    "dismiss": "Ignorer la notification",
+    "clearAll": "Tout effacer"
+  },
   "theme": {
     "toggle": "Basculer le thème clair/sombre"
   },

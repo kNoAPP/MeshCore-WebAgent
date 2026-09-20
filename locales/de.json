@@ -80,6 +80,19 @@
     "advertise": "Diesen Knoten ankündigen",
     "storage": "Speicher"
   },
+  "actionBar": {
+    "label": "Statusleiste"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "bell": "Benachrichtigungen",
+    "bellUnread_one": "Benachrichtigungen, {{count}} ungelesen",
+    "bellUnread_other": "Benachrichtigungen, {{count}} ungelesen",
+    "empty": "Keine Benachrichtigungen",
+    "repeat": "×{{count}}",
+    "dismiss": "Benachrichtigung verwerfen",
+    "clearAll": "Alle löschen"
+  },
   "theme": {
     "toggle": "Helles/dunkles Design umschalten"
   },

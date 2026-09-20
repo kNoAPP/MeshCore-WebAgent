@@ -80,6 +80,19 @@
     "advertise": "Anunciar este nodo",
     "storage": "Almacenamiento"
   },
+  "actionBar": {
+    "label": "Barra de estado"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "bell": "Notificaciones",
+    "bellUnread_one": "Notificaciones, {{count}} sin leer",
+    "bellUnread_other": "Notificaciones, {{count}} sin leer",
+    "empty": "Sin notificaciones",
+    "repeat": "×{{count}}",
+    "dismiss": "Descartar notificación",
+    "clearAll": "Borrar todo"
+  },
   "theme": {
     "toggle": "Cambiar tema claro/oscuro"
   },

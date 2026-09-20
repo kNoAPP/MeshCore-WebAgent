@@ -1,0 +1,279 @@
+// Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
+// (https://github.com/kNoAPP/MeshCore-WebAgent)
+
+'use client';
+
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle2,
+  Info,
+  X,
+  XCircle,
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import {
+  useMeshStore,
+  openConvo,
+  type Notification,
+  type NotificationLevel,
+} from '@/store/meshStore';
+import { useClickOutside } from '@/hooks/useClickOutside';
+import { formatRelative } from '@/lib/i18n/format';
+
+/** Badge counts above this render as `99+` rather than growing the bar. */
+const BADGE_CAP = 99;
+
+const LEVEL_ICON = {
+  info: Info,
+  success: CheckCircle2,
+  warning: AlertTriangle,
+  error: XCircle,
+} as const satisfies Record<NotificationLevel, typeof Info>;
+
+const LEVEL_COLOR = {
+  info: 'text-text2',
+  success: 'text-green',
+  warning: 'text-amber',
+  error: 'text-red',
+} as const satisfies Record<NotificationLevel, string>;
+
+/**
+ * Thin status strip along the bottom of the connected app, holding ambient
+ * state the header has no room for. Part of the flex column rather than an
+ * overlay, so it never covers the chat composer.
+ *
+ * @remarks Rendered only while connected — the connect screen has no ambient
+ * state to report — and mounted inside the subtree a modal or the reconnect
+ * overlay marks `inert`, so it dims and goes unreachable with the rest of the
+ * app.
+ */
+export function ActionBar() {
+  const { t } = useTranslation();
+  const connected = useMeshStore((s) => s.status === 'connected');
+  if (!connected) return null;
+  return (
+    <footer
+      role='contentinfo'
+      aria-label={t('actionBar.label')}
+      className='flex h-6 shrink-0 items-center gap-3 border-t border-border bg-surface px-2 text-xs text-text2'
+    >
+      <NotificationBell />
+    </footer>
+  );
+}
+
+// The bell is the bar's right-hand anchor (`ml-auto`): later items land to its
+// left and it stays put.
+function NotificationBell() {
+  const { t } = useTranslation();
+  const notifications = useMeshStore((s) => s.notifications);
+  const seenAt = useMeshStore((s) => s.notificationsSeenAt);
+  const markSeen = useMeshStore((s) => s.markNotificationsSeen);
+  const clearAll = useMeshStore((s) => s.clearNotifications);
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
+  const drawerId = useId();
+
+  const unread = notifications.filter((n) => n.id > seenAt).length;
+
+  // Only reclaim focus the drawer actually held: an outside click closes on
+  // `mousedown`, before the click's own focus lands, so pulling focus back
+  // unconditionally would yank it off whatever the user just clicked.
+  const close = useCallback(() => {
+    const held = rootRef.current?.contains(document.activeElement);
+    setOpen(false);
+    if (held) bellRef.current?.focus();
+  }, []);
+
+  useClickOutside(rootRef, open, close);
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, close]);
+
+  const toggle = () => {
+    if (open) {
+      close();
+      return;
+    }
+    // Seen, not dismissed: the badge clears and the rows stay.
+    markSeen();
+    setOpen(true);
+  };
+
+  return (
+    <div className='relative ml-auto' ref={rootRef}>
+      <button
+        ref={bellRef}
+        type='button'
+        onClick={toggle}
+        aria-label={
+          unread > 0
+            ? t('notifications.bellUnread', { count: unread })
+            : t('notifications.bell')
+        }
+        title={t('notifications.title')}
+        aria-expanded={open}
+        aria-controls={drawerId}
+        className='focus-inset flex items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent'
+      >
+        <Bell size={13} aria-hidden='true' />
+        {unread > 0 && (
+          <span
+            aria-hidden='true'
+            className='rounded-full bg-accent-solid px-1 text-[10px] leading-4 font-semibold text-white'
+          >
+            {unread > BADGE_CAP ? `${BADGE_CAP}+` : unread}
+          </span>
+        )}
+      </button>
+      {open && (
+        <NotificationDrawer
+          id={drawerId}
+          notifications={notifications}
+          onClear={clearAll}
+          onClose={close}
+        />
+      )}
+    </div>
+  );
+}
+
+function NotificationDrawer({
+  id,
+  notifications,
+  onClear,
+  onClose,
+}: {
+  id: string;
+  notifications: Notification[];
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Roving focus: the rows are a list, not a tab stop each, so the arrows walk
+  // the drawer's controls in visual order and wrap at either end.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const items = [...(ref.current?.querySelectorAll('button') ?? [])];
+    if (items.length === 0) return;
+    e.preventDefault();
+    const step = e.key === 'ArrowDown' ? 1 : -1;
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next =
+      at < 0
+        ? step > 0
+          ? 0
+          : items.length - 1
+        : (at + step + items.length) % items.length;
+    items[next].focus();
+  };
+
+  return (
+    <div
+      id={id}
+      ref={ref}
+      onKeyDown={onKeyDown}
+      className='absolute right-0 bottom-full z-20 mb-1 flex max-h-[60vh] w-80 flex-col overflow-hidden rounded-md border border-border bg-surface2 shadow-pop'
+    >
+      {notifications.length === 0 ? (
+        <p className='px-3 py-4 text-center text-xs text-text2'>
+          {t('notifications.empty')}
+        </p>
+      ) : (
+        <>
+          <ul
+            aria-label={t('notifications.title')}
+            className='min-h-0 flex-1 overflow-y-auto'
+          >
+            {notifications.map((n) => (
+              <NotificationRow key={n.id} notification={n} onOpen={onClose} />
+            ))}
+          </ul>
+          <button
+            type='button'
+            onClick={onClear}
+            className='focus-inset shrink-0 border-t border-border px-3 py-1.5 text-xs text-text2 hover:bg-surface hover:text-accent'
+          >
+            {t('notifications.clearAll')}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function NotificationRow({
+  notification,
+  onOpen,
+}: {
+  notification: Notification;
+  onOpen: () => void;
+}) {
+  const { t } = useTranslation();
+  const dismiss = useMeshStore((s) => s.dismissNotification);
+  const setView = useMeshStore((s) => s.setView);
+  const { id, level, text, at, convo, count } = notification;
+  const Icon = LEVEL_ICON[level];
+
+  const body = (
+    <>
+      <Icon
+        size={13}
+        aria-hidden='true'
+        className={`mt-0.5 shrink-0 ${LEVEL_COLOR[level]}`}
+      />
+      <span className='min-w-0 flex-1 wrap-break-word'>{text}</span>
+    </>
+  );
+
+  const openTarget = () => {
+    if (!convo) return;
+    // Open first: switching the view catches the *then*-open conversation up
+    // on its unread backlog, and the one being left behind shouldn't be it.
+    openConvo(convo);
+    setView('chat');
+    onOpen();
+  };
+
+  return (
+    <li className='flex items-start gap-2 border-b border-border px-2 py-1.5 text-xs text-text last:border-b-0'>
+      {convo ? (
+        <button
+          type='button'
+          onClick={openTarget}
+          className='flex min-w-0 flex-1 items-start gap-2 rounded text-left hover:underline focus-visible:outline-2 focus-visible:outline-accent'
+        >
+          {body}
+        </button>
+      ) : (
+        <span className='flex min-w-0 flex-1 items-start gap-2'>{body}</span>
+      )}
+      {count > 1 && (
+        <span className='mt-0.5 shrink-0 rounded bg-surface px-1 text-[10px] text-text2'>
+          {t('notifications.repeat', { count })}
+        </span>
+      )}
+      <span className='mt-0.5 shrink-0 text-[10px] whitespace-nowrap text-text2'>
+        {formatRelative(at)}
+      </span>
+      <button
+        type='button'
+        onClick={() => dismiss(id)}
+        aria-label={t('notifications.dismiss')}
+        className='shrink-0 rounded p-0.5 text-text2 hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-accent'
+      >
+        <X size={12} aria-hidden='true' />
+      </button>
+    </li>
+  );
+}

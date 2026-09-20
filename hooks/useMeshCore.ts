@@ -235,7 +235,8 @@ export function useMeshCore() {
         onBattery: (b) => setBattery(b),
         onSyncProgress: (p) => setSyncProgress(p),
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
-        onContactsFull: () => showToast(i18n.t('toast.contactsFull'), 'error'),
+        onContactsFull: () =>
+          showToast(i18n.t('toast.contactsFull'), 'warning'),
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
         onCliReply: ({ pubkeyPrefix, text }) =>
           handleCliReply(c, pubkeyPrefix, text),
@@ -1165,6 +1166,7 @@ export function useMeshCore() {
           i18n.t('toast.contactAlreadyAdded', {
             name: client.contacts[pubkeyPrefix].name || pubkeyPrefix,
           }),
+          'warning',
         );
         return;
       }
@@ -1209,7 +1211,7 @@ export function useMeshCore() {
         // if it never heard one over the air (e.g. a QR-imported contact) it
         // returns TABLE_FULL with nothing to send. Surface that distinct case.
         if ((err as { code?: number }).code === ERR_CODE.TABLE_FULL) {
-          showToast(i18n.t('toast.advertNoRecent'), 'error');
+          showToast(i18n.t('toast.advertNoRecent'), 'warning');
         } else {
           showToast(
             i18n.t('toast.advertFailed', { error: (err as Error).message }),
@@ -1291,6 +1293,7 @@ export function useMeshCore() {
       if (existing) {
         showToast(
           i18n.t('toast.alreadyJoined', { name: existing.name || name }),
+          'warning',
         );
         return;
       }
