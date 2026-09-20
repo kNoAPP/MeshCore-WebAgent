@@ -323,7 +323,9 @@ export interface MessageArrival {
  * screen-reader announcer: that one is withheld for own sends and for an
  * arrival that would displace an announcement still pending, and names its
  * conversation by id alone. This one carries the descriptor {@link openConvo}
- * needs and is written for every inbound message, on screen or not.
+ * needs and is written for every inbound message a connected session
+ * receives, on screen or not — the backlog a connect or reconnect drains
+ * before reporting `connected` is not one, and stays unread like the toast's.
  */
 export interface LatestInbound {
   convo: ActiveConvo;
