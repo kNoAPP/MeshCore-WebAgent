@@ -592,6 +592,10 @@ export class MeshCoreClient {
         // This push *is* the sighting and it carries the node's own timestamp,
         // so both clocks are already in hand for one advert — no resync
         // pairing needed, and the measurement is proven by construction.
+        // Supersedes any pending 0x80 observation for this node: this record
+        // measures its own skew, and folding the older one afterwards would
+        // re-measure against a staler push.
+        delete this.advertObservations[c.pubkeyPrefix];
         this.recordAdvert(c, {
           at: Math.floor(Date.now() / 1000),
           measure: true,
@@ -795,7 +799,11 @@ export class MeshCoreClient {
   ): void {
     const nowSecs = Math.floor(Date.now() / 1000);
     const existing = this.adverts[c.pubkeyPrefix];
-    const lastHeard = c.lastAdvert ?? nowSecs;
+    // `parseContact` reports an unset RTC as `0`, not `undefined`, so a plain
+    // `??` would treat the epoch as a timestamp and measure a skew of every
+    // second since 1970. The fold applies the same truthiness test.
+    const claimed = c.lastAdvert ? c.lastAdvert : undefined;
+    const lastHeard = claimed ?? nowSecs;
     this.adverts[c.pubkeyPrefix] = {
       pubkey: c.pubkey,
       pubkeyPrefix: c.pubkeyPrefix,
@@ -804,13 +812,17 @@ export class MeshCoreClient {
       lastHeard,
       advLat: c.advLat,
       advLon: c.advLon,
-      observedAt: observation?.at ?? existing?.observedAt,
+      // Never rewound: a pending observation folded after a newer sighting
+      // would otherwise move our own record of hearing the node backwards,
+      // which the automation diff would read as a second sighting.
+      observedAt:
+        Math.max(observation?.at ?? 0, existing?.observedAt ?? 0) || undefined,
       // Skew is a property of the node's badly-set clock, not of one advert,
       // so a measurement outlives the observation that produced it and keeps
       // normalizing later contact-table reads.
       clockSkewSecs:
-        observation?.measure === true
-          ? lastHeard - observation.at
+        observation?.measure === true && claimed !== undefined
+          ? claimed - observation.at
           : existing?.clockSkewSecs,
     };
     this.evictOldAdverts();
@@ -872,7 +884,16 @@ export class MeshCoreClient {
       // happens to arrive. (A row can still be one advert behind if two
       // arrived inside a single enumeration, which bounds the error by that
       // enumeration rather than by the gap between adverts.)
+      //
+      // Past the window the pairing is refused outright, however the claim
+      // looks: an observation can sit pending across a quiet stretch with no
+      // enumeration, and by the time one arrives the row may carry a later
+      // advert whose own push never reached us. Measuring then would pin our
+      // stale clock to it and invent a skew the size of that gap. Failing to
+      // measure costs one sighting's worth of data; measuring wrongly is
+      // persisted and ages the node from then on.
       const measure =
+        !expired &&
         contact?.lastAdvert !== undefined &&
         seen.claim !== undefined &&
         contact.lastAdvert > seen.claim;

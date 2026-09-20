@@ -18,7 +18,9 @@ const TICK_MS = 30_000;
  * renders reads the clock, e.g. a list under a sort order that ignores time.
  * No timer runs then, so the caller stops re-rendering on the tick, and the
  * returned value is frozen — do not read it while disabled. Switching back to
- * `true` re-seeds it before the first tick.
+ * `true` re-seeds it, but one turn of the event loop later rather than
+ * synchronously, so the first render after enabling still sees the stale
+ * value.
  * @returns the current Unix epoch seconds, so the value that drives the
  * rendered text is the same one that changed.
  */
