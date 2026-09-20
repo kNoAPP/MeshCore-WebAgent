@@ -149,7 +149,13 @@ function NotificationBell() {
           id={drawerId}
           notifications={notifications}
           onClear={clearAll}
-          onNavigate={() => close(false)}
+          onNavigate={() => {
+            // Not the bell — the reader asked to be taken to the
+            // conversation, so land them in the content, the same place the
+            // toast's own jump hands focus to.
+            close(false);
+            document.getElementById('main')?.focus();
+          }}
           onExhausted={() => bellRef.current?.focus()}
         />
       )}
@@ -192,7 +198,12 @@ function NotificationDrawer({
   // identical from inside the document: tabbing out to the browser's own
   // chrome, which also reads as `body`.
   useLayoutEffect(() => {
-    const buttons = () => [...(ref.current?.querySelectorAll('button') ?? [])];
+    // Row controls only: clamping across every button in the drawer could
+    // land on Clear all, and the reader's next Enter would wipe the history
+    // when all they meant to do was dismiss one row.
+    const buttons = () => [
+      ...(ref.current?.querySelectorAll<HTMLButtonElement>('li button') ?? []),
+    ];
     const el = lastFocused.current;
     if (
       heldFocus.current &&
@@ -292,7 +303,10 @@ function NotificationDrawer({
         const el = e.target as HTMLElement;
         heldFocus.current = true;
         lastFocused.current = el;
-        const buttons = [...(ref.current?.querySelectorAll('button') ?? [])];
+        const buttons = [
+          ...(ref.current?.querySelectorAll<HTMLButtonElement>('li button') ??
+            []),
+        ];
         lastFocusedAt.current = Math.max(
           0,
           buttons.indexOf(el as HTMLButtonElement),

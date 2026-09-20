@@ -28,18 +28,23 @@ export function Toast() {
   const reconnecting = useMeshStore((s) => s.status === 'reconnecting');
   const wrapRef = useRef<HTMLDivElement>(null);
   const heldFocus = useRef(false);
+  const blocked = openModals > 0 || reconnecting;
 
-  // A dismissible card carries real buttons, and the timer now takes them
-  // away mid-reach. Focus would fall to `body`, restarting the next Tab at
-  // the top of the document, so hand it to the main landmark — where the
-  // skip link goes — rather than nowhere.
+  // A dismissible card carries real buttons, and they go away under the
+  // reader: on the timer, when a newer toast supersedes this one (the card is
+  // keyed by id, so it remounts), and when a dialog opens and the jump button
+  // becomes a plain span. Focus would fall to `body`, restarting the next Tab
+  // at the top of the document, so hand it somewhere deliberate — the dialog
+  // if one is up, since `#main` is inert behind it and is the background the
+  // dialog exists to exclude, otherwise the main landmark the skip link uses.
   useLayoutEffect(() => {
-    if (toast || !heldFocus.current) return;
+    if (!heldFocus.current) return;
     heldFocus.current = false;
-    if (document.activeElement === document.body && document.hasFocus()) {
-      document.getElementById('main')?.focus();
-    }
-  }, [toast]);
+    if (document.activeElement !== document.body || !document.hasFocus())
+      return;
+    const dialog = document.querySelector<HTMLElement>('[aria-modal="true"]');
+    (dialog ?? document.getElementById('main'))?.focus();
+  }, [toast?.id, blocked]);
 
   const colors = {
     success: 'border-green text-green',
@@ -58,7 +63,6 @@ export function Toast() {
   // count as an open modal, so it gets the same treatment: while the link is
   // down, Disconnect is the only way out. Announce the message either way, but
   // don't offer the jump.
-  const blocked = openModals > 0 || reconnecting;
   const convo = blocked ? undefined : toast?.convo;
   // Every toast is on a timer, but the ones worth reading twice keep a
   // dismiss button so they can be cleared early — and so withholding the jump
