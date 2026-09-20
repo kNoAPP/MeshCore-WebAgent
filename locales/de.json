@@ -82,8 +82,8 @@
   },
   "actionBar": {
     "label": "Statusleiste",
-    "latestMessage": "{{sender}} · {{age}}",
-    "latestMessageLabel": "Letzte Nachricht von {{sender}} öffnen, {{age}}"
+    "latestMessageLabel": "Letzte Nachricht von {{sender}} öffnen, {{age}}",
+    "latestMessageIn": "Letzte Nachricht in {{convo}} öffnen, {{age}}"
   },
   "notifications": {
     "title": "Benachrichtigungen",

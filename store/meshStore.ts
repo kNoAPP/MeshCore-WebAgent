@@ -329,8 +329,13 @@ export interface MessageArrival {
  */
 export interface LatestInbound {
   convo: ActiveConvo;
-  /** Display name of whoever wrote it — the author, for a room post. */
-  sender: string;
+  /**
+   * Display name of whoever wrote it — the author, for a room post — or
+   * `null` when the frame identifies nobody: a channel text with no
+   * `sender: ` prefix, or an unsigned room post. The bar names the
+   * conversation instead of asserting an author it doesn't have.
+   */
+  sender: string | null;
   /** Epoch seconds, for the bar's live-ticking relative stamp. */
   at: number;
 }

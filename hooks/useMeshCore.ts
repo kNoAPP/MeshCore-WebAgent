@@ -294,7 +294,10 @@ export function useMeshCore() {
               };
               setLatestInbound({
                 convo,
-                sender: sender || i18n.t('common.unknown'),
+                // No `sender: ` prefix means the author is unknowable. Say so
+                // rather than inventing one: the bar names the conversation
+                // instead, the way the toast below switches to `newMessageIn`.
+                sender: sender || null,
                 at: arrivedAt(),
               });
               // The quick link takes every arrival; the toast and the desktop
@@ -362,7 +365,17 @@ export function useMeshCore() {
                 rawId: prefix,
                 label: isRoom ? room : sender,
               };
-              setLatestInbound({ convo, sender, at: arrivedAt() });
+              setLatestInbound({
+                convo,
+                // An unsigned room frame carries no author at all, and `sender`
+                // has already fallen through to the *room's* raw prefix by
+                // here — a bare hex string that names neither. Report the
+                // absence and let the bar name the room.
+                sender: isRoom
+                  ? (author?.name ?? msg.authorPrefix ?? null)
+                  : sender,
+                at: arrivedAt(),
+              });
               if (!visible) {
                 showToast(
                   isRoom

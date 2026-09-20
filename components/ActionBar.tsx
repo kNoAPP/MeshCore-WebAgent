@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 import {
   useMeshStore,
   openConvo,
+  isConvoVisible,
   type Notification,
   type NotificationLevel,
 } from '@/store/meshStore';
@@ -107,12 +108,35 @@ function LatestMessage() {
   if (!latest) return null;
   const { convo, sender } = latest;
   const age = formatRelativePrecise(latest.at);
+  // Neither the accessible name nor the tooltip below ticks with the visible
+  // stamp. An accessible name that changed once a second would be re-announced
+  // that often by NVDA and JAWS for as long as the button held focus, and a
+  // `title` rewritten that often tears down the very tooltip it exists to
+  // show — the only way to read a sender the row has truncated. So the name
+  // takes a coarse age (`just now` carries the only fact that matters at that
+  // range) and the tooltip takes the sender alone, the part that truncates.
+  const coarseAge = formatRelative(latest.at);
+  // A frame that names nobody — a channel text with no `sender: ` prefix, an
+  // unsigned room post — falls back to the conversation, and the accessible
+  // name switches preposition with it. "from General" would assert that the
+  // channel wrote the message, which is why the toast has a separate `…In`
+  // string rather than a substituted one.
+  const name = sender ?? convo.label;
 
   const openTarget = () => {
-    // Open first: switching the view catches the *then*-open conversation up
-    // on its unread backlog, and the one being left behind shouldn't be it.
-    openConvo(convo);
-    setView('chat');
+    // This is the one control that routinely aims at the conversation already
+    // on screen, because the slot takes visible arrivals too, so it is the one
+    // that has to ask. `openConvo` clears the "last unread" divider when it
+    // lands somewhere with nothing unread, and there is nothing to open here
+    // anyway. Every other caller is a list the reader picked a target from,
+    // and keeps that shared behavior.
+    if (!isConvoVisible(useMeshStore.getState(), convo.id)) {
+      // Open first: switching the view catches the *then*-open conversation
+      // up on its unread backlog, and the one being left behind shouldn't be
+      // it.
+      openConvo(convo);
+      setView('chat');
+    }
     // Then land the reader in the content, where the drawer's row and the
     // toast's jump both hand focus. Unlike those two this button survives the
     // navigation, so focus would otherwise stay in the bar — the last landmark
@@ -125,12 +149,19 @@ function LatestMessage() {
     <button
       type='button'
       onClick={openTarget}
-      aria-label={t('actionBar.latestMessageLabel', { sender, age })}
-      title={t('actionBar.latestMessage', { sender, age })}
+      aria-label={
+        sender
+          ? t('actionBar.latestMessageLabel', { sender, age: coarseAge })
+          : t('actionBar.latestMessageIn', {
+              convo: convo.label,
+              age: coarseAge,
+            })
+      }
+      title={name}
       className='focus-inset flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent'
     >
       <MessageSquare size={13} aria-hidden='true' className='shrink-0' />
-      <span className='max-w-40 truncate'>{sender}</span>
+      <span className='max-w-40 truncate'>{name}</span>
       <span className='shrink-0'>·</span>
       <span className='shrink-0 whitespace-nowrap'>{age}</span>
     </button>
