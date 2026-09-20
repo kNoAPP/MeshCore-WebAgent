@@ -113,6 +113,12 @@ function LatestMessage() {
     // on its unread backlog, and the one being left behind shouldn't be it.
     openConvo(convo);
     setView('chat');
+    // Then land the reader in the content, where the drawer's row and the
+    // toast's jump both hand focus. Unlike those two this button survives the
+    // navigation, so focus would otherwise stay in the bar — the last landmark
+    // on the page, from which the next Tab leaves for the browser's chrome
+    // rather than entering the conversation they just asked for.
+    document.getElementById('main')?.focus();
   };
 
   return (
