@@ -80,7 +80,11 @@
     "storage": "Storage"
   },
   "actionBar": {
-    "label": "Status bar"
+    "label": "Status bar",
+    "latestMessageLabel": "Open latest message from {{sender}}, {{age}}",
+    "latestMessageIn": "Open latest message in {{convo}}, {{age}}",
+    "latestMessageFromIn": "Open latest message from {{sender}} in {{convo}}, {{age}}",
+    "latestMessageSenderIn": "{{sender}} in {{convo}}"
   },
   "notifications": {
     "title": "Notifications",
@@ -1324,6 +1328,7 @@
     "justNow": "just now",
     "clockSkewAhead": "{{duration}} ahead",
     "clockSkewBehind": "{{duration}} behind",
+    "seconds": "{{count}}s ago",
     "minutes": "{{count}}m ago",
     "hours": "{{count}}h ago",
     "days": "{{count}}d ago",

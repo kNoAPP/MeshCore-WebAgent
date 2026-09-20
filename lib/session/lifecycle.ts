@@ -50,6 +50,12 @@ export function clearSessionState(): void {
   store.setDeviceStats(null);
   store.setDeviceClock(null);
   store.setDeviceBattery(null);
+  // Same reason, one surface over: the action bar's quick link names the
+  // newest message we know of, and the reconnect drain lands its whole
+  // backlog while the status is still 'reconnecting' — too early to update
+  // it. Retract it rather than let it name a pre-drop arrival the sidebar's
+  // unread badges already contradict.
+  store.setLatestInbound(null);
   resetPersistence();
   // Drop the advert-diff baseline so the next session doesn't replay a prior
   // radio's adverts as "new" the moment automation subscribes.

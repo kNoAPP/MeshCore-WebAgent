@@ -8,6 +8,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useReducer,
   useRef,
   useState,
 } from 'react';
@@ -16,6 +17,7 @@ import {
   Bell,
   CheckCircle2,
   Info,
+  MessageSquare,
   X,
   XCircle,
 } from 'lucide-react';
@@ -23,11 +25,12 @@ import { useTranslation } from 'react-i18next';
 import {
   useMeshStore,
   openConvo,
+  isConvoVisible,
   type Notification,
   type NotificationLevel,
 } from '@/store/meshStore';
 import { useClickOutside } from '@/hooks/useClickOutside';
-import { formatRelative } from '@/lib/i18n/format';
+import { formatRelative, formatRelativePrecise } from '@/lib/i18n/format';
 
 const LEVEL_ICON = {
   info: Info,
@@ -63,8 +66,115 @@ export function ActionBar() {
       aria-label={t('actionBar.label')}
       className='flex h-6 shrink-0 items-center gap-3 border-t border-border bg-surface px-2 text-xs text-text2'
     >
+      <LatestMessage />
       <NotificationBell />
     </footer>
+  );
+}
+
+/** How often the quick link's stamp re-renders while it still reads seconds. */
+const TICK_SECONDS_MS = 1000;
+
+/** And once it doesn't: a per-second timer for `3h ago` is pure waste. */
+const TICK_MINUTES_MS = 60_000;
+
+// The session's newest inbound message, as a way back to the conversation it
+// landed in: the sidebar's unread badges only exist on the chat view, so on
+// Nodes, Map, Stats or Settings this is the only standing cue that traffic
+// arrived.
+function LatestMessage() {
+  const { t } = useTranslation();
+  const latest = useMeshStore((s) => s.latestInbound);
+  const setView = useMeshStore((s) => s.setView);
+  const at = latest?.at;
+  // A browser clock with no store equivalent: nothing but this one label
+  // changes when it advances, so the re-render is scoped to this component.
+  const [, advance] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    if (at === undefined) return;
+    const period = () =>
+      Math.floor(Date.now() / 1000) - at < 60
+        ? TICK_SECONDS_MS
+        : TICK_MINUTES_MS;
+    // Re-armed rather than an interval, so crossing the first minute changes
+    // the rate without the effect having to re-run.
+    let timer = window.setTimeout(function tick() {
+      advance();
+      timer = window.setTimeout(tick, period());
+    }, period());
+    return () => window.clearTimeout(timer);
+  }, [at]);
+
+  if (!latest) return null;
+  const { convo, sender } = latest;
+  const age = formatRelativePrecise(latest.at);
+  // Neither the accessible name nor the tooltip below ticks with the visible
+  // stamp. An accessible name that changed once a second would be re-announced
+  // that often by NVDA and JAWS for as long as the button held focus, and a
+  // `title` rewritten that often tears down the very tooltip it exists to
+  // show — the only way to read a name the row has truncated. So the
+  // accessible name takes a coarse age (`just now` carries the only fact that
+  // matters at that range) and the tooltip takes the name alone, the part
+  // that truncates.
+  const coarseAge = formatRelative(latest.at);
+  // A frame that names nobody — a channel text with no `sender: ` prefix, an
+  // unsigned room post — falls back to the conversation, and the accessible
+  // name switches preposition with it. "from General" would assert that the
+  // channel wrote the message, which is why the toast has a separate `…In`
+  // string rather than a substituted one.
+  //
+  // With both in hand the bar names both: on a channel or a room, who wrote it
+  // is only half the cue — whether it is worth leaving the current view turns
+  // on which of the reader's channels it landed in. A direct message's
+  // conversation *is* its sender, so pairing them there would say the same
+  // thing twice.
+  const inConvo = sender !== null && convo.kind !== 'direct';
+  const vars = { sender, convo: convo.label, age: coarseAge };
+  const name = inConvo
+    ? t('actionBar.latestMessageSenderIn', vars)
+    : (sender ?? convo.label);
+
+  const openTarget = () => {
+    // This is the one control that routinely aims at the conversation already
+    // on screen, because the slot takes visible arrivals too, so it is the one
+    // that has to ask. `openConvo` clears the "last unread" divider when it
+    // lands somewhere with nothing unread, and there is nothing to open here
+    // anyway. Every other caller is a list the reader picked a target from,
+    // and keeps that shared behavior.
+    if (!isConvoVisible(useMeshStore.getState(), convo.id)) {
+      // Open first: switching the view catches the *then*-open conversation
+      // up on its unread backlog, and the one being left behind shouldn't be
+      // it.
+      openConvo(convo);
+      setView('chat');
+    }
+    // Then land the reader in the content, where the drawer's row and the
+    // toast's jump both hand focus. Unlike those two this button survives the
+    // navigation, so focus would otherwise stay in the bar — the last landmark
+    // on the page, from which the next Tab leaves for the browser's chrome
+    // rather than entering the conversation they just asked for.
+    document.getElementById('main')?.focus();
+  };
+
+  return (
+    <button
+      type='button'
+      onClick={openTarget}
+      aria-label={
+        inConvo
+          ? t('actionBar.latestMessageFromIn', vars)
+          : sender
+            ? t('actionBar.latestMessageLabel', vars)
+            : t('actionBar.latestMessageIn', vars)
+      }
+      title={name}
+      className='focus-inset flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent'
+    >
+      <MessageSquare size={13} aria-hidden='true' className='shrink-0' />
+      <span className='max-w-64 truncate'>{name}</span>
+      <span className='shrink-0'>·</span>
+      <span className='shrink-0 whitespace-nowrap'>{age}</span>
+    </button>
   );
 }
 

@@ -69,6 +69,22 @@ export function formatRelative(timestamp: number): string {
 }
 
 /**
+ * Like {@link formatRelative}, but resolves the first minute to seconds
+ * (`just now`, `18s ago`), for the action bar's single live-ticking timestamp.
+ * Everything from a minute up is {@link formatRelative} verbatim.
+ *
+ * @remarks Deliberately not folded into {@link formatRelative}: per-second
+ * precision on the node, message and telemetry lists it backs would be noise,
+ * and would re-render them every second.
+ */
+export function formatRelativePrecise(timestamp: number): string {
+  const secs = Math.floor(Date.now() / 1000) - timestamp;
+  if (secs <= 0) return i18n.t('relative.justNow');
+  if (secs < 60) return i18n.t('relative.seconds', { count: secs });
+  return formatRelative(timestamp);
+}
+
+/**
  * Formats a Unix epoch-seconds timestamp as a localized day label for a chat
  * date divider: `Today`, `Yesterday`, or a full localized date (e.g.
  * `June 28, 2026`) for older days. Day boundaries are compared in local time.

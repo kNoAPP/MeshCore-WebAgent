@@ -81,7 +81,11 @@
     "storage": "Speicher"
   },
   "actionBar": {
-    "label": "Statusleiste"
+    "label": "Statusleiste",
+    "latestMessageLabel": "Letzte Nachricht von {{sender}} öffnen, {{age}}",
+    "latestMessageIn": "Letzte Nachricht in {{convo}} öffnen, {{age}}",
+    "latestMessageFromIn": "Letzte Nachricht von {{sender}} in {{convo}} öffnen, {{age}}",
+    "latestMessageSenderIn": "{{sender}} in {{convo}}"
   },
   "notifications": {
     "title": "Benachrichtigungen",
@@ -1325,6 +1329,7 @@
     "justNow": "gerade eben",
     "clockSkewAhead": "{{duration}} voraus",
     "clockSkewBehind": "{{duration}} zurück",
+    "seconds": "vor {{count}}s",
     "minutes": "vor {{count}}m",
     "hours": "vor {{count}}h",
     "days": "vor {{count}}d",
