@@ -781,9 +781,8 @@ export class MeshCoreClient {
    * Folds a contact-shaped advert record into the heard-adverts map.
    *
    * @param observation - the live sighting this record came from, when there
-   * was one. `at` is our clock at the push; a stamp older than
-   * {@link ADVERT_OBSERVATION_WINDOW_SECS} belongs to an earlier advert and is
-   * dropped. `measure` says whether `c.lastAdvert` is known to be the *same*
+   * was one. `at` is our clock at the push. `measure` says whether
+   * `c.lastAdvert` is known to be the *same*
    * advert we heard at `at` — only then are both clocks known for one advert,
    * which is what makes "how far off is this node's clock" a fact distinct
    * from "how old is this sighting". Pairing our clock with a contact row that
@@ -797,25 +796,6 @@ export class MeshCoreClient {
     const nowSecs = Math.floor(Date.now() / 1000);
     const existing = this.adverts[c.pubkeyPrefix];
     const lastHeard = c.lastAdvert ?? nowSecs;
-    const observed =
-      observation !== undefined &&
-      nowSecs - observation.at <= ADVERT_OBSERVATION_WINDOW_SECS
-        ? observation
-        : undefined;
-    // A claim that moved further than wall time allows means the node's clock
-    // jumped rather than that time passed, so any skew measured against the
-    // old one is void. Taken as a magnitude, this catches a correction in
-    // either direction — including a clock that ran *behind* and was fixed,
-    // which no future-timestamp check can see, and whose stale offset would
-    // otherwise make the node read fresher than it is.
-    const sinceObserved =
-      existing?.observedAt === undefined
-        ? undefined
-        : nowSecs - existing.observedAt;
-    const clockJumped =
-      sinceObserved !== undefined &&
-      Math.abs(lastHeard - existing!.lastHeard) >
-        sinceObserved + ADVERT_OBSERVATION_WINDOW_SECS;
     this.adverts[c.pubkeyPrefix] = {
       pubkey: c.pubkey,
       pubkeyPrefix: c.pubkeyPrefix,
@@ -824,16 +804,14 @@ export class MeshCoreClient {
       lastHeard,
       advLat: c.advLat,
       advLon: c.advLon,
-      observedAt: observed?.at ?? existing?.observedAt,
+      observedAt: observation?.at ?? existing?.observedAt,
       // Skew is a property of the node's badly-set clock, not of one advert,
       // so a measurement outlives the observation that produced it and keeps
       // normalizing later contact-table reads.
       clockSkewSecs:
-        observed?.measure === true
-          ? lastHeard - observed.at
-          : clockJumped
-            ? undefined
-            : existing?.clockSkewSecs,
+        observation?.measure === true
+          ? lastHeard - observation.at
+          : existing?.clockSkewSecs,
     };
     this.evictOldAdverts();
     this.callbacks.onAdvertsUpdated?.(this.adverts);

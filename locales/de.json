@@ -1310,8 +1310,8 @@
   },
   "relative": {
     "justNow": "gerade eben",
-    "clockSkewAhead": "{{duration}} vor",
-    "clockSkewBehind": "{{duration}} nach",
+    "clockSkewAhead": "{{duration}} voraus",
+    "clockSkewBehind": "{{duration}} zurück",
     "minutes": "vor {{count}}m",
     "hours": "vor {{count}}h",
     "days": "vor {{count}}d",

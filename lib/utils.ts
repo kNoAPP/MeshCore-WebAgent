@@ -76,6 +76,16 @@ const SKEW_OVERSHOOT_TOLERANCE_SECS = 60;
  * minutes ago. Each estimate is a lower bound on "last heard", so the newest
  * is the best one.
  *
+ * A measured skew is believed until a later sighting replaces it, so a node
+ * whose owner corrects its clock and then goes quiet keeps being aged by the
+ * offset it no longer has. That cannot be detected from a claim alone: given
+ * one timestamp and a skew, "corrected clock, heard minutes ago" and "still
+ * skewed, heard a day ago" are the same two numbers. Ranking the corrected
+ * estimate against the uncorrected one does not resolve it either — it would
+ * trade this case for the commoner one of a genuinely skewed node heard
+ * longer ago than its own offset, which the uncorrected estimate reads as far
+ * too fresh. The next advert we hear live re-measures and heals it.
+ *
  * Every surface that shows or filters on this age shares this helper, or
  * selecting a row would change the apparent age of the node it selects.
  *

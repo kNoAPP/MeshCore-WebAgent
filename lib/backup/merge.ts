@@ -4,6 +4,7 @@
 import type { Advert, Message } from '@/types/meshcore';
 import type { AutomationRule } from '@/types/automation';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
+import { normalizedLastHeard } from '@/lib/utils';
 import type { BackupPayload } from './archive';
 
 /**
@@ -150,6 +151,13 @@ export function previewImport(
  * metadata backwards, so the stale entries are removed before that merge sees
  * them — and {@link previewImport} counts the same way, so the preview promises
  * exactly what lands.
+ *
+ * Recency is compared as `normalizedLastHeard`, not as the raw `lastHeard`:
+ * that field is the sender's clock, and a backup taken while a node's clock
+ * ran ahead carries a claim that outranks every later sighting. Comparing the
+ * our-clock estimate keeps such an entry from reinstating both its future
+ * timestamp and the stale skew measured against the clock it has since had
+ * corrected.
  */
 export function freshAdverts(
   incoming: Record<string, Advert>,
@@ -158,7 +166,9 @@ export function freshAdverts(
   const out: Record<string, Advert> = {};
   for (const [prefix, advert] of Object.entries(incoming)) {
     const existing = cached[prefix];
-    if (existing && existing.lastHeard >= advert.lastHeard) continue;
+    const cachedHeard = normalizedLastHeard(undefined, existing);
+    const backupHeard = normalizedLastHeard(undefined, advert);
+    if (existing && (cachedHeard ?? 0) >= (backupHeard ?? 0)) continue;
     out[prefix] = advert;
   }
   return out;
