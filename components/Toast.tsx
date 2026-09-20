@@ -28,8 +28,10 @@ export function Toast() {
   const colors = {
     success: 'border-green text-green',
     error: 'border-red text-red',
-    // A degraded success is neutral here; the drawer is where the level shows.
-    warning: 'border-border text-text',
+    // Not red — these did not fail — but not the neutral border either: a
+    // warning waits to be dismissed, and a card that looks transient gives no
+    // sign it is holding for an acknowledgement.
+    warning: 'border-amber text-amber',
     '': 'border-border text-text',
   };
 

@@ -843,10 +843,13 @@ interface MeshActions {
   ) => void;
   dismissToast: () => void;
   /**
-   * Appends a row to the notification history. When `key` matches the newest
-   * row the two collapse: that row's `count`, `at` and `seq` are bumped in
-   * place while its `id` is left alone, so the row keeps one identity for its
-   * whole life and still reads as unread again.
+   * Appends a row to the notification history. When `key` matches a row
+   * already in the list the two collapse: that row's `count`, `at` and `seq`
+   * are bumped and it moves back to the top, while its `id` is left alone, so
+   * the row keeps one identity for its whole life and still reads as unread
+   * again. Matching the whole list rather than only the newest row is what
+   * keeps two people talking in one channel from alternating their way
+   * through all 50 slots.
    *
    * @param key - dedup key; anything that identifies "the same event again".
    * It has to separate events a reader would not want conflated, so for a
@@ -1432,21 +1435,23 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set((state) => {
       const at = Math.floor(Date.now() / 1000);
       const seq = ++notificationSeq;
-      const [newest, ...rest] = state.notifications;
+      const index = state.notifications.findIndex((n) => n.key === key);
       // A merge keeps the row's `id` — the drawer keys on it, and a fresh one
       // would remount the row and drop the keyboard focus a reader may be
       // holding on its buttons — but still takes the new `seq`, or a repeat
       // of an already-read event would never light the bell again.
-      if (newest?.key === key) {
+      if (index >= 0) {
+        const prev = state.notifications[index];
         const merged: Notification = {
-          ...newest,
+          ...prev,
           seq,
           text,
           level,
           at,
           convo,
-          count: newest.count + 1,
+          count: prev.count + 1,
         };
+        const rest = state.notifications.filter((_, i) => i !== index);
         return { notifications: [merged, ...rest] };
       }
       const row: Notification = {

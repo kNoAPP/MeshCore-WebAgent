@@ -143,6 +143,7 @@ function NotificationBell() {
           notifications={notifications}
           onClear={clearAll}
           onNavigate={() => close(false)}
+          onExhausted={() => bellRef.current?.focus()}
         />
       )}
     </div>
@@ -154,15 +155,36 @@ function NotificationDrawer({
   notifications,
   onClear,
   onNavigate,
+  onExhausted,
 }: {
   id: string;
   notifications: Notification[];
   onClear: () => void;
   /** Closes the drawer because a row is sending the reader somewhere else. */
   onNavigate: () => void;
+  /** The drawer has no control left to hold focus; park it on the bell. */
+  onExhausted: () => void;
 }) {
   const { t } = useTranslation();
+  const dismiss = useMeshStore((s) => s.dismissNotification);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Removing a row destroys the button that has focus, and focus falling to
+  // `body` puts the reader outside the drawer — where the arrow handler below
+  // never sees their keys. Hand it to the next control first, or to the bell
+  // when this was the last row and the footer goes with it.
+  const dismissRow = (id: number, button: HTMLButtonElement) => {
+    const buttons = [...(ref.current?.querySelectorAll('button') ?? [])];
+    const next = buttons[buttons.indexOf(button) + 1];
+    dismiss(id);
+    if (notifications.length > 1 && next) next.focus();
+    else onExhausted();
+  };
+
+  const clearAll = () => {
+    onClear();
+    onExhausted();
+  };
 
   // Roving focus: the rows are a list, not a tab stop each, so the arrows walk
   // the drawer's controls in visual order and wrap at either end.
@@ -204,12 +226,13 @@ function NotificationDrawer({
                 key={n.id}
                 notification={n}
                 onOpen={onNavigate}
+                onDismiss={dismissRow}
               />
             ))}
           </ul>
           <button
             type='button'
-            onClick={onClear}
+            onClick={clearAll}
             className='focus-inset shrink-0 border-t border-border px-3 py-1.5 text-xs text-text2 hover:bg-surface hover:text-accent'
           >
             {t('notifications.clearAll')}
@@ -223,12 +246,14 @@ function NotificationDrawer({
 function NotificationRow({
   notification,
   onOpen,
+  onDismiss,
 }: {
   notification: Notification;
   onOpen: () => void;
+  /** Takes the clicked button so the drawer can move focus off it first. */
+  onDismiss: (id: number, button: HTMLButtonElement) => void;
 }) {
   const { t } = useTranslation();
-  const dismiss = useMeshStore((s) => s.dismissNotification);
   const setView = useMeshStore((s) => s.setView);
   const { id, level, text, at, convo, count } = notification;
   const Icon = LEVEL_ICON[level];
@@ -276,7 +301,7 @@ function NotificationRow({
       </span>
       <button
         type='button'
-        onClick={() => dismiss(id)}
+        onClick={(e) => onDismiss(id, e.currentTarget)}
         aria-label={t('notifications.dismiss')}
         className='shrink-0 rounded p-0.5 text-text2 hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-accent'
       >
