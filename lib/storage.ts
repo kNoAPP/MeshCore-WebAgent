@@ -522,7 +522,9 @@ export async function replaceVaultRecord(
         }
       };
       tx.oncomplete = () => resolve(result);
-      tx.onerror = () => reject(tx.error);
+      // The failing request's error: `tx.error` is still null while a request
+      // error bubbles, as in `idbWrite`.
+      tx.onerror = (e) => reject((e.target as IDBRequest).error ?? tx.error);
       tx.onabort = () => reject(tx.error);
     });
   } catch {

@@ -154,6 +154,8 @@ const FINGERPRINT_LABEL = 'MeshCore vault fingerprint';
 // on every save, so a stored record with any other IV was written elsewhere —
 // another tab — since. Kept off the Vault itself so callers cannot reset it.
 const lastSeen = new WeakMap<Vault, Uint8Array>();
+// The latest save of each open vault, so the next one starts after it.
+const saving = new WeakMap<Vault, Promise<boolean>>();
 
 /**
  * The record key for a phrase's vault: the first 16 bytes of
@@ -186,16 +188,18 @@ export async function listVaults(): Promise<string[]> {
  * transaction that checks it, so two tabs creating a vault for one phrase
  * cannot both succeed. Add the first identity, then {@link saveVault}.
  *
- * @param rememberPhrase - keep the phrase itself in the vault, so new personas
- * can be minted without re-typing it. Off unless the user explicitly opts in.
- * @throws `SeedPhraseError` for a malformed phrase.
  * @remarks The empty vault stays behind if the flow that created it is
  * abandoned before an identity is added — a failed import, a closed tab. A
  * retry then meets `exists` for a vault that lists nothing and may be sealed
  * under a passphrase the user no longer recalls, so a wizard that gets
  * `exists` should offer to delete and recreate as well as to unlock.
+ *
+ * @param rememberPhrase - keep the phrase itself in the vault, so new personas
+ * can be minted without re-typing it. Off unless the user explicitly opts in.
+ * @throws `SeedPhraseError` for a malformed phrase.
  * @throws {@link VaultError} `exists` when this device already has a vault for
- * the phrase — unlock that one instead, or its labels would be overwritten.
+ * the phrase. Unlock that one rather than overwrite its labels — or, when it
+ * is an empty vault a previous attempt left behind, delete and recreate it.
  * @throws whatever IndexedDB throws when the record cannot be written.
  */
 export async function createVault(
@@ -306,6 +310,16 @@ export async function unlockVault(
  * all-zero root over the real one, and every persona's records with it.
  */
 export async function saveVault(vault: Vault): Promise<boolean> {
+  // Chained per copy: two saves in flight would both compare against the IV
+  // read before either wrote, and the second would call the first stale.
+  const run = (saving.get(vault) ?? Promise.resolve())
+    .catch(() => {})
+    .then(() => writeVault(vault));
+  saving.set(vault, run);
+  return run;
+}
+
+async function writeVault(vault: Vault): Promise<boolean> {
   const seen = lastSeen.get(vault);
   const record = await sealVault(vault);
   const result = await replaceVaultRecord(
