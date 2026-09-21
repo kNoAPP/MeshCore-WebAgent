@@ -57,11 +57,16 @@ export function wipeNode(node: Slip10Node): void {
  * `HMAC-SHA512(c_par, 0x00 || k_par || ser32(index + 2^31))`.
  *
  * @remarks The parent is left intact; the caller wipes both when done.
+ * @throws RangeError if `index` is not an integer in `[0, 2^31)`, which
+ * `ser32` would otherwise wrap into a different, valid-looking child.
  */
 export async function hardenedChild(
   parent: Slip10Node,
   index: number,
 ): Promise<Slip10Node> {
+  if (!Number.isInteger(index) || index < 0 || index >= HARDENED_OFFSET) {
+    throw new RangeError('Hardened index must be an integer in [0, 2^31)');
+  }
   const data = new Uint8Array(37);
   data.set(parent.key, 1);
   new DataView(data.buffer).setUint32(33, index + HARDENED_OFFSET);
@@ -78,6 +83,8 @@ export async function hardenedChild(
  * Every intermediate node and the BIP-39 seed are zeroed here.
  * @throws `SeedPhraseError` `wordCount`, `unknownWord` or `checksum` for a
  * malformed phrase.
+ * @throws RangeError if a `path` level is out of range; see
+ * {@link hardenedChild}.
  */
 export async function deriveNode(
   phrase: string,
