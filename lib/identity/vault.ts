@@ -341,6 +341,10 @@ async function writeVault(vault: Vault): Promise<boolean> {
  * Zeroes the vault's storage root. {@link saveVault} refuses the vault from
  * then on; the remembered phrase, being a string, is only dropped with the
  * object.
+ *
+ * @remarks Await any pending {@link saveVault} first. Saves are queued and
+ * seal when they run, so one still waiting when the root is zeroed rejects as
+ * locked and its edit is not stored.
  */
 export function lockVault(vault: Vault): void {
   vault.root.fill(0);
