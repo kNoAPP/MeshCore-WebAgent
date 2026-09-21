@@ -26,7 +26,8 @@
 # misc
 .DS_Store
 *.pem
-/docs
+/docs/*
+!/docs/identity-derivation.md
 
 # debug
 npm-debug.log*
