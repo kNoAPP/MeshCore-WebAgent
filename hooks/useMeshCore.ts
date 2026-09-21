@@ -1491,7 +1491,10 @@ export function useMeshCore() {
         notify({
           level: 'warning',
           text: i18n.t('toast.alreadyJoined', { name: existing.name || name }),
-          key: 'alreadyJoined',
+          // Scoped to the slot, like `contactAlreadyAdded` is to its contact:
+          // the text names a channel, so a bare key would relabel an earlier
+          // channel's row with a later one's name.
+          key: `alreadyJoined:${existing.idx}`,
         });
         return;
       }

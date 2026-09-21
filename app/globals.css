@@ -479,7 +479,8 @@ html {
  * fades where it stands. One animation rather than an enter/leave pair — the
  * line is dropped from the DOM on the store's own timer, so there is nothing
  * left to animate out. Its duration is BAR_NOTICE_MS in `store/meshStore.ts`;
- * the two have to move together or the line blinks out mid-fade.
+ * the two have to move together, and that doc explains the one path where
+ * they cannot line up.
  */
 .notice-line {
   /* `forwards` so the line holds the final keyframe's transparency instead of

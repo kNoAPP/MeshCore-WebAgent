@@ -563,7 +563,10 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         notify({
           level: 'warning',
           text: t('toast.repeaterCliNoReply'),
-          key: 'repeaterCliNoReply',
+          // Node-scoped like the rest of this tab's keys: the copy names no
+          // node, so two silent repeaters would merge into one row that says
+          // which of them went quiet.
+          key: `repeaterCliNoReply:${contact.pubkeyPrefix}`,
         });
       }
     },

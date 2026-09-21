@@ -1212,10 +1212,16 @@ let notificationSeq = 0;
 const NOTIFICATION_LIMIT = 50;
 
 /**
- * How long the action bar holds a transient line before dropping it. The
- * `.notice-line` animation in `app/globals.css` runs for exactly this long, so
- * the line finishes fading as it leaves the DOM rather than blinking out
- * mid-fade; the two have to move together.
+ * How long the action bar holds a transient line before dropping it, measured
+ * from the `notify` call. The `.notice-line` animation in `app/globals.css`
+ * runs for the same duration, so the two have to move together.
+ *
+ * @remarks They line up whenever the bar is already mounted, which is every
+ * notice raised during a live session. A notice raised before the bar exists
+ * — the connect-time catch-up summary is, deliberately — starts its clock
+ * first and its animation on mount, so it is cut short by that gap, or skipped
+ * entirely if the gap outruns the window. The drawer row and the announcement
+ * are unaffected, which is why the line is allowed to lose that race.
  */
 const BAR_NOTICE_MS = 4000;
 
