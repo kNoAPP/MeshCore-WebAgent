@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
+import { useMeshCore } from '@/hooks/useMeshCore';
 import { generateMnemonic, identityFromMnemonic } from '@/lib/identity/seed';
 import {
   regenerateIdentity,
@@ -84,10 +85,11 @@ async function newDraft(): Promise<Draft> {
  * store, not a log, not the vault unless the user opts in — and goes with the
  * component when it unmounts.
  *
- * The dialog cannot see the verification through. Rebooting drops the link,
- * and the reconnect closes Settings with it, so the expected public key is
- * handed to the store's `identityCheck` and {@link IdentityCheckModal} judges
- * it once the radio is back.
+ * The dialog cannot see the verification through. After the reboot the
+ * session is restarted through the reconnect loop (the reboot alone does not
+ * always drop the link), and that closes Settings with it, so the expected
+ * public key is handed to the store's `identityCheck` and
+ * {@link IdentityCheckModal} judges it once the radio is back.
  *
  * @param onClose - dismissal; also called once the radio is rebooting.
  */
@@ -97,6 +99,7 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const notify = useMeshStore((s) => s.notify);
   const setIdentityCheck = useMeshStore((s) => s.setIdentityCheck);
+  const { restartSession } = useMeshCore();
   const sessionReady = useBackupReady();
   // Once the key is on the radio the only way forward is the reboot, and the
   // steps before it no longer describe anything that can be changed.
@@ -241,6 +244,9 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
         key: 'rebooting',
       });
       onClose();
+      // The check needs a fresh session, and the restart may not have dropped
+      // the link to trigger one.
+      restartSession();
     } finally {
       setBusy(false);
     }
