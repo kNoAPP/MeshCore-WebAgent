@@ -254,9 +254,13 @@ function recordKey(pubkey: string, suffix: string): string {
  *
  * @remarks For a deliberate identity handover: once the radio's key has been
  * replaced, the outgoing identity's records describe a node that no longer
- * exists and nothing will ever read them again. Entries in the `secrets` store
- * are deliberately left alone — a saved repeater password is the user's to
- * discard, not a side effect of swapping identity.
+ * exists and nothing will ever read them again.
+ *
+ * Entries in the `secrets` store are left behind rather than collected. They
+ * are orphaned just as thoroughly — nothing derives that identity's key again,
+ * so a remembered API key or saved repeater password simply stops resolving
+ * after the reboot — but they are not this function's to destroy, and an
+ * identity change has always left them that way.
  * @returns whether every delete landed; best-effort, like the `save*` helpers.
  */
 export async function deleteRadioRecords(pubkey: string): Promise<boolean> {

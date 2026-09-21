@@ -10,7 +10,6 @@ import {
   beginIdentityHandover,
   flushSessionAsync,
 } from '@/lib/session/persistence';
-import { deleteRadioRecords } from '@/lib/storage';
 import { toHex, fromHex } from '@/lib/utils';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
@@ -157,7 +156,14 @@ export async function applyBackup(
     };
   }
 
-  const outgoing = client.selfInfo?.pubkey;
+  // Only a restore that actually changes the public key may skip the flush.
+  // For a same-identity restore this session's namespace is still the one the
+  // user reads from, so the pre-flush stays exactly where it was: it is what
+  // protects the merged data against a reload during the radio's 10s import
+  // window.
+  const handover = payload.pubkey !== client.selfInfo?.pubkey;
+  const preImport = handover ? false : await flushSessionAsync(client);
+
   try {
     // Nested so the key is zeroed the moment the exchange settles, before the
     // failure path's own await — it must not stay resident across an
@@ -177,21 +183,14 @@ export async function applyBackup(
     throw err;
   }
 
-  // A restore onto the radio that produced the backup changes no public key,
-  // so its records already belong to the live namespace and the ordinary flush
-  // is the correct write.
-  if (payload.pubkey === outgoing) {
-    return {
-      identityRestored: true,
-      persisted: await flushSessionAsync(client),
-    };
-  }
-
-  const persisted = await beginIdentityHandover(client, payload.pubkey);
-  // Only once the data is safely under the incoming identity: a failed write
-  // would otherwise make this delete the user's only remaining copy.
-  if (persisted && outgoing) await deleteRadioRecords(outgoing);
-  return { identityRestored: true, persisted };
+  return {
+    identityRestored: true,
+    // The handover writes the incoming namespace and collects the outgoing
+    // one; a same-identity restore already landed in the live namespace above.
+    persisted: handover
+      ? await beginIdentityHandover(client, payload.pubkey)
+      : preImport,
+  };
 }
 
 // `autoAddConfig` mirrors state the radio owns — the settings UI writes it

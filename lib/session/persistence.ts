@@ -4,6 +4,7 @@
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { useMeshStore, selectPreferences } from '@/store/meshStore';
 import {
+  deleteRadioRecords,
   deriveStorageKey,
   saveRadioData,
   saveAdvertCache,
@@ -91,6 +92,30 @@ export function flushPreferences(client: MeshCoreClient | null): void {
 }
 
 /**
+ * Encrypts and writes the current automation rules immediately.
+ *
+ * @remarks The rule editor saves through this rather than reaching for the
+ * connect-bound storage context directly, so an identity handover redirects
+ * rule edits with everything else — writing them to the outgoing namespace
+ * would both lose the edit at the next reboot and recreate the orphan record
+ * the handover just collected.
+ *
+ * Callers must still gate on `prefsHydrated`: the runner mounts with the
+ * app's empty default set before the connect flow's restore lands, and writing
+ * there would put that empty set over the radio's saved rules.
+ */
+export function flushAutomationRules(client: MeshCoreClient | null): void {
+  const t = writeTarget(client);
+  if (t) {
+    saveAutomationRules(
+      t.pubkey,
+      t.key,
+      useMeshStore.getState().automationRules,
+    );
+  }
+}
+
+/**
  * Flushes all four per-radio records — history, advert cache, preferences and
  * automation rules. The two paths that end a session — a deliberate disconnect
  * and a drop into the reconnect loop — both have to persist everything, so they
@@ -160,6 +185,11 @@ export async function beginIdentityHandover(
   client: MeshCoreClient,
   pubkey: string,
 ): Promise<boolean> {
+  // Read before the derivation below, and from the live write target rather
+  // than `selfInfo` — `importPrivateKey` never refreshes `selfInfo`, so on a
+  // second restore in one session that would still name the original identity
+  // and leave the first restore's namespace behind as a full, readable orphan.
+  const outgoing = writeTarget(client)?.pubkey;
   // Channel secrets survive an identity import untouched — the firmware's
   // handler replaces the key pair and reloads contacts, nothing else — so the
   // key the next connect derives is this radio's current secrets salted with
@@ -168,7 +198,13 @@ export async function beginIdentityHandover(
     .map((ch) => ch.secret)
     .filter((s): s is Uint8Array => s != null && s.length > 0);
   handover = { pubkey, key: await deriveStorageKey(secrets, pubkey) };
-  return saveSessionNamespace(handover.pubkey, handover.key);
+  const persisted = await saveSessionNamespace(handover.pubkey, handover.key);
+  // Only once the data is safely under the incoming identity: a failed write
+  // would otherwise make this delete the user's last copy.
+  if (persisted && outgoing && outgoing !== pubkey) {
+    await deleteRadioRecords(outgoing);
+  }
+  return persisted;
 }
 
 // Where the per-radio records belong right now: the identity a handover moved
