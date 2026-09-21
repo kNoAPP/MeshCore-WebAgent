@@ -23,6 +23,11 @@ let storageKey: CryptoKey | null = null;
 // moment the outgoing identity is gone from the radio and every further write
 // belongs to the incoming one.
 let handover: { pubkey: string; key: CryptoKey } | null = null;
+// The public key a backup restore was meant for, while that restore exists
+// only in the live store because its encrypted write failed. Deliberately
+// outlives the per-session reset in {@link resetPersistence}: the reconnect
+// it protects runs that reset first. See {@link claimUnsavedRestore}.
+let unsavedRestore: string | null = null;
 let saveUnsub: (() => void) | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 // Independent save subscription/timer for the per-radio advert cache, kept
@@ -229,6 +234,66 @@ export function persistenceNamespace(
   client: MeshCoreClient | null,
 ): string | undefined {
   return writeTarget(client)?.pubkey ?? client?.selfInfo?.pubkey;
+}
+
+/**
+ * Records that a backup restore for `pubkey` is live in the store but did not
+ * reach encrypted storage.
+ *
+ * @remarks Without this, the next connect as `pubkey` — the reboot after an
+ * identity restore, or any drop and reconnect — reads a blob that is absent
+ * (or older than the restore) and normalizes the restored preferences and
+ * automation rules out of the live store, a loss the "session only" warning
+ * never mentioned. Scoped to one public key rather than to "any empty read":
+ * a reconnect can come back as a different radio on a shared endpoint, and
+ * that one must still get its own defaults, not this restore's values.
+ *
+ * @param pubkey - the namespace the restore should have been written to, in
+ * the lowercase hex `SELF_INFO` reports.
+ */
+export function markUnsavedRestore(pubkey: string): void {
+  unsavedRestore = pubkey;
+}
+
+/**
+ * Whether the connect-time hydrate for `pubkey` must keep the store's
+ * preferences and automation rules rather than load the stored ones.
+ *
+ * @remarks True only for the identity {@link markUnsavedRestore} named. Any
+ * other radio's hydrate clears the mark, because it replaces the store with
+ * that radio's data and the restore is no longer what memory holds. A match
+ * leaves the mark set until {@link retryUnsavedRestore} actually lands the
+ * data, so a write that fails again is still protected on the next reconnect.
+ */
+export function claimUnsavedRestore(pubkey: string): boolean {
+  if (unsavedRestore === pubkey) return true;
+  unsavedRestore = null;
+  return false;
+}
+
+/**
+ * Writes the four per-radio records for a session whose hydrate honoured an
+ * unsaved restore, and clears the mark once they are on disk.
+ */
+export async function retryUnsavedRestore(
+  client: MeshCoreClient,
+): Promise<void> {
+  const pubkey = unsavedRestore;
+  if (
+    pubkey &&
+    (await flushSessionAsync(client)) &&
+    unsavedRestore === pubkey
+  ) {
+    unsavedRestore = null;
+  }
+}
+
+/**
+ * Forgets an unsaved restore. For a session teardown, which resets the store
+ * and so discards the in-memory data the mark was protecting.
+ */
+export function dropUnsavedRestore(): void {
+  unsavedRestore = null;
 }
 
 // Where the per-radio records belong right now: the identity a handover moved

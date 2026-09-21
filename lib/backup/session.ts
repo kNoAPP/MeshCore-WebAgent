@@ -9,6 +9,7 @@ import {
 import {
   beginIdentityHandover,
   flushSessionAsync,
+  markUnsavedRestore,
   persistenceNamespace,
 } from '@/lib/session/persistence';
 import { toHex, fromHex } from '@/lib/utils';
@@ -153,7 +154,10 @@ export async function applyBackup(
     // writes were still pending.
     return {
       identityRestored: false,
-      persisted: await flushSessionAsync(client),
+      persisted: unsavedUnless(
+        await flushSessionAsync(client),
+        persistenceNamespace(client),
+      ),
     };
   }
 
@@ -185,7 +189,10 @@ export async function applyBackup(
     // The radio kept its identity, so this session's own namespace is still
     // the one the user reads from — persist there before surfacing the
     // failure, or a refused key would also cost them the restored data.
-    await flushSessionAsync(client);
+    unsavedUnless(
+      await flushSessionAsync(client),
+      persistenceNamespace(client),
+    );
     throw err;
   }
 
@@ -196,7 +203,22 @@ export async function applyBackup(
   const persisted = handover
     ? await beginIdentityHandover(client, payload.pubkey)
     : preImport;
-  return { identityRestored: true, persisted };
+  return {
+    identityRestored: true,
+    persisted: unsavedUnless(
+      persisted,
+      handover ? payload.pubkey : persistenceNamespace(client),
+    ),
+  };
+}
+
+// A restore that stayed in memory must survive the next hydrate for the
+// identity it was written for, or a reconnect normalizes it away — see
+// `markUnsavedRestore`. Passes `persisted` through so each return stays one
+// expression.
+function unsavedUnless(persisted: boolean, pubkey: string | undefined) {
+  if (!persisted && pubkey) markUnsavedRestore(pubkey);
+  return persisted;
 }
 
 // `autoAddConfig` mirrors state the radio owns — the settings UI writes it
