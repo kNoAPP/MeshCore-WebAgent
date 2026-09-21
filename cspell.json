@@ -15,7 +15,8 @@
     "public",
     "locales",
     "AUTHORS",
-    "docs"
+    "docs",
+    "lib/identity/wordlist.ts"
   ],
   "words": [
     "acked",
@@ -79,6 +80,7 @@
     "gyrometer",
     "hectopascals",
     "Heltec",
+    "keypair",
     "kNoAPP",
     "knoban",
     "Knoban",
@@ -161,6 +163,7 @@
     "webmanifest",
     "whitelabel",
     "winget",
+    "wordlist",
     "Wordmark",
     "worktree",
     "zerohop",
