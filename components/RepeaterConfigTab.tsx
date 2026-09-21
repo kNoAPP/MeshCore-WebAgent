@@ -245,7 +245,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                     text: t('toast.repeaterConfigError', {
                       error: reply.trim(),
                     }),
-                    key: `repeaterConfigError:${setting.id}`,
+                    key: `repeaterConfigError:read:${contactRef.current.pubkeyPrefix}:${setting.id}`,
                   });
                 }
               } else {
@@ -268,7 +268,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                         `repeaterAdmin.config.fields.${setting.id}.label`,
                       ),
                     }),
-                    key: `repeaterReadParseFailed:${setting.id}`,
+                    key: `repeaterReadParseFailed:${contactRef.current.pubkeyPrefix}:${setting.id}`,
                   });
                 }
               }
@@ -460,7 +460,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           notify({
             level: 'error',
             text: message,
-            key: `repeaterConfigError:${id}`,
+            key: `repeaterConfigError:set:${contactRef.current.pubkeyPrefix}:${id}`,
           });
           // Only reconcile the field when this write still owns the latest
           // intent, so a newer queued edit keeps its own `saving` state,
@@ -506,7 +506,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         notify({
           level: 'error',
           text: message,
-          key: `repeaterCliFailed:${id}`,
+          key: `repeaterCliFailed:${contactRef.current.pubkeyPrefix}:${id}`,
         });
         // Only reconcile when this write still owns the latest intent, so a
         // newer queued edit's `saving` state isn't overwritten by this stale

@@ -97,8 +97,10 @@ export function ActionBar() {
 // cannot cover a control the user is reaching for, and it carries no dismiss
 // button — anything worth keeping by hand is a drawer row instead. Like the
 // bar's other truncating items it gives up width as the bar tightens, so a
-// long message is cut rather than pushing anything off the end; the drawer
-// holds the full text either way.
+// long message is cut rather than pushing anything off the end. A `'bar'`
+// notice keeps the untruncated text in the drawer; a `'none'` one keeps
+// nothing, which is why that surface is for receipts short enough to read
+// whole.
 //
 // Hidden from the accessibility tree: `NoticeAnnouncer` speaks every notice,
 // this one included, and announcing both would read it twice.

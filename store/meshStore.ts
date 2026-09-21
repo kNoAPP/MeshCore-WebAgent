@@ -719,9 +719,11 @@ interface MeshState {
    * The notice the action bar is currently showing as its transient line, or
    * `null` once it has aged out. One slot — a newer notice replaces it
    * outright — and no dismiss control: anything worth keeping is a drawer row.
-   * Only ever written while the status is `connected`, since the bar is
-   * unmounted otherwise and a notice held across that boundary would surface
-   * in the wrong session.
+   *
+   * @remarks Scoped to one link session by `clearSessionState`, not by the
+   * status: a notice may legitimately be raised before the bar mounts (the
+   * connect-time catch-up summary is), but one raised by the session that just
+   * went away must never be painted by the next one.
    */
   barNotice: Notice | null;
   /**
@@ -970,6 +972,12 @@ interface MeshActions {
     key: string,
     convo?: ActiveConvo,
   ) => void;
+  /**
+   * Drops the action bar's transient line. For the session boundary: a notice
+   * describing the link that just went away must not be painted by the next
+   * one when the bar remounts.
+   */
+  clearBarNotice: () => void;
   /** Removes one row from the history; unknown ids are a no-op. */
   dismissNotification: (id: number) => void;
   /**
@@ -1528,14 +1536,15 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   notify: ({ level, text, key, convo, surface = 'bar' }) => {
     const id = ++noticeSeq;
     const notice: Notice = { id, level, text };
-    // The line only exists while the action bar does, so a notice raised
-    // outside a live session must not claim the slot: it would either never
-    // be painted, or be painted into the *next* session on a fresh animation
-    // that its already-running timer then cuts off mid-fade. Both the connect
-    // catch-up summary (raised from a callback while the status is still
-    // 'connecting') and the Disconnect sign-off (raised after the teardown)
-    // land in exactly that window.
-    const line = surface !== 'silent' && get().status === 'connected';
+    // Written whatever the status is, deliberately. The connect-time catch-up
+    // summary is raised from a client callback while the status is still
+    // 'connecting' — its own call site explains at length why the test there
+    // has to be the session rather than the status — and a status test here
+    // would silently drop that summary's line one call deeper. The bar picks
+    // the notice up when it mounts; what keeps a *previous* session's notice
+    // from surfacing in the next one is `clearSessionState`, which every
+    // connect and reconnect runs before the drain can raise anything.
+    const line = surface !== 'silent';
     // The line is the glance and the drawer is the record, but the announcer
     // is neither optional nor conditional: a badge that only changes count
     // and a line that only fades say nothing to a screen reader.
@@ -1589,6 +1598,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         ),
       };
     }),
+
+  clearBarNotice: () => set({ barNotice: null }),
 
   dismissNotification: (id) =>
     set((state) => ({

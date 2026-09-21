@@ -61,6 +61,12 @@ export function clearSessionState(): void {
   // it, and a stale flag would suppress every notification of the new session
   // rather than merely mislabel a surface.
   store.setBacklogDraining(false);
+  // And the bar's transient line, which is the same kind of claim: it names
+  // something that just happened on a link this call is replacing. Its own
+  // timer would clear it, but the bar can remount inside that window — the
+  // first reconnect backoff is a second — and repaint the previous session's
+  // notice on a fresh animation that the original timer then cuts off.
+  store.clearBarNotice();
   resetPersistence();
   // Drop the advert-diff baseline so the next session doesn't replay a prior
   // radio's adverts as "new" the moment automation subscribes.

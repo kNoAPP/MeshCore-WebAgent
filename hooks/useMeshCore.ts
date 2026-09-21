@@ -1354,12 +1354,14 @@ export function useMeshCore() {
           surface: 'none',
         });
       } catch (err) {
+        // Keyed on the reason like the discovered-contact path, so one
+        // string never carries two key schemes.
         notify({
           level: 'error',
           text: i18n.t('toast.addContactFailed', {
             error: (err as Error).message,
           }),
-          key: `addContactFailed:${pubkeyPrefix}`,
+          key: `addContactFailed:${(err as Error).message}`,
         });
       }
     },
