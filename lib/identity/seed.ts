@@ -39,16 +39,20 @@ export type SeedPhraseErrorCode =
  * the user's paper.
  */
 export class SeedPhraseError extends Error {
+  readonly code: SeedPhraseErrorCode;
   /**
-   * @param wordIndex - for `unknownWord`, the zero-based position of the first
-   * word not in the list.
+   * For `unknownWord`, the zero-based position of the first word not in the
+   * list.
    */
-  constructor(
-    readonly code: SeedPhraseErrorCode,
-    readonly wordIndex?: number,
-  ) {
+  readonly wordIndex?: number;
+
+  // Declared fields rather than parameter properties, so the module still
+  // loads under `node --experimental-strip-types` for headless checks.
+  constructor(code: SeedPhraseErrorCode, wordIndex?: number) {
     super(code);
     this.name = 'SeedPhraseError';
+    this.code = code;
+    this.wordIndex = wordIndex;
   }
 }
 
@@ -75,7 +79,9 @@ function splitPhrase(phrase: string): string[] {
   return phrase.normalize('NFKD').toLowerCase().trim().split(/\s+/);
 }
 
-async function sha256(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
+async function sha256(
+  bytes: Uint8Array<ArrayBuffer>,
+): Promise<Uint8Array<ArrayBuffer>> {
   return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
 }
 
@@ -116,7 +122,9 @@ export async function entropyToMnemonic(
  *
  * @throws {@link SeedPhraseError} `wordCount`, `unknownWord` or `checksum`.
  */
-export async function mnemonicToEntropy(phrase: string): Promise<Uint8Array> {
+export async function mnemonicToEntropy(
+  phrase: string,
+): Promise<Uint8Array<ArrayBuffer>> {
   const words = splitPhrase(phrase);
   if (!isMnemonicLength(words.length)) {
     throw new SeedPhraseError('wordCount');
@@ -149,7 +157,9 @@ export async function mnemonicToEntropy(phrase: string): Promise<Uint8Array> {
  * the bare `"mnemonic"`.
  * @throws {@link SeedPhraseError} `wordCount`, `unknownWord` or `checksum`.
  */
-export async function mnemonicToSeed(phrase: string): Promise<Uint8Array> {
+export async function mnemonicToSeed(
+  phrase: string,
+): Promise<Uint8Array<ArrayBuffer>> {
   await mnemonicToEntropy(phrase);
   const enc = new TextEncoder();
   const base = await crypto.subtle.importKey(
@@ -182,7 +192,7 @@ export async function mnemonicToSeed(phrase: string): Promise<Uint8Array> {
  */
 export async function expandSeed(
   seed: Uint8Array<ArrayBuffer>,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   if (seed.length !== ED25519_SEED_BYTES) {
     throw new RangeError('Ed25519 seed must be 32 bytes');
   }
@@ -202,7 +212,9 @@ export async function expandSeed(
  * @remarks Mirrors the firmware's `ed25519_derive_pub`, which an importing
  * radio runs on the key it is handed. Only the scalar half is read; the
  * nonce-prefix half does not affect the public key.
- * @throws RangeError if `privateKey` is not 64 bytes.
+ * @throws RangeError if `privateKey` is not 64 bytes, or if its scalar is 0
+ * mod the group order (never true of a clamped key, but possible for an
+ * arbitrary 64-byte buffer such as all zeros).
  */
 export function derivePublicKey(privateKey: Uint8Array): Uint8Array {
   if (privateKey.length !== PRIVATE_KEY_BYTES) {
@@ -257,17 +269,20 @@ export async function identityFromMnemonic(
  */
 export async function generateMnemonic(words: MnemonicLength): Promise<string> {
   const entropy = new Uint8Array((words * 11 * 32) / 33 / 8);
-  for (;;) {
-    crypto.getRandomValues(entropy);
-    const phrase = await entropyToMnemonic(entropy);
-    try {
-      (await identityFromMnemonic(phrase)).privateKey.fill(0);
-      entropy.fill(0);
-      return phrase;
-    } catch (err) {
-      if (!(err instanceof SeedPhraseError && err.code === 'reservedKey')) {
-        throw err;
+  try {
+    for (;;) {
+      crypto.getRandomValues(entropy);
+      const phrase = await entropyToMnemonic(entropy);
+      try {
+        (await identityFromMnemonic(phrase)).privateKey.fill(0);
+        return phrase;
+      } catch (err) {
+        if (!(err instanceof SeedPhraseError && err.code === 'reservedKey')) {
+          throw err;
+        }
       }
     }
+  } finally {
+    entropy.fill(0);
   }
 }
