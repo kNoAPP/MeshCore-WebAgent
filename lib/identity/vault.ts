@@ -6,7 +6,7 @@ import {
   deleteVaultRecord,
   listVaultFingerprints,
   loadVaultRecord,
-  saveVaultRecord,
+  replaceVaultRecord,
 } from '@/lib/storage';
 import { toHex } from '@/lib/utils';
 import { deriveStorageRoot } from './storageRoot';
@@ -44,14 +44,20 @@ import { MAX_SUB_IDENTITY_INDEX } from './subIdentity';
  * Why a vault could not be created or opened: `notFound` means no vault has
  * this fingerprint; `exists` means the phrase already has one;
  * `unsupportedVersion` means a newer build wrote it; `wrongPassphrase` and
- * `corrupt` are distinguished as {@link VaultError} describes.
+ * `corrupt` are distinguished as {@link VaultError} describes; `stale` means
+ * the stored vault changed since this copy last read or wrote it.
  */
 export type VaultErrorCode =
-  'notFound' | 'exists' | 'unsupportedVersion' | 'wrongPassphrase' | 'corrupt';
+  | 'notFound'
+  | 'exists'
+  | 'unsupportedVersion'
+  | 'wrongPassphrase'
+  | 'corrupt'
+  | 'stale';
 
 /**
- * Thrown by {@link createVault} and {@link unlockVault}. The {@link code} is
- * stable so the UI can map it to localized copy.
+ * Thrown by {@link createVault}, {@link unlockVault} and {@link saveVault}.
+ * The {@link code} is stable so the UI can map it to localized copy.
  *
  * @remarks `wrongPassphrase` and `corrupt` are told apart by a check value
  * stored beside the ciphertext, so a damaged record is not blamed on the
@@ -144,6 +150,11 @@ const ROOT_BYTES = 32;
 const FINGERPRINT_BYTES = 16;
 const FINGERPRINT_LABEL = 'MeshCore vault fingerprint';
 
+// The IV of the record each open vault last read or wrote. A fresh IV is drawn
+// on every save, so a stored record with any other IV was written elsewhere —
+// another tab — since. Kept off the Vault itself so callers cannot reset it.
+const lastSeen = new WeakMap<Vault, Uint8Array>();
+
 /**
  * The record key for a phrase's vault: the first 16 bytes of
  * `SHA-256("MeshCore vault fingerprint" || root)`, as hex.
@@ -178,6 +189,11 @@ export async function listVaults(): Promise<string[]> {
  * @param rememberPhrase - keep the phrase itself in the vault, so new personas
  * can be minted without re-typing it. Off unless the user explicitly opts in.
  * @throws `SeedPhraseError` for a malformed phrase.
+ * @remarks The empty vault stays behind if the flow that created it is
+ * abandoned before an identity is added — a failed import, a closed tab. A
+ * retry then meets `exists` for a vault that lists nothing and may be sealed
+ * under a passphrase the user no longer recalls, so a wizard that gets
+ * `exists` should offer to delete and recreate as well as to unlock.
  * @throws {@link VaultError} `exists` when this device already has a vault for
  * the phrase — unlock that one instead, or its labels would be overwritten.
  * @throws whatever IndexedDB throws when the record cannot be written.
@@ -197,9 +213,11 @@ export async function createVault(
       phrase: rememberPhrase ? phrase : null,
       seal: { salt, ...(await deriveSeal(passphrase, salt)) },
     };
-    if (!(await addVaultRecord(vault.fingerprint, await sealVault(vault)))) {
+    const record = await sealVault(vault);
+    if (!(await addVaultRecord(vault.fingerprint, record))) {
       throw new VaultError('exists');
     }
+    lastSeen.set(vault, record.iv);
     return vault;
   } catch (err) {
     root.fill(0);
@@ -254,26 +272,33 @@ export async function unlockVault(
     if (plaintext.length <= ROOT_BYTES) throw new VaultError('corrupt');
     const body = parseBody(plaintext.subarray(ROOT_BYTES));
     if (!body) throw new VaultError('corrupt');
-    return {
+    const vault: Vault = {
       fingerprint,
       root: plaintext.slice(0, ROOT_BYTES),
       identities: body.identities,
       phrase: body.phrase,
       seal: { key, salt: sealed.salt, check: sealed.check },
     };
+    lastSeen.set(vault, sealed.iv);
+    return vault;
   } finally {
     plaintext.fill(0);
   }
 }
 
 /**
- * Seals the vault's current state and writes it, replacing the stored record.
- * Each save draws a fresh IV under the passphrase key derived at create or
- * unlock, so saving does not ask for the passphrase again.
+ * Seals the vault's current state and writes it over the stored record. Each
+ * save draws a fresh IV under the passphrase key derived at create or unlock,
+ * so saving does not ask for the passphrase again.
  *
- * @remarks Last write wins, like every other record in this database: two
- * tabs holding the same vault unlocked each overwrite the other's edits.
- * @returns whether the write landed; best-effort, like the storage helpers.
+ * @remarks Refuses to write over a record that changed since this copy last
+ * read or wrote it. The vault is meant to be open in more than one session at
+ * once, and a stale copy's save would silently drop an identity another tab
+ * minted — and with it the record of which identities are seed-born.
+ * @returns whether the write landed; false when IndexedDB failed.
+ * @throws {@link VaultError} `stale` when the stored vault changed since this
+ * copy last read or wrote it, or was deleted. Unlock again, re-apply the edit
+ * and save that copy.
  * @throws RangeError when an identity is malformed, or two share a public key
  * or an index — a record like that would fail to unlock as `corrupt`, so it is
  * refused here rather than written.
@@ -281,8 +306,21 @@ export async function unlockVault(
  * all-zero root over the real one, and every persona's records with it.
  */
 export async function saveVault(vault: Vault): Promise<boolean> {
+  const seen = lastSeen.get(vault);
   const record = await sealVault(vault);
-  return saveVaultRecord(vault.fingerprint, record).catch(() => false);
+  const result = await replaceVaultRecord(
+    vault.fingerprint,
+    record,
+    (stored) =>
+      seen !== undefined &&
+      isRecord(stored) &&
+      stored.iv instanceof Uint8Array &&
+      bytesEqual(stored.iv, seen),
+  );
+  if (result === 'stale') throw new VaultError('stale');
+  if (result === 'failed') return false;
+  lastSeen.set(vault, record.iv);
+  return true;
 }
 
 /**

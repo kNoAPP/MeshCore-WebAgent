@@ -490,22 +490,43 @@ export async function loadPreferences<T>(
   return plaintext === null ? null : (JSON.parse(plaintext) as T);
 }
 
+/** How a {@link replaceVaultRecord} call ended. */
+export type VaultWriteResult = 'saved' | 'stale' | 'failed';
+
 /**
- * Stores a sealed identity vault under its seed fingerprint, replacing any
- * record already there. The record arrives encrypted: this layer only files
- * it. Best-effort, like the `save*` helpers above.
+ * Replaces a sealed identity vault, but only if the stored record is still the
+ * one the caller last saw. The read and the write share one transaction, so
+ * another tab's save cannot land between them.
  *
- * @returns whether the write landed.
+ * @param isCurrent - tests the record as stored now (undefined once deleted);
+ * the write goes ahead only when it returns true.
+ * @returns `stale` when `isCurrent` refused, `failed` when IndexedDB did.
  */
-export async function saveVaultRecord(
+export async function replaceVaultRecord(
   fingerprint: string,
   record: object,
-): Promise<boolean> {
+  isCurrent: (stored: unknown) => boolean,
+): Promise<VaultWriteResult> {
   try {
-    await idbWrite(VAULT_STORE, fingerprint, record, 'put');
-    return true;
+    const db = await openDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(VAULT_STORE, 'readwrite');
+      const store = tx.objectStore(VAULT_STORE);
+      let result: VaultWriteResult = 'saved';
+      const read = store.get(fingerprint);
+      read.onsuccess = () => {
+        if (isCurrent(read.result)) {
+          store.put(record, fingerprint);
+        } else {
+          result = 'stale';
+        }
+      };
+      tx.oncomplete = () => resolve(result);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
   } catch {
-    return false;
+    return 'failed';
   }
 }
 
