@@ -5,9 +5,9 @@ import {
   derivePublicKey,
   expandSeed,
   isImportablePublicKey,
-  mnemonicToSeed,
   type SeedIdentity,
 } from './seed';
+import { deriveNode, hardenedChild, MESH_PURPOSE, wipeNode } from './slip10';
 
 /**
  * Sub-identities: any number of unlinkable radio identities from one BIP-39
@@ -23,11 +23,8 @@ import {
  * Do not add a watch-only or xpub-style export: that property is the point.
  */
 
-/**
- * First path level: `"MESH"` as the decimal ASCII codes 77 69 83 72, in the
- * style BIP-85 uses for its own purpose number. Applied hardened.
- */
-export const SUB_IDENTITY_PURPOSE = 77698372;
+/** First path level, applied hardened: see {@link MESH_PURPOSE}. */
+export const SUB_IDENTITY_PURPOSE = MESH_PURPOSE;
 
 /**
  * Second path level for radio identities, applied hardened. Every other value
@@ -46,50 +43,6 @@ export interface SubIdentity extends SeedIdentity {
    * This is what to store to re-derive the identity later.
    */
   index: number;
-}
-
-interface Node {
-  key: Uint8Array<ArrayBuffer>;
-  chainCode: Uint8Array<ArrayBuffer>;
-}
-
-const HARDENED_OFFSET = 0x80000000;
-const MASTER_KEY = new TextEncoder().encode('ed25519 seed');
-
-async function hmacSha512(
-  key: Uint8Array<ArrayBuffer>,
-  data: Uint8Array<ArrayBuffer>,
-): Promise<Uint8Array<ArrayBuffer>> {
-  const k = await crypto.subtle.importKey(
-    'raw',
-    key,
-    { name: 'HMAC', hash: 'SHA-512' },
-    false,
-    ['sign'],
-  );
-  return new Uint8Array(await crypto.subtle.sign('HMAC', k, data));
-}
-
-function splitNode(i: Uint8Array<ArrayBuffer>): Node {
-  const node = { key: i.slice(0, 32), chainCode: i.slice(32) };
-  i.fill(0);
-  return node;
-}
-
-function wipe(node: Node): void {
-  node.key.fill(0);
-  node.chainCode.fill(0);
-}
-
-// SLIP-0010 private child derivation for Ed25519, hardened only:
-// HMAC-SHA512(c_par, 0x00 || k_par || ser32(i + 2^31)).
-async function hardenedChild(parent: Node, index: number): Promise<Node> {
-  const data = new Uint8Array(37);
-  data.set(parent.key, 1);
-  new DataView(data.buffer).setUint32(33, index + HARDENED_OFFSET);
-  const i = await hmacSha512(parent.chainCode, data);
-  data.fill(0);
-  return splitNode(i);
 }
 
 /**
@@ -123,19 +76,15 @@ export async function deriveSubIdentity(
   ) {
     throw new RangeError('Sub-identity index must be an integer in [0, 2^31)');
   }
-  const seed = await mnemonicToSeed(phrase);
-  let branch = splitNode(await hmacSha512(MASTER_KEY, seed));
-  seed.fill(0);
+  const branch = await deriveNode(phrase, [
+    SUB_IDENTITY_PURPOSE,
+    SUB_IDENTITY_BRANCH,
+  ]);
   try {
-    for (const level of [SUB_IDENTITY_PURPOSE, SUB_IDENTITY_BRANCH]) {
-      const child = await hardenedChild(branch, level);
-      wipe(branch);
-      branch = child;
-    }
     for (let index = fromIndex; index <= MAX_SUB_IDENTITY_INDEX; index++) {
       const leaf = await hardenedChild(branch, index);
       const privateKey = await expandSeed(leaf.key);
-      wipe(leaf);
+      wipeNode(leaf);
       const publicKey = derivePublicKey(privateKey);
       if (isImportablePublicKey(publicKey)) {
         return { index, privateKey, publicKey };
@@ -143,7 +92,7 @@ export async function deriveSubIdentity(
       privateKey.fill(0);
     }
   } finally {
-    wipe(branch);
+    wipeNode(branch);
   }
   throw new RangeError('No importable sub-identity at or after this index');
 }
