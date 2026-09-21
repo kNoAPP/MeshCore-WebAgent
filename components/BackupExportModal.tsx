@@ -10,6 +10,7 @@ import { encryptBackup } from '@/lib/backup/archive';
 import { backupFilename, downloadBackup } from '@/lib/backup/file';
 import { buildBackupPayload } from '@/lib/backup/session';
 import { PrivateKeyError } from '@/lib/meshcore/errors';
+import { ensurePrivateKeyAccess } from '@/lib/session/privateKeyAccess';
 import { ModalShell } from './ModalShell';
 import { Switch } from './Switch';
 import {
@@ -34,12 +35,14 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
   const client = useMeshStore((s) => s.client);
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const notify = useMeshStore((s) => s.notify);
+  const keyAccess = useMeshStore((s) => s.privateKeyAccess);
   const passId = useId();
   const confirmId = useId();
 
   const [passphrase, setPassphrase] = useState('');
   const [confirm, setConfirm] = useState('');
   const [includeIdentity, setIncludeIdentity] = useState(false);
+  const [probing, setProbing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<React.ReactNode>(null);
 
@@ -62,6 +65,24 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
     !!selfInfo?.pubkey &&
     sessionReady &&
     !busy;
+
+  const keyUnavailable = keyAccess !== null && keyAccess !== 'available';
+
+  // Asked when the user opts in rather than when the dialog opens: the probe is
+  // a real export, so the key only crosses the link once they have chosen to
+  // send it.
+  const toggleIdentity = async (on: boolean) => {
+    if (!on) {
+      setIncludeIdentity(false);
+      return;
+    }
+    setProbing(true);
+    const access = await ensurePrivateKeyAccess();
+    setProbing(false);
+    // An inconclusive probe keeps the opt-in; the export itself then reports
+    // whatever went wrong.
+    setIncludeIdentity(access !== 'disabled' && access !== 'unsupported');
+  };
 
   const run = async () => {
     if (!ready || !selfInfo) return;
@@ -184,12 +205,17 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
         <Switch
           label={t('settings.backup.includeIdentity')}
           checked={includeIdentity}
-          onChange={setIncludeIdentity}
-          disabled={busy}
+          onChange={(on) => void toggleIdentity(on)}
+          disabled={busy || probing || keyUnavailable}
         />
         <p className='mt-2 text-xs text-text2'>
           {t('settings.backup.includeIdentityWarning')}
         </p>
+        {keyUnavailable && (
+          <p className='mt-2 text-xs text-red'>
+            <PrivateKeyErrorText code={keyAccess} action='export' />
+          </p>
+        )}
       </div>
 
       {error && (

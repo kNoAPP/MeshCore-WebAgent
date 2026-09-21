@@ -20,6 +20,7 @@ import type {
   NodeTelemetry,
   NeighborsPage,
   AclEntry,
+  PrivateKeyAccess,
 } from '@/types/meshcore';
 import { MAX_HOPS_NO_LIMIT } from '@/types/meshcore';
 import { MeshConnectError, PrivateKeyError, PushTimeoutError } from './errors';
@@ -1679,6 +1680,34 @@ export class MeshCoreClient {
       return key;
     } finally {
       d.fill(0);
+    }
+  }
+
+  /**
+   * Asks the radio whether it will export its private key, without keeping the
+   * key: a successful read is zeroed before this returns.
+   *
+   * @remarks
+   * The probe is a real `EXPORT_PRIVATE_KEY`, so the key does cross the link —
+   * over a WiFi bridge that is a plaintext `ws://` socket. Run it only when the
+   * user is already reaching for an identity feature, not on every connect.
+   * See {@link PrivateKeyAccess} for why import is inferred rather than probed.
+   *
+   * @throws on a timeout, a transport failure, or any other device error: the
+   * probe was inconclusive, and the caller should not record a verdict.
+   */
+  async probePrivateKeyExport(): Promise<PrivateKeyAccess> {
+    try {
+      (await this.exportPrivateKey()).fill(0);
+      return 'available';
+    } catch (err) {
+      if (
+        err instanceof PrivateKeyError &&
+        (err.code === 'disabled' || err.code === 'unsupported')
+      ) {
+        return err.code;
+      }
+      throw err;
     }
   }
 
