@@ -557,8 +557,8 @@ interface MeshState {
    * The Stats page's own battery/storage snapshot (including `null` when the
    * device didn't report it), link-scoped alongside {@link deviceStats} so a
    * radio switch or a timed-out read can't surface another link's reading. The
-   * header's {@link battery} is separate and deliberately retained on a null
-   * read.
+   * action bar's {@link battery} is separate and deliberately retained on a
+   * null read.
    */
   deviceBattery: BatteryInfo | null;
 

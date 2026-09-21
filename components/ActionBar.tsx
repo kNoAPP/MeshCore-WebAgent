@@ -163,9 +163,15 @@ function UpdatePrompt() {
     <>
       {/*
         Mounted for the whole session, like CatchUp's: a live region inserted
-        with its text already in it is commonly not announced. It carries the
-        event — a new version exists — while the button carries the action, so
-        a reader walking the bar is not read the same sentence twice.
+        with its text already in it is commonly not announced, so only the
+        text changing is reliable. That covers an update landing mid-session.
+        One noticed earlier survives `reset()`, so the region does mount with
+        its text in place — but the connect screen's banner announced it there,
+        which is the case this cannot.
+
+        The region carries the event — a new version exists — while the button
+        carries the action, so a reader walking the bar is not read the same
+        sentence twice.
       */}
       <span role='status' className='sr-only'>
         {available ? t('update.available') : ''}
