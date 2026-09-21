@@ -172,6 +172,12 @@ export async function flushSessionAsync(
  * even when the reboot arrives as a power-cycle or after a reload, where no
  * reconnect in this page session could write anything.
  *
+ * Only the four `radios`-store records move. The secrets context in
+ * `lib/ai/secret.ts` stays bound to the outgoing identity, so an API key or
+ * repeater password saved between the handover and the reboot lands in a
+ * namespace nothing reads again — a pre-existing consequence of `selfInfo` not
+ * being refreshed, not something this redirect introduces.
+ *
  * Cleared by {@link setStorageKey} when the next session binds its own key,
  * and by {@link resetPersistence}.
  *
@@ -205,6 +211,24 @@ export async function beginIdentityHandover(
     await deleteRadioRecords(outgoing);
   }
   return persisted;
+}
+
+/**
+ * The public key whose namespace this session is persisting to right now.
+ *
+ * @remarks Not the same as `client.selfInfo.pubkey` once a handover has run:
+ * `importPrivateKey` never refreshes `selfInfo`, so callers deciding whether a
+ * restore changes the identity must ask this rather than the client, or a
+ * second restore in one session compares against a public key the radio no
+ * longer has.
+ *
+ * Falls back to the client's own key so a session with no storage key bound
+ * still reports the identity it is connected as.
+ */
+export function persistenceNamespace(
+  client: MeshCoreClient | null,
+): string | undefined {
+  return writeTarget(client)?.pubkey ?? client?.selfInfo?.pubkey;
 }
 
 // Where the per-radio records belong right now: the identity a handover moved

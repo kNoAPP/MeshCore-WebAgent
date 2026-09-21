@@ -9,6 +9,7 @@ import {
 import {
   beginIdentityHandover,
   flushSessionAsync,
+  persistenceNamespace,
 } from '@/lib/session/persistence';
 import { toHex, fromHex } from '@/lib/utils';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
@@ -156,12 +157,17 @@ export async function applyBackup(
     };
   }
 
-  // Only a restore that actually changes the public key may skip the flush.
-  // For a same-identity restore this session's namespace is still the one the
-  // user reads from, so the pre-flush stays exactly where it was: it is what
-  // protects the merged data against a reload during the radio's 10s import
-  // window.
-  const handover = payload.pubkey !== client.selfInfo?.pubkey;
+  // Compared against the namespace this session actually writes to, not
+  // against `selfInfo` — `importPrivateKey` never refreshes it, so a second
+  // restore in one session would otherwise measure itself against the original
+  // identity, take the same-identity path, and file the data under the first
+  // restore's key while the namespace the radio comes back as stays empty.
+  //
+  // Only a restore that actually changes that namespace may skip the flush. For
+  // a same-identity restore it is still the one the user reads from, so the
+  // pre-flush stays exactly where it was: it is what protects the merged data
+  // against a reload during the radio's 10s import window.
+  const handover = payload.pubkey !== persistenceNamespace(client);
   const preImport = handover ? false : await flushSessionAsync(client);
 
   try {
@@ -183,14 +189,14 @@ export async function applyBackup(
     throw err;
   }
 
-  return {
-    identityRestored: true,
-    // The handover writes the incoming namespace and collects the outgoing
-    // one; a same-identity restore already landed in the live namespace above.
-    persisted: handover
-      ? await beginIdentityHandover(client, payload.pubkey)
-      : preImport,
-  };
+  // The handover writes the incoming namespace and collects the outgoing one; a
+  // same-identity restore already landed in the live namespace above. Awaited
+  // here rather than inside the result literal, so the identity write's outcome
+  // is settled before anything else can go wrong with the persistence step.
+  const persisted = handover
+    ? await beginIdentityHandover(client, payload.pubkey)
+    : preImport;
+  return { identityRestored: true, persisted };
 }
 
 // `autoAddConfig` mirrors state the radio owns — the settings UI writes it
