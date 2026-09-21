@@ -136,9 +136,13 @@ function CatchUp() {
   );
 }
 
-/** Shared idiom for the bar's own controls, so every item sits alike. */
+/**
+ * Shared idiom for the bar's own controls, so every item sits alike. It sets
+ * no flex sizing: each item adds `shrink-0` to hold its width or `min-w-0` to
+ * let its label truncate as the bar tightens.
+ */
 const BAR_BUTTON =
-  'focus-inset flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent';
+  'focus-inset flex items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent';
 
 // A hairline between neighboring groups, in the VS Code idiom. Each item
 // renders its own — trailing for the ones ahead of the advert menu, leading
@@ -242,7 +246,7 @@ function AdvertMenu() {
         title={t('header.advertise')}
         aria-haspopup='menu'
         aria-expanded={open}
-        className={`${BAR_BUTTON} disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text2`}
+        className={`${BAR_BUTTON} shrink-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text2`}
       >
         <Radio size={13} aria-hidden='true' />
       </button>
@@ -291,7 +295,7 @@ function ProposalsInbox({ count }: { count: number }) {
         onClick={() => setOpen(true)}
         aria-label={t('automation.inbox.title', { count })}
         title={t('automation.inbox.title', { count })}
-        className={BAR_BUTTON}
+        className={`${BAR_BUTTON} shrink-0`}
       >
         <Inbox size={13} aria-hidden='true' />
         <span
@@ -473,7 +477,7 @@ function NotificationBell() {
   };
 
   return (
-    <div className='relative ml-auto' ref={rootRef}>
+    <div className='relative ml-auto shrink-0' ref={rootRef}>
       <button
         ref={bellRef}
         type='button'
@@ -486,7 +490,7 @@ function NotificationBell() {
         title={t('notifications.title')}
         aria-expanded={open}
         aria-controls={open ? drawerId : undefined}
-        className='focus-inset flex items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent'
+        className={`${BAR_BUTTON} shrink-0`}
       >
         <Bell size={13} aria-hidden='true' />
         {unread > 0 && (

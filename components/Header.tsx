@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useSyncExternalStore, useEffect, useId } from 'react';
+import { useSyncExternalStore, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Moon, Sun, Search, ShieldAlert } from 'lucide-react';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
@@ -205,20 +205,21 @@ export function Header() {
 
 // The truncated device name doubles as the keyboard- and touch-reachable
 // disclosure for its full text. Mirrors MessageBubble's HintToken.
+//
+// Purely visual, unlike that one: the truncation is CSS, so the full name is
+// already this element's accessible content. Describing it with a tooltip that
+// repeats the same string verbatim would only have it announced twice.
 function DeviceName({ name }: { name: string }) {
-  const tooltipId = useId();
   return (
     <span
       tabIndex={0}
-      aria-describedby={tooltipId}
       className='group/dev relative ml-auto min-w-0 max-w-[16ch] cursor-help'
     >
       <span className='block truncate text-sm font-semibold text-accent'>
         {name}
       </span>
       <span
-        id={tooltipId}
-        role='tooltip'
+        aria-hidden='true'
         className='pointer-events-none absolute top-full right-0 z-20 mt-1 hidden w-max max-w-xs rounded-md border border-border bg-surface2 px-2 py-1 text-xs font-normal text-text shadow-pop group-hover/dev:block group-focus/dev:block'
       >
         {name}
