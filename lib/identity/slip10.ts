@@ -93,10 +93,15 @@ export async function deriveNode(
   const seed = await mnemonicToSeed(phrase);
   let node = splitNode(await hmacSha512(MASTER_KEY, seed));
   seed.fill(0);
-  for (const level of path) {
-    const child = await hardenedChild(node, level);
+  try {
+    for (const level of path) {
+      const child = await hardenedChild(node, level);
+      wipeNode(node);
+      node = child;
+    }
+  } catch (err) {
     wipeNode(node);
-    node = child;
+    throw err;
   }
   return node;
 }
