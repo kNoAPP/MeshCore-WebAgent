@@ -2,6 +2,7 @@
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
 import {
+  addVaultRecord,
   deleteVaultRecord,
   listVaultFingerprints,
   loadVaultRecord,
@@ -25,7 +26,8 @@ import { MAX_SUB_IDENTITY_INDEX } from './subIdentity';
  * What it holds, all inside the ciphertext: the phrase's storage root (see
  * `./storageRoot`), the identities minted from the phrase with their labels,
  * indices and public keys, and — only when the user opted in — the phrase
- * itself. Only the fingerprint is in the clear.
+ * itself. Only the fingerprint and the parameters needed to unseal (version,
+ * salt, IV, passphrase check value) are in the clear.
  *
  * @remarks The identity list is sealed too, not just the root. Labels and
  * public keys in the clear would tell anyone holding the browser profile which
@@ -168,16 +170,17 @@ export async function listVaults(): Promise<string[]> {
 }
 
 /**
- * Starts a new, empty vault for a phrase, sealed under `passphrase`. Nothing is
- * written until {@link saveVault}, so a caller can add the first identity and
- * persist both in one write.
+ * Creates a vault for a phrase, sealed under `passphrase`, and writes it at
+ * once with no identities. Writing up front claims the fingerprint in the same
+ * transaction that checks it, so two tabs creating a vault for one phrase
+ * cannot both succeed. Add the first identity, then {@link saveVault}.
  *
  * @param rememberPhrase - keep the phrase itself in the vault, so new personas
  * can be minted without re-typing it. Off unless the user explicitly opts in.
  * @throws `SeedPhraseError` for a malformed phrase.
  * @throws {@link VaultError} `exists` when this device already has a vault for
  * the phrase — unlock that one instead, or its labels would be overwritten.
- * @throws whatever IndexedDB throws when the existing record cannot be read.
+ * @throws whatever IndexedDB throws when the record cannot be written.
  */
 export async function createVault(
   phrase: string,
@@ -186,18 +189,18 @@ export async function createVault(
 ): Promise<Vault> {
   const root = await deriveStorageRoot(phrase);
   try {
-    const fingerprint = await fingerprintRoot(root);
-    if ((await loadVaultRecord(fingerprint)) !== undefined) {
-      throw new VaultError('exists');
-    }
     const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
-    return {
-      fingerprint,
+    const vault: Vault = {
+      fingerprint: await fingerprintRoot(root),
       root,
       identities: [],
       phrase: rememberPhrase ? phrase : null,
       seal: { salt, ...(await deriveSeal(passphrase, salt)) },
     };
+    if (!(await addVaultRecord(vault.fingerprint, await sealVault(vault)))) {
+      throw new VaultError('exists');
+    }
+    return vault;
   } catch (err) {
     root.fill(0);
     throw err;
@@ -268,12 +271,45 @@ export async function unlockVault(
  * Each save draws a fresh IV under the passphrase key derived at create or
  * unlock, so saving does not ask for the passphrase again.
  *
+ * @remarks Last write wins, like every other record in this database: two
+ * tabs holding the same vault unlocked each overwrite the other's edits.
  * @returns whether the write landed; best-effort, like the storage helpers.
- * @throws RangeError when an identity is malformed or two share a public key —
- * a record like that would fail to unlock as `corrupt`, so it is refused here
- * rather than written.
+ * @throws RangeError when an identity is malformed, or two share a public key
+ * or an index — a record like that would fail to unlock as `corrupt`, so it is
+ * refused here rather than written.
+ * @throws Error when the vault has been locked: sealing it would store an
+ * all-zero root over the real one, and every persona's records with it.
  */
 export async function saveVault(vault: Vault): Promise<boolean> {
+  const record = await sealVault(vault);
+  return saveVaultRecord(vault.fingerprint, record).catch(() => false);
+}
+
+/**
+ * Zeroes the vault's storage root. {@link saveVault} refuses the vault from
+ * then on; the remembered phrase, being a string, is only dropped with the
+ * object.
+ */
+export function lockVault(vault: Vault): void {
+  vault.root.fill(0);
+}
+
+/**
+ * Deletes a vault from this device. The identities it listed are untouched —
+ * on the radio, and in their per-identity records — but their storage keys can
+ * then only be re-derived from the phrase.
+ *
+ * @returns whether the delete landed.
+ */
+export async function deleteVault(fingerprint: string): Promise<boolean> {
+  return deleteVaultRecord(fingerprint);
+}
+
+async function sealVault(vault: Vault): Promise<SealedVault> {
+  // A real root is 32 bytes of HMAC output; all zeros means lockVault ran.
+  if (vault.root.every((b) => b === 0)) {
+    throw new Error('Vault is locked');
+  }
   const body: VaultBody = {
     identities: vault.identities.map((i) => ({ ...i })),
     phrase: vault.phrase,
@@ -292,38 +328,16 @@ export async function saveVault(vault: Vault): Promise<boolean> {
       vault.seal.key,
       plaintext,
     );
-    const record: SealedVault = {
+    return {
       version: VAULT_VERSION,
       salt: vault.seal.salt,
       check: vault.seal.check,
       iv,
       data,
     };
-    return await saveVaultRecord(vault.fingerprint, record);
-  } catch {
-    return false;
   } finally {
     plaintext.fill(0);
   }
-}
-
-/**
- * Zeroes the vault's storage root. The vault must not be used afterwards; the
- * remembered phrase, being a string, is only dropped with the object.
- */
-export function lockVault(vault: Vault): void {
-  vault.root.fill(0);
-}
-
-/**
- * Deletes a vault from this device. The identities it listed are untouched —
- * on the radio, and in their per-identity records — but their storage keys can
- * then only be re-derived from the phrase.
- *
- * @returns whether the delete landed.
- */
-export async function deleteVault(fingerprint: string): Promise<boolean> {
-  return deleteVaultRecord(fingerprint);
 }
 
 async function fingerprintRoot(root: Uint8Array<ArrayBuffer>): Promise<string> {
@@ -443,10 +457,20 @@ function isVaultBody(v: unknown): v is VaultBody {
   if (!isRecord(v)) return false;
   if (v.phrase !== null && typeof v.phrase !== 'string') return false;
   if (!Array.isArray(v.identities)) return false;
-  const seen = new Set<string>();
+  // Keys and indices are both unique, and null — the primary identity — counts
+  // as an index, so there is at most one.
+  const keys = new Set<string>();
+  const indices = new Set<number | null>();
   for (const id of v.identities) {
-    if (!isVaultIdentity(id) || seen.has(id.publicKey)) return false;
-    seen.add(id.publicKey);
+    if (
+      !isVaultIdentity(id) ||
+      keys.has(id.publicKey) ||
+      indices.has(id.index)
+    ) {
+      return false;
+    }
+    keys.add(id.publicKey);
+    indices.add(id.index);
   }
   return true;
 }

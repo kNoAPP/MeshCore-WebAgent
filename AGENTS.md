@@ -126,7 +126,8 @@ vault** (`lib/identity/vault.ts`), in its own `vault` object store.
   minted (label, derivation index, public key), and — only on an explicit opt-in
   — the phrase itself. All of it is sealed under a key stretched from a
   passphrase the user chooses (PBKDF2-SHA256, 600k iterations, the backup file's
-  KDF). Only the seed fingerprint, the record key, is in the clear.
+  KDF). In the clear are only the seed fingerprint (the record key) and the
+  unsealing parameters: version, salt, IV and a passphrase check value.
 - **Why it cannot be per-radio.** The vault spans identities whose storage keys
   differ by construction, so no single radio's namespace can hold it. And the
   storage root is what must survive losing the radio: sealed under a key derived

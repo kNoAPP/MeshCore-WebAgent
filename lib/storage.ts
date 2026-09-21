@@ -146,14 +146,29 @@ async function idbGet<T = EncryptedRecord>(
 async function idbPut(
   store: string,
   key: string,
+  record: EncryptedRecord,
+): Promise<void> {
+  return idbWrite(store, key, record, 'put');
+}
+
+// `add` fails with a `ConstraintError` when the key is already taken, inside
+// the transaction, so a create cannot race another writer the way a read
+// followed by a `put` can.
+async function idbWrite(
+  store: string,
+  key: string,
   record: object,
+  mode: 'put' | 'add',
 ): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
-    tx.objectStore(store).put(record, key);
+    const req = tx.objectStore(store)[mode](record, key);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    // The request's own error: a failed request bubbles to the transaction
+    // before `tx.error` is set, so that would reject with null here.
+    tx.onerror = () => reject(req.error ?? tx.error);
+    tx.onabort = () => reject(tx.error);
   });
 }
 
@@ -487,10 +502,33 @@ export async function saveVaultRecord(
   record: object,
 ): Promise<boolean> {
   try {
-    await idbPut(VAULT_STORE, fingerprint, record);
+    await idbWrite(VAULT_STORE, fingerprint, record, 'put');
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Stores a sealed identity vault under a fingerprint that must not be taken
+ * yet. The existence check and the write are one transaction, so two tabs
+ * creating a vault for the same phrase cannot both succeed.
+ *
+ * @returns false when a vault with this fingerprint already exists.
+ * @throws when the write fails for any other reason.
+ */
+export async function addVaultRecord(
+  fingerprint: string,
+  record: object,
+): Promise<boolean> {
+  try {
+    await idbWrite(VAULT_STORE, fingerprint, record, 'add');
+    return true;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'ConstraintError') {
+      return false;
+    }
+    throw err;
   }
 }
 
@@ -500,8 +538,8 @@ export async function saveVaultRecord(
  * @returns the record as stored, not yet validated; undefined when there is
  * none.
  * @throws when IndexedDB cannot be read. Unlike the per-radio `load*` helpers,
- * a failed read is not folded into "nothing stored": creating a vault over one
- * that exists but could not be read would destroy it.
+ * a failed read is not folded into "nothing stored", so an unlock can tell a
+ * missing vault from one it could not read.
  */
 export async function loadVaultRecord(fingerprint: string): Promise<unknown> {
   return idbGet<unknown>(VAULT_STORE, fingerprint);
