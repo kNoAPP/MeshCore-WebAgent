@@ -128,6 +128,15 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
       });
       onClose();
     } catch (err) {
+      // Reached after an inconclusive probe: the radio has now answered, so
+      // the switch and any later identity feature can use the verdict.
+      if (
+        err instanceof PrivateKeyError &&
+        (err.code === 'disabled' || err.code === 'unsupported') &&
+        useMeshStore.getState().client === client
+      ) {
+        useMeshStore.getState().setPrivateKeyAccess(err.code);
+      }
       setError(
         err instanceof PrivateKeyError ? (
           <PrivateKeyErrorText code={err.code} action='export' />
