@@ -64,13 +64,16 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
     confirm.normalize('NFKC') === normalized &&
     !!selfInfo?.pubkey &&
     sessionReady &&
+    // While the probe runs the switch still reads off, so a backup started now
+    // would silently leave out the identity the user just opted into.
+    !probing &&
     !busy;
 
   const keyUnavailable = keyAccess !== null && keyAccess !== 'available';
 
   // Asked when the user opts in rather than when the dialog opens: the probe is
-  // a real export, so the key only crosses the link once they have chosen to
-  // send it.
+  // a real export, so the key only crosses the link after they have chosen to
+  // send it — once for the probe, and again when the backup is written.
   const toggleIdentity = async (on: boolean) => {
     if (!on) {
       setIncludeIdentity(false);

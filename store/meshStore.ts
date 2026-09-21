@@ -570,8 +570,8 @@ interface MeshState {
   /**
    * Whether this radio exports its private key, or `null` until something has
    * asked — see {@link ensurePrivateKeyAccess}. Describes the connected radio,
-   * not a preference: it resets on disconnect and never enters the per-radio
-   * preferences blob.
+   * not a preference: it clears whenever the client changes, reconnects
+   * included, and never enters the per-radio preferences blob.
    */
   privateKeyAccess: PrivateKeyAccess | null;
   battery: BatteryInfo | null;
@@ -1255,7 +1255,12 @@ const mapFiltersTouched = new Set<keyof MapFilters>();
 export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   ...initialState,
 
-  setClient: (client) => set({ client }),
+  // A reconnect swaps the client without a reset, and what comes back may be
+  // a different radio — or this one reflashed with the build flag set.
+  setClient: (client) =>
+    set((s) =>
+      s.client === client ? { client } : { client, privateKeyAccess: null },
+    ),
   // Every transition that can uncover the open conversation runs the catch-up,
   // or a message drained behind a reconnect overlay (or a dialog) stays unread
   // with no divider until something unrelated happens to fire it.

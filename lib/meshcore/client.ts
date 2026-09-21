@@ -1656,8 +1656,8 @@ export class MeshCoreClient {
    * and zero the array — it must never reach the store, the DOM, or a log.
    * @throws PrivateKeyError with `disabled` when the build has
    * `ENABLE_PRIVATE_KEY_EXPORT` unset, or `unsupported` on firmware predating
-   * the command. Other device errors, timeouts, and transport failures
-   * propagate unchanged.
+   * the command. A truncated reply, other device errors, timeouts, and
+   * transport failures throw a plain error.
    */
   async exportPrivateKey(): Promise<Uint8Array> {
     let d: Uint8Array;
@@ -1676,7 +1676,8 @@ export class MeshCoreClient {
       // readable copy of the identity. Zero it on every path — including the
       // malformed-frame one — rather than leaving it resident until GC.
       const key = parsePrivateKey(d);
-      if (!key) throw new PrivateKeyError('unsupported');
+      // A short frame is a damaged reply, not a verdict on the firmware.
+      if (!key) throw new Error('Malformed EXPORT_PRIVATE_KEY response');
       return key;
     } finally {
       d.fill(0);
@@ -1689,8 +1690,9 @@ export class MeshCoreClient {
    *
    * @remarks
    * The probe is a real `EXPORT_PRIVATE_KEY`, so the key does cross the link —
-   * over a WiFi bridge that is a plaintext `ws://` socket. Run it only when the
-   * user is already reaching for an identity feature, not on every connect.
+   * over a WiFi bridge that is a plaintext `ws://` socket — and a feature that
+   * then exports for real sends it a second time. Run it only when the user is
+   * already reaching for an identity feature, not on every connect.
    * See {@link PrivateKeyAccess} for why import is inferred rather than probed.
    *
    * @throws on a timeout, a transport failure, or any other device error: the
