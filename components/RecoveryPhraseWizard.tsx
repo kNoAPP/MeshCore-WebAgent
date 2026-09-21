@@ -57,9 +57,12 @@ async function newDraft(): Promise<Draft> {
   const { privateKey, publicKey } = await identityFromMnemonic(phrase);
   privateKey.fill(0);
   const positions = new Set<number>();
-  const pick = new Uint32Array(1);
+  const pick = new Uint8Array(1);
   while (positions.size < CONFIRM_WORDS) {
-    positions.add(crypto.getRandomValues(pick)[0] % PHRASE_WORDS);
+    // Rejection sampling over the next power of two, so every position is
+    // equally likely.
+    const n = crypto.getRandomValues(pick)[0] & 0x0f;
+    if (n < PHRASE_WORDS) positions.add(n);
   }
   return {
     words: phrase.split(' '),
