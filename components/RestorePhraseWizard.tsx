@@ -180,12 +180,15 @@ export function RestorePhraseWizard({ onClose }: { onClose: () => void }) {
         setPhraseError(null);
         try {
           const fresh = await previewPhrase(phrase);
+          // Unlocked again from what is stored now: a copy held from before
+          // could be one another tab has since changed, and every save of it
+          // would then fail as stale however often it was retried.
+          setVault(null);
+          setUnlockError(null);
           if (fresh.fingerprint !== preview?.fingerprint) {
             // A different phrase: nothing chosen for the last one applies.
-            setVault(null);
             setReplace(false);
             setUnlockPassphrase('');
-            setUnlockError(null);
           }
           setPreview(fresh);
         } catch (err) {
@@ -255,6 +258,13 @@ export function RestorePhraseWizard({ onClose }: { onClose: () => void }) {
       try {
         confirmed = await restoreIdentity(client, phrase, node, plan);
       } catch (err) {
+        // A refusal comes after the vault write, and a created vault is kept:
+        // a retry has to unlock it rather than create it a second time.
+        if (!(err instanceof RestoreVaultError) && plan.mode === 'create') {
+          setPreview({ ...preview, vaultExists: true });
+          setReplace(false);
+          setUnlockPassphrase(passphrase);
+        }
         setError(<RestoreErrorText err={err} />);
         return;
       }

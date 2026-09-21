@@ -587,7 +587,7 @@
       "vaultKnown": "Dieses Gerät hat einen Identitätstresor für diese Phrase.",
       "vaultUnknown": "Dieses Gerät hat noch keinen Identitätstresor für diese Phrase. Im Zuge der Wiederherstellung wird einer angelegt.",
       "alreadyHeld": "Das verbundene Funkgerät hat diese Identität bereits, daher wird nichts darauf geschrieben. Du kannst sie trotzdem im Identitätstresor dieses Geräts vermerken.",
-      "historyNote": "Die Phrase stellt die Identität wieder her, nicht ihre Nachrichten. Der Verlauf kehrt nur zurück, wenn dieser Browser ihn für diese Identität noch hat; eine Sicherungsdatei bringt den Verlauf in einen anderen Browser.",
+      "historyNote": "Die Phrase stellt die Identität wieder her, nicht ihre Nachrichten. Dieser Browser hat vielleicht noch einen Verlauf für diese Identität, doch er lässt sich nur auf einem Funkgerät mit denselben Kanälen öffnen wie dem, das ihn geschrieben hat; sonst wird er ersetzt, sobald dieses Funkgerät zu speichern beginnt. Eine Sicherungsdatei bringt den Verlauf auf ein anderes Funkgerät oder in einen anderen Browser.",
       "replaceTitle": "Was ersetzt wird",
       "replaceErase": "Die aktuelle Identität des Funkgeräts wird gelöscht. Ohne vorherige Sicherung ist sie endgültig verloren.",
       "replaceContacts": "Wer dieses Funkgerät in seinem jetzigen Zustand hinzugefügt hat, erreicht es nicht mehr. Kontakte der wiederhergestellten Identität erreichen dich wieder.",

@@ -587,7 +587,7 @@
       "vaultKnown": "Cet appareil possède un coffre d’identités pour cette phrase.",
       "vaultUnknown": "Cet appareil n’a pas encore de coffre d’identités pour cette phrase. Un coffre est créé lors de la restauration.",
       "alreadyHeld": "La radio connectée détient déjà cette identité, rien ne lui est donc écrit. Vous pouvez tout de même l’enregistrer dans le coffre d’identités de cet appareil.",
-      "historyNote": "La phrase restaure l’identité, pas ses messages. L’historique ne revient que si ce navigateur le conserve encore pour cette identité ; c’est un fichier de sauvegarde qui transporte l’historique vers un autre navigateur.",
+      "historyNote": "La phrase restaure l’identité, pas ses messages. Ce navigateur conserve peut-être encore un historique pour cette identité, mais il ne s’ouvre que sur une radio ayant les mêmes canaux que celle qui l’a écrit ; sinon, il est remplacé dès que cette radio commence à enregistrer. C’est un fichier de sauvegarde qui transporte l’historique vers une autre radio ou un autre navigateur.",
       "replaceTitle": "Ce qui est remplacé",
       "replaceErase": "L’identité actuelle de la radio est effacée. Sans sauvegarde préalable, elle est perdue pour de bon.",
       "replaceContacts": "Quiconque a ajouté cette radio dans son état actuel ne pourra plus la joindre. Les contacts de l’identité restaurée pourront de nouveau vous joindre.",

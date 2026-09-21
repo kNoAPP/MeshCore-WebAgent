@@ -587,7 +587,7 @@
       "vaultKnown": "Este dispositivo tiene una bóveda de identidades para esta frase.",
       "vaultUnknown": "Este dispositivo aún no tiene una bóveda de identidades para esta frase. Se crea una como parte de la restauración.",
       "alreadyHeld": "La radio conectada ya tiene esta identidad, así que no se le escribe nada. Aun así puedes registrarla en la bóveda de identidades de este dispositivo.",
-      "historyNote": "La frase restaura la identidad, no sus mensajes. El historial solo vuelve si este navegador aún lo guarda para esta identidad; un archivo de copia de seguridad es lo que lleva el historial a otro navegador.",
+      "historyNote": "La frase restaura la identidad, no sus mensajes. Este navegador puede conservar aún historial de esta identidad, pero solo se abre en una radio con los mismos canales que la que lo escribió; si no, se reemplaza en cuanto esta radio empiece a guardar. Un archivo de copia de seguridad es lo que lleva el historial a otra radio o navegador.",
       "replaceTitle": "Qué se reemplaza",
       "replaceErase": "La identidad actual de la radio se borra. Si no haces antes una copia de seguridad, se pierde para siempre.",
       "replaceContacts": "Quien haya añadido esta radio tal como está ahora dejará de alcanzarla. Los contactos de la identidad restaurada volverán a alcanzarte.",

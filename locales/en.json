@@ -586,7 +586,7 @@
       "vaultKnown": "This device has an identity vault for this phrase.",
       "vaultUnknown": "This device has no identity vault for this phrase yet. One is created for it as part of the restore.",
       "alreadyHeld": "The connected radio already holds this identity, so nothing is written to it. You can still record it in this device's identity vault.",
-      "historyNote": "The phrase restores the identity, not its messages. History comes back only if this browser still holds it for this identity; a backup file is what carries history to another browser.",
+      "historyNote": "The phrase restores the identity, not its messages. This browser may still hold history for this identity, but it only opens on a radio with the same channels as the one that wrote it; otherwise it is replaced once this radio starts saving. A backup file is what carries history to another radio or browser.",
       "replaceTitle": "What this replaces",
       "replaceErase": "The radio's current identity is erased. Unless you back it up first, it is gone for good.",
       "replaceContacts": "Anyone who added this radio as it is now will no longer reach it. Contacts of the restored identity will reach you again.",
