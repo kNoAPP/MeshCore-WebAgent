@@ -249,6 +249,35 @@ function recordKey(pubkey: string, suffix: string): string {
 }
 
 /**
+ * Deletes every per-radio record belonging to one identity — message history,
+ * advert cache, automation rules and preferences.
+ *
+ * @remarks For a deliberate identity handover: once the radio's key has been
+ * replaced, the outgoing identity's records describe a node that no longer
+ * exists and nothing will ever read them again.
+ *
+ * Entries in the `secrets` store are left behind rather than collected. They
+ * are orphaned just as thoroughly — nothing derives that identity's key again,
+ * so a remembered API key or saved repeater password simply stops resolving
+ * after the reboot — but they are not this function's to destroy, and an
+ * identity change has always left them that way.
+ * @returns whether every delete landed; best-effort, like the `save*` helpers.
+ */
+export async function deleteRadioRecords(pubkey: string): Promise<boolean> {
+  try {
+    await Promise.all([
+      idbDelete(STORE_NAME, pubkey),
+      idbDelete(STORE_NAME, recordKey(pubkey, 'advert-cache')),
+      idbDelete(STORE_NAME, recordKey(pubkey, 'automation-rules')),
+      idbDelete(STORE_NAME, recordKey(pubkey, 'preferences')),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Encrypts and stores a named secret (e.g. an LLM API key) for a radio,
  * scoped by its public key. Best-effort — any failure is swallowed, exactly
  * like {@link saveRadioData}.

@@ -14,8 +14,7 @@ import {
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { subscribe, emit } from '@/lib/ai/eventBus';
 import { automationEngine } from '@/lib/ai/engine';
-import { getStorageContext } from '@/lib/ai/secret';
-import { saveAutomationRules } from '@/lib/storage';
+import { flushAutomationRules } from '@/lib/session/persistence';
 import { ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import type { ActionContext } from '@/lib/ai/tools';
 import i18n from '@/lib/i18n';
@@ -166,8 +165,7 @@ export function useAutomation(): void {
   // the restore. `prefsHydrated` marks the end of that read, so the first write
   // this fires is the restored set being saved back harmlessly.
   useEffect(() => {
-    const ctx = getStorageContext();
-    if (!ctx || !prefsHydrated) return;
-    void saveAutomationRules(ctx.pubkey, ctx.storageKey, rules);
+    if (!prefsHydrated) return;
+    flushAutomationRules(useMeshStore.getState().client);
   }, [rules, prefsHydrated]);
 }

@@ -132,8 +132,9 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
       });
       onClose();
     } catch (err) {
-      // The browser data landed before any radio write was attempted, so this
-      // only ever reports the identity step failing.
+      // `applyBackup` applies the browser data to the store and persists it on
+      // every path before it throws, so this only ever reports the identity
+      // step failing.
       setError(
         err instanceof PrivateKeyError ? (
           <PrivateKeyErrorText code={err.code} action='import' />
