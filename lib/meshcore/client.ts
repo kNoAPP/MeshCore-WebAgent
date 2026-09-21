@@ -164,6 +164,32 @@ export const APP_START_TIMEOUT_MS = 40000;
 // hears, so the notification is rate-limited to keep it from drowning the UI.
 const CONTACTS_FULL_NOTIFY_INTERVAL_MS = 300000;
 
+/**
+ * How many messages one {@link MeshCoreClient} drain pass pulls before handing
+ * control back.
+ *
+ * @remarks Bounds how long the connect screen stays up against a large offline
+ * queue: the rest is drained in the background once the UI is available. The
+ * companion protocol has no queue-depth query, so a pass that consumes every
+ * slot cannot tell a drained queue from a truncated one — hence the cap is
+ * reported rather than inferred.
+ */
+const MESSAGE_DRAIN_CAP = 64;
+
+/**
+ * How one drain pass ended.
+ *
+ * @remarks Only `drained` means the radio's queue is empty — the pass asked
+ * and was told `NO_MORE_MESSAGES`. `capped` spent every slot on a real
+ * message, and `unknown` never got an answer at all: a timeout, an `ERR`, or
+ * another pass already holding the queue. Both of the latter leave an
+ * unknowable amount still on the device, which is why they are separated from
+ * `drained` rather than folded into one "not finished" boolean — announcing a
+ * catch-up that never happened is exactly the failure this distinction exists
+ * to prevent.
+ */
+type DrainOutcome = 'drained' | 'capped' | 'unknown';
+
 type RespCode = number;
 
 interface PendingCmd {
@@ -226,6 +252,16 @@ export interface MeshCoreCallbacks {
   onLogRx?: (pkt: RawRxPacket) => void;
   /** Progress updates during the initial connect sync. */
   onSyncProgress?: (progress: SyncProgress) => void;
+  /**
+   * The background message drain started or finished catching up on an offline
+   * queue too large for the connect-time pass. Fires only on the edges, and
+   * only ever `false` after a `true`.
+   *
+   * @remarks Between the two the queue is draining as fast as the radio
+   * answers, with no way to say how much is left — the protocol has no
+   * queue-depth query. Messages arrive over the callback as usual throughout.
+   */
+  onBacklogDraining?: (draining: boolean) => void;
   /**
    * The transport link dropped unexpectedly (not a caller-initiated
    * disconnect). Fired after the client stops its own timers; the hook uses it
@@ -312,6 +348,8 @@ export class MeshCoreClient {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private pathSyncTimer: ReturnType<typeof setTimeout> | null = null;
   private polling = false;
+  private draining = false;
+  private backlogDraining = false;
   private collectingContacts = false;
   private contactsStarted = false;
   private contactsResolve: (() => void) | null = null;
@@ -339,6 +377,12 @@ export class MeshCoreClient {
    * Then starts the 5s message
    * poll. Individual steps are best-effort — a timeout is swallowed so a slow
    * radio still finishes connecting.
+   *
+   * @remarks The message drain is capped at {@link MESSAGE_DRAIN_CAP} so a
+   * large offline queue can't hold the connect screen up. A queue deeper than
+   * that resolves with the remainder still on the radio, reported over
+   * {@link MeshCoreCallbacks.onBacklogDraining} and finished in the
+   * background.
    */
   async init(): Promise<void> {
     // Register the close handler before starting the read loop: a transport
@@ -387,10 +431,35 @@ export class MeshCoreClient {
     this.reportSync('contacts', 10);
     await this.syncStep(() => this.syncContacts());
     await this.syncStep(() => this.syncChannels());
-    await this.syncStep(() => this.pollMessages());
-    this.reportSync('messages', 100);
+    // A queue deeper than one pass is finished in the background rather than
+    // held against the connect screen, so the cap has to travel back out of
+    // the step: claiming 100% here is what used to make a truncated drain look
+    // like a completed one.
+    let outcome: DrainOutcome = 'drained';
+    await this.syncStep(async () => {
+      outcome = await this.pollMessages();
+    });
+    // Anything but a drained queue defers. `unknown` covers two cases that
+    // both look like "nothing left" if they aren't separated out: a pass that
+    // timed out, and one that never ran because another already held the
+    // queue — the read loop is live from the top of init, so a
+    // PUSH_MSG_WAITING answered during the seconds of contact enumeration can
+    // be mid-drain by the time we get here. `draining` is the companion test:
+    // a drain still running has not reached NO_MORE_MESSAGES yet — it loops
+    // until it does — so the queue is demonstrably not empty, while one that
+    // has finished ended on exactly that and leaves nothing to defer.
+    const deferred = outcome !== 'drained' || this.draining;
+    if (!deferred) this.reportSync('messages', 100);
     this.initialSync = false;
-    this.pollTimer = setInterval(() => this.pollMessages(), 5000);
+    this.pollTimer = setInterval(() => void this.drainMessages(), 5000);
+    if (deferred) {
+      // Raise the flag before handing back, so the UI that mounts on
+      // 'connected' is already showing the catch-up rather than flashing it on
+      // one tick later. A drain already in flight clears it on its own way
+      // out; the call below is a no-op while one holds the queue.
+      this.setBacklogDraining(true);
+      void this.drainMessages();
+    }
   }
 
   // Verifies the link survived the step, so a mid-sync drop aborts `init`
@@ -566,7 +635,7 @@ export class MeshCoreClient {
     const type = d[0];
 
     if (type === RESP.PUSH_MSG_WAITING) {
-      this.pollMessages();
+      void this.drainMessages();
       return;
     }
     if (type === RESP.PUSH_SEND_CONFIRMED) {
@@ -996,8 +1065,13 @@ export class MeshCoreClient {
     }
   }
 
-  private async pollMessages(): Promise<void> {
-    if (this.polling) return;
+  // Pulls up to MESSAGE_DRAIN_CAP queued messages and reports how the pass
+  // ended. Only `drained` is the radio saying the queue is empty; see
+  // DrainOutcome for why the other two are kept apart from it.
+  private async pollMessages(): Promise<DrainOutcome> {
+    // Another pass already owns the queue, so this one learns nothing about
+    // it — that pass is the one that will report how it ends.
+    if (this.polling) return 'unknown';
     this.polling = true;
     const msgTypes = [
       RESP.CHANNEL_MSG,
@@ -1010,16 +1084,80 @@ export class MeshCoreClient {
       RESP.CHANNEL_DATA_RECV,
       RESP.NO_MORE_MESSAGES,
     ];
+    // Each outcome is written only where it is actually established, so the
+    // default stands for "the pass ended without the radio saying either
+    // way". Leaving it to fall out of the loop's shape instead would make any
+    // future early exit silently read as a drained queue.
+    let outcome: DrainOutcome = 'unknown';
     try {
-      for (let i = 0; i < 64; i++) {
-        // Queue depth is unknown ahead of time — creep toward the end of the
-        // bar
-        this.reportSync('messages', Math.min(99, 75 + i * 2), i);
+      for (let i = 0; i < MESSAGE_DRAIN_CAP; i++) {
+        // Queue depth is unknown ahead of time, so the bar creeps toward the
+        // end of its band across the whole cap. Spread over the cap rather
+        // than a steeper ramp that would sit pinned at the last percent for
+        // most of a full pass and then jump, which reads as a skipped step.
+        this.reportSync('messages', 75 + (24 * i) / MESSAGE_DRAIN_CAP, i);
         const d = await this.cmd(buildSyncNextMessage(), msgTypes, 3000);
-        if (d[0] === RESP.NO_MORE_MESSAGES) break;
+        if (d[0] === RESP.NO_MORE_MESSAGES) {
+          outcome = 'drained';
+          break;
+        }
+        if (i === MESSAGE_DRAIN_CAP - 1) outcome = 'capped';
       }
-    } catch {}
+    } catch {
+      // A timeout or an ERR — `cmd` has no retries and a 3s budget, which a
+      // busy BLE link can miss. The queue is left in an unknown state, and
+      // very likely a non-empty one, since the pass stopped on a failure
+      // rather than on NO_MORE_MESSAGES.
+      outcome = 'unknown';
+    }
     this.polling = false;
+    return outcome;
+  }
+
+  // One drain to exhaustion: consecutive full passes mean the radio still has
+  // a queue, so the next starts as soon as the last answers instead of waiting
+  // out the 5s poll — which would spend eight ticks on a 500-message backlog.
+  // Guarded because the poll timer and PUSH_MSG_WAITING both land here: a
+  // second loop would find the queue already owned, fall straight through, and
+  // clear the backlog flag out from under the pass still running.
+  //
+  // The flag arms only once a pass has come back full, so a drain entered from
+  // the timer or a push notifies normally for its first MESSAGE_DRAIN_CAP
+  // messages and goes quiet after. That is deliberate: arriving traffic is not
+  // a backlog until there is more of it than one pass can carry, and arming on
+  // entry would silence every ordinary message instead. `init` is the one
+  // caller that arms up front, because a connect-time pass that came back full
+  // has already established the backlog this one is still only a burst.
+  private async drainMessages(): Promise<void> {
+    if (this.draining) return;
+    this.draining = true;
+    let outcome: DrainOutcome = 'unknown';
+    try {
+      outcome = await this.pollMessages();
+      while (outcome === 'capped' && !this._closed) {
+        this.setBacklogDraining(true);
+        outcome = await this.pollMessages();
+      }
+    } finally {
+      this.draining = false;
+      // Only a drained queue ends the catch-up — or a closed link, where
+      // nothing more is coming and the session is being torn down anyway. A
+      // pass that stopped on a timeout or an ERR proves nothing about what is
+      // left: clearing on that would announce a catch-up that never happened
+      // and then let the retry re-flood, because the flag would have to arm
+      // from scratch over the next full pass. So the flag stays up and the 5s
+      // timer takes the next attempt, which also keeps a link that is failing
+      // without having closed from being hammered by an immediate retry.
+      if (outcome === 'drained' || this._closed) this.setBacklogDraining(false);
+    }
+  }
+
+  // Reports only the edges, so the steady-state poll — which ends every tick
+  // with a drained queue — doesn't re-announce "not draining" every 5s.
+  private setBacklogDraining(draining: boolean): void {
+    if (this.backlogDraining === draining) return;
+    this.backlogDraining = draining;
+    this.callbacks.onBacklogDraining?.(draining);
   }
 
   // ─── Public API ────────────────────────────────────────────────────────────
@@ -1998,6 +2136,12 @@ export class MeshCoreClient {
   private teardown(err: Error): void {
     this._closed = true;
     this.stopTimers();
+    // The catch-up dies with the link. A pass that ended `unknown` leaves the
+    // flag up with no drain in flight, waiting on the poll timer that is
+    // being cleared one line above — so without this, a drop inside that
+    // window would never report the falling edge, and the flag would outlive
+    // the client that raised it.
+    this.setBacklogDraining(false);
     this.rejectPending(err);
     this.rejectPushWaiters(err);
     this.collectingContacts = false;

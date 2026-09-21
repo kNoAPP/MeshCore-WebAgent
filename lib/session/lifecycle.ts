@@ -56,6 +56,11 @@ export function clearSessionState(): void {
   // it. Retract it rather than let it name a pre-drop arrival the sidebar's
   // unread badges already contradict.
   store.setLatestInbound(null);
+  // And the catch-up indicator, for the same reason: it describes one link's
+  // backlog. The client that raised it is gone, so nothing is left to lower
+  // it, and a stale flag would suppress every notification of the new session
+  // rather than merely mislabel a surface.
+  store.setBacklogDraining(false);
   resetPersistence();
   // Drop the advert-diff baseline so the next session doesn't replay a prior
   // radio's adverts as "new" the moment automation subscribes.

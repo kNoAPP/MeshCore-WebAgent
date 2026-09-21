@@ -595,6 +595,17 @@ interface MeshState {
    */
   latestInbound: LatestInbound | null;
   /**
+   * Whether the background drain is still catching up on an offline queue too
+   * large for the connect-time pass.
+   *
+   * @remarks Indeterminate by necessity — the companion protocol has no
+   * queue-depth query, so there is no remaining count or fraction to report.
+   * While it is set, arrivals are collapsed into one summary instead of each
+   * raising its own notification. Session state, cleared by `reset()` and
+   * never persisted.
+   */
+  backlogDraining: boolean;
+  /**
    * The newest append to each conversation, and whether that conversation was
    * on screen at that moment. Unlike {@link lastArrival} this is written on
    * every append, because withholding it to protect a pending announcement
@@ -840,6 +851,8 @@ interface MeshActions {
    * removed channel slot, which the radio can hand to an unrelated channel.
    */
   setLatestInbound: (latest: LatestInbound | null) => void;
+  /** Reports whether the background message drain is still catching up. */
+  setBacklogDraining: (draining: boolean) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
   setScrollToMsgId: (msgId: string | null) => void;
@@ -1073,6 +1086,7 @@ const initialState: MeshState = {
   msgHistory: {},
   lastArrival: null,
   latestInbound: null,
+  backlogDraining: false,
   lastAppends: {},
   activeConvo: null,
   convoOpenSeq: 0,
@@ -1343,6 +1357,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     }),
 
   setLatestInbound: (latestInbound) => set({ latestInbound }),
+
+  setBacklogDraining: (backlogDraining) => set({ backlogDraining }),
 
   updateMessage: (id, msgId, patch) =>
     set((state) => {

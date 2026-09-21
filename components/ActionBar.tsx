@@ -17,6 +17,7 @@ import {
   Bell,
   CheckCircle2,
   Info,
+  LoaderCircle,
   MessageSquare,
   X,
   XCircle,
@@ -66,9 +67,52 @@ export function ActionBar() {
       aria-label={t('actionBar.label')}
       className='flex h-6 shrink-0 items-center gap-3 border-t border-border bg-surface px-2 text-xs text-text2'
     >
+      <CatchUp />
       <LatestMessage />
       <NotificationBell />
     </footer>
+  );
+}
+
+// The connect-time drain is capped so the UI comes up promptly, and a deeper
+// offline queue finishes in the background. This is the only standing sign
+// that it is still running — without it the remainder arrives unannounced,
+// since the arrivals themselves are collapsed into one summary at the end.
+//
+// Indeterminate by necessity: the companion protocol has no queue-depth query,
+// so neither a percentage nor a remaining count is knowable. The spinner says
+// "still going" and nothing it cannot back up.
+function CatchUp() {
+  const { t } = useTranslation();
+  const draining = useMeshStore((s) => s.backlogDraining);
+  const label = t('actionBar.catchingUp');
+  return (
+    <>
+      {/*
+        Announced, because while the catch-up runs the per-message toasts that
+        would otherwise be read out are suppressed — without this a screen
+        reader gets no cue at all that a backlog is landing. The end is covered
+        by the summary toast's own announcer.
+
+        Mounted for the whole session rather than alongside the spinner: a live
+        region inserted with its text already in it is commonly not announced,
+        and here the whole bar mounts at once on 'connected'. Only the text
+        changing is reliable. `sr-only` is absolutely positioned, so the empty
+        region is not a flex item and adds no gap to the bar.
+      */}
+      <span role='status' className='sr-only'>
+        {draining ? label : ''}
+      </span>
+      {draining && (
+        // Hidden from the tree: the region above already carries this text,
+        // at the same place in the bar, and announcing both would read it
+        // twice in browse mode.
+        <span aria-hidden='true' className='flex min-w-0 items-center gap-1'>
+          <LoaderCircle size={13} className='animate-spin' />
+          <span className='truncate'>{label}</span>
+        </span>
+      )}
+    </>
   );
 }
 
