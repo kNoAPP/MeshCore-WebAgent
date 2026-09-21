@@ -210,6 +210,23 @@ export interface DeviceInfo {
   gpsEnabled?: boolean;
 }
 
+/**
+ * Whether the connected radio will hand its private key over the companion
+ * link, from {@link MeshCoreClient.probePrivateKeyExport}.
+ *
+ * `disabled` is a build compiled without `ENABLE_PRIVATE_KEY_EXPORT`;
+ * `unsupported` is firmware predating `EXPORT_PRIVATE_KEY` altogether.
+ *
+ * @remarks
+ * Only export is measured. Import is inferred to match it, because the one
+ * non-destructive import probe — a key built to fail `validatePrivateKey` — is
+ * not safe: firmware before that check (MeshCore `96ef5e5e`, 2026-01-24)
+ * installs whatever 64 bytes it is sent. The two build flags are independent,
+ * so an import can still be refused where export is `available`; that refusal
+ * surfaces as a {@link PrivateKeyError} from the import itself.
+ */
+export type PrivateKeyAccess = 'available' | 'disabled' | 'unsupported';
+
 /** Battery voltage (mV) and flash storage usage (KB). */
 export interface BatteryInfo {
   voltage: number; // mV

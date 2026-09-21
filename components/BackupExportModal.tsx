@@ -10,6 +10,7 @@ import { encryptBackup } from '@/lib/backup/archive';
 import { backupFilename, downloadBackup } from '@/lib/backup/file';
 import { buildBackupPayload } from '@/lib/backup/session';
 import { PrivateKeyError } from '@/lib/meshcore/errors';
+import { ensurePrivateKeyAccess } from '@/lib/session/privateKeyAccess';
 import { ModalShell } from './ModalShell';
 import { Switch } from './Switch';
 import {
@@ -34,12 +35,14 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
   const client = useMeshStore((s) => s.client);
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const notify = useMeshStore((s) => s.notify);
+  const keyAccess = useMeshStore((s) => s.privateKeyAccess);
   const passId = useId();
   const confirmId = useId();
 
   const [passphrase, setPassphrase] = useState('');
   const [confirm, setConfirm] = useState('');
   const [includeIdentity, setIncludeIdentity] = useState(false);
+  const [probing, setProbing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<React.ReactNode>(null);
 
@@ -61,7 +64,28 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
     confirm.normalize('NFKC') === normalized &&
     !!selfInfo?.pubkey &&
     sessionReady &&
+    // While the probe runs the switch still reads off, so a backup started now
+    // would silently leave out the identity the user just opted into.
+    !probing &&
     !busy;
+
+  const keyUnavailable = keyAccess !== null && keyAccess !== 'available';
+
+  // Asked when the user opts in rather than when the dialog opens: the probe is
+  // a real export, so the key only crosses the link after they have chosen to
+  // send it — once for the probe, and again when the backup is written.
+  const toggleIdentity = async (on: boolean) => {
+    if (!on) {
+      setIncludeIdentity(false);
+      return;
+    }
+    setProbing(true);
+    const access = await ensurePrivateKeyAccess();
+    setProbing(false);
+    // An inconclusive probe keeps the opt-in; the export itself then reports
+    // whatever went wrong.
+    setIncludeIdentity(access !== 'disabled' && access !== 'unsupported');
+  };
 
   const run = async () => {
     if (!ready || !selfInfo) return;
@@ -104,6 +128,19 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
       });
       onClose();
     } catch (err) {
+      // Reached after an inconclusive probe: the radio has now answered, so
+      // the switch and any later identity feature can use the verdict. The
+      // explanation under the switch then says why, so it is not repeated here.
+      if (
+        err instanceof PrivateKeyError &&
+        (err.code === 'disabled' || err.code === 'unsupported') &&
+        client &&
+        useMeshStore.getState().client === client
+      ) {
+        useMeshStore.getState().setPrivateKeyAccess(err.code);
+        setIncludeIdentity(false);
+        return;
+      }
       setError(
         err instanceof PrivateKeyError ? (
           <PrivateKeyErrorText code={err.code} action='export' />
@@ -184,12 +221,17 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
         <Switch
           label={t('settings.backup.includeIdentity')}
           checked={includeIdentity}
-          onChange={setIncludeIdentity}
-          disabled={busy}
+          onChange={(on) => void toggleIdentity(on)}
+          disabled={busy || probing || keyUnavailable}
         />
         <p className='mt-2 text-xs text-text2'>
           {t('settings.backup.includeIdentityWarning')}
         </p>
+        {keyUnavailable && (
+          <p className='mt-2 text-xs text-red'>
+            <PrivateKeyErrorText code={keyAccess} action='export' />
+          </p>
+        )}
       </div>
 
       {error && (

@@ -15,6 +15,7 @@ import type {
   BatteryInfo,
   SelfInfo,
   DeviceInfo,
+  PrivateKeyAccess,
   SyncProgress,
   RepeaterStatus,
   RepeaterAccess,
@@ -566,6 +567,13 @@ interface MeshState {
   deviceName: string;
   selfInfo: SelfInfo | null;
   deviceInfo: DeviceInfo | null;
+  /**
+   * Whether this radio exports its private key, or `null` until something has
+   * asked — see {@link ensurePrivateKeyAccess}. Describes the connected radio,
+   * not a preference: it clears whenever the client changes, reconnects
+   * included, and never enters the per-radio preferences blob.
+   */
+  privateKeyAccess: PrivateKeyAccess | null;
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
 
@@ -861,6 +869,7 @@ interface MeshActions {
   setDeviceName: (name: string) => void;
   setSelfInfo: (info: SelfInfo | null) => void;
   setDeviceInfo: (info: DeviceInfo | null) => void;
+  setPrivateKeyAccess: (access: PrivateKeyAccess | null) => void;
   setBattery: (b: BatteryInfo | null) => void;
   setSyncProgress: (p: SyncProgress | null) => void;
   /** Caches the device Stats-page snapshot so it survives leaving the view. */
@@ -1141,6 +1150,7 @@ const initialState: MeshState = {
   deviceName: '',
   selfInfo: null,
   deviceInfo: null,
+  privateKeyAccess: null,
   battery: null,
   syncProgress: null,
   deviceStats: null,
@@ -1245,7 +1255,12 @@ const mapFiltersTouched = new Set<keyof MapFilters>();
 export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   ...initialState,
 
-  setClient: (client) => set({ client }),
+  // A reconnect swaps the client without a reset, and what comes back may be
+  // a different radio — or this one reflashed with the build flag set.
+  setClient: (client) =>
+    set((s) =>
+      s.client === client ? { client } : { client, privateKeyAccess: null },
+    ),
   // Every transition that can uncover the open conversation runs the catch-up,
   // or a message drained behind a reconnect overlay (or a dialog) stays unread
   // with no divider until something unrelated happens to fire it.
@@ -1267,6 +1282,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setDeviceName: (deviceName) => set({ deviceName }),
   setSelfInfo: (selfInfo) => set({ selfInfo }),
   setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
+  setPrivateKeyAccess: (privateKeyAccess) => set({ privateKeyAccess }),
   setBattery: (battery) => set({ battery }),
   setSyncProgress: (syncProgress) => set({ syncProgress }),
   setDeviceStats: (deviceStats) =>
