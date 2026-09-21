@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.32.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.31.0...v1.32.0) (2026-09-21)
+
+
+### Features
+
+* **ui:** add a bottom action bar with a dismissable notification drawer ([#348](https://github.com/kNoAPP/MeshCore-WebAgent/issues/348)) ([c6cb35b](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c6cb35b4ff06544bd67dfc1856c543ad9790d8d5))
+* **ui:** show the latest inbound message in the action bar as a live quick link ([#349](https://github.com/kNoAPP/MeshCore-WebAgent/issues/349)) ([4e58ac8](https://github.com/kNoAPP/MeshCore-WebAgent/commit/4e58ac84e20153d15c7e891310de70759576cca8))
+
+
+### Bug Fixes
+
+* **nodes:** split clock skew from last heard and normalize node ages ([#346](https://github.com/kNoAPP/MeshCore-WebAgent/issues/346)) ([49be086](https://github.com/kNoAPP/MeshCore-WebAgent/commit/49be086b6b3022ee80e79ffff9d75f9aff433fcf))
+* **sync:** surface and quiet the post-connect message backlog drain ([#350](https://github.com/kNoAPP/MeshCore-WebAgent/issues/350)) ([c05be8d](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c05be8d0be3882a9f9be5da159a1f736171a088e))
+
 ## [1.31.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.30.0...v1.31.0) (2026-09-19)
 
 
