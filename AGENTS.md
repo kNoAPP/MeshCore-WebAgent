@@ -115,6 +115,26 @@ per-radio key is derived once per session in `useMeshCore` via
 or the store — they use the separate encrypted `secrets` store
 (`lib/ai/secret.ts`).
 
+### The identity vault — the one exception
+
+There is exactly one sanctioned third category, besides the two pre-connect
+`localStorage` preferences and the per-radio encrypted records: the **identity
+vault** (`lib/identity/vault.ts`), in its own `vault` object store.
+
+- **What it holds.** For each recovery phrase this device knows, the phrase's
+  storage root (`lib/identity/storageRoot.ts`), the identities the phrase has
+  minted (label, derivation index, public key), and — only on an explicit opt-in
+  — the phrase itself. All of it is sealed under a key stretched from a
+  passphrase the user chooses (PBKDF2-SHA256, 600k iterations, the backup file's
+  KDF). Only the seed fingerprint, the record key, is in the clear.
+- **Why it cannot be per-radio.** The vault spans identities whose storage keys
+  differ by construction, so no single radio's namespace can hold it. And the
+  storage root is what must survive losing the radio: sealed under a key derived
+  from that radio's own secrets, it would be lost along with them.
+
+Nothing else may use the vault store or a passphrase-derived key as a way around
+the per-radio rule. A new preference is per-radio, full stop.
+
 ## What to Avoid
 
 - Do not add a backend, authentication, or any server-side code — this is

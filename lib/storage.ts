@@ -7,12 +7,16 @@ import type { Advert, Message } from '@/types/meshcore';
 // AES-256-GCM under a key derived from the radio's own secrets (see
 // deriveStorageKey) — so the data is unreadable without that radio's channels.
 const DB_NAME = 'meshcore';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'radios';
 // Secrets (e.g. a BYO LLM API key) live in their own object store so they're
 // never entangled with message history, keyed by `${pubkey}:${name}` and
 // encrypted under the same per-radio key as everything else.
 const SECRETS_STORE = 'secrets';
+// Passphrase-sealed identity vaults (`lib/identity/vault.ts`), keyed by seed
+// fingerprint rather than by radio public key. The one store not encrypted
+// under a per-radio key: a vault spans identities and must outlive the radio.
+const VAULT_STORE = 'vault';
 
 /**
  * The decrypted payload stored per radio: its conversation history keyed by
@@ -91,6 +95,9 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(SECRETS_STORE)) {
         db.createObjectStore(SECRETS_STORE);
       }
+      if (!db.objectStoreNames.contains(VAULT_STORE)) {
+        db.createObjectStore(VAULT_STORE);
+      }
     };
     req.onsuccess = () => {
       const db = req.result;
@@ -124,14 +131,14 @@ function openDB(): Promise<IDBDatabase> {
   return promise;
 }
 
-async function idbGet(
+async function idbGet<T = EncryptedRecord>(
   store: string,
   key: string,
-): Promise<EncryptedRecord | undefined> {
+): Promise<T | undefined> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const req = db.transaction(store, 'readonly').objectStore(store).get(key);
-    req.onsuccess = () => resolve(req.result as EncryptedRecord | undefined);
+    req.onsuccess = () => resolve(req.result as T | undefined);
     req.onerror = () => reject(req.error);
   });
 }
@@ -139,7 +146,7 @@ async function idbGet(
 async function idbPut(
   store: string,
   key: string,
-  record: EncryptedRecord,
+  record: object,
 ): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -466,4 +473,72 @@ export async function loadPreferences<T>(
     key,
   );
   return plaintext === null ? null : (JSON.parse(plaintext) as T);
+}
+
+/**
+ * Stores a sealed identity vault under its seed fingerprint, replacing any
+ * record already there. The record arrives encrypted: this layer only files
+ * it. Best-effort, like the `save*` helpers above.
+ *
+ * @returns whether the write landed.
+ */
+export async function saveVaultRecord(
+  fingerprint: string,
+  record: object,
+): Promise<boolean> {
+  try {
+    await idbPut(VAULT_STORE, fingerprint, record);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reads the sealed vault record for one seed fingerprint.
+ *
+ * @returns the record as stored, not yet validated; undefined when there is
+ * none.
+ * @throws when IndexedDB cannot be read. Unlike the per-radio `load*` helpers,
+ * a failed read is not folded into "nothing stored": creating a vault over one
+ * that exists but could not be read would destroy it.
+ */
+export async function loadVaultRecord(fingerprint: string): Promise<unknown> {
+  return idbGet<unknown>(VAULT_STORE, fingerprint);
+}
+
+/**
+ * The seed fingerprints of every vault on this device.
+ *
+ * @returns an empty list when IndexedDB cannot be read.
+ */
+export async function listVaultFingerprints(): Promise<string[]> {
+  try {
+    const db = await openDB();
+    return await new Promise((resolve, reject) => {
+      const req = db
+        .transaction(VAULT_STORE, 'readonly')
+        .objectStore(VAULT_STORE)
+        .getAllKeys();
+      req.onsuccess = () =>
+        resolve(req.result.filter((k): k is string => typeof k === 'string'));
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Deletes one vault record.
+ *
+ * @returns whether the delete landed.
+ */
+export async function deleteVaultRecord(fingerprint: string): Promise<boolean> {
+  try {
+    await idbDelete(VAULT_STORE, fingerprint);
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -1,0 +1,476 @@
+// Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
+// (https://github.com/kNoAPP/MeshCore-WebAgent)
+
+import {
+  deleteVaultRecord,
+  listVaultFingerprints,
+  loadVaultRecord,
+  saveVaultRecord,
+} from '@/lib/storage';
+import { toHex } from '@/lib/utils';
+import { deriveStorageRoot } from './storageRoot';
+import { MAX_SUB_IDENTITY_INDEX } from './subIdentity';
+
+/**
+ * The identity vault: what this device remembers about the identities one
+ * recovery phrase has minted, sealed under a passphrase the user chooses.
+ *
+ * Everything else in IndexedDB is per-radio, encrypted under a key derived
+ * from that radio's own secrets. The vault cannot be: it spans identities
+ * whose storage keys differ by construction, and the storage root it carries
+ * is what must survive losing the radio. So it has its own store, keyed by
+ * seed fingerprint, and its own key, stretched from the passphrase with the
+ * same KDF as the backup file.
+ *
+ * What it holds, all inside the ciphertext: the phrase's storage root (see
+ * `./storageRoot`), the identities minted from the phrase with their labels,
+ * indices and public keys, and — only when the user opted in — the phrase
+ * itself. Only the fingerprint is in the clear.
+ *
+ * @remarks The identity list is sealed too, not just the root. Labels and
+ * public keys in the clear would tell anyone holding the browser profile which
+ * personas belong to one operator, with no secret at all; sealed, that takes
+ * the profile and the passphrase, the same bar as reading the personas'
+ * records under the root.
+ *
+ * Without the remembered phrase, nothing in the vault can mint an identity:
+ * the root is a domain-separated node whose chain code is discarded, so no
+ * radio key is derivable from it.
+ */
+
+/**
+ * Why a vault could not be created or opened: `notFound` means no vault has
+ * this fingerprint; `exists` means the phrase already has one;
+ * `unsupportedVersion` means a newer build wrote it; `wrongPassphrase` and
+ * `corrupt` are distinguished as {@link VaultError} describes.
+ */
+export type VaultErrorCode =
+  'notFound' | 'exists' | 'unsupportedVersion' | 'wrongPassphrase' | 'corrupt';
+
+/**
+ * Thrown by {@link createVault} and {@link unlockVault}. The {@link code} is
+ * stable so the UI can map it to localized copy.
+ *
+ * @remarks `wrongPassphrase` and `corrupt` are told apart by a check value
+ * stored beside the ciphertext, so a damaged record is not blamed on the
+ * user's typing. A record whose salt or check value was itself damaged still
+ * reads as `wrongPassphrase`: nothing can tell those from a wrong guess.
+ */
+export class VaultError extends Error {
+  constructor(readonly code: VaultErrorCode) {
+    super(code);
+    this.name = 'VaultError';
+  }
+}
+
+/** One identity a vault's phrase has minted. */
+export interface VaultIdentity {
+  /**
+   * The sub-identity's raw derivation index, as `deriveSubIdentity` returns
+   * it, or null for the phrase's primary identity, which sits on no path.
+   */
+  index: number | null;
+  /** The identity's public key, lowercase hex, as `SELF_INFO` reports it. */
+  publicKey: string;
+  /** The user's name for this persona. Free text; may be empty. */
+  label: string;
+}
+
+/**
+ * An unlocked vault. Edit {@link identities} or {@link phrase} in place, then
+ * {@link saveVault}; call {@link lockVault} once it is no longer needed.
+ */
+export interface Vault {
+  /** Hex record key; see {@link fingerprintPhrase}. */
+  readonly fingerprint: string;
+  /**
+   * The phrase's 32-byte storage root, for `deriveIdentityStorageKey`. Zeroed
+   * by {@link lockVault}.
+   */
+  readonly root: Uint8Array<ArrayBuffer>;
+  identities: VaultIdentity[];
+  /**
+   * The recovery phrase, when the user chose to remember it on this device;
+   * null otherwise, which is the default. Set it to null and save to forget
+   * it.
+   *
+   * @remarks A JS string, so it cannot be wiped from memory, and anyone
+   * holding it and the browser profile's passphrase can mint every identity
+   * of the phrase. Only ever set it on an explicit opt-in.
+   */
+  phrase: string | null;
+  /** Sealing material for {@link saveVault}. Opaque to callers. */
+  readonly seal: VaultSeal;
+}
+
+/** The passphrase-derived key a {@link Vault} is re-sealed under. */
+export interface VaultSeal {
+  readonly key: CryptoKey;
+  readonly salt: Uint8Array<ArrayBuffer>;
+  readonly check: Uint8Array<ArrayBuffer>;
+}
+
+// The record as stored. `check` is derived from the passphrase alongside the
+// key, so a mismatch means the wrong passphrase without attempting the
+// decryption at all.
+interface SealedVault {
+  version: number;
+  salt: Uint8Array<ArrayBuffer>;
+  check: Uint8Array<ArrayBuffer>;
+  iv: Uint8Array<ArrayBuffer>;
+  data: ArrayBuffer;
+}
+
+// The JSON half of the plaintext; the root travels as raw bytes in front of
+// it, so it never becomes a hex string that cannot be wiped.
+interface VaultBody {
+  identities: VaultIdentity[];
+  phrase: string | null;
+}
+
+const VAULT_VERSION = 1;
+// The backup file's cost (`lib/backup/archive.ts`), for the same threat: a
+// human-chosen passphrase guarding something at rest. Deliberately its own
+// constant rather than shared — the record does not store it, so changing it
+// makes every existing vault unreadable, and the backup's may move
+// independently.
+const PBKDF2_ITERATIONS = 600_000;
+const SALT_BYTES = 16;
+const IV_BYTES = 12;
+const CHECK_BYTES = 32;
+const ROOT_BYTES = 32;
+const FINGERPRINT_BYTES = 16;
+const FINGERPRINT_LABEL = 'MeshCore vault fingerprint';
+
+/**
+ * The record key for a phrase's vault: the first 16 bytes of
+ * `SHA-256("MeshCore vault fingerprint" || root)`, as hex.
+ *
+ * @remarks For finding a vault from a typed phrase — the restore flow's "this
+ * device knows this phrase" — without unlocking anything. The root carries at
+ * least 128 bits of the phrase's entropy, so the fingerprint cannot be walked
+ * back to it, and it has no relation to any public key the radio advertises.
+ * @throws `SeedPhraseError` `wordCount`, `unknownWord` or `checksum` for a
+ * malformed phrase.
+ */
+export async function fingerprintPhrase(phrase: string): Promise<string> {
+  const root = await deriveStorageRoot(phrase);
+  try {
+    return await fingerprintRoot(root);
+  } finally {
+    root.fill(0);
+  }
+}
+
+/** The seed fingerprints of every vault on this device. */
+export async function listVaults(): Promise<string[]> {
+  return listVaultFingerprints();
+}
+
+/**
+ * Starts a new, empty vault for a phrase, sealed under `passphrase`. Nothing is
+ * written until {@link saveVault}, so a caller can add the first identity and
+ * persist both in one write.
+ *
+ * @param rememberPhrase - keep the phrase itself in the vault, so new personas
+ * can be minted without re-typing it. Off unless the user explicitly opts in.
+ * @throws `SeedPhraseError` for a malformed phrase.
+ * @throws {@link VaultError} `exists` when this device already has a vault for
+ * the phrase — unlock that one instead, or its labels would be overwritten.
+ * @throws whatever IndexedDB throws when the existing record cannot be read.
+ */
+export async function createVault(
+  phrase: string,
+  passphrase: string,
+  rememberPhrase: boolean,
+): Promise<Vault> {
+  const root = await deriveStorageRoot(phrase);
+  try {
+    const fingerprint = await fingerprintRoot(root);
+    if ((await loadVaultRecord(fingerprint)) !== undefined) {
+      throw new VaultError('exists');
+    }
+    const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+    return {
+      fingerprint,
+      root,
+      identities: [],
+      phrase: rememberPhrase ? phrase : null,
+      seal: { salt, ...(await deriveSeal(passphrase, salt)) },
+    };
+  } catch (err) {
+    root.fill(0);
+    throw err;
+  }
+}
+
+/**
+ * Opens a stored vault.
+ *
+ * @throws {@link VaultError} `notFound` when there is no vault with this
+ * fingerprint, `unsupportedVersion` for a record this build cannot read,
+ * `wrongPassphrase` when the passphrase does not match, and `corrupt` when it
+ * matches but the record is damaged.
+ * @throws whatever IndexedDB throws when the record cannot be read.
+ */
+export async function unlockVault(
+  fingerprint: string,
+  passphrase: string,
+): Promise<Vault> {
+  const raw = await loadVaultRecord(fingerprint);
+  if (raw === undefined) throw new VaultError('notFound');
+  if (!isRecord(raw)) throw new VaultError('corrupt');
+  if (raw.version !== VAULT_VERSION) {
+    throw new VaultError(
+      typeof raw.version === 'number' ? 'unsupportedVersion' : 'corrupt',
+    );
+  }
+  const sealed = asSealedVault(raw);
+  if (!sealed) throw new VaultError('corrupt');
+
+  const { key, check } = await deriveSeal(passphrase, sealed.salt);
+  if (!bytesEqual(check, sealed.check)) {
+    throw new VaultError('wrongPassphrase');
+  }
+
+  let plaintext: Uint8Array;
+  try {
+    plaintext = new Uint8Array(
+      await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: sealed.iv, additionalData: aad(fingerprint) },
+        key,
+        sealed.data,
+      ),
+    );
+  } catch {
+    // The check value matched, so the key is right: the ciphertext, or the
+    // fingerprint it was filed under, is what changed.
+    throw new VaultError('corrupt');
+  }
+  try {
+    if (plaintext.length <= ROOT_BYTES) throw new VaultError('corrupt');
+    const body = parseBody(plaintext.subarray(ROOT_BYTES));
+    if (!body) throw new VaultError('corrupt');
+    return {
+      fingerprint,
+      root: plaintext.slice(0, ROOT_BYTES),
+      identities: body.identities,
+      phrase: body.phrase,
+      seal: { key, salt: sealed.salt, check: sealed.check },
+    };
+  } finally {
+    plaintext.fill(0);
+  }
+}
+
+/**
+ * Seals the vault's current state and writes it, replacing the stored record.
+ * Each save draws a fresh IV under the passphrase key derived at create or
+ * unlock, so saving does not ask for the passphrase again.
+ *
+ * @returns whether the write landed; best-effort, like the storage helpers.
+ * @throws RangeError when an identity is malformed or two share a public key —
+ * a record like that would fail to unlock as `corrupt`, so it is refused here
+ * rather than written.
+ */
+export async function saveVault(vault: Vault): Promise<boolean> {
+  const body: VaultBody = {
+    identities: vault.identities.map((i) => ({ ...i })),
+    phrase: vault.phrase,
+  };
+  if (!isVaultBody(body)) {
+    throw new RangeError('Vault identities are malformed or duplicated');
+  }
+  const json = new TextEncoder().encode(JSON.stringify(body));
+  const plaintext = new Uint8Array(ROOT_BYTES + json.length);
+  plaintext.set(vault.root, 0);
+  plaintext.set(json, ROOT_BYTES);
+  try {
+    const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+    const data = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv, additionalData: aad(vault.fingerprint) },
+      vault.seal.key,
+      plaintext,
+    );
+    const record: SealedVault = {
+      version: VAULT_VERSION,
+      salt: vault.seal.salt,
+      check: vault.seal.check,
+      iv,
+      data,
+    };
+    return await saveVaultRecord(vault.fingerprint, record);
+  } catch {
+    return false;
+  } finally {
+    plaintext.fill(0);
+  }
+}
+
+/**
+ * Zeroes the vault's storage root. The vault must not be used afterwards; the
+ * remembered phrase, being a string, is only dropped with the object.
+ */
+export function lockVault(vault: Vault): void {
+  vault.root.fill(0);
+}
+
+/**
+ * Deletes a vault from this device. The identities it listed are untouched —
+ * on the radio, and in their per-identity records — but their storage keys can
+ * then only be re-derived from the phrase.
+ *
+ * @returns whether the delete landed.
+ */
+export async function deleteVault(fingerprint: string): Promise<boolean> {
+  return deleteVaultRecord(fingerprint);
+}
+
+async function fingerprintRoot(root: Uint8Array<ArrayBuffer>): Promise<string> {
+  const label = new TextEncoder().encode(FINGERPRINT_LABEL);
+  const input = new Uint8Array(label.length + root.length);
+  input.set(label, 0);
+  input.set(root, label.length);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', input));
+  input.fill(0);
+  return toHex(digest.subarray(0, FINGERPRINT_BYTES));
+}
+
+// PBKDF2 once, at the backup file's cost, then HKDF to split the stretched
+// secret into the sealing key and the check value. Deriving both straight from
+// PBKDF2 would mean two 600k-iteration blocks, doubling the unlock time for
+// nothing — a guesser only ever needs the cheaper of the two.
+async function deriveSeal(
+  passphrase: string,
+  salt: Uint8Array<ArrayBuffer>,
+): Promise<{ key: CryptoKey; check: Uint8Array<ArrayBuffer> }> {
+  const enc = new TextEncoder();
+  const material = await crypto.subtle.importKey(
+    'raw',
+    // NFKC, as in `lib/backup/archive.ts`, so the same passphrase typed with
+    // combining or pre-composed accents unlocks the same vault.
+    enc.encode(passphrase.normalize('NFKC')),
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  );
+  const stretched = new Uint8Array(
+    await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt,
+        iterations: PBKDF2_ITERATIONS,
+        hash: 'SHA-256',
+      },
+      material,
+      256,
+    ),
+  );
+  const ikm = await crypto.subtle.importKey('raw', stretched, 'HKDF', false, [
+    'deriveKey',
+    'deriveBits',
+  ]);
+  stretched.fill(0);
+  const hkdf = (info: string): HkdfParams => ({
+    name: 'HKDF',
+    hash: 'SHA-256',
+    salt: new Uint8Array(0),
+    info: enc.encode(info),
+  });
+  const [key, check] = await Promise.all([
+    crypto.subtle.deriveKey(
+      hkdf('MeshCore vault key'),
+      ikm,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt'],
+    ),
+    crypto.subtle.deriveBits(
+      hkdf('MeshCore vault check'),
+      ikm,
+      CHECK_BYTES * 8,
+    ),
+  ]);
+  return { key, check: new Uint8Array(check) };
+}
+
+// Binds the ciphertext to the fingerprint it is filed under, so a record
+// copied onto another vault's key fails to decrypt instead of opening there.
+function aad(fingerprint: string): Uint8Array<ArrayBuffer> {
+  return new TextEncoder().encode(
+    `MeshCore vault ${VAULT_VERSION}:${fingerprint}`,
+  );
+}
+
+function asSealedVault(raw: Record<string, unknown>): SealedVault | null {
+  const { salt, check, iv, data } = raw;
+  if (
+    !(salt instanceof Uint8Array) ||
+    salt.length !== SALT_BYTES ||
+    !(check instanceof Uint8Array) ||
+    check.length !== CHECK_BYTES ||
+    !(iv instanceof Uint8Array) ||
+    iv.length !== IV_BYTES ||
+    !(data instanceof ArrayBuffer)
+  ) {
+    return null;
+  }
+  // Fresh copies: WebCrypto wants a plain ArrayBuffer backing, which a
+  // structured-clone view does not promise.
+  return {
+    version: VAULT_VERSION,
+    salt: new Uint8Array(salt),
+    check: new Uint8Array(check),
+    iv: new Uint8Array(iv),
+    data,
+  };
+}
+
+function parseBody(json: Uint8Array): VaultBody | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(json));
+  } catch {
+    return null;
+  }
+  return isVaultBody(parsed) ? parsed : null;
+}
+
+// Strict, all-or-nothing: the record decrypted under the user's own key, so a
+// failure here is a partial write or a build mismatch, and a half-read
+// identity list would show personas that don't match what was minted.
+function isVaultBody(v: unknown): v is VaultBody {
+  if (!isRecord(v)) return false;
+  if (v.phrase !== null && typeof v.phrase !== 'string') return false;
+  if (!Array.isArray(v.identities)) return false;
+  const seen = new Set<string>();
+  for (const id of v.identities) {
+    if (!isVaultIdentity(id) || seen.has(id.publicKey)) return false;
+    seen.add(id.publicKey);
+  }
+  return true;
+}
+
+function isVaultIdentity(v: unknown): v is VaultIdentity {
+  return (
+    isRecord(v) &&
+    (v.index === null ||
+      (Number.isInteger(v.index) &&
+        (v.index as number) >= 0 &&
+        (v.index as number) <= MAX_SUB_IDENTITY_INDEX)) &&
+    typeof v.publicKey === 'string' &&
+    /^[0-9a-f]{64}$/.test(v.publicKey) &&
+    typeof v.label === 'string'
+  );
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
