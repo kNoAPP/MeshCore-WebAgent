@@ -6,7 +6,10 @@ import {
   selectPreferences,
   type RadioPreferences,
 } from '@/store/meshStore';
-import { flushSessionAsync } from '@/lib/session/persistence';
+import {
+  flushSessionAsync,
+  saveSessionToIdentity,
+} from '@/lib/session/persistence';
 import { toHex, fromHex } from '@/lib/utils';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
@@ -72,10 +75,13 @@ export interface ApplyResult {
   /** Whether the radio accepted the backup's identity. */
   identityRestored: boolean;
   /**
-   * Whether the merged data reached encrypted storage. False when the session
-   * key is gone (a reconnect swapped radios mid-restore) or a write failed —
-   * the import is then in memory only and a reload loses it, so the caller must
-   * not report an unqualified success.
+   * Whether the merged data reached encrypted storage, in the namespace the
+   * user will actually read it back from. For an identity restore that is the
+   * *incoming* identity's namespace, not the one this session is still
+   * connected under. False when the session key is gone (a reconnect swapped
+   * radios mid-restore) or a write failed — the import is then in memory only
+   * and a reload loses it, so the caller must not report an unqualified
+   * success.
    */
   persisted: boolean;
 }
@@ -93,14 +99,25 @@ export interface ApplyResult {
  * browser data has landed, so a radio that refuses them still leaves the
  * history restored.
  *
- * The merged data is written to encrypted storage before any radio write, and
- * whether that write landed is reported in {@link ApplyResult.persisted} rather
- * than thrown — the import is applied to the store either way, so a failed
- * write is a weaker success, not a failure to roll back.
+ * Whether the merged data reached encrypted storage is reported in
+ * {@link ApplyResult.persisted} rather than thrown — the import is applied to
+ * the store either way, so a failed write is a weaker success, not a failure to
+ * roll back.
+ *
+ * @remarks
+ * An identity restore writes to the *incoming* identity's namespace instead,
+ * and only once the radio has accepted the key. `CMD_IMPORT_PRIVATE_KEY`
+ * replaces the key pair without rebooting, so the link stays up under the
+ * outgoing identity and the ordinary flush would file the restored data under
+ * a public key the user stops reading from the moment they reboot — which is
+ * how preferences and automation rules went missing. Writing the incoming
+ * namespace up front also survives the reboot happening as a power-cycle, or
+ * after a reload, where no reconnect in this page session could write it.
  *
  * @throws whatever {@link MeshCoreClient.importPrivateKey} throws when identity
- * restore was requested and refused — the browser data is already applied by
- * then, and the caller surfaces the failure against the identity step alone.
+ * restore was requested and refused — the browser data is applied and
+ * persisted by then, and the caller surfaces the failure against the identity
+ * step alone.
  */
 export async function applyBackup(
   payload: BackupPayload,
@@ -123,28 +140,45 @@ export async function applyBackup(
     state.restorePreferences(importablePreferences(payload.preferences), true);
   }
 
-  // Awaited, not just started: the caller reports success and closes the dialog
-  // on return, and an identity restore below ends in a reboot. A reload in
-  // either window would lose the import if the writes were still pending.
-  const persisted = await flushSessionAsync(client);
+  const identity =
+    client && opts.restoreIdentity && payload.identityHex
+      ? fromHex(payload.identityHex, PRIVATE_KEY_BYTES)
+      : null;
 
-  const result: ApplyResult = { identityRestored: false, persisted };
-  if (!client) return result;
-
-  if (opts.restoreIdentity && payload.identityHex) {
-    const key = fromHex(payload.identityHex, PRIVATE_KEY_BYTES);
-    if (key) {
-      try {
-        await client.importPrivateKey(key);
-        result.identityRestored = true;
-      } finally {
-        // Zeroed even when the radio refuses the key, so a failed restore
-        // doesn't leave the plaintext identity resident until GC.
-        key.fill(0);
-      }
-    }
+  if (!client || !identity) {
+    // Awaited, not just started: the caller reports success and closes the
+    // dialog on return. A reload in that window would lose the import if the
+    // writes were still pending.
+    return {
+      identityRestored: false,
+      persisted: await flushSessionAsync(client),
+    };
   }
-  return result;
+
+  try {
+    await client.importPrivateKey(identity);
+  } catch (err) {
+    // The radio kept its identity, so this session's own namespace is still
+    // the one the user reads from — persist there before surfacing the
+    // failure, or a refused key would also cost them the restored data.
+    await flushSessionAsync(client);
+    throw err;
+  } finally {
+    // Zeroed even when the radio refuses the key, so a failed restore doesn't
+    // leave the plaintext identity resident until GC.
+    identity.fill(0);
+  }
+
+  // A restore onto the radio that produced the backup changes no public key,
+  // so its records already belong to the live namespace and the ordinary flush
+  // is the correct write.
+  const handover = payload.pubkey !== client.selfInfo?.pubkey;
+  return {
+    identityRestored: true,
+    persisted: handover
+      ? await saveSessionToIdentity(client, payload.pubkey)
+      : await flushSessionAsync(client),
+  };
 }
 
 // `autoAddConfig` mirrors state the radio owns — the settings UI writes it

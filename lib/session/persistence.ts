@@ -4,6 +4,7 @@
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { useMeshStore, selectPreferences } from '@/store/meshStore';
 import {
+  deriveStorageKey,
   saveRadioData,
   saveAdvertCache,
   savePreferences,
@@ -118,12 +119,55 @@ export async function flushSessionAsync(
 ): Promise<boolean> {
   const pubkey = client?.selfInfo?.pubkey;
   if (!pubkey || !storageKey) return false;
+  return saveSessionNamespace(pubkey, storageKey);
+}
+
+/**
+ * Writes all four per-radio records into the namespace of an identity the
+ * session is not connected under, deriving that identity's key from the
+ * radio's current channel secrets.
+ *
+ * @remarks For a deliberate identity handover (a backup restore that replaces
+ * the radio's key). `CMD_IMPORT_PRIVATE_KEY` does not reboot the radio, so the
+ * link stays up on the outgoing identity and {@link flushSessionAsync} would
+ * still write to the outgoing namespace — the one the user stops reading from
+ * the moment they reboot. Writing the incoming namespace here makes the data
+ * durable at restore time rather than leaving it to a reconnect that a
+ * power-cycle or a reload never performs.
+ *
+ * @param pubkey - the incoming identity's public key hex, lowercase, as
+ * `SELF_INFO` will report it after the reboot; it is both the record namespace
+ * and the key-derivation salt, so its case must match.
+ * @returns whether all four writes landed, for callers that report persistence
+ * state.
+ */
+export async function saveSessionToIdentity(
+  client: MeshCoreClient,
+  pubkey: string,
+): Promise<boolean> {
+  // Channel secrets survive an identity import untouched — the firmware's
+  // handler replaces the key pair and reloads contacts, nothing else — so the
+  // key the next connect derives is this radio's current secrets salted with
+  // the new pubkey.
+  const secrets = Object.values(client.channels)
+    .map((ch) => ch.secret)
+    .filter((s): s is Uint8Array => s != null && s.length > 0);
+  return saveSessionNamespace(pubkey, await deriveStorageKey(secrets, pubkey));
+}
+
+// The one place the set of per-radio records is listed. Both the live-session
+// flush and the identity handover write the same four, so a fifth added later
+// cannot be wired into one path and forgotten in the other.
+async function saveSessionNamespace(
+  pubkey: string,
+  key: CryptoKey,
+): Promise<boolean> {
   const state = useMeshStore.getState();
   const results = await Promise.all([
-    saveRadioData(pubkey, storageKey, { msgHistory: state.msgHistory }),
-    saveAdvertCache(pubkey, storageKey, state.advertCache),
-    savePreferences(pubkey, storageKey, selectPreferences(state)),
-    saveAutomationRules(pubkey, storageKey, state.automationRules),
+    saveRadioData(pubkey, key, { msgHistory: state.msgHistory }),
+    saveAdvertCache(pubkey, key, state.advertCache),
+    savePreferences(pubkey, key, selectPreferences(state)),
+    saveAutomationRules(pubkey, key, state.automationRules),
   ]);
   return results.every(Boolean);
 }
