@@ -1405,6 +1405,7 @@
   },
   "update": {
     "available": "Hay una nueva versión disponible",
+    "barLabel": "Actualización disponible",
     "hint": "Al recargar se desconectará tu radio.",
     "reload": "Recargar",
     "dismiss": "Descartar"

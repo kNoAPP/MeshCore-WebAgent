@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RotateCw, X } from 'lucide-react';
-import { useMeshStore } from '@/store/meshStore';
+import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -28,14 +28,21 @@ async function fetchVersion(): Promise<string | null> {
  * @remarks Reloading throws away everything the session holds only in memory —
  * the Web Serial / BLE port handle, the AI API key, the composer draft, and any
  * message not yet flushed to IndexedDB. So a new version is only applied
- * automatically while the app is disconnected; once a connection exists it
- * renders a banner and lets the user pick the moment.
+ * automatically while the app is disconnected; once a connection exists the
+ * user picks the moment.
+ *
+ * Only the presentation forks on that: this banner is the surface on the
+ * connect screen, and once a session exists the action bar's own item takes
+ * over — a bottom-center banner would land on top of the bar. Nothing renders
+ * while reconnecting, where the bar is unmounted and a modal overlay holds the
+ * screen; the pending update outlives it either way.
  */
 export function VersionCheck() {
   const { t } = useTranslation();
   const initialVersion = useRef<string | null>(null);
   const updateAvailable = useMeshStore((s) => s.updateAvailable);
   const setUpdateAvailable = useMeshStore((s) => s.setUpdateAvailable);
+  const active = useMeshStore((s) => isActiveStatus(s.status));
 
   useEffect(() => {
     let cancelled = false;
@@ -72,7 +79,7 @@ export function VersionCheck() {
     };
   }, [setUpdateAvailable]);
 
-  if (!updateAvailable) return null;
+  if (!updateAvailable || active) return null;
 
   return (
     <div

@@ -3,32 +3,13 @@
 
 'use client';
 
-import {
-  useSyncExternalStore,
-  useState,
-  useRef,
-  useEffect,
-  useId,
-} from 'react';
+import { useSyncExternalStore, useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Moon,
-  Sun,
-  Radio,
-  Search,
-  ShieldAlert,
-  Inbox,
-  HardDrive,
-} from 'lucide-react';
+import { Moon, Sun, Search, ShieldAlert } from 'lucide-react';
 import { useMeshStore, isActiveStatus } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { useAdvertise } from '@/hooks/useAdvertise';
-import { useClickOutside } from '@/hooks/useClickOutside';
-import { formatStorage, formatVoltage } from '@/lib/i18n/format';
 import { Wordmark } from './Wordmark';
 import { Select } from './Select';
-import { ModalShell } from './ModalShell';
-import { ApprovalInboxList } from './AutomationPanel';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 import { DEFAULT_THEME } from '@/lib/theme/config';
 
@@ -41,15 +22,16 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * Top bar: connection status, device name, battery/storage, and
- * Stats/Disconnect actions when connected.
+ * Top bar: navigation and identity — connection status, the wordmark, the page
+ * tabs, search, the connected radio's name, the automation kill switch and
+ * Disconnect. Ambient state that is glanced at rather than operated lives in
+ * the {@link ActionBar} instead.
  */
 export function Header() {
   const { t } = useTranslation();
   const {
     status,
     deviceName,
-    battery,
     locale,
     theme,
     view,
@@ -119,18 +101,8 @@ export function Header() {
   );
   const displayTheme = hydrated ? theme : DEFAULT_THEME;
 
-  // Full name plus the battery/storage readout so the detail survives when the
-  // inline readout collapses on a narrow header and the name truncates.
-  const deviceTitle =
-    connected && battery
-      ? `${deviceName} · ${formatVoltage(battery.voltage)} · ${formatStorage(
-          battery.usedKB,
-          battery.totalKB,
-        )}`
-      : deviceName;
-
   return (
-    <header className='@container flex shrink-0 items-center gap-3 border-b px-4 py-2.5 bg-surface border-border'>
+    <header className='flex shrink-0 items-center gap-3 border-b px-4 py-2.5 bg-surface border-border'>
       {/* Status dot */}
       <div
         className={`h-2 w-2 shrink-0 rounded-full ${
@@ -193,18 +165,8 @@ export function Header() {
 
       {active && (
         <>
-          <DeviceName name={deviceName} detail={deviceTitle} />
-          <AdvertMenu />
-          <ProposalsButton />
+          <DeviceName name={deviceName} />
           <KillSwitchButton />
-          {connected && battery && (
-            <span className='hidden shrink-0 items-center gap-1 whitespace-nowrap text-xs text-text2 @6xl:inline-flex'>
-              {formatVoltage(battery.voltage)}
-              <HardDrive size={12} aria-hidden='true' />
-              <span className='sr-only'>{t('header.storage')}</span>
-              {formatStorage(battery.usedKB, battery.totalKB)}
-            </span>
-          )}
           <button
             onClick={disconnect}
             className='shrink-0 rounded-md border border-border-control px-2.5 py-1 text-xs whitespace-nowrap text-text2 transition-colors hover:border-red hover:text-red'
@@ -242,9 +204,8 @@ export function Header() {
 }
 
 // The truncated device name doubles as the keyboard- and touch-reachable
-// disclosure for its full text plus the battery/storage detail, which the
-// inline readout drops on a narrow header. Mirrors MessageBubble's HintToken.
-function DeviceName({ name, detail }: { name: string; detail: string }) {
+// disclosure for its full text. Mirrors MessageBubble's HintToken.
+function DeviceName({ name }: { name: string }) {
   const tooltipId = useId();
   return (
     <span
@@ -260,47 +221,9 @@ function DeviceName({ name, detail }: { name: string; detail: string }) {
         role='tooltip'
         className='pointer-events-none absolute top-full right-0 z-20 mt-1 hidden w-max max-w-xs rounded-md border border-border bg-surface2 px-2 py-1 text-xs font-normal text-text shadow-pop group-hover/dev:block group-focus/dev:block'
       >
-        {detail}
+        {name}
       </span>
     </span>
-  );
-}
-
-// The popup's open state lives in ProposalsInbox, which is mounted only while
-// the queue is non-empty. Draining the queue unmounts it and discards that
-// state, so a newly arriving proposal always starts closed.
-function ProposalsButton() {
-  const count = useMeshStore((s) => s.stagedActions.length);
-  // An approval executes immediately and the inbox drops the proposal either
-  // way, so offering it over a dead link would silently discard the action.
-  const reconnecting = useMeshStore((s) => s.status) === 'reconnecting';
-  if (count === 0 || reconnecting) return null;
-  return <ProposalsInbox count={count} />;
-}
-
-function ProposalsInbox({ count }: { count: number }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        aria-label={t('automation.inbox.title', { count })}
-        title={t('automation.inbox.title', { count })}
-        className='flex shrink-0 items-center gap-1.5 rounded-md border border-accent px-2.5 py-1 text-xs font-semibold text-accent transition-colors hover:bg-accent-solid hover:text-white'
-      >
-        <Inbox size={13} />
-        {count}
-      </button>
-      {open && (
-        <ModalShell
-          title={t('automation.inbox.title', { count })}
-          onClose={() => setOpen(false)}
-        >
-          <ApprovalInboxList />
-        </ModalShell>
-      )}
-    </>
   );
 }
 
@@ -323,72 +246,5 @@ function KillSwitchButton() {
       <ShieldAlert size={13} />
       {t('automation.kill')}
     </button>
-  );
-}
-
-// Advertising needs a fully connected link, so the button is disabled while
-// reconnecting — matching the Stats tab.
-function AdvertMenu() {
-  const { t } = useTranslation();
-  const status = useMeshStore((s) => s.status);
-  const { advertise, sending } = useAdvertise();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Dismiss the open menu on an outside click (shared with the app's other
-  // popovers) or Escape.
-  useClickOutside(ref, open, () => setOpen(false));
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open]);
-
-  const onSelect = (flood: boolean) => {
-    setOpen(false);
-    void advertise(flood);
-  };
-
-  const itemClass =
-    'focus-inset block w-full px-3 py-2 text-left text-xs text-text hover:bg-surface hover:text-accent';
-
-  return (
-    <div className='relative shrink-0' ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        disabled={status !== 'connected' || sending}
-        aria-label={t('header.advertise')}
-        title={t('header.advertise')}
-        aria-haspopup='menu'
-        aria-expanded={open}
-        className='flex items-center justify-center rounded-md border border-border-control p-1.5 text-text2 transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-control disabled:hover:text-text2'
-      >
-        <Radio size={15} />
-      </button>
-      {open && (
-        <div
-          role='menu'
-          className='absolute top-full right-0 z-20 mt-1 min-w-max overflow-hidden rounded-md border border-border shadow-pop bg-surface2'
-        >
-          <button
-            role='menuitem'
-            onClick={() => onSelect(false)}
-            className={itemClass}
-          >
-            {t('settings.advertiseZeroHop')}
-          </button>
-          <button
-            role='menuitem'
-            onClick={() => onSelect(true)}
-            className={itemClass}
-          >
-            {t('settings.advertiseFlood')}
-          </button>
-        </div>
-      )}
-    </div>
   );
 }

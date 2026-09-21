@@ -39,8 +39,9 @@ const MapView = dynamic(
 /**
  * Top-level app layout. Restricts the client to desktop browsers; otherwise
  * shows the header and toast, swaps the connect panel for the sidebar + chat
- * once connected, and mounts the management modals and the bottom action bar
- * only while connected.
+ * once connected, and mounts the management modals and the bottom action bar —
+ * which carries the radio's ambient state and its occasional actions — only
+ * while connected.
  */
 export function AppShell() {
   useUrlState();

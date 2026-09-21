@@ -16,9 +16,13 @@ import {
   AlertTriangle,
   Bell,
   CheckCircle2,
+  HardDrive,
+  Inbox,
   Info,
   LoaderCircle,
   MessageSquare,
+  Radio,
+  RotateCw,
   X,
   XCircle,
 } from 'lucide-react';
@@ -30,8 +34,16 @@ import {
   type Notification,
   type NotificationLevel,
 } from '@/store/meshStore';
+import { useAdvertise } from '@/hooks/useAdvertise';
 import { useClickOutside } from '@/hooks/useClickOutside';
-import { formatRelative, formatRelativePrecise } from '@/lib/i18n/format';
+import {
+  formatRelative,
+  formatRelativePrecise,
+  formatStorage,
+  formatVoltage,
+} from '@/lib/i18n/format';
+import { ApprovalInboxList } from './AutomationPanel';
+import { ModalShell } from './ModalShell';
 
 const LEVEL_ICON = {
   info: Info,
@@ -48,14 +60,15 @@ const LEVEL_COLOR = {
 } as const satisfies Record<NotificationLevel, string>;
 
 /**
- * Thin status strip along the bottom of the connected app, holding ambient
- * state the header has no room for. Part of the flex column rather than an
- * overlay, so it never covers the chat composer.
+ * Thin status strip along the bottom of the connected app, holding the ambient
+ * state and occasional actions the header has no room for. Part of the flex
+ * column rather than an overlay, so it never covers the chat composer.
  *
  * @remarks Rendered only while connected — the connect screen has no ambient
- * state to report, and a drop unmounts the bar rather than dimming it. It
- * sits inside the subtree a modal marks `inert`, so it goes unreachable with
- * the rest of the app behind a dialog.
+ * state to report, and a drop unmounts the bar rather than dimming it. Every
+ * item may therefore assume a live link, which is why none of them carry a
+ * reconnecting guard of their own. It sits inside the subtree a modal marks
+ * `inert`, so it goes unreachable with the rest of the app behind a dialog.
  */
 export function ActionBar() {
   const { t } = useTranslation();
@@ -65,9 +78,13 @@ export function ActionBar() {
     <footer
       role='contentinfo'
       aria-label={t('actionBar.label')}
-      className='flex h-6 shrink-0 items-center gap-3 border-t border-border bg-surface px-2 text-xs text-text2'
+      className='flex h-6 shrink-0 items-center gap-2 border-t border-border bg-surface px-2 text-xs text-text2'
     >
       <CatchUp />
+      <UpdatePrompt />
+      <DeviceHealth />
+      <AdvertMenu />
+      <ProposalsButton />
       <LatestMessage />
       <NotificationBell />
     </footer>
@@ -104,13 +121,193 @@ function CatchUp() {
         {draining ? label : ''}
       </span>
       {draining && (
-        // Hidden from the tree: the region above already carries this text,
-        // at the same place in the bar, and announcing both would read it
-        // twice in browse mode.
-        <span aria-hidden='true' className='flex min-w-0 items-center gap-1'>
-          <LoaderCircle size={13} className='animate-spin' />
-          <span className='truncate'>{label}</span>
+        <>
+          {/* Hidden from the tree: the region above already carries this text,
+              at the same place in the bar, and announcing both would read it
+              twice in browse mode. */}
+          <span aria-hidden='true' className='flex min-w-0 items-center gap-1'>
+            <LoaderCircle size={13} className='animate-spin' />
+            <span className='truncate'>{label}</span>
+          </span>
+          <Divider />
+        </>
+      )}
+    </>
+  );
+}
+
+/** Shared idiom for the bar's own controls, so every item sits alike. */
+const BAR_BUTTON =
+  'focus-inset flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent';
+
+// A hairline between neighboring groups, in the VS Code idiom. Each item
+// renders its own — trailing for the ones ahead of the advert menu, leading
+// for the ones behind it — so a hidden item takes its divider with it and the
+// bar never draws a rule with nothing on one side of it. The advert menu is
+// the anchor because it is the one item that is always there.
+function Divider() {
+  return <span aria-hidden='true' className='h-3 w-px shrink-0 bg-border' />;
+}
+
+// The pending-deploy notice while connected. `VersionCheck` keeps the polling
+// and the disconnected banner; only the presentation forks here, because that
+// banner is drawn bottom-center, exactly where this bar now is.
+function UpdatePrompt() {
+  const { t } = useTranslation();
+  const available = useMeshStore((s) => s.updateAvailable);
+  return (
+    <>
+      {/*
+        Mounted for the whole session, like CatchUp's: a live region inserted
+        with its text already in it is commonly not announced. It carries the
+        event — a new version exists — while the button carries the action, so
+        a reader walking the bar is not read the same sentence twice.
+      */}
+      <span role='status' className='sr-only'>
+        {available ? t('update.available') : ''}
+      </span>
+      {available && (
+        <>
+          <button
+            type='button'
+            onClick={() => window.location.reload()}
+            title={t('update.hint')}
+            className={`${BAR_BUTTON} min-w-0 text-accent hover:underline`}
+          >
+            <RotateCw size={13} aria-hidden='true' />
+            <span className='truncate'>{t('update.barLabel')}</span>
+          </button>
+          <Divider />
+        </>
+      )}
+    </>
+  );
+}
+
+// Battery and flash usage. Unconditional at every width now that the bar has
+// the room the header did not — which is also why the device name's tooltip
+// no longer carries a second copy of these values.
+function DeviceHealth() {
+  const { t } = useTranslation();
+  const battery = useMeshStore((s) => s.battery);
+  if (!battery) return null;
+  return (
+    <>
+      <span className='flex shrink-0 items-center gap-1 whitespace-nowrap'>
+        {formatVoltage(battery.voltage)}
+        <HardDrive size={12} aria-hidden='true' />
+        <span className='sr-only'>{t('header.storage')}</span>
+        {formatStorage(battery.usedKB, battery.totalKB)}
+      </span>
+      <Divider />
+    </>
+  );
+}
+
+// Opens upward, unlike the header menu it replaces: the bar is the last row on
+// the page, so there is nothing below it to drop into.
+function AdvertMenu() {
+  const { t } = useTranslation();
+  const { advertise, sending } = useAdvertise();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Dismiss the open menu on an outside click (shared with the app's other
+  // popovers) or Escape.
+  useClickOutside(ref, open, () => setOpen(false));
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+
+  const onSelect = (flood: boolean) => {
+    setOpen(false);
+    void advertise(flood);
+  };
+
+  const itemClass =
+    'focus-inset block w-full px-3 py-2 text-left text-xs text-text hover:bg-surface hover:text-accent';
+
+  return (
+    <div className='relative shrink-0' ref={ref}>
+      <button
+        type='button'
+        onClick={() => setOpen((o) => !o)}
+        disabled={sending}
+        aria-label={t('header.advertise')}
+        title={t('header.advertise')}
+        aria-haspopup='menu'
+        aria-expanded={open}
+        className={`${BAR_BUTTON} disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text2`}
+      >
+        <Radio size={13} aria-hidden='true' />
+      </button>
+      {open && (
+        <div
+          role='menu'
+          className='absolute bottom-full left-0 z-20 mb-1 min-w-max overflow-hidden rounded-md border border-border shadow-pop bg-surface2'
+        >
+          <button
+            role='menuitem'
+            onClick={() => onSelect(false)}
+            className={itemClass}
+          >
+            {t('settings.advertiseZeroHop')}
+          </button>
+          <button
+            role='menuitem'
+            onClick={() => onSelect(true)}
+            className={itemClass}
+          >
+            {t('settings.advertiseFlood')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// The popup's open state lives in ProposalsInbox, which is mounted only while
+// the queue is non-empty. Draining the queue unmounts it and discards that
+// state, so a newly arriving proposal always starts closed.
+function ProposalsButton() {
+  const count = useMeshStore((s) => s.stagedActions.length);
+  if (count === 0) return null;
+  return <ProposalsInbox count={count} />;
+}
+
+function ProposalsInbox({ count }: { count: number }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Divider />
+      <button
+        type='button'
+        onClick={() => setOpen(true)}
+        aria-label={t('automation.inbox.title', { count })}
+        title={t('automation.inbox.title', { count })}
+        className={BAR_BUTTON}
+      >
+        <Inbox size={13} aria-hidden='true' />
+        <span
+          aria-hidden='true'
+          className='rounded-full bg-accent-solid px-1 text-[10px] leading-4 font-semibold text-white'
+        >
+          {count}
         </span>
+      </button>
+      {open && (
+        <ModalShell
+          title={t('automation.inbox.title', { count })}
+          onClose={() => setOpen(false)}
+        >
+          <ApprovalInboxList />
+        </ModalShell>
       )}
     </>
   );
@@ -201,24 +398,27 @@ function LatestMessage() {
   };
 
   return (
-    <button
-      type='button'
-      onClick={openTarget}
-      aria-label={
-        inConvo
-          ? t('actionBar.latestMessageFromIn', vars)
-          : sender
-            ? t('actionBar.latestMessageLabel', vars)
-            : t('actionBar.latestMessageIn', vars)
-      }
-      title={name}
-      className='focus-inset flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-text2 transition-colors hover:text-accent'
-    >
-      <MessageSquare size={13} aria-hidden='true' className='shrink-0' />
-      <span className='max-w-64 truncate'>{name}</span>
-      <span className='shrink-0'>·</span>
-      <span className='shrink-0 whitespace-nowrap'>{age}</span>
-    </button>
+    <>
+      <Divider />
+      <button
+        type='button'
+        onClick={openTarget}
+        aria-label={
+          inConvo
+            ? t('actionBar.latestMessageFromIn', vars)
+            : sender
+              ? t('actionBar.latestMessageLabel', vars)
+              : t('actionBar.latestMessageIn', vars)
+        }
+        title={name}
+        className={`${BAR_BUTTON} min-w-0`}
+      >
+        <MessageSquare size={13} aria-hidden='true' className='shrink-0' />
+        <span className='max-w-64 truncate'>{name}</span>
+        <span className='shrink-0'>·</span>
+        <span className='shrink-0 whitespace-nowrap'>{age}</span>
+      </button>
+    </>
   );
 }
 
