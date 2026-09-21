@@ -150,6 +150,13 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
  * and reconnects by hand is still checked. Only a page reload loses it.
  */
 export interface IdentityCheck {
+  /**
+   * Which flow wrote the identity. A `'regenerate'` run installed a brand-new
+   * key and moved this browser's data onto it; a `'restore'` put back one the
+   * phrase already stood for, and moved nothing — so only the former has
+   * records to tidy away, and each reads differently to the user.
+   */
+  kind: 'regenerate' | 'restore';
   /** The public key the phrase derives, lowercase hex. */
   expected: string;
   /** The public key the radio had before the import, lowercase hex. */
@@ -160,7 +167,9 @@ export interface IdentityCheck {
    * not the derivation failure the same outcome means after an acknowledgement.
    */
   confirmed: boolean;
-  /** The run's vault fingerprint, for tidying up an unacknowledged import. */
+  /**
+   * The run's vault fingerprint, for tidying up an unacknowledged regenerate.
+   */
   fingerprint: string;
   /** The client the identity was imported over. */
   client: MeshCoreClient;
@@ -606,10 +615,17 @@ interface MeshState {
   privateKeyAccess: PrivateKeyAccess | null;
   /**
    * An identity this session wrote to the radio and has not yet seen it
-   * report, or null. Set by the recovery-phrase wizard just before it reboots
-   * the radio; {@link IdentityCheck} describes when it is judged.
+   * report, or null. Set by the recovery-phrase wizards just before they
+   * reboot the radio; {@link IdentityCheck} describes when it is judged.
    */
   identityCheck: IdentityCheck | null;
+  /**
+   * Whether to offer restoring an identity from a recovery phrase, because
+   * this browser has never stored anything for the radio just connected — the
+   * state a replacement radio arrives in. Session-only, and cleared once the
+   * user answers.
+   */
+  restoreOffer: boolean;
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
 
@@ -907,6 +923,7 @@ interface MeshActions {
   setDeviceInfo: (info: DeviceInfo | null) => void;
   setPrivateKeyAccess: (access: PrivateKeyAccess | null) => void;
   setIdentityCheck: (check: IdentityCheck | null) => void;
+  setRestoreOffer: (offer: boolean) => void;
   setBattery: (b: BatteryInfo | null) => void;
   setSyncProgress: (p: SyncProgress | null) => void;
   /** Caches the device Stats-page snapshot so it survives leaving the view. */
@@ -1189,6 +1206,7 @@ const initialState: MeshState = {
   deviceInfo: null,
   privateKeyAccess: null,
   identityCheck: null,
+  restoreOffer: false,
   battery: null,
   syncProgress: null,
   deviceStats: null,
@@ -1322,6 +1340,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
   setPrivateKeyAccess: (privateKeyAccess) => set({ privateKeyAccess }),
   setIdentityCheck: (identityCheck) => set({ identityCheck }),
+  setRestoreOffer: (restoreOffer) => set({ restoreOffer }),
   setBattery: (battery) => set({ battery }),
   setSyncProgress: (syncProgress) => set({ syncProgress }),
   setDeviceStats: (deviceStats) =>

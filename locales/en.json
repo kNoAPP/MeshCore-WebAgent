@@ -566,6 +566,61 @@
       "checkAdvert": "Send flood advert",
       "checkMismatch": "Verification failed. The radio reports public key {{actual}}, but your recovery phrase derives {{expected}}. The phrase on paper does not restore the identity on this radio. Do not rely on it, and please report this.",
       "checkNotLanded": "The write never reached the radio: it still reports its previous public key {{pubkey}}, so its identity is unchanged. The phrase you wrote down was never installed. Destroy it, and run the wizard again to create a new one."
+    },
+    "restore": {
+      "action": "Restore from recovery phrase",
+      "title": "Restore from a recovery phrase",
+      "enterIntro": "Type the recovery phrase you wrote down, in order, with a space between words. It is checked on this device and never leaves it.",
+      "phraseLabel": "Recovery phrase",
+      "wordCount_one": "{{count}} word",
+      "wordCount_other": "{{count}} words",
+      "unknownWord": "Word {{n}}, “{{word}}”, is not in the recovery word list.",
+      "phraseError": {
+        "wordCount": "A recovery phrase has 12, 15, 18, 21 or 24 words. Check for a missing or extra word.",
+        "unknownWord": "Word {{n}} is not in the recovery word list.",
+        "checksum": "Every word is valid, but the phrase does not add up: a word is wrong or out of order. Check it against your written copy. A phrase that fails here would restore a different identity, so it is never used.",
+        "reservedKey": "This phrase derives a key MeshCore radios refuse, so it cannot be one this app generated. Check it against your written copy."
+      },
+      "previewIntro": "This phrase restores the identity with public key:",
+      "previewCheck": "Compare it with the public key your contacts know you by. If it is not the one you expected, go back and check the phrase: nothing has been written yet.",
+      "vaultKnown": "This device has an identity vault for this phrase.",
+      "vaultUnknown": "This device has no identity vault for this phrase yet. One is created for it as part of the restore.",
+      "alreadyHeld": "The connected radio already holds this identity, so nothing is written to it. You can still record it in this device's identity vault.",
+      "historyNote": "The phrase restores the identity, not its messages. History comes back only if this browser still holds it for this identity; a backup file is what carries history to another browser.",
+      "replaceTitle": "What this replaces",
+      "replaceErase": "The radio's current identity is erased. Unless you back it up first, it is gone for good.",
+      "replaceContacts": "Anyone who added this radio as it is now will no longer reach it. Contacts of the restored identity will reach you again.",
+      "unlockIntro": "Enter the passphrase of this device's identity vault for this phrase, so the restored identity is recorded in it.",
+      "replaceVault": "I do not know this passphrase — replace the vault",
+      "replaceVaultHint": "The vault is deleted and a new one created under a new passphrase. The phrase itself restores everything that matters; only the names of any other identities it lists here are lost.",
+      "replaceVaultIntro": "Choose a passphrase for the new identity vault that replaces the old one on this device.",
+      "passphraseIntro": "Choose a passphrase to lock this device's record of the restored identity, its identity vault. You will need it to manage this identity later. It does not protect the phrase on paper.",
+      "vaultError": {
+        "notFound": "This device's vault for the phrase has gone, perhaps deleted in another tab. Go back to the phrase and continue again.",
+        "exists": "A vault for this phrase appeared on this device while you were working, perhaps from another tab. Go back to the phrase and continue again.",
+        "unsupportedVersion": "This device's vault for the phrase was written by a newer version of this app, which is needed to open it.",
+        "wrongPassphrase": "Wrong passphrase.",
+        "corrupt": "The passphrase is right, but this device's vault for the phrase is damaged. Replace the vault to continue.",
+        "stale": "The vault was changed in another tab. Go back to the phrase and continue again."
+      },
+      "error": {
+        "vault": "The identity vault could not be saved on this device ({{error}}). Nothing was written to the radio.",
+        "derive": "The phrase could not be checked ({{error}}).",
+        "unconfirmed": "The radio did not confirm the write, so it may or may not hold the restored identity. It is being rebooted to find out, and this app compares its public key when it reconnects."
+      },
+      "saveAction": "Save to vault",
+      "saving": "Saving…",
+      "saved": "Identity recorded in this device's vault",
+      "rebooting": "Identity restored — rebooting the radio to verify it",
+      "checkOk": "Verified. The radio reports public key {{pubkey}}, exactly the one your recovery phrase derives. Your identity is restored.",
+      "checkReadd": "Contacts who knew this identity can reach you again. Send a flood advert so the mesh learns where it is now.",
+      "checkNotLanded": "The write never reached the radio: it still reports its previous public key {{pubkey}}, so its identity is unchanged. Your phrase is fine; run the restore again.",
+      "checkMismatch": "Verification failed. The radio reports public key {{actual}}, but your recovery phrase derives {{expected}}. The restore did not take: keep your written phrase, and please report this.",
+      "offerTitle": "New radio",
+      "offerBody": "This browser has not seen this radio before. If it replaces one you lost, you can put your old identity back onto it from your recovery phrase.",
+      "offerLater": "You can also do this later from Settings, under Identity.",
+      "offerDismiss": "Not now",
+      "offerAction": "Restore from phrase"
     }
   },
   "automation": {

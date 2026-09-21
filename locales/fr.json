@@ -567,6 +567,61 @@
       "checkAdvert": "Envoyer une annonce par inondation",
       "checkMismatch": "Échec de la vérification. La radio annonce la clé publique {{actual}}, mais votre phrase de récupération dérive {{expected}}. La phrase sur papier ne restaure pas l’identité de cette radio. Ne vous y fiez pas et signalez le problème.",
       "checkNotLanded": "L’écriture n’a jamais atteint la radio : elle annonce toujours sa clé publique précédente {{pubkey}}, son identité est donc inchangée. La phrase que vous avez notée n’a jamais été installée. Détruisez-la et relancez l’assistant pour en créer une nouvelle."
+    },
+    "restore": {
+      "action": "Restaurer depuis une phrase de récupération",
+      "title": "Restaurer depuis une phrase de récupération",
+      "enterIntro": "Saisissez la phrase de récupération que vous avez notée, dans l’ordre, avec une espace entre les mots. Elle est vérifiée sur cet appareil et ne le quitte jamais.",
+      "phraseLabel": "Phrase de récupération",
+      "wordCount_one": "{{count}} mot",
+      "wordCount_other": "{{count}} mots",
+      "unknownWord": "Le mot {{n}}, « {{word}} », n’est pas dans la liste de mots de récupération.",
+      "phraseError": {
+        "wordCount": "Une phrase de récupération compte 12, 15, 18, 21 ou 24 mots. Vérifiez s’il manque un mot ou s’il y en a un de trop.",
+        "unknownWord": "Le mot {{n}} n’est pas dans la liste de mots de récupération.",
+        "checksum": "Chaque mot est valide, mais la phrase ne concorde pas : un mot est faux ou mal placé. Comparez-la à votre copie écrite. Une phrase qui échoue ici restaurerait une autre identité, elle n’est donc jamais utilisée.",
+        "reservedKey": "Cette phrase donne une clé que les radios MeshCore refusent : elle ne peut donc pas avoir été générée par cette application. Comparez-la à votre copie écrite."
+      },
+      "previewIntro": "Cette phrase restaure l’identité de clé publique :",
+      "previewCheck": "Comparez-la à la clé publique sous laquelle vos contacts vous connaissent. Si ce n’est pas celle attendue, revenez en arrière et vérifiez la phrase : rien n’a encore été écrit.",
+      "vaultKnown": "Cet appareil possède un coffre d’identités pour cette phrase.",
+      "vaultUnknown": "Cet appareil n’a pas encore de coffre d’identités pour cette phrase. Un coffre est créé lors de la restauration.",
+      "alreadyHeld": "La radio connectée détient déjà cette identité, rien ne lui est donc écrit. Vous pouvez tout de même l’enregistrer dans le coffre d’identités de cet appareil.",
+      "historyNote": "La phrase restaure l’identité, pas ses messages. L’historique ne revient que si ce navigateur le conserve encore pour cette identité ; c’est un fichier de sauvegarde qui transporte l’historique vers un autre navigateur.",
+      "replaceTitle": "Ce qui est remplacé",
+      "replaceErase": "L’identité actuelle de la radio est effacée. Sans sauvegarde préalable, elle est perdue pour de bon.",
+      "replaceContacts": "Quiconque a ajouté cette radio dans son état actuel ne pourra plus la joindre. Les contacts de l’identité restaurée pourront de nouveau vous joindre.",
+      "unlockIntro": "Saisissez la phrase secrète du coffre d’identités de cet appareil pour cette phrase, afin d’y enregistrer l’identité restaurée.",
+      "replaceVault": "Je ne connais pas cette phrase secrète — remplacer le coffre",
+      "replaceVaultHint": "Le coffre est supprimé et un nouveau est créé sous une nouvelle phrase secrète. La phrase de récupération restaure tout l’essentiel ; seuls les noms des autres identités qu’il répertorie ici sont perdus.",
+      "replaceVaultIntro": "Choisissez une phrase secrète pour le nouveau coffre d’identités qui remplace l’ancien sur cet appareil.",
+      "passphraseIntro": "Choisissez une phrase secrète pour verrouiller l’enregistrement de l’identité restaurée sur cet appareil, son coffre d’identités. Vous en aurez besoin pour gérer cette identité plus tard. Elle ne protège pas la phrase sur papier.",
+      "vaultError": {
+        "notFound": "Le coffre de cet appareil pour la phrase a disparu, peut-être supprimé dans un autre onglet. Revenez à la phrase et continuez à nouveau.",
+        "exists": "Un coffre pour cette phrase est apparu sur cet appareil pendant que vous travailliez, peut-être depuis un autre onglet. Revenez à la phrase et continuez à nouveau.",
+        "unsupportedVersion": "Le coffre de cet appareil pour la phrase a été écrit par une version plus récente de cette application, nécessaire pour l’ouvrir.",
+        "wrongPassphrase": "Phrase secrète incorrecte.",
+        "corrupt": "La phrase secrète est correcte, mais le coffre de cet appareil pour la phrase est endommagé. Remplacez le coffre pour continuer.",
+        "stale": "Le coffre a été modifié dans un autre onglet. Revenez à la phrase et continuez à nouveau."
+      },
+      "error": {
+        "vault": "Le coffre d’identités n’a pas pu être enregistré sur cet appareil ({{error}}). Rien n’a été écrit sur la radio.",
+        "derive": "La phrase n’a pas pu être vérifiée ({{error}}).",
+        "unconfirmed": "La radio n’a pas confirmé l’écriture : elle détient peut-être l’identité restaurée, peut-être pas. Elle redémarre pour le savoir, et cette application compare sa clé publique à la reconnexion."
+      },
+      "saveAction": "Enregistrer dans le coffre",
+      "saving": "Enregistrement…",
+      "saved": "Identité enregistrée dans le coffre de cet appareil",
+      "rebooting": "Identité restaurée — redémarrage de la radio pour la vérifier",
+      "checkOk": "Vérifié. La radio indique la clé publique {{pubkey}}, exactement celle que donne votre phrase de récupération. Votre identité est restaurée.",
+      "checkReadd": "Les contacts qui connaissaient cette identité peuvent de nouveau vous joindre. Envoyez une annonce par inondation pour que le maillage sache où elle se trouve désormais.",
+      "checkNotLanded": "L’écriture n’a jamais atteint la radio : elle indique toujours sa clé publique précédente {{pubkey}}, son identité est donc inchangée. Votre phrase est correcte ; relancez la restauration.",
+      "checkMismatch": "La vérification a échoué. La radio indique la clé publique {{actual}}, mais votre phrase de récupération donne {{expected}}. La restauration n’a pas pris : conservez votre copie écrite et signalez-le, s’il vous plaît.",
+      "offerTitle": "Nouvelle radio",
+      "offerBody": "Ce navigateur n’a jamais vu cette radio. Si elle remplace une radio perdue, vous pouvez y remettre votre ancienne identité à partir de votre phrase de récupération.",
+      "offerLater": "Vous pouvez aussi le faire plus tard depuis les Paramètres, dans Identité.",
+      "offerDismiss": "Pas maintenant",
+      "offerAction": "Restaurer depuis la phrase"
     }
   },
   "automation": {

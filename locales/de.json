@@ -567,6 +567,61 @@
       "checkAdvert": "Flood-Advert senden",
       "checkMismatch": "Prüfung fehlgeschlagen. Das Funkgerät meldet den öffentlichen Schlüssel {{actual}}, deine Wiederherstellungsphrase leitet aber {{expected}} ab. Die Phrase auf Papier stellt die Identität dieses Funkgeräts nicht wieder her. Verlass dich nicht darauf und melde das Problem.",
       "checkNotLanded": "Das Schreiben hat das Funkgerät nie erreicht: Es meldet weiterhin seinen bisherigen öffentlichen Schlüssel {{pubkey}}, seine Identität ist also unverändert. Die aufgeschriebene Phrase wurde nie installiert. Vernichte sie und starte den Assistenten erneut, um eine neue zu erstellen."
+    },
+    "restore": {
+      "action": "Aus Wiederherstellungsphrase wiederherstellen",
+      "title": "Aus einer Wiederherstellungsphrase wiederherstellen",
+      "enterIntro": "Gib die notierte Wiederherstellungsphrase in der richtigen Reihenfolge ein, mit einem Leerzeichen zwischen den Wörtern. Sie wird auf diesem Gerät geprüft und verlässt es nie.",
+      "phraseLabel": "Wiederherstellungsphrase",
+      "wordCount_one": "{{count}} Wort",
+      "wordCount_other": "{{count}} Wörter",
+      "unknownWord": "Wort {{n}}, „{{word}}“, steht nicht in der Wortliste für Wiederherstellungsphrasen.",
+      "phraseError": {
+        "wordCount": "Eine Wiederherstellungsphrase hat 12, 15, 18, 21 oder 24 Wörter. Prüfe, ob ein Wort fehlt oder zu viel ist.",
+        "unknownWord": "Wort {{n}} steht nicht in der Wortliste für Wiederherstellungsphrasen.",
+        "checksum": "Jedes Wort ist gültig, aber die Phrase geht nicht auf: Ein Wort ist falsch oder steht an der falschen Stelle. Vergleiche sie mit deiner Abschrift. Eine Phrase, die hier scheitert, würde eine andere Identität wiederherstellen und wird daher nie verwendet.",
+        "reservedKey": "Diese Phrase ergibt einen Schlüssel, den MeshCore-Funkgeräte ablehnen, sie kann also nicht von dieser App erzeugt worden sein. Vergleiche sie mit deiner Abschrift."
+      },
+      "previewIntro": "Diese Phrase stellt die Identität mit folgendem öffentlichen Schlüssel wieder her:",
+      "previewCheck": "Vergleiche ihn mit dem öffentlichen Schlüssel, unter dem deine Kontakte dich kennen. Ist es nicht der erwartete, geh zurück und prüfe die Phrase: Noch wurde nichts geschrieben.",
+      "vaultKnown": "Dieses Gerät hat einen Identitätstresor für diese Phrase.",
+      "vaultUnknown": "Dieses Gerät hat noch keinen Identitätstresor für diese Phrase. Im Zuge der Wiederherstellung wird einer angelegt.",
+      "alreadyHeld": "Das verbundene Funkgerät hat diese Identität bereits, daher wird nichts darauf geschrieben. Du kannst sie trotzdem im Identitätstresor dieses Geräts vermerken.",
+      "historyNote": "Die Phrase stellt die Identität wieder her, nicht ihre Nachrichten. Der Verlauf kehrt nur zurück, wenn dieser Browser ihn für diese Identität noch hat; eine Sicherungsdatei bringt den Verlauf in einen anderen Browser.",
+      "replaceTitle": "Was ersetzt wird",
+      "replaceErase": "Die aktuelle Identität des Funkgeräts wird gelöscht. Ohne vorherige Sicherung ist sie endgültig verloren.",
+      "replaceContacts": "Wer dieses Funkgerät in seinem jetzigen Zustand hinzugefügt hat, erreicht es nicht mehr. Kontakte der wiederhergestellten Identität erreichen dich wieder.",
+      "unlockIntro": "Gib die Passphrase des Identitätstresors dieses Geräts für diese Phrase ein, damit die wiederhergestellte Identität darin vermerkt wird.",
+      "replaceVault": "Ich kenne diese Passphrase nicht – Tresor ersetzen",
+      "replaceVaultHint": "Der Tresor wird gelöscht und unter einer neuen Passphrase neu angelegt. Die Phrase selbst stellt alles Wesentliche wieder her; nur die Namen weiterer Identitäten, die er hier auflistet, gehen verloren.",
+      "replaceVaultIntro": "Wähle eine Passphrase für den neuen Identitätstresor, der den alten auf diesem Gerät ersetzt.",
+      "passphraseIntro": "Wähle eine Passphrase, um den Eintrag dieses Geräts zur wiederhergestellten Identität zu sperren, seinen Identitätstresor. Du brauchst sie, um diese Identität später zu verwalten. Sie schützt nicht die Phrase auf Papier.",
+      "vaultError": {
+        "notFound": "Der Tresor dieses Geräts für die Phrase ist verschwunden, vielleicht in einem anderen Tab gelöscht. Geh zurück zur Phrase und fahre erneut fort.",
+        "exists": "Während du gearbeitet hast, ist auf diesem Gerät ein Tresor für diese Phrase entstanden, vielleicht aus einem anderen Tab. Geh zurück zur Phrase und fahre erneut fort.",
+        "unsupportedVersion": "Der Tresor dieses Geräts für die Phrase wurde von einer neueren Version dieser App geschrieben, die zum Öffnen nötig ist.",
+        "wrongPassphrase": "Falsche Passphrase.",
+        "corrupt": "Die Passphrase stimmt, aber der Tresor dieses Geräts für die Phrase ist beschädigt. Ersetze den Tresor, um fortzufahren.",
+        "stale": "Der Tresor wurde in einem anderen Tab geändert. Geh zurück zur Phrase und fahre erneut fort."
+      },
+      "error": {
+        "vault": "Der Identitätstresor konnte auf diesem Gerät nicht gespeichert werden ({{error}}). Es wurde nichts auf das Funkgerät geschrieben.",
+        "derive": "Die Phrase konnte nicht geprüft werden ({{error}}).",
+        "unconfirmed": "Das Funkgerät hat das Schreiben nicht bestätigt, es hat die wiederhergestellte Identität also vielleicht, vielleicht auch nicht. Es wird neu gestartet, um das herauszufinden, und diese App vergleicht beim erneuten Verbinden seinen öffentlichen Schlüssel."
+      },
+      "saveAction": "Im Tresor speichern",
+      "saving": "Wird gespeichert…",
+      "saved": "Identität im Tresor dieses Geräts vermerkt",
+      "rebooting": "Identität wiederhergestellt – Funkgerät wird zur Überprüfung neu gestartet",
+      "checkOk": "Überprüft. Das Funkgerät meldet den öffentlichen Schlüssel {{pubkey}}, genau den, den deine Wiederherstellungsphrase ergibt. Deine Identität ist wiederhergestellt.",
+      "checkReadd": "Kontakte, die diese Identität kannten, erreichen dich wieder. Sende ein Flood-Advert, damit das Mesh erfährt, wo sie jetzt ist.",
+      "checkNotLanded": "Das Schreiben hat das Funkgerät nie erreicht: Es meldet weiterhin seinen bisherigen öffentlichen Schlüssel {{pubkey}}, seine Identität ist also unverändert. Deine Phrase ist in Ordnung; führe die Wiederherstellung erneut aus.",
+      "checkMismatch": "Überprüfung fehlgeschlagen. Das Funkgerät meldet den öffentlichen Schlüssel {{actual}}, deine Wiederherstellungsphrase ergibt aber {{expected}}. Die Wiederherstellung hat nicht gegriffen: Bewahre deine Abschrift auf und melde das bitte.",
+      "offerTitle": "Neues Funkgerät",
+      "offerBody": "Dieser Browser kennt dieses Funkgerät noch nicht. Ersetzt es eines, das du verloren hast, kannst du deine alte Identität aus deiner Wiederherstellungsphrase darauf zurückholen.",
+      "offerLater": "Das geht auch später in den Einstellungen unter Identität.",
+      "offerDismiss": "Nicht jetzt",
+      "offerAction": "Aus Phrase wiederherstellen"
     }
   },
   "automation": {

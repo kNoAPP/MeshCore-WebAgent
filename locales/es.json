@@ -567,6 +567,61 @@
       "checkAdvert": "Enviar anuncio por inundación",
       "checkMismatch": "La verificación falló. La radio informa de la clave pública {{actual}}, pero tu frase de recuperación deriva {{expected}}. La frase en papel no restaura la identidad de esta radio. No confíes en ella e informa del problema.",
       "checkNotLanded": "La escritura nunca llegó a la radio: sigue informando de su clave pública anterior {{pubkey}}, así que su identidad no ha cambiado. La frase que escribiste nunca se instaló. Destrúyela y vuelve a ejecutar el asistente para crear una nueva."
+    },
+    "restore": {
+      "action": "Restaurar desde frase de recuperación",
+      "title": "Restaurar desde una frase de recuperación",
+      "enterIntro": "Escribe la frase de recuperación que anotaste, en orden, con un espacio entre palabras. Se comprueba en este dispositivo y nunca sale de él.",
+      "phraseLabel": "Frase de recuperación",
+      "wordCount_one": "{{count}} palabra",
+      "wordCount_other": "{{count}} palabras",
+      "unknownWord": "La palabra {{n}}, «{{word}}», no está en la lista de palabras de recuperación.",
+      "phraseError": {
+        "wordCount": "Una frase de recuperación tiene 12, 15, 18, 21 o 24 palabras. Comprueba si falta o sobra alguna.",
+        "unknownWord": "La palabra {{n}} no está en la lista de palabras de recuperación.",
+        "checksum": "Todas las palabras son válidas, pero la frase no cuadra: una palabra es incorrecta o está fuera de orden. Compárala con tu copia escrita. Una frase que falla aquí restauraría otra identidad, así que nunca se usa.",
+        "reservedKey": "Esta frase deriva una clave que las radios MeshCore rechazan, así que no puede ser una generada por esta app. Compárala con tu copia escrita."
+      },
+      "previewIntro": "Esta frase restaura la identidad con clave pública:",
+      "previewCheck": "Compárala con la clave pública con la que te conocen tus contactos. Si no es la que esperabas, vuelve atrás y revisa la frase: todavía no se ha escrito nada.",
+      "vaultKnown": "Este dispositivo tiene una bóveda de identidades para esta frase.",
+      "vaultUnknown": "Este dispositivo aún no tiene una bóveda de identidades para esta frase. Se crea una como parte de la restauración.",
+      "alreadyHeld": "La radio conectada ya tiene esta identidad, así que no se le escribe nada. Aun así puedes registrarla en la bóveda de identidades de este dispositivo.",
+      "historyNote": "La frase restaura la identidad, no sus mensajes. El historial solo vuelve si este navegador aún lo guarda para esta identidad; un archivo de copia de seguridad es lo que lleva el historial a otro navegador.",
+      "replaceTitle": "Qué se reemplaza",
+      "replaceErase": "La identidad actual de la radio se borra. Si no haces antes una copia de seguridad, se pierde para siempre.",
+      "replaceContacts": "Quien haya añadido esta radio tal como está ahora dejará de alcanzarla. Los contactos de la identidad restaurada volverán a alcanzarte.",
+      "unlockIntro": "Introduce la frase de contraseña de la bóveda de identidades de este dispositivo para esta frase, para registrar en ella la identidad restaurada.",
+      "replaceVault": "No conozco esta frase de contraseña: reemplazar la bóveda",
+      "replaceVaultHint": "La bóveda se elimina y se crea una nueva con una nueva frase de contraseña. La frase de recuperación restaura todo lo importante; solo se pierden los nombres de otras identidades que liste aquí.",
+      "replaceVaultIntro": "Elige una frase de contraseña para la nueva bóveda de identidades que reemplaza a la anterior en este dispositivo.",
+      "passphraseIntro": "Elige una frase de contraseña para bloquear el registro de la identidad restaurada en este dispositivo, su bóveda de identidades. La necesitarás para gestionar esta identidad más adelante. No protege la frase en papel.",
+      "vaultError": {
+        "notFound": "La bóveda de este dispositivo para la frase ha desaparecido, quizá eliminada en otra pestaña. Vuelve a la frase y continúa de nuevo.",
+        "exists": "Apareció una bóveda para esta frase en este dispositivo mientras trabajabas, quizá desde otra pestaña. Vuelve a la frase y continúa de nuevo.",
+        "unsupportedVersion": "La bóveda de este dispositivo para la frase la escribió una versión más reciente de esta app, necesaria para abrirla.",
+        "wrongPassphrase": "Frase de contraseña incorrecta.",
+        "corrupt": "La frase de contraseña es correcta, pero la bóveda de este dispositivo para la frase está dañada. Reemplaza la bóveda para continuar.",
+        "stale": "La bóveda se modificó en otra pestaña. Vuelve a la frase y continúa de nuevo."
+      },
+      "error": {
+        "vault": "No se pudo guardar la bóveda de identidades en este dispositivo ({{error}}). No se escribió nada en la radio.",
+        "derive": "No se pudo comprobar la frase ({{error}}).",
+        "unconfirmed": "La radio no confirmó la escritura, así que puede que tenga o no la identidad restaurada. Se está reiniciando para averiguarlo, y esta app compara su clave pública cuando se reconecta."
+      },
+      "saveAction": "Guardar en la bóveda",
+      "saving": "Guardando…",
+      "saved": "Identidad registrada en la bóveda de este dispositivo",
+      "rebooting": "Identidad restaurada: reiniciando la radio para verificarla",
+      "checkOk": "Verificado. La radio informa la clave pública {{pubkey}}, exactamente la que deriva tu frase de recuperación. Tu identidad está restaurada.",
+      "checkReadd": "Los contactos que conocían esta identidad pueden volver a alcanzarte. Envía un anuncio por inundación para que la malla sepa dónde está ahora.",
+      "checkNotLanded": "La escritura nunca llegó a la radio: sigue informando su clave pública anterior {{pubkey}}, así que su identidad no ha cambiado. Tu frase está bien; vuelve a ejecutar la restauración.",
+      "checkMismatch": "La verificación falló. La radio informa la clave pública {{actual}}, pero tu frase de recuperación deriva {{expected}}. La restauración no surtió efecto: conserva tu frase escrita e infórmanos, por favor.",
+      "offerTitle": "Radio nueva",
+      "offerBody": "Este navegador no había visto esta radio antes. Si reemplaza a una que perdiste, puedes devolverle tu identidad anterior desde tu frase de recuperación.",
+      "offerLater": "También puedes hacerlo más tarde desde Ajustes, en Identidad.",
+      "offerDismiss": "Ahora no",
+      "offerAction": "Restaurar desde frase"
     }
   },
   "automation": {

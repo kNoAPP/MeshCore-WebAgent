@@ -641,6 +641,23 @@ export function useMeshCore() {
           // stored record — so adverts already heard during this sync (before
           // the subscriptions below are wired) aren't lost until the next one.
           flushAdvertCache(c);
+          // Nothing at all stored for this identity means this browser has
+          // never connected it — how a replacement radio arrives, when its
+          // owner most wants their old identity back. The write just above
+          // means the offer is made once per identity, not once per connect.
+          // A pending identity check is a restore or regenerate still being
+          // verified, whose incoming identity is new here by design.
+          const store = useMeshStore.getState();
+          if (
+            !saved &&
+            !rules &&
+            !advertCache &&
+            !prefs &&
+            !unsaved &&
+            !store.identityCheck
+          ) {
+            store.setRestoreOffer(true);
+          }
 
           wirePersistence(c);
           // Now that this session has a key, give the restore another chance
