@@ -19,6 +19,7 @@ import {
   openConvo,
   isConvoVisible,
   canPostToRoom,
+  selectPreferences,
 } from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
 import {
@@ -43,7 +44,9 @@ import {
   teardownSession,
 } from '@/lib/session/lifecycle';
 import {
+  claimUnsavedRestore,
   flushAdvertCache,
+  retryUnsavedRestore,
   setStorageKey,
   wirePersistence,
 } from '@/lib/session/persistence';
@@ -606,12 +609,24 @@ export function useMeshCore() {
           // whole hydrate stops here and the teardown keeps the empty store.
           if (!sessionAlive()) return false;
           if (saved?.msgHistory) restoreHistory(saved.msgHistory);
-          restoreAutomationRules(rules ?? []);
-          // Fold this radio's saved preferences in before the auto-add hydrate
-          // below, so the radio-sourced fields it merges over sit on top of the
-          // persisted app-only ones (e.g. showFullPublicKeys). A null/absent
-          // blob normalizes to defaults inside the action.
-          restorePreferences(prefs);
+          // A backup restored into this identity whose write failed is only in
+          // the store, and the blobs just read predate it (or are absent), so
+          // loading them would wipe it. Its own values are re-applied instead,
+          // which still marks the preferences hydrated.
+          const unsaved = claimUnsavedRestore(pubkey);
+          if (unsaved) {
+            restorePreferences(
+              selectPreferences(useMeshStore.getState()),
+              true,
+            );
+          } else {
+            restoreAutomationRules(rules ?? []);
+            // Fold this radio's saved preferences in before the auto-add
+            // hydrate below, so the radio-sourced fields it merges over sit on
+            // top of the persisted app-only ones (e.g. showFullPublicKeys). A
+            // null/absent blob normalizes to defaults inside the action.
+            restorePreferences(prefs);
+          }
           // Merge the persisted cache under any adverts already heard during
           // this sync (the live entries are fresher).
           if (advertCache) {
@@ -628,6 +643,9 @@ export function useMeshCore() {
           flushAdvertCache(c);
 
           wirePersistence(c);
+          // Now that this session has a key, give the restore another chance
+          // to reach disk.
+          if (unsaved) void retryUnsavedRestore(c);
         }
 
         const batt = await c.getBattery();
