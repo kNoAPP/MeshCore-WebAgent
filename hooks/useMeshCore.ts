@@ -114,7 +114,7 @@ import type { AutomationRule } from '@/types/automation';
  *   only for the verbs that never reply by design (`reboot`, `poweroff`); the
  *   caller owns that judgement, since it alone knows which verb it sent.
  * - `'error'` — the send failed, the session was gone, or the node rejected
- *   the command. Already surfaced as a toast.
+ *   the command. Already surfaced as a notification.
  */
 export type RepeaterCliOutcome = 'ok' | 'timeout' | 'error';
 
@@ -124,8 +124,8 @@ export type RepeaterCliOutcome = 'ok' | 'timeout' | 'error';
  * @remarks
  * A discriminated union, so a failure cannot be constructed without saying
  * why. The reason travels with the result rather than going straight to a
- * toast, so it can live next to the field that failed for as long as it is
- * wrong — a three-second toast is gone by the time the user looks.
+ * notification, so it can live next to the field that failed for as long as it
+ * is wrong — a transient line is gone by the time the user looks.
  */
 export type WriteResult = { ok: true } | { ok: false; error: string };
 
@@ -155,7 +155,7 @@ let backlogDelivered = 0;
 // covers it, and permission has been granted. The visibility test is the same
 // `isConvoVisible` the unread flag uses, so a notification and the unread
 // badge can never disagree; `windowFocused` additionally keeps a message that
-// merely arrived on another *page* of a focused tab quiet, where the toast is
+// merely arrived on another *page* of a focused tab quiet, where the drawer is
 // already the right cue.
 function notifyArrival(convo: ActiveConvo, sender: string, body: string): void {
   const state = useMeshStore.getState();
@@ -231,15 +231,15 @@ export function useMeshCore() {
     setNodeTelemetry,
     setActiveConvo,
     setDraft,
-    showToast,
+    notify,
     clearNotifications,
-    dismissNotification,
+    dismissConvoNotifications,
     setConnectError,
     setLastConnectFailure,
   } = useMeshStore();
 
   // Installs the client callbacks that funnel radio events into the store and
-  // route incoming messages to the right conversation with a toast. `connect`
+  // route incoming messages to the right conversation. `connect`
   // is threaded in so onDisconnect lives in this single assignment — keeping it
   // out (a later mutation) would let any re-wire silently wipe auto-reconnect.
   const wireClient = useCallback(
@@ -271,12 +271,20 @@ export function useMeshCore() {
           // teardown replaces it, which is exactly the span that should
           // report.
           if (count > 0 && useMeshStore.getState().client === c && !c.closed) {
-            showToast(i18n.t('toast.caughtUp', { count }), 'success');
+            notify({
+              level: 'success',
+              text: i18n.t('toast.caughtUp', { count }),
+              key: 'caughtUp',
+            });
           }
         },
         onContactsUpdated: (contacts) => setContacts({ ...contacts }),
         onContactsFull: () =>
-          showToast(i18n.t('toast.contactsFull'), 'warning'),
+          notify({
+            level: 'warning',
+            text: i18n.t('toast.contactsFull'),
+            key: 'contactsFull',
+          }),
         onChannelsUpdated: (channels) => setChannels({ ...channels }),
         onCliReply: ({ pubkeyPrefix, text }) =>
           handleCliReply(c, pubkeyPrefix, text),
@@ -327,28 +335,40 @@ export function useMeshCore() {
                 convo,
                 // No `sender: ` prefix means the author is unknowable. Say so
                 // rather than inventing one: the bar names the conversation
-                // instead, the way the toast below switches to `newMessageIn`.
+                // instead, the way the notice below switches to `newMessageIn`.
                 sender: sender || null,
                 at: arrivedAt(),
               });
-              // The quick link takes every arrival; the toast and the desktop
-              // banner still only cover a conversation that is off screen —
-              // and, while the backlog drains, not even then. That drain runs
-              // past 'connected', so without this the exemption above would
-              // stop at the connect-time pass and the rest of a 300-message
-              // queue would raise a banner each, every one superseding the
-              // last. One summary covers them when the drain ends.
+              // The quick link takes every arrival; the drawer row and the
+              // desktop banner still only cover a conversation that is off
+              // screen — and, while the backlog drains, not even then. That
+              // drain runs past 'connected', so without this the exemption
+              // above would stop at the connect-time pass and the rest of a
+              // 300-message queue would take a row each, pushing every other
+              // notice out of a 50-row drawer. One summary covers them when
+              // the drain ends.
               if (!visible && !state.backlogDraining) {
-                showToast(
-                  sender
-                    ? i18n.t('toast.newMessageInFrom', {
-                        sender,
-                        channel: chName,
-                      })
-                    : i18n.t('toast.newMessageIn', { channel: chName }),
-                  '',
+                const text = sender
+                  ? i18n.t('toast.newMessageInFrom', {
+                      sender,
+                      channel: chName,
+                    })
+                  : i18n.t('toast.newMessageIn', { channel: chName });
+                notify({
+                  level: 'info',
+                  text,
+                  // The conversation alone is too coarse a key: a channel
+                  // arrival renders as "{sender} in {channel}", so merging on
+                  // it would relabel the older senders' rows as the newest
+                  // one. The text alone is too coarse the other way, since two
+                  // contacts can share a name.
+                  key: `${convo.id}\n${text}`,
                   convo,
-                );
+                  // Drawer row only: the bar already carries the newest
+                  // arrival as a standing quick link, and a mesh under load
+                  // would let arrivals claim the transient line permanently.
+                  surface: 'silent',
+                });
                 notifyArrival(
                   convo,
                   sender || i18n.t('common.unknown'),
@@ -416,13 +436,17 @@ export function useMeshCore() {
               // Silent while the backlog drains, for the reason given on the
               // channel branch above.
               if (!visible && !state.backlogDraining) {
-                showToast(
-                  isRoom
-                    ? i18n.t('toast.newPostIn', { room })
-                    : i18n.t('toast.newMessageFrom', { sender }),
-                  '',
+                const text = isRoom
+                  ? i18n.t('toast.newPostIn', { room })
+                  : i18n.t('toast.newMessageFrom', { sender });
+                // Keyed and surfaced exactly as the channel branch above.
+                notify({
+                  level: 'info',
+                  text,
+                  key: `${convo.id}\n${text}`,
                   convo,
-                );
+                  surface: 'silent',
+                });
                 notifyArrival(convo, sender, msg.text);
               }
             }
@@ -457,7 +481,7 @@ export function useMeshCore() {
       addMessage,
       setLatestInbound,
       setBacklogDraining,
-      showToast,
+      notify,
     ],
   );
 
@@ -481,10 +505,10 @@ export function useMeshCore() {
         clearUserDisconnect();
         clearReconnect();
         wipeApiKey();
-        // `reset()` clears the notification history, but the Disconnect notice
-        // is toasted *after* the teardown that runs it, so that row outlives
-        // the session it describes. Drop it here rather than opening this
-        // radio's drawer on the last one's sign-off.
+        // `reset()` clears the notification history, but the reconnect loop's
+        // give-up notice is raised *after* the teardown that runs it, so that
+        // row outlives the session it describes. Drop it here rather than
+        // opening this radio's drawer on the last one's sign-off.
         clearNotifications();
       }
       clearSessionState();
@@ -492,7 +516,7 @@ export function useMeshCore() {
       // True while this session is still worth finishing: the link is up and
       // the user hasn't asked to disconnect. A drop or Disconnect during any of
       // the post-connect awaits makes it false, so the steps below bail
-      // instead of wiring persistence or toasting against a torn-down session.
+      // instead of wiring persistence or reporting against a torn-down session.
       const sessionAlive = () => !c.closed && !isUserDisconnect();
       try {
         wireClient(c, connectImpl);
@@ -627,17 +651,22 @@ export function useMeshCore() {
 
         // Announce success only after the hydrate survived: a drop during it
         // already flipped us back to 'reconnecting' (with its own "connection
-        // lost" toast), so a stale "connected" toast here would just confuse.
-        // Messages drained during the handshake raise actionable conversation
-        // toasts; the slot is single, so keep those over a status message the
-        // user can't act on.
-        if (sessionAlive() && !useMeshStore.getState().toast?.convo) {
-          showToast(
-            i18n.t(isReconnect ? 'toast.reconnected' : 'toast.connected', {
-              device: deviceName,
-            }),
-            'success',
-          );
+        // lost" notice), so a stale "connected" line here would just confuse.
+        // A first connect is a receipt for something the user just asked for,
+        // and the connected UI replacing the connect screen already confirms
+        // it — transient, no row. A reconnect is not asked for: it closes a
+        // drop the user may have missed entirely, so it keeps the row that
+        // finishes the story the "connection lost" row started.
+        if (sessionAlive()) {
+          notify({
+            level: 'success',
+            text: i18n.t(
+              isReconnect ? 'toast.reconnected' : 'toast.connected',
+              { device: deviceName },
+            ),
+            key: isReconnect ? 'reconnected' : 'connected',
+            surface: isReconnect ? 'bar' : 'none',
+          });
         }
         // The radio is back, so the connect screen's give-up card has served
         // its purpose. Cleared only once the whole session is built: an await
@@ -675,7 +704,7 @@ export function useMeshCore() {
       setBattery,
       clearNotifications,
       setSyncProgress,
-      showToast,
+      notify,
       setConnectError,
       setLastConnectFailure,
       wireClient,
@@ -751,8 +780,16 @@ export function useMeshCore() {
     // reset() deliberately carries the give-up notice through a teardown; the
     // user leaving on purpose is the one case that retires it.
     setLastConnectFailure(null);
-    showToast(i18n.t('toast.disconnected'));
-  }, [showToast, setLastConnectFailure]);
+    // Announced and nothing more: the user pressed Disconnect and the connect
+    // screen came up, which is the confirmation. A drawer row would describe a
+    // session that no longer has a drawer to sit in.
+    notify({
+      level: 'info',
+      text: i18n.t('toast.disconnected'),
+      key: 'disconnected',
+      surface: 'none',
+    });
+  }, [notify, setLastConnectFailure]);
 
   // Core send routine for an existing message bubble: broadcasts to a channel
   // and opens a repeater-echo window, or hands a direct message to the
@@ -771,7 +808,11 @@ export function useMeshCore() {
           // (history keeps it reachable), and its secret is now zeroed.
           if (!client.channels[idx] || client.isRemovingChannel(idx)) {
             updateMessage(convo.id, msgId, { status: 'failed' });
-            showToast(i18n.t('toast.channelNotFound'), 'error');
+            notify({
+              level: 'error',
+              text: i18n.t('toast.channelNotFound'),
+              key: 'channelNotFound',
+            });
             return;
           }
           await client.sendChannelMessage(idx, text);
@@ -779,10 +820,11 @@ export function useMeshCore() {
           openEchoWindow(convo.id, msgId);
         } catch (err) {
           updateMessage(convo.id, msgId, { status: 'failed' });
-          showToast(
-            i18n.t('toast.sendFailed', { error: (err as Error).message }),
-            'error',
-          );
+          notify({
+            level: 'error',
+            text: i18n.t('toast.sendFailed', { error: (err as Error).message }),
+            key: `sendFailed:${convo.id}`,
+          });
         }
         return;
       }
@@ -792,7 +834,7 @@ export function useMeshCore() {
       if (convo.kind !== 'direct' && convo.kind !== 'room') return;
       await startDeliveryCycle(convo, msgId, text);
     },
-    [client, updateMessage, showToast],
+    [client, updateMessage, notify],
   );
 
   /**
@@ -863,25 +905,35 @@ export function useMeshCore() {
    * Resets a contact's route on the radio so its next message floods to
    * rediscover a path.
    *
-   * @param quiet - suppress the success toast, for a reset the user did not
+   * @param quiet - suppress the success receipt, for a reset the user did not
    * ask for. Announcing a background route reset would put an unexplained
-   * green toast on screen mid-way through an operation of its own; a failure
-   * still speaks, since it changes what that operation can expect.
+   * green line in the action bar mid-way through an operation of its own; a
+   * failure still speaks, since it changes what that operation can expect.
    */
   const resetContactPath = useCallback(
     async (contact: Contact, quiet = false) => {
       if (!canTransmit(client)) return;
       try {
         await client.resetPath(contact);
-        if (!quiet) showToast(i18n.t('toast.routeReset'), 'success');
+        if (!quiet) {
+          notify({
+            level: 'success',
+            text: i18n.t('toast.routeReset'),
+            key: 'routeReset',
+            surface: 'none',
+          });
+        }
       } catch (err) {
-        showToast(
-          i18n.t('toast.routeResetFailed', { error: (err as Error).message }),
-          'error',
-        );
+        notify({
+          level: 'error',
+          text: i18n.t('toast.routeResetFailed', {
+            error: (err as Error).message,
+          }),
+          key: `routeResetFailed:${contact.pubkeyPrefix}`,
+        });
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /** Flips a contact's favorite flag on the radio. */
@@ -891,27 +943,32 @@ export function useMeshCore() {
       const fav = (contact.flags & FAVORITE_FLAG) === 0;
       try {
         await client.setFavorite(contact, fav);
-        showToast(
-          fav
+        notify({
+          level: 'info',
+          text: fav
             ? i18n.t('toast.addedToFavorites')
             : i18n.t('toast.removedFromFavorites'),
-        );
+          key: `favorite:${contact.pubkeyPrefix}`,
+          surface: 'none',
+        });
       } catch (err) {
-        showToast(
-          i18n.t('toast.favoriteUpdateFailed', {
+        notify({
+          level: 'error',
+          text: i18n.t('toast.favoriteUpdateFailed', {
             error: (err as Error).message,
           }),
-          'error',
-        );
+          key: `favoriteFailed:${contact.pubkeyPrefix}`,
+        });
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /**
    * Logs in to a repeater/room server for remote admin. Marks the session
    * `pending`, then on success the granted level, or `loggedOut` on failure
-   * (surfaced via toast). A room server's own reported role wins, because it
+   * (surfaced as a notification). A room server's own reported role wins,
+   * because it
    * is what decides whether the member may post; a repeater's is ignored in
    * favour of the level the user selected (`kind`), since a blank/guest login
    * re-uses an admin-enrolled node's stored ACL role and would otherwise show
@@ -920,9 +977,9 @@ export function useMeshCore() {
    * store (never in the store, prefs blob, or localStorage); otherwise it is
    * not persisted.
    *
-   * @param quiet - suppress the *timeout* toast, for a caller that shows the
+   * @param quiet - suppress the *timeout* notice, for a caller that shows the
    * outcome itself. An automatic retry cycle sets it on every attempt but its
-   * last, so one unreachable node raises one toast rather than one per attempt.
+   * last, so one unreachable node speaks once rather than once per attempt.
    * A rejection the radio reported still speaks: it ends such a cycle at once,
    * so its message has no later attempt to carry it.
    * @returns how the attempt ended, so a caller can retry only the transient
@@ -981,21 +1038,22 @@ export function useMeshCore() {
         // itself. A reported rejection stops that cycle where it stands, so
         // swallowing its message would lose the one thing that explains why.
         if (!quiet || !timedOut) {
-          showToast(
-            timedOut
+          notify({
+            level: 'error',
+            text: timedOut
               ? i18n.t('toast.repeaterLoginTimedOut', {
                   name: contact.name || contact.pubkeyPrefix.slice(0, 8),
                 })
               : i18n.t('toast.repeaterLoginFailed', {
                   error: (err as Error).message,
                 }),
-            'error',
-          );
+            key: `repeaterLogin:${contact.pubkeyPrefix}`,
+          });
         }
         return timedOut ? 'timeout' : 'failed';
       }
     },
-    [client, setAdminLogin, showToast],
+    [client, setAdminLogin, notify],
   );
 
   /**
@@ -1021,18 +1079,19 @@ export function useMeshCore() {
           setRepeaterStatus(prefix, status, token);
         } catch (err) {
           // A disconnect rejects the in-flight request; its teardown owns the
-          // user-facing toast, so suppress this stale operation error.
+          // user-facing notice, so suppress this stale operation error.
           if (!canTransmit(client)) return;
-          showToast(
-            i18n.t('toast.repeaterStatusFailed', {
+          notify({
+            level: 'error',
+            text: i18n.t('toast.repeaterStatusFailed', {
               error: (err as Error).message,
             }),
-            'error',
-          );
+            key: `repeaterStatus:${prefix}`,
+          });
         }
       });
     },
-    [client, setRepeaterStatus, showToast],
+    [client, setRepeaterStatus, notify],
   );
 
   /**
@@ -1049,17 +1108,18 @@ export function useMeshCore() {
         setNodeTelemetry(contact.pubkeyPrefix, telemetry.readings);
       } catch (err) {
         // A disconnect rejects the in-flight request; its teardown owns the
-        // user-facing toast, so suppress this stale operation error.
+        // user-facing notice, so suppress this stale operation error.
         if (!canTransmit(client)) return;
-        showToast(
-          i18n.t('toast.telemetryFailed', {
+        notify({
+          level: 'error',
+          text: i18n.t('toast.telemetryFailed', {
             error: (err as Error).message,
           }),
-          'error',
-        );
+          key: `telemetry:${contact.pubkeyPrefix}`,
+        });
       }
     },
-    [client, setNodeTelemetry, showToast],
+    [client, setNodeTelemetry, notify],
   );
 
   /**
@@ -1142,28 +1202,32 @@ export function useMeshCore() {
         // A received reply can still be a rejection (e.g. `ERR: clock cannot go
         // backwards`); surface it and report failure rather than "sent".
         if (isErrorReply(reply)) {
-          showToast(
-            i18n.t('toast.repeaterCliFailed', { error: reply.trim() }),
-            'error',
-          );
+          notify({
+            level: 'error',
+            text: i18n.t('toast.repeaterCliFailed', { error: reply.trim() }),
+            key: `repeaterCli:${contact.pubkeyPrefix}`,
+          });
           return 'error';
         }
         return 'ok';
       } catch (err) {
-        // No toast: whether silence is a failure depends on the verb, so the
-        // caller reports it (transcript line, toast, or nothing at all).
+        // Nothing raised: whether silence is a failure depends on the verb, so
+        // the caller reports it (transcript line, notification, or nothing).
         if (err instanceof CliTimeoutError) return 'timeout';
-        // A disconnect rejects the pending send; its teardown owns the toast,
+        // A disconnect rejects the pending send; its teardown owns the notice,
         // so only surface failures from a still-live session.
         if (!canTransmit(client)) return 'error';
-        showToast(
-          i18n.t('toast.repeaterCliFailed', { error: (err as Error).message }),
-          'error',
-        );
+        notify({
+          level: 'error',
+          text: i18n.t('toast.repeaterCliFailed', {
+            error: (err as Error).message,
+          }),
+          key: `repeaterCli:${contact.pubkeyPrefix}`,
+        });
         return 'error';
       }
     },
-    [client, repeaterCliRequest, showToast],
+    [client, repeaterCliRequest, notify],
   );
 
   /** Drops any pending CLI request for a repeater (e.g. on panel unmount). */
@@ -1175,15 +1239,19 @@ export function useMeshCore() {
    * Saves a heard advert as a contact on the radio.
    *
    * @returns whether the radio accepted the write. The failure is already
-   * surfaced as a toast; the result is for a caller running a batch, which has
-   * to tell a contact that landed from one the radio refused.
+   * surfaced as a notification; the result is for a caller running a batch,
+   * which has to tell a contact that landed from one the radio refused.
    */
   const addDiscoveredContact = useCallback(
     async (advert: Advert): Promise<boolean> => {
       if (!canTransmit(client)) return false;
       const pubkeyBytes = fromHex(advert.pubkey, 32);
       if (!pubkeyBytes) {
-        showToast(i18n.t('toast.invalidPublicKey'), 'error');
+        notify({
+          level: 'error',
+          text: i18n.t('toast.invalidPublicKey'),
+          key: 'invalidPublicKey',
+        });
         return false;
       }
       const contact: Contact = {
@@ -1201,22 +1269,27 @@ export function useMeshCore() {
       };
       try {
         await client.addContact(contact);
-        showToast(
-          i18n.t('toast.added', {
+        notify({
+          level: 'success',
+          text: i18n.t('toast.added', {
             name: advert.name || advert.pubkeyPrefix,
           }),
-          'success',
-        );
+          key: `added:${advert.pubkeyPrefix}`,
+          surface: 'none',
+        });
         return true;
       } catch (err) {
-        showToast(
-          i18n.t('toast.addContactFailed', { error: (err as Error).message }),
-          'error',
-        );
+        notify({
+          level: 'error',
+          text: i18n.t('toast.addContactFailed', {
+            error: (err as Error).message,
+          }),
+          key: `addContactFailed:${advert.pubkeyPrefix}`,
+        });
         return false;
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /**
@@ -1240,17 +1313,22 @@ export function useMeshCore() {
       if (!canTransmit(client)) return;
       const pubkeyBytes = fromHex(pubkey, 32);
       if (!pubkeyBytes) {
-        showToast(i18n.t('toast.invalidPublicKey'), 'error');
+        notify({
+          level: 'error',
+          text: i18n.t('toast.invalidPublicKey'),
+          key: 'invalidPublicKey',
+        });
         return;
       }
       const pubkeyPrefix = toHex(pubkeyBytes.slice(0, 6));
       if (client.contacts[pubkeyPrefix]) {
-        showToast(
-          i18n.t('toast.contactAlreadyAdded', {
+        notify({
+          level: 'warning',
+          text: i18n.t('toast.contactAlreadyAdded', {
             name: client.contacts[pubkeyPrefix].name || pubkeyPrefix,
           }),
-          'warning',
-        );
+          key: `contactAlreadyAdded:${pubkeyPrefix}`,
+        });
         return;
       }
       const contact: Contact = {
@@ -1265,18 +1343,23 @@ export function useMeshCore() {
       };
       try {
         await client.addContact(contact);
-        showToast(
-          i18n.t('toast.added', { name: name || pubkeyPrefix }),
-          'success',
-        );
+        notify({
+          level: 'success',
+          text: i18n.t('toast.added', { name: name || pubkeyPrefix }),
+          key: `added:${pubkeyPrefix}`,
+          surface: 'none',
+        });
       } catch (err) {
-        showToast(
-          i18n.t('toast.addContactFailed', { error: (err as Error).message }),
-          'error',
-        );
+        notify({
+          level: 'error',
+          text: i18n.t('toast.addContactFailed', {
+            error: (err as Error).message,
+          }),
+          key: `addContactFailed:${pubkeyPrefix}`,
+        });
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /**
@@ -1288,48 +1371,65 @@ export function useMeshCore() {
       if (!canTransmit(client)) return;
       try {
         await client.shareContact(contact);
-        showToast(i18n.t('toast.advertSent'), 'success');
+        notify({
+          level: 'success',
+          text: i18n.t('toast.advertSent'),
+          key: `advertSent:${contact.pubkeyPrefix}`,
+          surface: 'none',
+        });
       } catch (err) {
         // The radio rebroadcasts a cached copy of the contact's signed advert;
         // if it never heard one over the air (e.g. a QR-imported contact) it
         // returns TABLE_FULL with nothing to send. Surface that distinct case.
         if ((err as { code?: number }).code === ERR_CODE.TABLE_FULL) {
-          showToast(i18n.t('toast.advertNoRecent'), 'warning');
+          notify({
+            level: 'warning',
+            text: i18n.t('toast.advertNoRecent'),
+            key: `advertNoRecent:${contact.pubkeyPrefix}`,
+          });
         } else {
-          showToast(
-            i18n.t('toast.advertFailed', { error: (err as Error).message }),
-            'error',
-          );
+          notify({
+            level: 'error',
+            text: i18n.t('toast.advertFailed', {
+              error: (err as Error).message,
+            }),
+            key: `advertFailed:${contact.pubkeyPrefix}`,
+          });
         }
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /**
    * Advertises this node to the mesh, choosing flood (whole mesh) or zero-hop
-   * (direct neighbors only). Low-risk and not a persistent device change, so it
-   * just toasts the outcome.
+   * (direct neighbors only). Low-risk and not a persistent device change, so
+   * the outcome is a transient receipt rather than a kept one.
    */
   const advertiseSelf = useCallback(
     async (flood: boolean) => {
       if (!canTransmit(client)) return;
       try {
         await client.sendSelfAdvert(flood);
-        showToast(
-          flood
+        notify({
+          level: 'success',
+          text: flood
             ? i18n.t('toast.selfAdvertFloodSent')
             : i18n.t('toast.selfAdvertZeroHopSent'),
-          'success',
-        );
+          key: 'selfAdvert',
+          surface: 'none',
+        });
       } catch (err) {
-        showToast(
-          i18n.t('toast.selfAdvertFailed', { error: (err as Error).message }),
-          'error',
-        );
+        notify({
+          level: 'error',
+          text: i18n.t('toast.selfAdvertFailed', {
+            error: (err as Error).message,
+          }),
+          key: 'selfAdvertFailed',
+        });
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /**
@@ -1343,19 +1443,25 @@ export function useMeshCore() {
       if (!canTransmit(client)) return false;
       try {
         await client.removeContact(contact);
-        showToast(i18n.t('toast.contactRemoved'));
+        notify({
+          level: 'info',
+          text: i18n.t('toast.contactRemoved'),
+          key: `contactRemoved:${contact.pubkeyPrefix}`,
+          surface: 'none',
+        });
         return true;
       } catch (err) {
-        showToast(
-          i18n.t('toast.removeContactFailed', {
+        notify({
+          level: 'error',
+          text: i18n.t('toast.removeContactFailed', {
             error: (err as Error).message,
           }),
-          'error',
-        );
+          key: `removeContactFailed:${contact.pubkeyPrefix}`,
+        });
         return false;
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /**
@@ -1363,7 +1469,7 @@ export function useMeshCore() {
    * Slot 0 is included — it is only free once the Public channel the firmware
    * ships there has been removed.
    *
-   * @remarks No-ops with a toast if the secret already matches a joined
+   * @remarks No-ops with a notification if the secret already matches a joined
    * channel, or if all slots are full.
    */
   const addChannel = useCallback(
@@ -1374,10 +1480,11 @@ export function useMeshCore() {
         (ch) => ch.secret && bytesEqual(ch.secret, secret),
       );
       if (existing) {
-        showToast(
-          i18n.t('toast.alreadyJoined', { name: existing.name || name }),
-          'warning',
-        );
+        notify({
+          level: 'warning',
+          text: i18n.t('toast.alreadyJoined', { name: existing.name || name }),
+          key: 'alreadyJoined',
+        });
         return;
       }
       let idx = -1;
@@ -1389,20 +1496,32 @@ export function useMeshCore() {
         }
       }
       if (idx === -1) {
-        showToast(i18n.t('toast.allSlotsFull'), 'error');
+        notify({
+          level: 'error',
+          text: i18n.t('toast.allSlotsFull'),
+          key: 'allSlotsFull',
+        });
         return;
       }
       try {
         await client.setChannel(idx, name, secret);
-        showToast(i18n.t('toast.channelAdded', { name }), 'success');
+        notify({
+          level: 'success',
+          text: i18n.t('toast.channelAdded', { name }),
+          key: 'channelAdded',
+          surface: 'none',
+        });
       } catch (err) {
-        showToast(
-          i18n.t('toast.addChannelFailed', { error: (err as Error).message }),
-          'error',
-        );
+        notify({
+          level: 'error',
+          text: i18n.t('toast.addChannelFailed', {
+            error: (err as Error).message,
+          }),
+          key: 'addChannelFailed',
+        });
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /** Removes a channel slot; the Public channel is removable like any other. */
@@ -1424,30 +1543,35 @@ export function useMeshCore() {
         // Same reason again: a notification row or the action bar's quick link
         // aimed at the freed slot would open the replacement channel, and the
         // row's dedup key would merge that channel's next arrival into the old
-        // channel's row. The live toast needs no such handling — the
-        // channelRemoved toast below replaces it.
-        const { notifications, latestInbound } = useMeshStore.getState();
-        for (const n of notifications) {
-          if (n.convo?.id === convoId) dismissNotification(n.id);
+        // channel's row. The transient line needs no such handling — it
+        // carries no jump, and the receipt below replaces it anyway.
+        dismissConvoNotifications(convoId);
+        if (useMeshStore.getState().latestInbound?.convo.id === convoId) {
+          setLatestInbound(null);
         }
-        if (latestInbound?.convo.id === convoId) setLatestInbound(null);
-        showToast(i18n.t('toast.channelRemoved'));
+        notify({
+          level: 'info',
+          text: i18n.t('toast.channelRemoved'),
+          key: `channelRemoved:${idx}`,
+          surface: 'none',
+        });
       } catch (err) {
-        showToast(
-          i18n.t('toast.removeChannelFailed', {
+        notify({
+          level: 'error',
+          text: i18n.t('toast.removeChannelFailed', {
             error: (err as Error).message,
           }),
-          'error',
-        );
+          key: `removeChannelFailed:${idx}`,
+        });
       }
     },
     [
       client,
       setActiveConvo,
       setDraft,
-      dismissNotification,
+      dismissConvoNotifications,
       setLatestInbound,
-      showToast,
+      notify,
     ],
   );
 
@@ -1456,8 +1580,8 @@ export function useMeshCore() {
    *
    * @returns whether the write succeeded and, when it didn't, the localized
    * reason — so the caller can keep its editor open (preserving the typed
-   * name) and show the reason where the field is. Failures also raise a toast
-   * so navigation away from the field cannot hide a late error.
+   * name) and show the reason where the field is. Failures also raise a
+   * notification so navigation away from the field cannot hide a late error.
    */
   const setNodeName = useCallback(
     async (name: string): Promise<WriteResult> => {
@@ -1470,11 +1594,11 @@ export function useMeshCore() {
         const error = i18n.t('toast.nodeNameSaveFailed', {
           error: (err as Error).message,
         });
-        showToast(error, 'error');
+        notify({ level: 'error', text: error, key: 'nodeNameSaveFailed' });
         return { ok: false, error };
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /**
@@ -1497,11 +1621,11 @@ export function useMeshCore() {
         const error = i18n.t('toast.locationSaveFailed', {
           error: (err as Error).message,
         });
-        showToast(error, 'error');
+        notify({ level: 'error', text: error, key: 'locationSaveFailed' });
         return { ok: false, error };
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /**
@@ -1539,11 +1663,15 @@ export function useMeshCore() {
           const error = i18n.t('toast.sharePositionSaveFailed', {
             error: (err as Error).message,
           });
-          showToast(error, 'error');
+          notify({
+            level: 'error',
+            text: error,
+            key: 'sharePositionSaveFailed',
+          });
           return { ok: false, error };
         }
       }),
-    [client, showToast, serializeLocation],
+    [client, notify, serializeLocation],
   );
 
   /**
@@ -1600,11 +1728,15 @@ export function useMeshCore() {
           const error = i18n.t('toast.locationSourceSaveFailed', {
             error: (err as Error).message,
           });
-          showToast(error, 'error');
+          notify({
+            level: 'error',
+            text: error,
+            key: 'locationSourceSaveFailed',
+          });
           return { ok: false, error };
         }
       }),
-    [client, showToast, serializeLocation],
+    [client, notify, serializeLocation],
   );
 
   /**
@@ -1637,19 +1769,27 @@ export function useMeshCore() {
           );
         }
         if (powerChanged) await client.setTxPower(params.txPower);
-        showToast(i18n.t('toast.radioParamsSaved'), 'success');
+        // The editor closes on success, which is the lasting confirmation; the
+        // receipt is transient and keeps no row.
+        notify({
+          level: 'success',
+          text: i18n.t('toast.radioParamsSaved'),
+          key: 'radioParamsSaved',
+          surface: 'none',
+        });
         return true;
       } catch (err) {
-        showToast(
-          i18n.t('toast.radioParamsSaveFailed', {
+        notify({
+          level: 'error',
+          text: i18n.t('toast.radioParamsSaveFailed', {
             error: (err as Error).message,
           }),
-          'error',
-        );
+          key: 'radioParamsSaveFailed',
+        });
         return false;
       }
     },
-    [client, showToast],
+    [client, notify],
   );
 
   /**
@@ -1657,20 +1797,29 @@ export function useMeshCore() {
    * restarts; we deliberately do *not* call {@link disconnect} (which would set
    * `userInitiatedDisconnect` and suppress reconnect). Instead the drop flows
    * through the client's `onDisconnect` into the auto-reconnect loop, which
-   * recovers the session once the radio comes back. Just toast "Rebooting…".
+   * recovers the session once the radio comes back. Just report
+   * "Rebooting…".
    */
   const rebootDevice = useCallback(async () => {
     if (!canTransmit(client)) return;
     try {
       await client.reboot();
-      showToast(i18n.t('toast.rebooting'));
+      // Kept, not just flashed: the link drops a moment later and the reconnect
+      // overlay takes the screen, so the drawer row is what explains why once
+      // the session is back.
+      notify({
+        level: 'info',
+        text: i18n.t('toast.rebooting'),
+        key: 'rebooting',
+      });
     } catch (err) {
-      showToast(
-        i18n.t('toast.rebootFailed', { error: (err as Error).message }),
-        'error',
-      );
+      notify({
+        level: 'error',
+        text: i18n.t('toast.rebootFailed', { error: (err as Error).message }),
+        key: 'rebootFailed',
+      });
     }
-  }, [client, showToast]);
+  }, [client, notify]);
 
   // A save writes two commands, and the client's queue only serializes
   // individual exchanges — so two overlapping saves could leave the radio with
@@ -1697,7 +1846,7 @@ export function useMeshCore() {
             const error = i18n.t('toast.saveSettingsFailed', {
               error: (err as Error).message,
             });
-            showToast(error, 'error');
+            notify({ level: 'error', text: error, key: 'saveSettingsFailed' });
             return { ok: false, error };
           }
         },
@@ -1708,7 +1857,7 @@ export function useMeshCore() {
       );
       return write;
     },
-    [client, setAutoAddConfig, showToast],
+    [client, setAutoAddConfig, notify],
   );
 
   return {

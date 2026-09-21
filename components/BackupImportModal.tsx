@@ -41,7 +41,7 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const client = useMeshStore((s) => s.client);
   const selfInfo = useMeshStore((s) => s.selfInfo);
-  const showToast = useMeshStore((s) => s.showToast);
+  const notify = useMeshStore((s) => s.notify);
   // The slices the preview counts against. Subscribed rather than read once, so
   // the counts stay true while the dialog is open — the radio keeps delivering
   // messages and adverts, and `applyBackup` merges against whatever the store
@@ -122,10 +122,14 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
       const unsaved = result.identityRestored
         ? 'settings.backup.importUnsavedIdentity'
         : 'settings.backup.importUnsaved';
-      showToast(
-        t(result.persisted ? done : unsaved),
-        result.persisted ? 'success' : 'error',
-      );
+      // A restore that persisted is a receipt the closing dialog confirms; one
+      // the next reload would undo has to stay readable after it closes.
+      notify({
+        level: result.persisted ? 'success' : 'error',
+        text: t(result.persisted ? done : unsaved),
+        key: 'backupImport',
+        surface: result.persisted ? 'none' : 'bar',
+      });
       onClose();
     } catch (err) {
       // The browser data landed before any radio write was attempted, so this

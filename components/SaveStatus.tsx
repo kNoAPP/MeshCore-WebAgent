@@ -78,8 +78,8 @@ export type SaveOutcome = { ok: true } | { ok: false; error: string };
  * react (e.g. close an editor on success).
  *
  * A failure keeps its reason in `errorText` and does not auto-clear: the field
- * is still wrong, so the explanation stays with it rather than going to a toast
- * that has already vanished.
+ * is still wrong, so the explanation stays with it rather than going to a
+ * transient line that has already faded.
  */
 export function useSaveStatus() {
   const { t } = useTranslation();

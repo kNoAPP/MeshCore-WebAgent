@@ -175,7 +175,15 @@ function scheduleReconnect(deps: ReconnectDeps): void {
     const source = lastConnectSource;
     deps.teardown();
     const store = useMeshStore.getState();
-    store.showToast(i18n.t('toast.reconnectFailed', { device }), 'error');
+    // Drawer row and announcement only. The connect screen this teardown
+    // returns to renders the same give-up as a card of its own
+    // (`lastConnectFailure`), and the action bar is gone with the session.
+    store.notify({
+      level: 'error',
+      text: i18n.t('toast.reconnectFailed', { device }),
+      key: 'reconnectFailed',
+      surface: 'silent',
+    });
     if (source) {
       store.setLastConnectFailure({
         device,
@@ -203,7 +211,7 @@ function scheduleReconnect(deps: ReconnectDeps): void {
 
 /**
  * Shared drop-recovery: persist the last messages, flip the UI into the
- * reconnecting state, warn the user, and start the backoff loop.
+ * reconnecting state, record the drop, and start the backoff loop.
  *
  * @remarks
  * Used by both a post-connect drop (the client's `onDisconnect`) and a mid-sync
@@ -220,7 +228,15 @@ export function beginReconnect(
   store.setStatus('reconnecting');
   // Close any connection-scoped panel so it doesn't reappear on reconnect.
   store.closeConnectionOverlays();
-  store.showToast(i18n.t('toast.connectionLost'));
+  // The reconnect overlay that comes up with 'reconnecting' is the surface
+  // here — it covers the app and reports the attempts. This keeps the record
+  // for the drawer and announces the drop, and nothing more.
+  store.notify({
+    level: 'info',
+    text: i18n.t('toast.connectionLost'),
+    key: 'connectionLost',
+    surface: 'silent',
+  });
   scheduleReconnect(deps);
 }
 

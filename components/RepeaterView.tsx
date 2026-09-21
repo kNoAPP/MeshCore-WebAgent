@@ -156,8 +156,8 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
         ? 'posts'
         : 'status';
   };
-  // Selecting this node again — from its toast, its sidebar row or the command
-  // palette — must return to the default tab, or the post that was pointed at
+  // Selecting this node again — from a drawer row, its sidebar row or the
+  // command palette — must return to the default tab, or the post pointed at
   // stays hidden behind Status. The view is keyed by node, so re-opening the
   // one already on screen does not remount it; `convoOpenSeq` is what makes
   // that navigation visible here.
@@ -176,7 +176,7 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   // now-hidden panel — fall back to the first tab this session may see.
   const activeTab = tabs.includes(selection.tab) ? selection.tab : tabs[0];
   // Report whether the post feed is actually rendered, so arrivals behind the
-  // login gate or another tab stay unread and keep their toast.
+  // login gate or another tab stay unread and keep their drawer row.
   const setVisibleRoomFeed = useMeshStore((s) => s.setVisibleRoomFeed);
   const feedVisible = isRoom && authed && activeTab === 'posts';
   useEffect(() => {

@@ -177,13 +177,16 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
   }
   const contact = client.contacts[cycle.contactKey];
   // A contact deleted (or re-read as a repeater) mid-cycle can never be
-  // reached; abandon the cycle rather than looping on the same toast.
+  // reached; abandon the cycle rather than looping on the same notice.
   if (!contact || contact.advType === ADV_TYPE_REPEATER) {
     settleUndelivered(cycle);
-    store.showToast(
-      i18n.t(contact ? 'toast.repeaterCantMessage' : 'toast.contactNotFound'),
-      'error',
-    );
+    store.notify({
+      level: 'error',
+      text: i18n.t(
+        contact ? 'toast.repeaterCantMessage' : 'toast.contactNotFound',
+      ),
+      key: `undeliverable:${cycle.contactKey}`,
+    });
     return;
   }
   // Every attempt is re-gated on post access, not just the first: logging out
@@ -194,7 +197,11 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
     !canPostToRoom(store.adminSessions[cycle.contactKey]?.login)
   ) {
     settleUndelivered(cycle);
-    store.showToast(i18n.t('toast.roomPostNoAccess'), 'warning');
+    store.notify({
+      level: 'warning',
+      text: i18n.t('toast.roomPostNoAccess'),
+      key: `roomPostNoAccess:${cycle.contactKey}`,
+    });
     return;
   }
   store.updateMessage(cycle.convo.id, cycle.msgId, {
@@ -211,10 +218,11 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
     );
   } catch (err) {
     if (deliveryCycles.get(cycle.msgId) !== cycle) return;
-    store.showToast(
-      i18n.t('toast.sendFailed', { error: (err as Error).message }),
-      'error',
-    );
+    store.notify({
+      level: 'error',
+      text: i18n.t('toast.sendFailed', { error: (err as Error).message }),
+      key: `sendFailed:${cycle.convo.id}`,
+    });
     // A refused send is a failed attempt like any other — it counts toward the
     // contact's route policy and spends one of the message's tries.
     void handleDeliveryFailure(cycle);

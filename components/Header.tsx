@@ -232,13 +232,20 @@ function KillSwitchButton() {
   const { t } = useTranslation();
   const enabled = useMeshStore((s) => s.automationEnabled);
   const killSwitch = useMeshStore((s) => s.killSwitch);
-  const showToast = useMeshStore((s) => s.showToast);
+  const notify = useMeshStore((s) => s.notify);
   if (!enabled) return null;
   return (
     <button
       onClick={() => {
         killSwitch();
-        showToast(t('automation.killed'));
+        // Transient only: this button is the control, and it disappears with
+        // automation the moment the switch lands.
+        notify({
+          level: 'info',
+          text: t('automation.killed'),
+          key: 'automationKilled',
+          surface: 'none',
+        });
       }}
       aria-label={t('automation.kill')}
       title={t('automation.killHint')}

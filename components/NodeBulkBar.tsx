@@ -21,7 +21,7 @@ import { isSaved, type DirectoryNode } from '@/lib/nodes/directory';
  * @param selected - the checked rows, already narrowed to the listed ones, so
  * a node the filters hide is never written to.
  * @param onAddContact - resolves `false` when the radio refused the write; the
- * failure is surfaced as a toast by the caller's own action.
+ * failure is surfaced as a notification by the caller's own action.
  * @param onRemoveContact - the same contract for a delete.
  * @param onClear - drops the selection without writing anything.
  * @param onWritten - receives the keys the radio accepted. Only those are

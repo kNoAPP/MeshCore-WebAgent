@@ -80,6 +80,7 @@ export function ActionBar() {
       aria-label={t('actionBar.label')}
       className='flex h-6 shrink-0 items-center gap-2 border-t border-border bg-surface px-2 text-xs text-text2'
     >
+      <TransientNotice />
       <CatchUp />
       <UpdatePrompt />
       <DeviceHealth />
@@ -88,6 +89,35 @@ export function ActionBar() {
       <LatestMessage />
       <NotificationBell />
     </footer>
+  );
+}
+
+// The bar's transient line, in the VS Code idiom: the newest notice arrives at
+// the left edge, holds, and fades. Never a card and never an overlay, so it
+// cannot cover a control the user is reaching for, and it carries no dismiss
+// button — anything worth keeping by hand is a drawer row instead. It is the
+// one item that gives up width as the bar tightens, so a long message
+// truncates here rather than squeezing the ambient state to its right; the
+// drawer holds the full text either way.
+//
+// Hidden from the accessibility tree: `NoticeAnnouncer` speaks every notice,
+// this one included, and announcing both would read it twice.
+function TransientNotice() {
+  const notice = useMeshStore((s) => s.barNotice);
+  if (!notice) return null;
+  return (
+    <>
+      {/* Keyed by the notice id so a replacement restarts the fade rather than
+          inheriting whatever was left of the previous one's. */}
+      <span
+        key={notice.id}
+        aria-hidden='true'
+        className={`notice-line min-w-0 truncate ${LEVEL_COLOR[notice.level]}`}
+      >
+        {notice.text}
+      </span>
+      <Divider />
+    </>
   );
 }
 
@@ -106,10 +136,10 @@ function CatchUp() {
   return (
     <>
       {/*
-        Announced, because while the catch-up runs the per-message toasts that
-        would otherwise be read out are suppressed — without this a screen
-        reader gets no cue at all that a backlog is landing. The end is covered
-        by the summary toast's own announcer.
+        Announced, because while the catch-up runs the per-message notices
+        that would otherwise be read out are suppressed — without this a
+        screen reader gets no cue at all that a backlog is landing. The end is
+        covered by the summary notice's own announcement.
 
         Mounted for the whole session rather than alongside the spinner: a live
         region inserted with its text already in it is commonly not announced,
@@ -371,8 +401,8 @@ function LatestMessage() {
   // A frame that names nobody — a channel text with no `sender: ` prefix, an
   // unsigned room post — falls back to the conversation, and the accessible
   // name switches preposition with it. "from General" would assert that the
-  // channel wrote the message, which is why the toast has a separate `…In`
-  // string rather than a substituted one.
+  // channel wrote the message, which is why the arrival notice has a separate
+  // `…In` string rather than a substituted one.
   //
   // With both in hand the bar names both: on a channel or a room, who wrote it
   // is only half the cue — whether it is worth leaving the current view turns
@@ -399,11 +429,11 @@ function LatestMessage() {
       openConvo(convo);
       setView('chat');
     }
-    // Then land the reader in the content, where the drawer's row and the
-    // toast's jump both hand focus. Unlike those two this button survives the
-    // navigation, so focus would otherwise stay in the bar — the last landmark
-    // on the page, from which the next Tab leaves for the browser's chrome
-    // rather than entering the conversation they just asked for.
+    // Then land the reader in the content, where the drawer's row hands focus
+    // too. Unlike that row this button survives the navigation, so focus would
+    // otherwise stay in the bar — the last landmark on the page, from which
+    // the next Tab leaves for the browser's chrome rather than entering the
+    // conversation they just asked for.
     document.getElementById('main')?.focus();
   };
 
@@ -516,7 +546,7 @@ function NotificationBell() {
           onNavigate={() => {
             // Not the bell — the reader asked to be taken to the
             // conversation, so land them in the content, the same place the
-            // toast's own jump hands focus to.
+            // bar's quick link hands focus to.
             close(false);
             document.getElementById('main')?.focus();
           }}
