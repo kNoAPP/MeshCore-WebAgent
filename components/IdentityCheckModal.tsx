@@ -16,8 +16,9 @@ import { ModalShell } from './ModalShell';
  * The wizard's `OK` from the import proves only that the radio stored some
  * key. The proof that the phrase on paper restores this radio is the public
  * key a fresh session reports, compared with the one the phrase derives —
- * so this waits for a session other than the one that ran the import (see
- * `IdentityCheck`) and says loudly when the two disagree.
+ * so this waits for a session other than the one that ran the import, from
+ * the radio that ran it (see `IdentityCheck`), and says loudly when the radio
+ * came back as its old identity.
  *
  * Mounted by {@link AppShell} while connected, since the reconnect that
  * delivers the answer also closes the Settings page the wizard lived on.
@@ -30,8 +31,9 @@ export function IdentityCheckModal() {
   const setIdentityCheck = useMeshStore((s) => s.setIdentityCheck);
   const { advertise, sending } = useAdvertise();
 
-  if (!check || !client || client === check.client || !reported) return null;
+  if (!check || !client || client === check.client) return null;
   const verified = reported === check.expected;
+  if (!verified && reported !== check.outgoing) return null;
   const dismiss = () => setIdentityCheck(null);
 
   return (

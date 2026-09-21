@@ -555,9 +555,10 @@
         "rejected": "The radio refused the new key as invalid, so it kept its current identity. A generated phrase should never be refused: do not rely on this phrase, and please report this.",
         "writeFailed": "The radio could not save the new identity to its flash, so it kept its current one. Reboot the radio and try again; if it keeps failing, its storage may be full.",
         "vault": "The identity vault could not be saved on this device ({{error}}). Nothing was written to the radio.",
-        "unconfirmed": "The radio did not confirm the write ({{error}}), so it may or may not hold the new identity. Reboot it and compare its public key in Settings with {{pubkey}}. Keep your written phrase until they match.",
+        "unconfirmed": "The radio did not confirm the write, so it may or may not hold the new identity. It is being rebooted to find out, and this app compares its public key when it reconnects. Keep your written phrase until then.",
         "unsaved": "The new identity is written, but this browser's data could not be saved under it. Reloading before the radio reconnects will lose it.",
-        "rebootFailed": "The new identity is written, but the radio did not reboot ({{error}}). Reboot it yourself; this app checks its public key when it reconnects."
+        "rebootFailed": "The new identity is written, but the radio did not reboot ({{error}}). Reboot it yourself without reloading this page; this app checks its public key when it reconnects.",
+        "generate": "A recovery phrase could not be generated ({{error}})."
       },
       "checkTitle": "Identity check",
       "checkOk": "Verified. The radio reports public key {{pubkey}}, exactly the one your recovery phrase derives. The phrase on paper restores this identity.",

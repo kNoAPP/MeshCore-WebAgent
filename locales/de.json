@@ -556,9 +556,10 @@
         "rejected": "Das Funkgerät hat den neuen Schlüssel als ungültig abgelehnt und seine aktuelle Identität behalten. Eine erzeugte Phrase sollte nie abgelehnt werden: Verlass dich nicht auf diese Phrase und melde das Problem.",
         "writeFailed": "Das Funkgerät konnte die neue Identität nicht im Flash speichern und hat die aktuelle behalten. Starte das Gerät neu und versuche es erneut; schlägt es weiter fehl, ist der Speicher möglicherweise voll.",
         "vault": "Der Identitätstresor konnte auf diesem Gerät nicht gespeichert werden ({{error}}). Auf das Funkgerät wurde nichts geschrieben.",
-        "unconfirmed": "Das Funkgerät hat das Schreiben nicht bestätigt ({{error}}), es hat die neue Identität also vielleicht oder vielleicht nicht. Starte es neu und vergleiche seinen öffentlichen Schlüssel in den Einstellungen mit {{pubkey}}. Bewahre deine Abschrift auf, bis sie übereinstimmen.",
+        "unconfirmed": "Das Funkgerät hat das Schreiben nicht bestätigt, es hat die neue Identität also vielleicht oder vielleicht nicht. Es wird neu gestartet, um das zu klären, und diese App vergleicht seinen öffentlichen Schlüssel bei der erneuten Verbindung. Bewahre deine Abschrift bis dahin auf.",
         "unsaved": "Die neue Identität ist geschrieben, aber die Daten dieses Browsers konnten nicht darunter gespeichert werden. Ein Neuladen vor der erneuten Verbindung des Funkgeräts verliert sie.",
-        "rebootFailed": "Die neue Identität ist geschrieben, aber das Funkgerät hat nicht neu gestartet ({{error}}). Starte es selbst neu; diese App prüft seinen öffentlichen Schlüssel bei der erneuten Verbindung."
+        "rebootFailed": "Die neue Identität ist geschrieben, aber das Funkgerät hat nicht neu gestartet ({{error}}). Starte es selbst neu, ohne diese Seite neu zu laden; diese App prüft seinen öffentlichen Schlüssel bei der erneuten Verbindung.",
+        "generate": "Es konnte keine Wiederherstellungsphrase erzeugt werden ({{error}})."
       },
       "checkTitle": "Identitätsprüfung",
       "checkOk": "Bestätigt. Das Funkgerät meldet den öffentlichen Schlüssel {{pubkey}}, genau den, den deine Wiederherstellungsphrase ableitet. Die Phrase auf Papier stellt diese Identität wieder her.",

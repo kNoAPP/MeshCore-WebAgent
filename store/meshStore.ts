@@ -140,14 +140,20 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
  * A pending check that the radio came back as the identity it was given.
  *
  * @remarks Judged on the first connected session whose client is not
- * {@link IdentityCheck.client}: the one that ran the import still reports the
- * outgoing public key until the radio restarts, so comparing against it would
- * cry wolf. A reconnect keeps the check, since it does not reset the store; a
- * teardown drops it with the rest of the session.
+ * {@link IdentityCheck.client}, and only once that session reports one of the
+ * two public keys. The client that ran the import still reports the outgoing
+ * key until the radio restarts, so comparing against it would cry wolf; and a
+ * session reporting neither key is some other radio, so the check waits for
+ * this one rather than failing against a node that was never written.
+ *
+ * Kept through a teardown as well as a reconnect, so a radio the user reboots
+ * and reconnects by hand is still checked. Only a page reload loses it.
  */
 export interface IdentityCheck {
   /** The public key the phrase derives, lowercase hex. */
   expected: string;
+  /** The public key the radio had before the import, lowercase hex. */
+  outgoing: string;
   /** The client the identity was imported over. */
   client: MeshCoreClient;
 }
@@ -2007,6 +2013,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       // A browser-window fact, not a session one: the tab is just as focused
       // after a disconnect as it was before.
       windowFocused: get().windowFocused,
+      // A pending identity check names the radio it is waiting for, and the
+      // user may well reboot and reconnect that radio by hand.
+      identityCheck: get().identityCheck,
       // Every other preference is per-radio (encrypted in IndexedDB) and
       // reloaded on the next connect, so it resets to defaults here.
     }),

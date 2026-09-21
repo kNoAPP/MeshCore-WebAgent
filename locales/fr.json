@@ -556,9 +556,10 @@
         "rejected": "La radio a refusé la nouvelle clé comme invalide et a gardé son identité actuelle. Une phrase générée ne devrait jamais être refusée : ne vous fiez pas à cette phrase et signalez le problème.",
         "writeFailed": "La radio n’a pas pu enregistrer la nouvelle identité dans sa mémoire flash et a gardé l’actuelle. Redémarrez la radio et réessayez ; si l’échec persiste, son stockage est peut-être plein.",
         "vault": "Le coffre d’identités n’a pas pu être enregistré sur cet appareil ({{error}}). Rien n’a été écrit sur la radio.",
-        "unconfirmed": "La radio n’a pas confirmé l’écriture ({{error}}) : elle détient peut-être la nouvelle identité, peut-être pas. Redémarrez-la et comparez sa clé publique dans les Réglages avec {{pubkey}}. Gardez votre phrase écrite jusqu’à ce qu’elles correspondent.",
+        "unconfirmed": "La radio n’a pas confirmé l’écriture : elle détient peut-être la nouvelle identité, peut-être pas. Elle redémarre pour le savoir, et cette application compare sa clé publique à la reconnexion. Gardez votre phrase écrite d’ici là.",
         "unsaved": "La nouvelle identité est écrite, mais les données de ce navigateur n’ont pas pu être enregistrées sous celle-ci. Un rechargement avant la reconnexion de la radio les fera perdre.",
-        "rebootFailed": "La nouvelle identité est écrite, mais la radio n’a pas redémarré ({{error}}). Redémarrez-la vous-même ; cette application vérifie sa clé publique à la reconnexion."
+        "rebootFailed": "La nouvelle identité est écrite, mais la radio n’a pas redémarré ({{error}}). Redémarrez-la vous-même sans recharger cette page ; cette application vérifie sa clé publique à la reconnexion.",
+        "generate": "Impossible de générer une phrase de récupération ({{error}})."
       },
       "checkTitle": "Vérification de l’identité",
       "checkOk": "Vérifié. La radio annonce la clé publique {{pubkey}}, exactement celle que dérive votre phrase de récupération. La phrase sur papier restaure cette identité.",

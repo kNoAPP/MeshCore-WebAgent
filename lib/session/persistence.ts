@@ -201,14 +201,7 @@ export async function beginIdentityHandover(
   // second restore in one session that would still name the original identity
   // and leave the first restore's namespace behind as a full, readable orphan.
   const outgoing = writeTarget(client)?.pubkey;
-  // Channel secrets survive an identity import untouched — the firmware's
-  // handler replaces the key pair and reloads contacts, nothing else — so the
-  // key the next connect derives is this radio's current secrets salted with
-  // the new pubkey.
-  const secrets = Object.values(client.channels)
-    .map((ch) => ch.secret)
-    .filter((s): s is Uint8Array => s != null && s.length > 0);
-  handover = { pubkey, key: await deriveStorageKey(secrets, pubkey) };
+  handover = { pubkey, key: await incomingKey(client, pubkey) };
   const persisted = await saveSessionNamespace(handover.pubkey, handover.key);
   // Only once the data is safely under the incoming identity: a failed write
   // would otherwise make this delete the user's last copy.
@@ -216,6 +209,27 @@ export async function beginIdentityHandover(
     await deleteRadioRecords(outgoing);
   }
   return persisted;
+}
+
+/**
+ * Writes the four per-radio records under an identity the radio is about to
+ * be given, without redirecting this session to it.
+ *
+ * @remarks For an import whose outcome may never be confirmed: a timeout or a
+ * dropped link can hide a key the radio did install, and the reconnect then
+ * comes back under a namespace nothing was written to. Writing it first means
+ * the data is there whichever identity returns; the outgoing namespace is left
+ * alone, since the radio may still be on it. Follow a confirmed import with
+ * {@link beginIdentityHandover}, and a refused one with `deleteRadioRecords`.
+ *
+ * @param pubkey - as for {@link beginIdentityHandover}.
+ * @returns whether all four writes landed.
+ */
+export async function seedIdentityNamespace(
+  client: MeshCoreClient,
+  pubkey: string,
+): Promise<boolean> {
+  return saveSessionNamespace(pubkey, await incomingKey(client, pubkey));
 }
 
 /**
@@ -304,6 +318,20 @@ function writeTarget(
   if (handover) return handover;
   const pubkey = client?.selfInfo?.pubkey;
   return pubkey && storageKey ? { pubkey, key: storageKey } : null;
+}
+
+// The storage key the next connect derives for `pubkey` on this radio. Channel
+// secrets survive an identity import untouched — the firmware's handler
+// replaces the key pair and reloads contacts, nothing else — so it is this
+// radio's current secrets salted with the new pubkey.
+function incomingKey(
+  client: MeshCoreClient,
+  pubkey: string,
+): Promise<CryptoKey> {
+  const secrets = Object.values(client.channels)
+    .map((ch) => ch.secret)
+    .filter((s): s is Uint8Array => s != null && s.length > 0);
+  return deriveStorageKey(secrets, pubkey);
 }
 
 // The one place the set of per-radio records is listed. Both the live-session

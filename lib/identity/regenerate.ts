@@ -6,7 +6,9 @@ import { PrivateKeyError } from '@/lib/meshcore/errors';
 import {
   beginIdentityHandover,
   markUnsavedRestore,
+  seedIdentityNamespace,
 } from '@/lib/session/persistence';
+import { deleteRadioRecords } from '@/lib/storage';
 import { toHex } from '@/lib/utils';
 import { identityFromMnemonic } from './seed';
 import {
@@ -21,32 +23,31 @@ import {
 } from './vault';
 
 /**
- * A {@link regenerateIdentity} failure that is not the radio refusing the key.
- *
- * `vault` means the vault could not be written, before the radio was touched;
- * `unconfirmed` means the import timed out or the link dropped, so the radio
- * may or may not hold the new identity. The message is the underlying
- * failure's.
+ * The vault for a {@link regenerateIdentity} run could not be written. Nothing
+ * reached the radio. The message is the underlying failure's.
  */
 export class RegenerateError extends Error {
-  readonly stage: 'vault' | 'unconfirmed';
-
-  constructor(stage: 'vault' | 'unconfirmed', cause: unknown) {
+  constructor(cause: unknown) {
     super((cause as Error).message, { cause });
     this.name = 'RegenerateError';
-    this.stage = stage;
   }
 }
 
-/** What {@link regenerateIdentity} left behind once the radio took the key. */
+/** What {@link regenerateIdentity} left behind once the key was sent. */
 export interface RegenerateResult {
   /** The public key the phrase derives, lowercase hex. */
   publicKey: string;
   /**
-   * Whether this browser's data for the outgoing identity reached encrypted
-   * storage under the incoming one. False leaves it in memory only, protected
-   * for the next connect as {@link RegenerateResult.publicKey} but lost to a
-   * reload.
+   * Whether the radio acknowledged the import. False when the exchange timed
+   * out, the link dropped, or the device answered with an error this app does
+   * not map to a refusal: the radio may or may not hold the new identity, and
+   * only the public key it reports after a restart can tell.
+   */
+  confirmed: boolean;
+  /**
+   * Whether this browser's data reached encrypted storage under the incoming
+   * identity. False leaves it in memory only, protected for the next connect
+   * as {@link RegenerateResult.publicKey} but lost to a reload.
    */
   persisted: boolean;
 }
@@ -57,14 +58,16 @@ export interface RegenerateResult {
  *
  * @remarks
  * The vault is written before the radio is touched, so a device that cannot
- * store it stops the run while the outgoing identity is still intact. A radio
- * that then refuses the key takes the vault with it: it would otherwise list
- * an identity that was never installed.
+ * store it stops the run while the outgoing identity is still intact. This
+ * browser's data is then written under the incoming identity too
+ * ({@link seedIdentityNamespace}), so it is there whichever identity the radio
+ * comes back as. A radio that refuses the key takes both with it.
  *
- * On success the session is handed over to the incoming identity exactly as a
- * backup restore does it ({@link beginIdentityHandover}), because the import
- * does not reboot the radio and this browser's data must already sit under the
- * public key the radio comes back as.
+ * An acknowledged import hands the session over to the incoming identity
+ * exactly as a backup restore does ({@link beginIdentityHandover}), because
+ * the import does not reboot the radio. An unacknowledged one is reported
+ * rather than thrown, and leaves the outgoing namespace in place: the radio
+ * may still be on it.
  *
  * Does not reboot the radio, and proves nothing about what it will report:
  * that needs a restart and a fresh `SELF_INFO`, which is the caller's to do.
@@ -75,10 +78,8 @@ export interface RegenerateResult {
  * @param label - the identity's name in the vault.
  * @throws `SeedPhraseError` for a malformed phrase.
  * @throws `PrivateKeyError` when the radio refuses the key; nothing has
- * changed on the radio or in the vault.
- * @throws {@link RegenerateError} `vault` when the vault could not be written,
- * and `unconfirmed` when the import neither succeeded nor was refused — the
- * vault is kept then, as the one record of what the radio may now hold.
+ * changed on the radio, in the vault, or in storage.
+ * @throws {@link RegenerateError} when the vault could not be written.
  */
 export async function regenerateIdentity(
   client: MeshCoreClient,
@@ -95,16 +96,21 @@ export async function regenerateIdentity(
       publicKey: pubkey,
       label,
     });
+    const seeded = await seedIdentityNamespace(client, pubkey);
+    // The next connect as this identity must keep the store's data rather
+    // than normalize it away against an absent blob, as for a backup restore.
+    if (!seeded) markUnsavedRestore(pubkey);
     try {
       await client.importPrivateKey(privateKey);
     } catch (err) {
-      // Only a refusal proves the radio kept its identity. A timeout or a
-      // dropped link may have landed after the write, and then the vault is
-      // the one record of which identity the radio now holds.
+      // Only a refusal proves the radio kept its identity. Anything else may
+      // have landed after the write, and then the vault and the seeded
+      // records are what the radio's new identity will need.
       if (!(err instanceof PrivateKeyError)) {
-        throw new RegenerateError('unconfirmed', err);
+        return { publicKey: pubkey, confirmed: false, persisted: seeded };
       }
       await deleteVault(fingerprint);
+      if (seeded) await deleteRadioRecords(pubkey);
       throw err;
     }
   } finally {
@@ -112,10 +118,8 @@ export async function regenerateIdentity(
   }
 
   const persisted = await beginIdentityHandover(client, pubkey);
-  // As for a backup restore: the next connect as this identity must keep the
-  // store's data rather than normalize it away against an absent blob.
   if (!persisted) markUnsavedRestore(pubkey);
-  return { publicKey: pubkey, persisted };
+  return { publicKey: pubkey, confirmed: true, persisted };
 }
 
 // Creates the vault listing `identity`, and returns its fingerprint.
@@ -129,7 +133,7 @@ async function writeVault(
   try {
     vault = await createFreshVault(phrase, passphrase, rememberPhrase);
   } catch (err) {
-    throw new RegenerateError('vault', err);
+    throw new RegenerateError(err);
   }
   try {
     vault.identities.push(identity);
@@ -139,7 +143,7 @@ async function writeVault(
     // Nothing reached the radio, so a vault listing no identity would only
     // meet the next attempt as a leftover.
     await deleteVault(vault.fingerprint);
-    throw new RegenerateError('vault', err);
+    throw new RegenerateError(err);
   } finally {
     lockVault(vault);
   }

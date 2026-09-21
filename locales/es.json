@@ -556,9 +556,10 @@
         "rejected": "La radio rechazó la nueva clave por no válida, así que conservó su identidad actual. Una frase generada nunca debería rechazarse: no confíes en esta frase e informa del problema.",
         "writeFailed": "La radio no pudo guardar la nueva identidad en su memoria flash, así que conservó la actual. Reinicia la radio y vuelve a intentarlo; si sigue fallando, puede que su almacenamiento esté lleno.",
         "vault": "No se pudo guardar el almacén de identidades en este dispositivo ({{error}}). No se escribió nada en la radio.",
-        "unconfirmed": "La radio no confirmó la escritura ({{error}}), así que puede que tenga o no la nueva identidad. Reiníciala y compara su clave pública en Ajustes con {{pubkey}}. Conserva tu frase escrita hasta que coincidan.",
+        "unconfirmed": "La radio no confirmó la escritura, así que puede que tenga o no la nueva identidad. Se está reiniciando para averiguarlo, y esta aplicación compara su clave pública cuando se vuelve a conectar. Conserva tu frase escrita hasta entonces.",
         "unsaved": "La nueva identidad está escrita, pero los datos de este navegador no se pudieron guardar bajo ella. Si recargas antes de que la radio se vuelva a conectar, se perderán.",
-        "rebootFailed": "La nueva identidad está escrita, pero la radio no se reinició ({{error}}). Reiníciala tú; esta aplicación comprueba su clave pública cuando se vuelve a conectar."
+        "rebootFailed": "La nueva identidad está escrita, pero la radio no se reinició ({{error}}). Reiníciala tú sin recargar esta página; esta aplicación comprueba su clave pública cuando se vuelve a conectar.",
+        "generate": "No se pudo generar una frase de recuperación ({{error}})."
       },
       "checkTitle": "Comprobación de identidad",
       "checkOk": "Verificado. La radio informa de la clave pública {{pubkey}}, exactamente la que deriva tu frase de recuperación. La frase en papel restaura esta identidad.",

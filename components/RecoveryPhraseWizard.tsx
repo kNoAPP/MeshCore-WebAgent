@@ -7,7 +7,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { generateMnemonic, identityFromMnemonic } from '@/lib/identity/seed';
-import { regenerateIdentity, RegenerateError } from '@/lib/identity/regenerate';
+import {
+  regenerateIdentity,
+  type RegenerateResult,
+} from '@/lib/identity/regenerate';
 import {
   PrivateKeyError,
   type PrivateKeyErrorCode,
@@ -153,6 +156,13 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
         const fresh = await newDraft();
         setDraft(fresh);
         setAnswers(fresh.positions.map(() => ''));
+      } catch (err) {
+        setError(
+          t('settings.recovery.error.generate', {
+            error: (err as Error).message,
+          }),
+        );
+        return;
       } finally {
         setBusy(false);
       }
@@ -171,24 +181,31 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
         setError(t('settings.backup.sessionChanged'));
         return;
       }
-      let persisted: boolean;
+      let result: RegenerateResult;
       try {
-        const result = await regenerateIdentity(
+        result = await regenerateIdentity(
           client,
           draft.words.join(' '),
           passphrase,
           remember,
           node,
         );
-        persisted = result.persisted;
       } catch (err) {
-        setError(<WriteErrorText err={err} publicKey={draft.publicKey} />);
+        setError(<WriteErrorText err={err} />);
         return;
       }
-      // From here the radio holds the new identity: whatever else happens,
-      // the next session is checked against it.
-      setIdentityCheck({ expected: draft.publicKey, client });
-      if (!persisted) {
+      // From here the radio may hold the new identity, acknowledged or not:
+      // whatever else happens, the next session is checked against it.
+      setIdentityCheck({ expected: draft.publicKey, outgoing: pubkey, client });
+      if (!result.confirmed) {
+        notify({
+          level: 'error',
+          text: t('settings.recovery.error.unconfirmed'),
+          key: 'recoveryUnconfirmed',
+          surface: 'bar',
+        });
+      }
+      if (!result.persisted) {
         notify({
           level: 'error',
           text: t('settings.recovery.error.unsaved'),
@@ -321,15 +338,8 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
 }
 
 // Each failure means something different to the user: a refusal left the old
-// identity in place, a vault failure never reached the radio, and an
-// unconfirmed write may have landed either way.
-function WriteErrorText({
-  err,
-  publicKey,
-}: {
-  err: unknown;
-  publicKey: string;
-}) {
+// identity in place, and a vault failure never reached the radio.
+function WriteErrorText({ err }: { err: unknown }) {
   const { t } = useTranslation();
   if (err instanceof PrivateKeyError) {
     return (
@@ -342,13 +352,7 @@ function WriteErrorText({
       </>
     );
   }
-  const error = (err as Error).message;
-  if (err instanceof RegenerateError && err.stage === 'unconfirmed') {
-    return (
-      <>
-        {t('settings.recovery.error.unconfirmed', { error, pubkey: publicKey })}
-      </>
-    );
-  }
-  return <>{t('settings.recovery.error.vault', { error })}</>;
+  return (
+    <>{t('settings.recovery.error.vault', { error: (err as Error).message })}</>
+  );
 }
