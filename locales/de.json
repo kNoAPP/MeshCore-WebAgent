@@ -1405,6 +1405,7 @@
   },
   "update": {
     "available": "Eine neue Version ist verfügbar",
+    "barLabel": "Update verfügbar",
     "hint": "Beim Neuladen wird Ihr Funkgerät getrennt.",
     "reload": "Neu laden",
     "dismiss": "Ausblenden"
