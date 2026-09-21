@@ -7,7 +7,7 @@ export type MeshErrorCode = 'radioNoResponse';
 /**
  * A connect/sync failure carrying a stable {@link code} the UI maps to a
  * localized message. Keeps user-facing copy out of the protocol layer so the
- * hook can surface a translated toast instead of a hardcoded English string.
+ * hook can surface a translated notice instead of a hardcoded English string.
  */
 export class MeshConnectError extends Error {
   constructor(readonly code: MeshErrorCode) {

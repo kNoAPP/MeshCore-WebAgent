@@ -25,7 +25,7 @@ import { CommandPalette } from './CommandPalette';
 import { AutomationRunner } from './AutomationRunner';
 import { MessageAnnouncer } from './MessageAnnouncer';
 import { SyncAnnouncer } from './SyncProgressView';
-import { Toast } from './Toast';
+import { NoticeAnnouncer } from './NoticeAnnouncer';
 import { ActionBar } from './ActionBar';
 
 // Leaflet and the map view are loaded only when the map opens, keeping the
@@ -38,10 +38,12 @@ const MapView = dynamic(
 
 /**
  * Top-level app layout. Restricts the client to desktop browsers; otherwise
- * shows the header and toast, swaps the connect panel for the sidebar + chat
- * once connected, and mounts the management modals and the bottom action bar —
- * which carries the radio's ambient state and its occasional actions — only
- * while connected.
+ * shows the header, swaps the connect panel for the sidebar + chat once
+ * connected, and mounts the management modals and the bottom action bar —
+ * which carries the radio's ambient state, its occasional actions and its
+ * notifications — only while connected. Nothing is drawn over the app: the
+ * screen-reader announcers below are the only session-wide surfaces left, and
+ * they render nothing visible.
  */
 export function AppShell() {
   useUrlState();
@@ -127,9 +129,9 @@ export function AppShell() {
           <AutomationRunner />
         </>
       )}
-      <Toast />
       <SyncAnnouncer />
       <MessageAnnouncer />
+      <NoticeAnnouncer />
     </div>
   );
 }

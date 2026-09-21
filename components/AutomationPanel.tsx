@@ -173,7 +173,7 @@ export function ApprovalInboxList() {
   const { t } = useTranslation();
   const staged = useMeshStore((s) => s.stagedActions);
   const resolve = useMeshStore((s) => s.resolveStagedAction);
-  const showToast = useMeshStore((s) => s.showToast);
+  const notify = useMeshStore((s) => s.notify);
 
   return (
     <div className='flex flex-col gap-2'>
@@ -205,7 +205,11 @@ export function ApprovalInboxList() {
                 // A rate-limited transmit was never sent — keep the proposal
                 // in the inbox to retry instead of dropping an approved action.
                 if (outcome === 'rateLimited') {
-                  showToast(t('automation.rateLimitedToast'), 'error');
+                  notify({
+                    level: 'error',
+                    text: t('automation.rateLimitedToast'),
+                    key: 'automationRateLimited',
+                  });
                   return;
                 }
                 resolve(a.id);

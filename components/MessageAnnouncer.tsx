@@ -24,8 +24,9 @@ import i18n from '@/lib/i18n';
  * identical text is what a live region reports as new.
  *
  * Only an arrival that was on screen when it landed is announced — anything
- * else is the toast's job, and repeating it here later would replay it out of
- * context.
+ * else belongs to the arrival's own notification, which {@link
+ * NoticeAnnouncer} reads out, and repeating it here later would replay it out
+ * of context.
  */
 export function MessageAnnouncer() {
   const lastArrival = useMeshStore((s) => s.lastArrival);

@@ -101,8 +101,8 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
 
   // The remembered credential a retry replays, held here rather than in state
   // so the password is never a render input and can never reach the Zustand
-  // store, a toast, or a DOM value. Cleared by `forget` on log-out, so it never
-  // outlives the record it was read from.
+  // store, a notification, or a DOM value. Cleared by `forget` on log-out, so
+  // it never outlives the record it was read from.
   const credRef = useRef<{ password: string; kind: LoginKind } | null>(null);
   // Bumped by every new cycle and by unmount. A cycle compares its own snapshot
   // against this before touching anything after an await, so a straggling
@@ -192,8 +192,8 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
           password,
           kind,
           remember,
-          // A timeout this cycle will retry needs no toast of its own; only the
-          // attempt that gives up speaks.
+          // A timeout this cycle will retry needs no notice of its own;
+          // only the attempt that gives up speaks.
           i < total,
         );
         if (!live()) return;

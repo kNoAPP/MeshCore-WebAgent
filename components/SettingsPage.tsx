@@ -710,8 +710,8 @@ function LocationCard() {
 }
 
 // Rebooting drops the live link, and the hook's auto-reconnect loop recovers
-// the session, so there's nothing to do here but toast and let the reconnecting
-// overlay take over.
+// the session, so there's nothing to do here but report it and let the
+// reconnecting overlay take over.
 function RebootCard() {
   const { t } = useTranslation();
   const status = useMeshStore((s) => s.status);

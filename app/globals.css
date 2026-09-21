@@ -473,3 +473,42 @@ html {
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
+
+/*
+ * The action bar's transient notice: it arrives from the left, holds, and
+ * fades where it stands. One animation rather than an enter/leave pair — the
+ * line is dropped from the DOM on the store's own timer, so there is nothing
+ * left to animate out. Its duration is BAR_NOTICE_MS in `store/meshStore.ts`;
+ * the two have to move together, and that doc explains the one path where
+ * they cannot line up.
+ */
+.notice-line {
+  /* `forwards` so the line holds the final keyframe's transparency instead of
+     snapping back to full opacity if the store's removal timer is late — a
+     long task, or a background tab's clamped timers, would otherwise flash
+     the faded notice back into the bar. */
+  animation: notice-line 4s ease-out forwards;
+}
+@keyframes notice-line {
+  0% {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  6%,
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+/* Respect users who prefer reduced motion: the line appears and leaves with
+   the timer, with no slide and no fade. */
+@media (prefers-reduced-motion: reduce) {
+  .notice-line {
+    animation: none;
+  }
+}

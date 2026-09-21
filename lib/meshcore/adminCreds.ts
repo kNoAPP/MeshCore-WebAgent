@@ -9,9 +9,9 @@ import type { LoginKind } from '@/types/meshcore';
 
 // A remembered repeater login lives ONLY as an encrypted record in the
 // per-radio `secrets` store — never in `localStorage`, the preferences blob,
-// the Zustand store, logs, toasts, or URLs. It reuses the single per-radio
-// crypto context bound in `useMeshCore` (via `getStorageContext`), so a
-// different radio literally cannot decrypt another radio's remembered login.
+// the Zustand store, logs, notifications, or URLs. It reuses the one
+// per-radio crypto context bound in `useMeshCore` (via `getStorageContext`),
+// so a different radio literally cannot decrypt another's remembered login.
 
 /**
  * A repeater login credential the user chose to persist, one per repeater.

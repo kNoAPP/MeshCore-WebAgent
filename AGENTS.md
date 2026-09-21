@@ -98,8 +98,8 @@ To add a new per-radio preference:
    defaults). Provide a `normalize*`/`DEFAULT_*` helper for the field's type,
    colocated with that type (e.g. `lib/units/config.ts`, `lib/ai/pref.ts`).
 3. **Reset on disconnect** — because prefs are per-radio, `reset()` must let the
-   field fall back to its `initialState` default (only `locale`/`theme`/`toast`
-   are preserved there). Do not add it to the preserved list.
+   field fall back to its `initialState` default (only `locale`/`theme` are
+   preserved there). Do not add it to the preserved list.
 4. **Persistence is automatic** — the connect flow in `hooks/useMeshCore.ts`
    loads the blob (`loadPreferences`) into the store via `restorePreferences`
    before the radio hydrate, and a debounced store subscription writes it back

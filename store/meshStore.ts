@@ -235,29 +235,63 @@ export interface RadioPreferences {
 }
 
 /**
- * A transient notification banner. `id` lets a later toast supersede an earlier
- * auto-dismiss. `convo`, when set, makes the banner a button that opens that
- * conversation.
- */
-export interface Toast {
-  text: string;
-  variant: 'success' | 'error' | 'warning' | '';
-  id: number;
-  convo?: ActiveConvo;
-}
-
-/**
  * Severity of a {@link Notification} row, driving its icon and color in the
- * action bar's drawer. `warning` covers a degraded success — an operation that
- * completed with nothing to do, or declined for a reason that is not a
- * failure.
+ * action bar's drawer and the tint of its transient line. `warning` covers a
+ * degraded success — an operation that completed with nothing to do, or
+ * declined for a reason that is not a failure.
  */
 export type NotificationLevel = 'info' | 'success' | 'warning' | 'error';
 
 /**
+ * Where a {@link MeshActions.notify} call shows up, beyond the screen-reader
+ * announcer that every one of them feeds.
+ *
+ * - `'bar'` — a transient line in the action bar *and* a drawer row.
+ * - `'silent'` — a drawer row only, for events too frequent to flash a line.
+ * - `'none'` — a transient line only; nothing is kept.
+ */
+export type NotifySurface = 'bar' | 'silent' | 'none';
+
+/**
+ * A notice as the action bar's transient line and the screen-reader announcer
+ * see it. The drawer keeps its own richer {@link Notification} row.
+ */
+export interface Notice {
+  /**
+   * Distinguishes two notices carrying identical text, so the announcer can
+   * re-announce a repeat and the bar can restart its fade.
+   */
+  id: number;
+  level: NotificationLevel;
+  /** Already localized at notify time, like {@link Notification.text}. */
+  text: string;
+}
+
+/** One call to {@link MeshActions.notify}. */
+export interface NotifyInput {
+  level: NotificationLevel;
+  /** Localized at the call site — the store never translates. */
+  text: string;
+  /**
+   * Dedup key; repeats collapse into one drawer row. Unused by `'none'`,
+   * which keeps no row, but still required so a later re-routing of that call
+   * site has the key it needs.
+   */
+  key: string;
+  /**
+   * Makes the drawer row a jump to this conversation, and ties the row to it:
+   * opening the conversation drops the row. It does not reach the transient
+   * line, which carries no controls at all.
+   */
+  convo?: ActiveConvo;
+  /** Defaults to `'bar'`. */
+  surface?: NotifySurface;
+}
+
+/**
  * One row of the action bar's notification history — the record that outlives
- * the {@link Toast} raised for the same event, whether that banner cleared on
- * its timer or was dismissed.
+ * the transient line raised for the same event, and the only surface a
+ * `'silent'` notice reaches.
  */
 export interface Notification {
   /**
@@ -273,7 +307,7 @@ export interface Notification {
    */
   seq: number;
   level: NotificationLevel;
-  /** Already localized at push time, like {@link Toast.text}. */
+  /** Already localized at push time, like {@link Notice.text}. */
   text: string;
   /** Epoch seconds, for the drawer's relative timestamp. */
   at: number;
@@ -310,7 +344,7 @@ export interface MessageArrival {
   /**
    * Whether the conversation was on screen *when this landed* — captured here
    * rather than re-derived later, so returning to a blurred tab can't replay
-   * an announcement for a message the toast already covered.
+   * an announcement for a message the arrival notice already covered.
    */
   visible: boolean;
 }
@@ -325,7 +359,8 @@ export interface MessageArrival {
  * conversation by id alone. This one carries the descriptor {@link openConvo}
  * needs and is written for every inbound message a connected session
  * receives, on screen or not — the backlog a connect or reconnect drains
- * before reporting `connected` is not one, and stays unread like the toast's.
+ * before reporting `connected` is not one, and stays unread like the drawer's
+ * row.
  */
 export interface LatestInbound {
   convo: ActiveConvo;
@@ -672,7 +707,25 @@ interface MeshState {
    * loaded yet" until this flips.
    */
   prefsHydrated: boolean;
-  toast: Toast | null;
+  /**
+   * The newest notice, for the session-wide screen-reader announcer. Every
+   * {@link MeshActions.notify} feeds it, `'silent'` included — a drawer badge
+   * and a fading line announce nothing by themselves. Never cleared on a
+   * timer: the regions are invisible, and a live region only speaks when its
+   * content changes.
+   */
+  notice: Notice | null;
+  /**
+   * The notice the action bar is currently showing as its transient line, or
+   * `null` once it has aged out. One slot — a newer notice replaces it
+   * outright — and no dismiss control: anything worth keeping is a drawer row.
+   *
+   * @remarks Scoped to one link session by `clearSessionState`, not by the
+   * status: a notice may legitimately be raised before the bar mounts (the
+   * connect-time catch-up summary is), but one raised by the session that just
+   * went away must never be painted by the next one.
+   */
+  barNotice: Notice | null;
   /**
    * Notification history for the action bar's drawer, newest first and
    * capped at 50 rows. Session-only: rows carry message text, so persisting
@@ -885,18 +938,23 @@ interface MeshActions {
     interleave?: boolean,
   ) => void;
   /**
-   * Raises a toast. Pass `convo` to make the banner open that conversation
-   * when clicked. Every toast clears itself within five seconds; the drawer
-   * keeps the lasting record.
+   * The app's one notification entry point. Always announces to the
+   * screen-reader regions; {@link NotifyInput.surface} decides whether it also
+   * flashes a transient line in the action bar, keeps a drawer row, or both.
+   *
+   * @remarks Routing rule for a call site: a success the user asked for, next
+   * to a control that can show its own ✓, raises nothing at all; one with no
+   * such control takes `'none'`; a failure or anything that happened unasked
+   * takes `'bar'`; and an event frequent enough to flood the bar takes
+   * `'silent'`.
    */
-  showToast: (
-    text: string,
-    variant?: Toast['variant'],
-    convo?: ActiveConvo,
-  ) => void;
-  dismissToast: () => void;
+  notify: (input: NotifyInput) => void;
   /**
-   * Appends a row to the notification history. When `key` matches a row
+   * Appends a row to the notification history. Reached only through
+   * {@link MeshActions.notify} — a row pushed directly would skip the
+   * screen-reader announcement every notice owes its reader.
+   *
+   * When `key` matches a row
    * already in the list the two collapse: that row's `count`, `at` and `seq`
    * are bumped and it moves back to the top, while its `id` is left alone, so
    * the row keeps one identity for its whole life and still reads as unread
@@ -914,8 +972,20 @@ interface MeshActions {
     key: string,
     convo?: ActiveConvo,
   ) => void;
+  /**
+   * Drops the action bar's transient line. For the session boundary: a notice
+   * describing the link that just went away must not be painted by the next
+   * one when the bar remounts.
+   */
+  clearBarNotice: () => void;
   /** Removes one row from the history; unknown ids are a no-op. */
   dismissNotification: (id: number) => void;
+  /**
+   * Drops every row aimed at one conversation. Opening that conversation is
+   * the answer its rows were asking for, and a removed channel's rows would
+   * otherwise jump to whatever channel reuses the slot.
+   */
+  dismissConvoNotifications: (convoId: string) => void;
   /** Empties the history. Does not reset the unread high-water mark. */
   clearNotifications: () => void;
   /** Marks every current row read, clearing the bell badge but keeping rows. */
@@ -1103,7 +1173,8 @@ const initialState: MeshState = {
   mapPrefs: null,
   mapFilters: DEFAULT_MAP_FILTERS,
   prefsHydrated: false,
-  toast: null,
+  notice: null,
+  barNotice: null,
   notifications: [],
   notificationsSeenAt: 0,
   updateAvailable: false,
@@ -1134,25 +1205,25 @@ const initialState: MeshState = {
   telemetry: {},
 };
 
-let toastSeq = 0;
+let noticeSeq = 0;
 let notificationSeq = 0;
 
 /** How many notification rows the drawer keeps before dropping the oldest. */
 const NOTIFICATION_LIMIT = 50;
 
-/** How long a plain toast stays up. */
-const TOAST_PLAIN_MS = 3000;
-
-/** How long a toast the reader may want to click stays up. */
-const TOAST_ACTIONABLE_MS = 5000;
-
-/** Toast variant → the drawer level it records under. */
-const NOTIFICATION_LEVEL: Record<Toast['variant'], NotificationLevel> = {
-  '': 'info',
-  success: 'success',
-  warning: 'warning',
-  error: 'error',
-};
+/**
+ * How long the action bar holds a transient line before dropping it, measured
+ * from the `notify` call. The `.notice-line` animation in `app/globals.css`
+ * runs for the same duration, so the two have to move together.
+ *
+ * @remarks They line up whenever the bar is already mounted, which is every
+ * notice raised during a live session. A notice raised before the bar exists
+ * — the connect-time catch-up summary is, deliberately — starts its clock
+ * first and its animation on mount, so it is cut short by that gap, or skipped
+ * entirely if the gap outruns the window. The drawer row and the announcement
+ * are unaffected, which is why the line is allowed to lose that race.
+ */
+const BAR_NOTICE_MS = 4000;
 
 // Whether the *user* has moved the map since the current session began
 // hydrating. `restorePreferences` may only carry a live `mapPrefs` over the
@@ -1468,36 +1539,30 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       return cleared ? { msgHistory: next } : {};
     }),
 
-  showToast: (text, variant = '', convo) => {
-    const id = ++toastSeq;
-    // The banner is the glance; the drawer is the record. Every toast writes
-    // both, so no call site has to know the history exists.
-    get().pushNotification(
-      text,
-      NOTIFICATION_LEVEL[variant],
-      // The conversation alone is too coarse a key: a channel arrival renders
-      // as "{sender} in {channel}", so merging on it would relabel the older
-      // senders' rows as the newest one. The text alone is too coarse the
-      // other way, since two contacts can share a name.
-      convo ? `${convo.id}\n${text}` : text,
-      convo,
-    );
-    set({ toast: { text, variant, id, convo } });
-    // Every toast clears itself — none of them wait to be dismissed. The
-    // banner is a glance, and the drawer now holds the record, so nothing is
-    // lost by letting it go. Ones carrying a control (a dismiss button, or a
-    // jump to the conversation) get the longer window: three seconds is not
-    // long enough to reach a button that was only just inserted.
-    const after =
-      variant === 'error' || variant === 'warning' || convo
-        ? TOAST_ACTIONABLE_MS
-        : TOAST_PLAIN_MS;
+  notify: ({ level, text, key, convo, surface = 'bar' }) => {
+    const id = ++noticeSeq;
+    const notice: Notice = { id, level, text };
+    // Written whatever the status is, deliberately. The connect-time catch-up
+    // summary is raised from a client callback while the status is still
+    // 'connecting' — its own call site explains at length why the test there
+    // has to be the session rather than the status — and a status test here
+    // would silently drop that summary's line one call deeper. The bar picks
+    // the notice up when it mounts; what keeps a *previous* session's notice
+    // from surfacing in the next one is `clearSessionState`, which every
+    // connect and reconnect runs before the drain can raise anything.
+    const line = surface !== 'silent';
+    // The line is the glance and the drawer is the record, but the announcer
+    // is neither optional nor conditional: a badge that only changes count
+    // and a line that only fades say nothing to a screen reader.
+    set(line ? { notice, barNotice: notice } : { notice });
+    if (surface !== 'none') get().pushNotification(text, level, key, convo);
+    if (!line) return;
+    // The line always ages out on its own; it carries no dismiss control,
+    // because anything worth clearing by hand is a drawer row instead.
     setTimeout(() => {
-      if (get().toast?.id === id) set({ toast: null });
-    }, after);
+      if (get().barNotice?.id === id) set({ barNotice: null });
+    }, BAR_NOTICE_MS);
   },
-
-  dismissToast: () => set({ toast: null }),
 
   pushNotification: (text, level, key, convo) =>
     set((state) => {
@@ -1540,10 +1605,23 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       };
     }),
 
+  clearBarNotice: () => set({ barNotice: null }),
+
   dismissNotification: (id) =>
     set((state) => ({
       notifications: state.notifications.filter((n) => n.id !== id),
     })),
+
+  dismissConvoNotifications: (convoId) =>
+    set((state) => {
+      const kept = state.notifications.filter((n) => n.convo?.id !== convoId);
+      // Every conversation selection runs through here, and most match
+      // nothing. Returning the same array keeps the drawer and the bell badge
+      // from re-rendering for a filter that changed nothing.
+      return kept.length === state.notifications.length
+        ? {}
+        : { notifications: kept };
+    }),
 
   clearNotifications: () => set({ notifications: [] }),
 
@@ -1871,11 +1949,6 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   reset: () =>
     set({
       ...initialState,
-      // A plain notice about the session that just ended still reads on the
-      // connect screen, but one carrying a conversation does not: its target
-      // belongs to the radio that just went away, and clicking it in the next
-      // session would select the wrong thread.
-      toast: get().toast?.convo ? null : get().toast,
       // The deployed build doesn't change with the radio, so a pending update
       // outlives the session it was noticed in.
       updateAvailable: get().updateAvailable,
@@ -1977,8 +2050,9 @@ export function openConvo(convo: ActiveConvo): void {
   const firstUnread = (msgHistory[convo.id] ?? []).find((m) => m._unread);
   setUnreadMarker(convo.id, firstUnread?.id ?? null);
   markRead(convo.id);
-  const state = useMeshStore.getState();
-  if (state.toast?.convo?.id === convo.id) state.dismissToast();
+  // The drawer's rows for this conversation were asking to be opened; they
+  // just have been.
+  useMeshStore.getState().dismissConvoNotifications(convo.id);
 }
 
 /**
@@ -1986,7 +2060,7 @@ export function openConvo(convo: ActiveConvo): void {
  * conversation, the chat view is the one showing, this tab has focus, the link
  * is live (a reconnect overlay covers and inerts the app), and no dialog is
  * over it. Messages arriving in a visible conversation are read on arrival and
- * raise no toast; everything else is unread and worth announcing.
+ * raise no notification; everything else is unread and worth announcing.
  */
 export function isConvoVisible(state: MeshState, id: string): boolean {
   return (
@@ -2010,7 +2084,7 @@ function catchUpVisibleConvo(): void {
   const state = useMeshStore.getState();
   const convo = state.activeConvo;
   if (!convo || !isConvoVisible(state, convo.id)) return;
-  if (state.toast?.convo?.id === convo.id) state.dismissToast();
+  state.dismissConvoNotifications(convo.id);
   if (unreadCount(state.msgHistory, convo.id) === 0) return;
   openConvo(convo);
 }

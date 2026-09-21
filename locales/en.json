@@ -1351,7 +1351,6 @@
     "connectionLost": "Connection lost — reconnecting…",
     "reconnected": "Reconnected to {{device}}",
     "reconnectFailed": "Could not reconnect to {{device}}",
-    "dismiss": "Dismiss",
     "disconnected": "Disconnected",
     "contactNotFound": "Contact not found",
     "channelNotFound": "Channel no longer on the radio",

@@ -1352,7 +1352,6 @@
     "connectionLost": "Verbindung verloren — verbinde neu…",
     "reconnected": "Wieder verbunden mit {{device}}",
     "reconnectFailed": "Verbindung zu {{device}} konnte nicht wiederhergestellt werden",
-    "dismiss": "Schließen",
     "disconnected": "Getrennt",
     "contactNotFound": "Kontakt nicht gefunden",
     "channelNotFound": "Kanal nicht mehr auf dem Funkgerät",

@@ -33,7 +33,7 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const client = useMeshStore((s) => s.client);
   const selfInfo = useMeshStore((s) => s.selfInfo);
-  const showToast = useMeshStore((s) => s.showToast);
+  const notify = useMeshStore((s) => s.notify);
   const passId = useId();
   const confirmId = useId();
 
@@ -94,7 +94,14 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
       const bytes = await encryptBackup(payload, passphrase);
       stillOurs();
       downloadBackup(bytes, backupFilename(selfInfo.name, selfInfo.pubkey));
-      showToast(t('settings.backup.exportDone'), 'success');
+      // The file landing in the browser's downloads is the lasting record;
+      // the dialog closes on the next line.
+      notify({
+        level: 'success',
+        text: t('settings.backup.exportDone'),
+        key: 'backupExport',
+        surface: 'none',
+      });
       onClose();
     } catch (err) {
       setError(

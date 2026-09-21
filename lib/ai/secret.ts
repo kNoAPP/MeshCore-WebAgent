@@ -8,7 +8,7 @@ import { useMeshStore } from '@/store/meshStore';
 
 // The BYO LLM API key lives ONLY in this module-scoped variable for the tab's
 // lifetime (mirroring how useMeshCore holds storageKey at module scope). It is
-// never placed in any serialized slice, log, toast, error, audit entry, or URL
+// never placed in any serialized slice, log, notice, error, audit entry, or URL
 // — the sole egress is the provider request's `x-api-key` header (task 6.3).
 // The masked lifecycle status is mirrored into the store for reactive UI; the
 // value itself never is.

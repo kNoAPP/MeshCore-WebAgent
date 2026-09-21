@@ -80,7 +80,7 @@ interface BaseSetting {
   /**
    * Marks a setting the node may legitimately not have — a newer firmware key
    * (`??: <key>`) or a board-specific capability (`Error: unsupported`). A
-   * rejection hides the row silently instead of surfacing a toast, the way the
+   * rejection hides the row silently instead of raising a notice, the way the
    * GPS verbs are handled.
    */
   optional?: boolean;
@@ -374,7 +374,7 @@ export function setCommand(setting: RepeaterSetting, value: string): string {
 
 /**
  * `true` when a reply is an error rather than a value. Such replies must leave
- * the field unchanged and surface as a toast.
+ * the field unchanged and surface as a notification.
  *
  * @remarks
  * Matched by error *syntax*, not just a leading word, so a value that merely

@@ -101,7 +101,7 @@ const RADIO_FIELDS: readonly RepeaterSetting[] = ALL_REPEATER_SETTINGS.filter(
 export function RepeaterConfigTab({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
   const { repeaterCliRequest, repeaterCli } = useMeshCore();
-  const showToast = useMeshStore((s) => s.showToast);
+  const notify = useMeshStore((s) => s.notify);
 
   // Loaded/confirmed values are cached in the per-repeater session so the tab
   // stays populated across navigation; the store is their source of truth.
@@ -225,7 +225,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
               if (isErrorReply(reply, setting)) {
                 // The GPS verbs are rejected on nodes without GPS compiled in:
                 // treat any error on a GPS field as "unsupported", hiding the
-                // controls silently rather than surfacing a toast.
+                // controls silently rather than reporting a failure.
                 if (setting.id === 'gps' || setting.id === 'gpsAdvert') {
                   setGpsSupported(false);
                   errored = true;
@@ -240,10 +240,13 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                   // A terminal rejection (e.g. the firmware lacks this
                   // setting): surface it and don't retry a refused command.
                   errored = true;
-                  showToast(
-                    t('toast.repeaterConfigError', { error: reply.trim() }),
-                    'error',
-                  );
+                  notify({
+                    level: 'error',
+                    text: t('toast.repeaterConfigError', {
+                      error: reply.trim(),
+                    }),
+                    key: `repeaterConfigError:read:${contactRef.current.pubkeyPrefix}:${setting.id}`,
+                  });
                 }
               } else {
                 if (setting.id === 'gps' || setting.id === 'gpsAdvert') {
@@ -252,20 +255,21 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                 parsed = normalizeReply(setting, reply);
                 if (parsed === null) {
                   errored = true;
-                  // The toast goes away; the row must not go back to looking
-                  // like a field nobody asked about. Record it so it keeps a
-                  // Retry, the same as a read that never answered.
+                  // The line fades; the row must not go back to looking like a
+                  // field nobody asked about. Record it so it keeps a Retry,
+                  // the same as a read that never answered.
                   setFailed((prev) =>
                     prev.has(setting.id) ? prev : new Set(prev).add(setting.id),
                   );
-                  showToast(
-                    t('toast.repeaterReadParseFailed', {
+                  notify({
+                    level: 'error',
+                    text: t('toast.repeaterReadParseFailed', {
                       field: t(
                         `repeaterAdmin.config.fields.${setting.id}.label`,
                       ),
                     }),
-                    'error',
-                  );
+                    key: `repeaterReadParseFailed:${contactRef.current.pubkeyPrefix}:${setting.id}`,
+                  });
                 }
               }
             } catch {
@@ -316,7 +320,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         }
       })();
     },
-    [cacheValues, showToast, t],
+    [cacheValues, notify, t],
   );
 
   // Loads (or reloads) one section's fields. Marks them pending, then reads.
@@ -360,7 +364,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
 
   // Commits a field's new value: sends its `set`, then re-reads so the field
   // reflects the node's authoritative value (which may be rounded/clamped). A
-  // no-op when unchanged or invalid; surfaces `Err` replies via a toast and an
+  // no-op when unchanged or invalid; surfaces `Err` replies via a notice and an
   // error chip while leaving the stored value untouched.
   const commit = useCallback(
     async (setting: RepeaterSetting, next: string) => {
@@ -382,7 +386,11 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       ) {
         const loaded = (fid: string) => (valuesRef.current[fid] ?? '') !== '';
         if (!loaded('name') || !loaded('lat') || !loaded('lon')) {
-          showToast(t('toast.repeaterLoadBeforeLocationEdit'), 'error');
+          notify({
+            level: 'error',
+            text: t('toast.repeaterLoadBeforeLocationEdit'),
+            key: 'repeaterLoadBeforeLocationEdit',
+          });
           setDrafts((prev) => ({ ...prev, [id]: valuesRef.current[id] ?? '' }));
           return;
         }
@@ -391,7 +399,11 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         const lat = setting.id === 'lat' ? next : (draftsRef.current.lat ?? '');
         const lon = setting.id === 'lon' ? next : (draftsRef.current.lon ?? '');
         if (utf8ByteLength(name) > nameMaxBytes(lat, lon)) {
-          showToast(t('toast.repeaterNameTooLongForLocation'), 'error');
+          notify({
+            level: 'error',
+            text: t('toast.repeaterNameTooLongForLocation'),
+            key: 'repeaterNameTooLongForLocation',
+          });
           setDrafts((prev) => ({ ...prev, [id]: valuesRef.current[id] ?? '' }));
           return;
         }
@@ -445,7 +457,11 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
           const message = t('toast.repeaterConfigError', {
             error: outcome.reply,
           });
-          showToast(message, 'error');
+          notify({
+            level: 'error',
+            text: message,
+            key: `repeaterConfigError:set:${contactRef.current.pubkeyPrefix}:${id}`,
+          });
           // Only reconcile the field when this write still owns the latest
           // intent, so a newer queued edit keeps its own `saving` state,
           // draft, and intent rather than being flipped to this stale error.
@@ -487,7 +503,11 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         const message = t('toast.repeaterCliFailed', {
           error: (err as Error).message,
         });
-        showToast(message, 'error');
+        notify({
+          level: 'error',
+          text: message,
+          key: `repeaterCliFailed:${contactRef.current.pubkeyPrefix}:${id}`,
+        });
         // Only reconcile when this write still owns the latest intent, so a
         // newer queued edit's `saving` state isn't overwritten by this stale
         // transport failure.
@@ -498,7 +518,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         }
       }
     },
-    [enqueue, showToast, t, cacheValues],
+    [enqueue, notify, t, cacheValues],
   );
 
   // A coordinate handed back by the map picker (the "Set on map" button below)
@@ -525,18 +545,32 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       // Confirm success only on a real reply — or on silence from a verb that
       // never answers (`reboot`). Any other non-answer is reported as such
       // rather than as a green "sent"; a failed/disconnected send already
-      // toasts from repeaterCli itself.
+      // raises its own notification from repeaterCli.
       const outcome = await repeaterCli(contact, action.cmd);
       if (
         outcome === 'ok' ||
         (outcome === 'timeout' && isSilentCommand(action.cmd))
       ) {
-        showToast(t('toast.repeaterActionSent'), 'success');
+        // A receipt for a button the user just pressed, with no field of its
+        // own to hold a tick: transient, and no drawer row.
+        notify({
+          level: 'success',
+          text: t('toast.repeaterActionSent'),
+          key: 'repeaterActionSent',
+          surface: 'none',
+        });
       } else if (outcome === 'timeout') {
-        showToast(t('toast.repeaterCliNoReply'), 'warning');
+        notify({
+          level: 'warning',
+          text: t('toast.repeaterCliNoReply'),
+          // Node-scoped like the rest of this tab's keys: the copy names no
+          // node, so two silent repeaters would merge into one row that says
+          // which of them went quiet.
+          key: `repeaterCliNoReply:${contact.pubkeyPrefix}`,
+        });
       }
     },
-    [contact, repeaterCli, showToast, t],
+    [contact, repeaterCli, notify, t],
   );
 
   // Applies the shared radio/TX editor's result to the repeater over CLI:
@@ -642,13 +676,23 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         setDrafts((prev) => ({ ...prev, ...applied }));
       }
       if (error != null) {
-        showToast(error, 'error');
+        notify({
+          level: 'error',
+          text: error,
+          key: `repeaterRadioFailed:${contact.pubkeyPrefix}`,
+        });
         return false;
       }
-      showToast(t('toast.radioParamsSaved'), 'success');
+      // The editor closes on success — same receipt shape as the local radio's.
+      notify({
+        level: 'success',
+        text: t('toast.radioParamsSaved'),
+        key: 'repeaterRadioSaved',
+        surface: 'none',
+      });
       return true;
     },
-    [enqueue, showToast, t, cacheValues],
+    [contact, enqueue, notify, t, cacheValues],
   );
 
   const nameBytes = nameMaxBytes(drafts.lat ?? '', drafts.lon ?? '');
