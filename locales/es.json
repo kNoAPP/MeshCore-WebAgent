@@ -557,15 +557,16 @@
         "writeFailed": "La radio no pudo guardar la nueva identidad en su memoria flash, así que conservó la actual. Reinicia la radio y vuelve a intentarlo; si sigue fallando, puede que su almacenamiento esté lleno.",
         "vault": "No se pudo guardar el almacén de identidades en este dispositivo ({{error}}). No se escribió nada en la radio.",
         "unconfirmed": "La radio no confirmó la escritura, así que puede que tenga o no la nueva identidad. Se está reiniciando para averiguarlo, y esta aplicación compara su clave pública cuando se vuelve a conectar. Conserva tu frase escrita hasta entonces.",
-        "unsaved": "La nueva identidad está escrita, pero los datos de este navegador no se pudieron guardar bajo ella. Si recargas antes de que la radio se vuelva a conectar, se perderán.",
-        "rebootFailed": "La nueva identidad está escrita, pero la radio no se reinició ({{error}}). Reiníciala tú sin recargar esta página; esta aplicación comprueba su clave pública cuando se vuelve a conectar.",
+        "unsaved": "Los datos de este navegador no se pudieron guardar bajo la nueva identidad. Si recargas antes de que la radio se vuelva a conectar, se perderán.",
+        "rebootFailed": "La radio no se reinició ({{error}}). Reiníciala tú sin recargar esta página; esta aplicación comprueba su clave pública cuando se vuelve a conectar.",
         "generate": "No se pudo generar una frase de recuperación ({{error}})."
       },
       "checkTitle": "Comprobación de identidad",
       "checkOk": "Verificado. La radio informa de la clave pública {{pubkey}}, exactamente la que deriva tu frase de recuperación. La frase en papel restaura esta identidad.",
       "checkReadd": "Tus contactos aún conocen tu clave pública antigua. Envía un anuncio por inundación para que la malla oiga la nueva y pide a tus contactos que vuelvan a añadirte.",
       "checkAdvert": "Enviar anuncio por inundación",
-      "checkMismatch": "La verificación falló. La radio informa de la clave pública {{actual}}, pero tu frase de recuperación deriva {{expected}}. La frase en papel no restaura la identidad de esta radio. No confíes en ella e informa del problema."
+      "checkMismatch": "La verificación falló. La radio informa de la clave pública {{actual}}, pero tu frase de recuperación deriva {{expected}}. La frase en papel no restaura la identidad de esta radio. No confíes en ella e informa del problema.",
+      "checkNotLanded": "La escritura nunca llegó a la radio: sigue informando de su clave pública anterior {{pubkey}}, así que su identidad no ha cambiado. La frase que escribiste nunca se instaló. Destrúyela y vuelve a ejecutar el asistente para crear una nueva."
     }
   },
   "automation": {

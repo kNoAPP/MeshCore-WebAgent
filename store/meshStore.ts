@@ -154,6 +154,14 @@ export interface IdentityCheck {
   expected: string;
   /** The public key the radio had before the import, lowercase hex. */
   outgoing: string;
+  /**
+   * Whether the radio acknowledged the import. An unacknowledged one that
+   * comes back as {@link IdentityCheck.outgoing} simply never landed, which is
+   * not the derivation failure the same outcome means after an acknowledgement.
+   */
+  confirmed: boolean;
+  /** The run's vault fingerprint, for tidying up an unacknowledged import. */
+  fingerprint: string;
   /** The client the identity was imported over. */
   client: MeshCoreClient;
 }

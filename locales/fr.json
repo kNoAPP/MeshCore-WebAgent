@@ -557,15 +557,16 @@
         "writeFailed": "La radio n’a pas pu enregistrer la nouvelle identité dans sa mémoire flash et a gardé l’actuelle. Redémarrez la radio et réessayez ; si l’échec persiste, son stockage est peut-être plein.",
         "vault": "Le coffre d’identités n’a pas pu être enregistré sur cet appareil ({{error}}). Rien n’a été écrit sur la radio.",
         "unconfirmed": "La radio n’a pas confirmé l’écriture : elle détient peut-être la nouvelle identité, peut-être pas. Elle redémarre pour le savoir, et cette application compare sa clé publique à la reconnexion. Gardez votre phrase écrite d’ici là.",
-        "unsaved": "La nouvelle identité est écrite, mais les données de ce navigateur n’ont pas pu être enregistrées sous celle-ci. Un rechargement avant la reconnexion de la radio les fera perdre.",
-        "rebootFailed": "La nouvelle identité est écrite, mais la radio n’a pas redémarré ({{error}}). Redémarrez-la vous-même sans recharger cette page ; cette application vérifie sa clé publique à la reconnexion.",
+        "unsaved": "Les données de ce navigateur n’ont pas pu être enregistrées sous la nouvelle identité. Un rechargement avant la reconnexion de la radio les fera perdre.",
+        "rebootFailed": "La radio n’a pas redémarré ({{error}}). Redémarrez-la vous-même sans recharger cette page ; cette application vérifie sa clé publique à la reconnexion.",
         "generate": "Impossible de générer une phrase de récupération ({{error}})."
       },
       "checkTitle": "Vérification de l’identité",
       "checkOk": "Vérifié. La radio annonce la clé publique {{pubkey}}, exactement celle que dérive votre phrase de récupération. La phrase sur papier restaure cette identité.",
       "checkReadd": "Vos contacts connaissent encore votre ancienne clé publique. Envoyez une annonce par inondation pour que le maillage entende la nouvelle, et demandez à vos contacts de vous ajouter de nouveau.",
       "checkAdvert": "Envoyer une annonce par inondation",
-      "checkMismatch": "Échec de la vérification. La radio annonce la clé publique {{actual}}, mais votre phrase de récupération dérive {{expected}}. La phrase sur papier ne restaure pas l’identité de cette radio. Ne vous y fiez pas et signalez le problème."
+      "checkMismatch": "Échec de la vérification. La radio annonce la clé publique {{actual}}, mais votre phrase de récupération dérive {{expected}}. La phrase sur papier ne restaure pas l’identité de cette radio. Ne vous y fiez pas et signalez le problème.",
+      "checkNotLanded": "L’écriture n’a jamais atteint la radio : elle annonce toujours sa clé publique précédente {{pubkey}}, son identité est donc inchangée. La phrase que vous avez notée n’a jamais été installée. Détruisez-la et relancez l’assistant pour en créer une nouvelle."
     }
   },
   "automation": {

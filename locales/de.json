@@ -557,15 +557,16 @@
         "writeFailed": "Das Funkgerät konnte die neue Identität nicht im Flash speichern und hat die aktuelle behalten. Starte das Gerät neu und versuche es erneut; schlägt es weiter fehl, ist der Speicher möglicherweise voll.",
         "vault": "Der Identitätstresor konnte auf diesem Gerät nicht gespeichert werden ({{error}}). Auf das Funkgerät wurde nichts geschrieben.",
         "unconfirmed": "Das Funkgerät hat das Schreiben nicht bestätigt, es hat die neue Identität also vielleicht oder vielleicht nicht. Es wird neu gestartet, um das zu klären, und diese App vergleicht seinen öffentlichen Schlüssel bei der erneuten Verbindung. Bewahre deine Abschrift bis dahin auf.",
-        "unsaved": "Die neue Identität ist geschrieben, aber die Daten dieses Browsers konnten nicht darunter gespeichert werden. Ein Neuladen vor der erneuten Verbindung des Funkgeräts verliert sie.",
-        "rebootFailed": "Die neue Identität ist geschrieben, aber das Funkgerät hat nicht neu gestartet ({{error}}). Starte es selbst neu, ohne diese Seite neu zu laden; diese App prüft seinen öffentlichen Schlüssel bei der erneuten Verbindung.",
+        "unsaved": "Die Daten dieses Browsers konnten nicht unter der neuen Identität gespeichert werden. Ein Neuladen vor der erneuten Verbindung des Funkgeräts verliert sie.",
+        "rebootFailed": "Das Funkgerät hat nicht neu gestartet ({{error}}). Starte es selbst neu, ohne diese Seite neu zu laden; diese App prüft seinen öffentlichen Schlüssel bei der erneuten Verbindung.",
         "generate": "Es konnte keine Wiederherstellungsphrase erzeugt werden ({{error}})."
       },
       "checkTitle": "Identitätsprüfung",
       "checkOk": "Bestätigt. Das Funkgerät meldet den öffentlichen Schlüssel {{pubkey}}, genau den, den deine Wiederherstellungsphrase ableitet. Die Phrase auf Papier stellt diese Identität wieder her.",
       "checkReadd": "Deine Kontakte kennen noch deinen alten öffentlichen Schlüssel. Sende ein Flood-Advert, damit das Mesh den neuen hört, und bitte deine Kontakte, dich neu hinzuzufügen.",
       "checkAdvert": "Flood-Advert senden",
-      "checkMismatch": "Prüfung fehlgeschlagen. Das Funkgerät meldet den öffentlichen Schlüssel {{actual}}, deine Wiederherstellungsphrase leitet aber {{expected}} ab. Die Phrase auf Papier stellt die Identität dieses Funkgeräts nicht wieder her. Verlass dich nicht darauf und melde das Problem."
+      "checkMismatch": "Prüfung fehlgeschlagen. Das Funkgerät meldet den öffentlichen Schlüssel {{actual}}, deine Wiederherstellungsphrase leitet aber {{expected}} ab. Die Phrase auf Papier stellt die Identität dieses Funkgeräts nicht wieder her. Verlass dich nicht darauf und melde das Problem.",
+      "checkNotLanded": "Das Schreiben hat das Funkgerät nie erreicht: Es meldet weiterhin seinen bisherigen öffentlichen Schlüssel {{pubkey}}, seine Identität ist also unverändert. Die aufgeschriebene Phrase wurde nie installiert. Vernichte sie und starte den Assistenten erneut, um eine neue zu erstellen."
     }
   },
   "automation": {

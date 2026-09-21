@@ -556,15 +556,16 @@
         "writeFailed": "The radio could not save the new identity to its flash, so it kept its current one. Reboot the radio and try again; if it keeps failing, its storage may be full.",
         "vault": "The identity vault could not be saved on this device ({{error}}). Nothing was written to the radio.",
         "unconfirmed": "The radio did not confirm the write, so it may or may not hold the new identity. It is being rebooted to find out, and this app compares its public key when it reconnects. Keep your written phrase until then.",
-        "unsaved": "The new identity is written, but this browser's data could not be saved under it. Reloading before the radio reconnects will lose it.",
-        "rebootFailed": "The new identity is written, but the radio did not reboot ({{error}}). Reboot it yourself without reloading this page; this app checks its public key when it reconnects.",
+        "unsaved": "This browser's data could not be saved under the new identity. Reloading before the radio reconnects will lose it.",
+        "rebootFailed": "The radio did not reboot ({{error}}). Reboot it yourself without reloading this page; this app checks its public key when it reconnects.",
         "generate": "A recovery phrase could not be generated ({{error}})."
       },
       "checkTitle": "Identity check",
       "checkOk": "Verified. The radio reports public key {{pubkey}}, exactly the one your recovery phrase derives. The phrase on paper restores this identity.",
       "checkReadd": "Your contacts still know your old public key. Send a flood advert so the mesh hears the new one, and ask your contacts to add you again.",
       "checkAdvert": "Send flood advert",
-      "checkMismatch": "Verification failed. The radio reports public key {{actual}}, but your recovery phrase derives {{expected}}. The phrase on paper does not restore the identity on this radio. Do not rely on it, and please report this."
+      "checkMismatch": "Verification failed. The radio reports public key {{actual}}, but your recovery phrase derives {{expected}}. The phrase on paper does not restore the identity on this radio. Do not rely on it, and please report this.",
+      "checkNotLanded": "The write never reached the radio: it still reports its previous public key {{pubkey}}, so its identity is unchanged. The phrase you wrote down was never installed. Destroy it, and run the wizard again to create a new one."
     }
   },
   "automation": {

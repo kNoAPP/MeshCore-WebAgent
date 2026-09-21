@@ -37,6 +37,8 @@ export class RegenerateError extends Error {
 export interface RegenerateResult {
   /** The public key the phrase derives, lowercase hex. */
   publicKey: string;
+  /** The vault's fingerprint, for {@link settleUnconfirmed}. */
+  fingerprint: string;
   /**
    * Whether the radio acknowledged the import. False when the exchange timed
    * out, the link dropped, or the device answered with an error this app does
@@ -90,8 +92,9 @@ export async function regenerateIdentity(
 ): Promise<RegenerateResult> {
   const { privateKey, publicKey } = await identityFromMnemonic(phrase);
   const pubkey = toHex(publicKey);
+  let fingerprint: string;
   try {
-    const fingerprint = await writeVault(phrase, passphrase, rememberPhrase, {
+    fingerprint = await writeVault(phrase, passphrase, rememberPhrase, {
       index: null,
       publicKey: pubkey,
       label,
@@ -107,10 +110,16 @@ export async function regenerateIdentity(
       // have landed after the write, and then the vault and the seeded
       // records are what the radio's new identity will need.
       if (!(err instanceof PrivateKeyError)) {
-        return { publicKey: pubkey, confirmed: false, persisted: seeded };
+        return {
+          publicKey: pubkey,
+          fingerprint,
+          confirmed: false,
+          persisted: seeded,
+        };
       }
+      // Unconditionally: a partial seed still left records behind.
       await deleteVault(fingerprint);
-      if (seeded) await deleteRadioRecords(pubkey);
+      await deleteRadioRecords(pubkey);
       throw err;
     }
   } finally {
@@ -119,7 +128,33 @@ export async function regenerateIdentity(
 
   const persisted = await beginIdentityHandover(client, pubkey);
   if (!persisted) markUnsavedRestore(pubkey);
-  return { publicKey: pubkey, confirmed: true, persisted };
+  return { publicKey: pubkey, fingerprint, confirmed: true, persisted };
+}
+
+/**
+ * Tidies up after an unacknowledged {@link regenerateIdentity} once the
+ * restarted radio has shown which identity it holds.
+ *
+ * @remarks An acknowledged import is tidied by the handover itself. An
+ * unacknowledged one leaves both namespaces written and the vault in place,
+ * since either identity could come back: once one has, the other's records
+ * describe a node that does not exist.
+ *
+ * @param landed - whether the radio came back as the incoming identity. If it
+ * did, the outgoing identity's records go; if not, the vault and the incoming
+ * identity's records do, since that identity was never installed.
+ */
+export async function settleUnconfirmed(
+  result: Pick<RegenerateResult, 'publicKey' | 'fingerprint'>,
+  outgoing: string,
+  landed: boolean,
+): Promise<void> {
+  if (landed) {
+    await deleteRadioRecords(outgoing);
+    return;
+  }
+  await deleteVault(result.fingerprint);
+  await deleteRadioRecords(result.publicKey);
 }
 
 // Creates the vault listing `identity`, and returns its fingerprint.
