@@ -175,9 +175,11 @@ function scheduleReconnect(deps: ReconnectDeps): void {
     const source = lastConnectSource;
     deps.teardown();
     const store = useMeshStore.getState();
-    // Drawer row and announcement only. The connect screen this teardown
-    // returns to renders the same give-up as a card of its own
-    // (`lastConnectFailure`), and the action bar is gone with the session.
+    // Announcement only, in practice. The row is pushed for the record, but
+    // the teardown above has already unmounted the bar that opens the drawer,
+    // and the next connect clears the history before it comes back — so what
+    // the user actually reads is the connect screen's own give-up card, built
+    // from the `lastConnectFailure` set just below.
     store.notify({
       level: 'error',
       text: i18n.t('toast.reconnectFailed', { device }),

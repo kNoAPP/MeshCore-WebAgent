@@ -95,10 +95,10 @@ export function ActionBar() {
 // The bar's transient line, in the VS Code idiom: the newest notice arrives at
 // the left edge, holds, and fades. Never a card and never an overlay, so it
 // cannot cover a control the user is reaching for, and it carries no dismiss
-// button — anything worth keeping by hand is a drawer row instead. It is the
-// one item that gives up width as the bar tightens, so a long message
-// truncates here rather than squeezing the ambient state to its right; the
-// drawer holds the full text either way.
+// button — anything worth keeping by hand is a drawer row instead. Like the
+// bar's other truncating items it gives up width as the bar tightens, so a
+// long message is cut rather than pushing anything off the end; the drawer
+// holds the full text either way.
 //
 // Hidden from the accessibility tree: `NoticeAnnouncer` speaks every notice,
 // this one included, and announcing both would read it twice.

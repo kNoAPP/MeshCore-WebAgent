@@ -280,7 +280,8 @@ export interface NotifyInput {
   key: string;
   /**
    * Makes the drawer row a jump to this conversation, and ties the row to it:
-   * opening the conversation drops the row.
+   * opening the conversation drops the row. It does not reach the transient
+   * line, which carries no controls at all.
    */
   convo?: ActiveConvo;
   /** Defaults to `'bar'`. */
@@ -718,6 +719,9 @@ interface MeshState {
    * The notice the action bar is currently showing as its transient line, or
    * `null` once it has aged out. One slot — a newer notice replaces it
    * outright — and no dismiss control: anything worth keeping is a drawer row.
+   * Only ever written while the status is `connected`, since the bar is
+   * unmounted otherwise and a notice held across that boundary would surface
+   * in the wrong session.
    */
   barNotice: Notice | null;
   /**
@@ -944,7 +948,11 @@ interface MeshActions {
    */
   notify: (input: NotifyInput) => void;
   /**
-   * Appends a row to the notification history. When `key` matches a row
+   * Appends a row to the notification history. Reached only through
+   * {@link MeshActions.notify} — a row pushed directly would skip the
+   * screen-reader announcement every notice owes its reader.
+   *
+   * When `key` matches a row
    * already in the list the two collapse: that row's `count`, `at` and `seq`
    * are bumped and it moves back to the top, while its `id` is left alone, so
    * the row keeps one identity for its whole life and still reads as unread
@@ -1520,12 +1528,20 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   notify: ({ level, text, key, convo, surface = 'bar' }) => {
     const id = ++noticeSeq;
     const notice: Notice = { id, level, text };
+    // The line only exists while the action bar does, so a notice raised
+    // outside a live session must not claim the slot: it would either never
+    // be painted, or be painted into the *next* session on a fresh animation
+    // that its already-running timer then cuts off mid-fade. Both the connect
+    // catch-up summary (raised from a callback while the status is still
+    // 'connecting') and the Disconnect sign-off (raised after the teardown)
+    // land in exactly that window.
+    const line = surface !== 'silent' && get().status === 'connected';
     // The line is the glance and the drawer is the record, but the announcer
     // is neither optional nor conditional: a badge that only changes count
     // and a line that only fades say nothing to a screen reader.
-    set(surface === 'silent' ? { notice } : { notice, barNotice: notice });
+    set(line ? { notice, barNotice: notice } : { notice });
     if (surface !== 'none') get().pushNotification(text, level, key, convo);
-    if (surface === 'silent') return;
+    if (!line) return;
     // The line always ages out on its own; it carries no dismiss control,
     // because anything worth clearing by hand is a drawer row instead.
     setTimeout(() => {

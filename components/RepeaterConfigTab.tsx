@@ -673,7 +673,11 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         setDrafts((prev) => ({ ...prev, ...applied }));
       }
       if (error != null) {
-        notify({ level: 'error', text: error, key: 'repeaterRadioFailed' });
+        notify({
+          level: 'error',
+          text: error,
+          key: `repeaterRadioFailed:${contact.pubkeyPrefix}`,
+        });
         return false;
       }
       // The editor closes on success — same receipt shape as the local radio's.
@@ -685,7 +689,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       });
       return true;
     },
-    [enqueue, notify, t, cacheValues],
+    [contact, enqueue, notify, t, cacheValues],
   );
 
   const nameBytes = nameMaxBytes(drafts.lat ?? '', drafts.lon ?? '');

@@ -1279,12 +1279,16 @@ export function useMeshCore() {
         });
         return true;
       } catch (err) {
+        // Keyed on the reason, not the contact: "Add all" over a directory
+        // selection writes these one at a time, and the text names no contact,
+        // so per-contact keys would fill the drawer with rows a reader cannot
+        // tell apart. One row per distinct failure, counted, says more.
         notify({
           level: 'error',
           text: i18n.t('toast.addContactFailed', {
             error: (err as Error).message,
           }),
-          key: `addContactFailed:${advert.pubkeyPrefix}`,
+          key: `addContactFailed:${(err as Error).message}`,
         });
         return false;
       }
@@ -1451,12 +1455,14 @@ export function useMeshCore() {
         });
         return true;
       } catch (err) {
+        // Keyed on the reason for the same batching reason as
+        // {@link addDiscoveredContact}.
         notify({
           level: 'error',
           text: i18n.t('toast.removeContactFailed', {
             error: (err as Error).message,
           }),
-          key: `removeContactFailed:${contact.pubkeyPrefix}`,
+          key: `removeContactFailed:${(err as Error).message}`,
         });
         return false;
       }

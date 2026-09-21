@@ -482,7 +482,11 @@ html {
  * the two have to move together or the line blinks out mid-fade.
  */
 .notice-line {
-  animation: notice-line 4s ease-out;
+  /* `forwards` so the line holds the final keyframe's transparency instead of
+     snapping back to full opacity if the store's removal timer is late — a
+     long task, or a background tab's clamped timers, would otherwise flash
+     the faded notice back into the bar. */
+  animation: notice-line 4s ease-out forwards;
 }
 @keyframes notice-line {
   0% {
