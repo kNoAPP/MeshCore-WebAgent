@@ -787,6 +787,26 @@ export function useMeshCore() {
   }, [connect]);
 
   /**
+   * Restarts the session over the same transport, exactly as a dropped link
+   * would: the reconnect loop reopens it and runs a full sync.
+   *
+   * @remarks For a radio whose identity changed under a live link. A reboot
+   * does not always drop it — native USB serial can survive the restart — and
+   * a session that carried on would keep the outgoing `SELF_INFO`, storage key
+   * and secrets context. No-op once the link has already dropped, since the
+   * loop is then running anyway.
+   */
+  const restartSession = useCallback(() => {
+    const c = useMeshStore.getState().client;
+    if (!c || c.closed) return;
+    // Started before the close: a deliberate close suppresses `onDisconnect`,
+    // so nothing else would begin the loop, and the flush it opens with needs
+    // the session still bound.
+    beginReconnect(c, reconnectDeps(connect));
+    c.destroy();
+  }, [connect]);
+
+  /**
    * Persists history, tears down the client and session state, and resets the
    * store.
    */
@@ -1895,6 +1915,7 @@ export function useMeshCore() {
     connectWiFi,
     disconnect,
     retryReconnectNow,
+    restartSession,
     sendMessage,
     retryMessage,
     resetContactPath,

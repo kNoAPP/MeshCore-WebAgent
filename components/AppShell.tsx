@@ -21,6 +21,7 @@ import { ManagePanel } from './ManagePanel';
 import { AutoAddSettings } from './AutoAddSettings';
 import { AddChannelModal } from './AddChannelModal';
 import { AddContactModal } from './AddContactModal';
+import { IdentityCheckModal } from './IdentityCheckModal';
 import { CommandPalette } from './CommandPalette';
 import { AutomationRunner } from './AutomationRunner';
 import { MessageAnnouncer } from './MessageAnnouncer';
@@ -125,6 +126,7 @@ export function AppShell() {
           <AutoAddSettings />
           <AddChannelModal />
           <AddContactModal />
+          <IdentityCheckModal />
           {commandPaletteOpen && <CommandPalette />}
           <AutomationRunner />
         </>

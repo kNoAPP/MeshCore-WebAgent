@@ -137,6 +137,36 @@ export const SETTINGS_SECTIONS = [
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 /**
+ * A pending check that the radio came back as the identity it was given.
+ *
+ * @remarks Judged on the first connected session whose client is not
+ * {@link IdentityCheck.client}, and only once that session reports one of the
+ * two public keys. The client that ran the import still reports the outgoing
+ * key until the radio restarts, so comparing against it would cry wolf; and a
+ * session reporting neither key is some other radio, so the check waits for
+ * this one rather than failing against a node that was never written.
+ *
+ * Kept through a teardown as well as a reconnect, so a radio the user reboots
+ * and reconnects by hand is still checked. Only a page reload loses it.
+ */
+export interface IdentityCheck {
+  /** The public key the phrase derives, lowercase hex. */
+  expected: string;
+  /** The public key the radio had before the import, lowercase hex. */
+  outgoing: string;
+  /**
+   * Whether the radio acknowledged the import. An unacknowledged one that
+   * comes back as {@link IdentityCheck.outgoing} simply never landed, which is
+   * not the derivation failure the same outcome means after an acknowledgement.
+   */
+  confirmed: boolean;
+  /** The run's vault fingerprint, for tidying up an unacknowledged import. */
+  fingerprint: string;
+  /** The client the identity was imported over. */
+  client: MeshCoreClient;
+}
+
+/**
  * Masked lifecycle state of the BYO LLM API key, mirrored for reactive UI. The
  * key value itself is never stored here (or in any serialized slice) — only
  * whether one is loaded in memory and whether an encrypted copy is persisted on
@@ -574,6 +604,12 @@ interface MeshState {
    * included, and never enters the per-radio preferences blob.
    */
   privateKeyAccess: PrivateKeyAccess | null;
+  /**
+   * An identity this session wrote to the radio and has not yet seen it
+   * report, or null. Set by the recovery-phrase wizard just before it reboots
+   * the radio; {@link IdentityCheck} describes when it is judged.
+   */
+  identityCheck: IdentityCheck | null;
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
 
@@ -870,6 +906,7 @@ interface MeshActions {
   setSelfInfo: (info: SelfInfo | null) => void;
   setDeviceInfo: (info: DeviceInfo | null) => void;
   setPrivateKeyAccess: (access: PrivateKeyAccess | null) => void;
+  setIdentityCheck: (check: IdentityCheck | null) => void;
   setBattery: (b: BatteryInfo | null) => void;
   setSyncProgress: (p: SyncProgress | null) => void;
   /** Caches the device Stats-page snapshot so it survives leaving the view. */
@@ -1151,6 +1188,7 @@ const initialState: MeshState = {
   selfInfo: null,
   deviceInfo: null,
   privateKeyAccess: null,
+  identityCheck: null,
   battery: null,
   syncProgress: null,
   deviceStats: null,
@@ -1283,6 +1321,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setSelfInfo: (selfInfo) => set({ selfInfo }),
   setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
   setPrivateKeyAccess: (privateKeyAccess) => set({ privateKeyAccess }),
+  setIdentityCheck: (identityCheck) => set({ identityCheck }),
   setBattery: (battery) => set({ battery }),
   setSyncProgress: (syncProgress) => set({ syncProgress }),
   setDeviceStats: (deviceStats) =>
@@ -1982,6 +2021,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       // A browser-window fact, not a session one: the tab is just as focused
       // after a disconnect as it was before.
       windowFocused: get().windowFocused,
+      // A pending identity check names the radio it is waiting for, and the
+      // user may well reboot and reconnect that radio by hand.
+      identityCheck: get().identityCheck,
       // Every other preference is per-radio (encrypted in IndexedDB) and
       // reloaded on the next connect, so it resets to defaults here.
     }),
