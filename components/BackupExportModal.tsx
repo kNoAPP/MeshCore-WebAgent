@@ -133,9 +133,11 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
       if (
         err instanceof PrivateKeyError &&
         (err.code === 'disabled' || err.code === 'unsupported') &&
+        client &&
         useMeshStore.getState().client === client
       ) {
         useMeshStore.getState().setPrivateKeyAccess(err.code);
+        setIncludeIdentity(false);
       }
       setError(
         err instanceof PrivateKeyError ? (
