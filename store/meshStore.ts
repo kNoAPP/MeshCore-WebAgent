@@ -137,6 +137,22 @@ export const SETTINGS_SECTIONS = [
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 /**
+ * A pending check that the radio came back as the identity it was given.
+ *
+ * @remarks Judged on the first connected session whose client is not
+ * {@link IdentityCheck.client}: the one that ran the import still reports the
+ * outgoing public key until the radio restarts, so comparing against it would
+ * cry wolf. A reconnect keeps the check, since it does not reset the store; a
+ * teardown drops it with the rest of the session.
+ */
+export interface IdentityCheck {
+  /** The public key the phrase derives, lowercase hex. */
+  expected: string;
+  /** The client the identity was imported over. */
+  client: MeshCoreClient;
+}
+
+/**
  * Masked lifecycle state of the BYO LLM API key, mirrored for reactive UI. The
  * key value itself is never stored here (or in any serialized slice) — only
  * whether one is loaded in memory and whether an encrypted copy is persisted on
@@ -574,6 +590,12 @@ interface MeshState {
    * included, and never enters the per-radio preferences blob.
    */
   privateKeyAccess: PrivateKeyAccess | null;
+  /**
+   * An identity this session wrote to the radio and has not yet seen it
+   * report, or null. Set by the recovery-phrase wizard just before it reboots
+   * the radio; {@link IdentityCheck} describes when it is judged.
+   */
+  identityCheck: IdentityCheck | null;
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
 
@@ -870,6 +892,7 @@ interface MeshActions {
   setSelfInfo: (info: SelfInfo | null) => void;
   setDeviceInfo: (info: DeviceInfo | null) => void;
   setPrivateKeyAccess: (access: PrivateKeyAccess | null) => void;
+  setIdentityCheck: (check: IdentityCheck | null) => void;
   setBattery: (b: BatteryInfo | null) => void;
   setSyncProgress: (p: SyncProgress | null) => void;
   /** Caches the device Stats-page snapshot so it survives leaving the view. */
@@ -1151,6 +1174,7 @@ const initialState: MeshState = {
   selfInfo: null,
   deviceInfo: null,
   privateKeyAccess: null,
+  identityCheck: null,
   battery: null,
   syncProgress: null,
   deviceStats: null,
@@ -1283,6 +1307,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setSelfInfo: (selfInfo) => set({ selfInfo }),
   setDeviceInfo: (deviceInfo) => set({ deviceInfo }),
   setPrivateKeyAccess: (privateKeyAccess) => set({ privateKeyAccess }),
+  setIdentityCheck: (identityCheck) => set({ identityCheck }),
   setBattery: (battery) => set({ battery }),
   setSyncProgress: (syncProgress) => set({ syncProgress }),
   setDeviceStats: (deviceStats) =>
