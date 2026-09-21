@@ -7,9 +7,10 @@ import {
   type RadioPreferences,
 } from '@/store/meshStore';
 import {
+  beginIdentityHandover,
   flushSessionAsync,
-  saveSessionToIdentity,
 } from '@/lib/session/persistence';
+import { deleteRadioRecords } from '@/lib/storage';
 import { toHex, fromHex } from '@/lib/utils';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
@@ -105,14 +106,15 @@ export interface ApplyResult {
  * roll back.
  *
  * @remarks
- * An identity restore writes to the *incoming* identity's namespace instead,
- * and only once the radio has accepted the key. `CMD_IMPORT_PRIVATE_KEY`
- * replaces the key pair without rebooting, so the link stays up under the
- * outgoing identity and the ordinary flush would file the restored data under
- * a public key the user stops reading from the moment they reboot — which is
- * how preferences and automation rules went missing. Writing the incoming
- * namespace up front also survives the reboot happening as a power-cycle, or
- * after a reload, where no reconnect in this page session could write it.
+ * An identity restore hands the session over to the *incoming* identity
+ * instead, once the radio has accepted the key: see
+ * {@link beginIdentityHandover}. `CMD_IMPORT_PRIVATE_KEY` replaces the key
+ * pair without rebooting, so the link stays up under the outgoing identity and
+ * the ordinary flush would file the restored data under a public key the user
+ * stops reading from the moment they reboot — which is how preferences and
+ * automation rules went missing. The outgoing identity's records are then
+ * deleted: that identity is gone from the radio, nothing will write to its
+ * namespace again, and leaving it would be a readable orphan nothing collects.
  *
  * @throws whatever {@link MeshCoreClient.importPrivateKey} throws when identity
  * restore was requested and refused — the browser data is applied and
@@ -155,30 +157,41 @@ export async function applyBackup(
     };
   }
 
+  const outgoing = client.selfInfo?.pubkey;
   try {
-    await client.importPrivateKey(identity);
+    // Nested so the key is zeroed the moment the exchange settles, before the
+    // failure path's own await — it must not stay resident across an
+    // IndexedDB round-trip.
+    try {
+      await client.importPrivateKey(identity);
+    } finally {
+      // Zeroed even when the radio refuses the key, so a failed restore
+      // doesn't leave the plaintext identity resident until GC.
+      identity.fill(0);
+    }
   } catch (err) {
     // The radio kept its identity, so this session's own namespace is still
     // the one the user reads from — persist there before surfacing the
     // failure, or a refused key would also cost them the restored data.
     await flushSessionAsync(client);
     throw err;
-  } finally {
-    // Zeroed even when the radio refuses the key, so a failed restore doesn't
-    // leave the plaintext identity resident until GC.
-    identity.fill(0);
   }
 
   // A restore onto the radio that produced the backup changes no public key,
   // so its records already belong to the live namespace and the ordinary flush
   // is the correct write.
-  const handover = payload.pubkey !== client.selfInfo?.pubkey;
-  return {
-    identityRestored: true,
-    persisted: handover
-      ? await saveSessionToIdentity(client, payload.pubkey)
-      : await flushSessionAsync(client),
-  };
+  if (payload.pubkey === outgoing) {
+    return {
+      identityRestored: true,
+      persisted: await flushSessionAsync(client),
+    };
+  }
+
+  const persisted = await beginIdentityHandover(client, payload.pubkey);
+  // Only once the data is safely under the incoming identity: a failed write
+  // would otherwise make this delete the user's only remaining copy.
+  if (persisted && outgoing) await deleteRadioRecords(outgoing);
+  return { identityRestored: true, persisted };
 }
 
 // `autoAddConfig` mirrors state the radio owns — the settings UI writes it
