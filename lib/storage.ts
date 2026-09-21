@@ -7,12 +7,16 @@ import type { Advert, Message } from '@/types/meshcore';
 // AES-256-GCM under a key derived from the radio's own secrets (see
 // deriveStorageKey) — so the data is unreadable without that radio's channels.
 const DB_NAME = 'meshcore';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'radios';
 // Secrets (e.g. a BYO LLM API key) live in their own object store so they're
 // never entangled with message history, keyed by `${pubkey}:${name}` and
 // encrypted under the same per-radio key as everything else.
 const SECRETS_STORE = 'secrets';
+// Passphrase-sealed identity vaults (`lib/identity/vault.ts`), keyed by seed
+// fingerprint rather than by radio public key. The one store not encrypted
+// under a per-radio key: a vault spans identities and must outlive the radio.
+const VAULT_STORE = 'vault';
 
 /**
  * The decrypted payload stored per radio: its conversation history keyed by
@@ -91,6 +95,9 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(SECRETS_STORE)) {
         db.createObjectStore(SECRETS_STORE);
       }
+      if (!db.objectStoreNames.contains(VAULT_STORE)) {
+        db.createObjectStore(VAULT_STORE);
+      }
     };
     req.onsuccess = () => {
       const db = req.result;
@@ -124,14 +131,14 @@ function openDB(): Promise<IDBDatabase> {
   return promise;
 }
 
-async function idbGet(
+async function idbGet<T = EncryptedRecord>(
   store: string,
   key: string,
-): Promise<EncryptedRecord | undefined> {
+): Promise<T | undefined> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const req = db.transaction(store, 'readonly').objectStore(store).get(key);
-    req.onsuccess = () => resolve(req.result as EncryptedRecord | undefined);
+    req.onsuccess = () => resolve(req.result as T | undefined);
     req.onerror = () => reject(req.error);
   });
 }
@@ -141,12 +148,27 @@ async function idbPut(
   key: string,
   record: EncryptedRecord,
 ): Promise<void> {
+  return idbWrite(store, key, record, 'put');
+}
+
+// `add` fails with a `ConstraintError` when the key is already taken, inside
+// the transaction, so a create cannot race another writer the way a read
+// followed by a `put` can.
+async function idbWrite(
+  store: string,
+  key: string,
+  record: object,
+  mode: 'put' | 'add',
+): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
-    tx.objectStore(store).put(record, key);
+    const req = tx.objectStore(store)[mode](record, key);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    // The request's own error: a failed request bubbles to the transaction
+    // before `tx.error` is set, so that would reject with null here.
+    tx.onerror = () => reject(req.error ?? tx.error);
+    tx.onabort = () => reject(tx.error);
   });
 }
 
@@ -466,4 +488,118 @@ export async function loadPreferences<T>(
     key,
   );
   return plaintext === null ? null : (JSON.parse(plaintext) as T);
+}
+
+/** How a {@link replaceVaultRecord} call ended. */
+export type VaultWriteResult = 'saved' | 'stale' | 'failed';
+
+/**
+ * Replaces a sealed identity vault, but only if the stored record is still the
+ * one the caller last saw. The read and the write share one transaction, so
+ * another tab's save cannot land between them.
+ *
+ * @param isCurrent - tests the record as stored now (undefined once deleted);
+ * the write goes ahead only when it returns true.
+ * @returns `stale` when `isCurrent` refused, `failed` when IndexedDB did.
+ */
+export async function replaceVaultRecord(
+  fingerprint: string,
+  record: object,
+  isCurrent: (stored: unknown) => boolean,
+): Promise<VaultWriteResult> {
+  try {
+    const db = await openDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(VAULT_STORE, 'readwrite');
+      const store = tx.objectStore(VAULT_STORE);
+      let result: VaultWriteResult = 'saved';
+      const read = store.get(fingerprint);
+      read.onsuccess = () => {
+        if (isCurrent(read.result)) {
+          store.put(record, fingerprint);
+        } else {
+          result = 'stale';
+        }
+      };
+      tx.oncomplete = () => resolve(result);
+      // The failing request's error: `tx.error` is still null while a request
+      // error bubbles, as in `idbWrite`.
+      tx.onerror = (e) => reject((e.target as IDBRequest).error ?? tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } catch {
+    return 'failed';
+  }
+}
+
+/**
+ * Stores a sealed identity vault under a fingerprint that must not be taken
+ * yet. The existence check and the write are one transaction, so two tabs
+ * creating a vault for the same phrase cannot both succeed.
+ *
+ * @returns false when a vault with this fingerprint already exists.
+ * @throws when the write fails for any other reason.
+ */
+export async function addVaultRecord(
+  fingerprint: string,
+  record: object,
+): Promise<boolean> {
+  try {
+    await idbWrite(VAULT_STORE, fingerprint, record, 'add');
+    return true;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'ConstraintError') {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Reads the sealed vault record for one seed fingerprint.
+ *
+ * @returns the record as stored, not yet validated; undefined when there is
+ * none.
+ * @throws when IndexedDB cannot be read. Unlike the per-radio `load*` helpers,
+ * a failed read is not folded into "nothing stored", so an unlock can tell a
+ * missing vault from one it could not read.
+ */
+export async function loadVaultRecord(fingerprint: string): Promise<unknown> {
+  return idbGet<unknown>(VAULT_STORE, fingerprint);
+}
+
+/**
+ * The seed fingerprints of every vault on this device.
+ *
+ * @returns an empty list when IndexedDB cannot be read.
+ */
+export async function listVaultFingerprints(): Promise<string[]> {
+  try {
+    const db = await openDB();
+    return await new Promise((resolve, reject) => {
+      const req = db
+        .transaction(VAULT_STORE, 'readonly')
+        .objectStore(VAULT_STORE)
+        .getAllKeys();
+      req.onsuccess = () =>
+        resolve(req.result.filter((k): k is string => typeof k === 'string'));
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Deletes one vault record.
+ *
+ * @returns whether the delete landed.
+ */
+export async function deleteVaultRecord(fingerprint: string): Promise<boolean> {
+  try {
+    await idbDelete(VAULT_STORE, fingerprint);
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -81,6 +81,10 @@ the same per-radio encrypted pattern (`lib/storage.ts`, key from
 `deriveStorageKey`). See _Persisting Preferences_ in `AGENTS.md` for the exact
 steps to add a new preference.
 
+The one exception is the identity vault (`lib/identity/vault.ts`, `vault`
+store): per recovery phrase, not per radio, and sealed under a user passphrase.
+`AGENTS.md` documents why, and that nothing else may follow that pattern.
+
 ## Internationalization
 
 All user-facing strings go through `react-i18next`'s `t()`, keyed against
