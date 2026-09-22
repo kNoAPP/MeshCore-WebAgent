@@ -3,6 +3,7 @@
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import {
+  ADVERT_LOC_POLICY,
   MAX_ADVERT_NAME_BYTES,
   PUBLIC_CHANNEL_NAME,
   PUBLIC_CHANNEL_SECRET,
@@ -75,18 +76,21 @@ export class PersonaSwitchError extends Error {
 
 /**
  * The persona a newly minted identity starts from: its label as the advert
- * name, no location, only the Public channel and no contacts.
+ * name, no location and location sharing off, only the Public channel and no
+ * contacts.
  *
  * @remarks Anything left as the radio has it would be inherited from the
  * outgoing persona, and a new key announcing the old one's name, position,
  * private channels or contact list is linked to it by anyone listening.
+ * Clearing the location alone is not enough: while sharing is on, the
+ * firmware replaces it with the live GPS fix in every advert.
  */
 export function freshPersona(label: string): PersonaState {
   const name = truncateUtf8(label.trim(), MAX_ADVERT_NAME_BYTES);
   return {
     name: name || null,
     location: { lat: 0, lon: 0 },
-    locationPolicy: null,
+    locationPolicy: ADVERT_LOC_POLICY.NONE,
     channels: [
       {
         idx: 0,
