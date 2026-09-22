@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { boundPubkey } from '@/lib/session/persistence';
 import { SeedPhraseError, type SeedPhraseErrorCode } from '@/lib/identity/seed';
 import {
   previewPhrase,
@@ -247,6 +248,9 @@ export function RestorePhraseWizard({ onClose }: { onClose: () => void }) {
         setError(t('settings.backup.sessionChanged'));
         return;
       }
+      // What the radio reports if the key does not land; see
+      // RecoveryPhraseWizard. Read before the run, which unbinds the session.
+      const outgoing = boundPubkey() ?? pubkey;
       // Unlocked on the vault step already, so this does not prompt again.
       const plan = await vaultPlan();
       if (!plan) return;
@@ -267,7 +271,7 @@ export function RestorePhraseWizard({ onClose }: { onClose: () => void }) {
       setIdentityCheck({
         kind: 'restore',
         expected: preview.publicKey,
-        outgoing: pubkey,
+        outgoing,
         confirmed,
         fingerprint: preview.fingerprint,
         client,

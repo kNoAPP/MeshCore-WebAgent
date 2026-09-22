@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { boundPubkey } from '@/lib/session/persistence';
 import { generateMnemonic, identityFromMnemonic } from '@/lib/identity/seed';
 import {
   regenerateIdentity,
@@ -184,6 +185,11 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
         setError(t('settings.backup.sessionChanged'));
         return;
       }
+      // What the radio reports if the key does not land: where this session's
+      // data is bound, which stays right even if an earlier import's
+      // `SELF_INFO` re-read failed. Read before the run, whose handover moves
+      // the binding onto the incoming identity.
+      const outgoing = boundPubkey() ?? pubkey;
       let result: RegenerateResult;
       try {
         result = await regenerateIdentity(
@@ -202,7 +208,7 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
       setIdentityCheck({
         kind: 'regenerate',
         expected: draft.publicKey,
-        outgoing: pubkey,
+        outgoing,
         confirmed: result.confirmed,
         fingerprint: result.fingerprint,
         client,

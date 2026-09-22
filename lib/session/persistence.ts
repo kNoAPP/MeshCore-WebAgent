@@ -173,14 +173,18 @@ export async function flushSessionAsync(): Promise<boolean> {
  * Settings shows the real key, and a backup exported before the reboot pairs
  * it with the private key the radio actually exports. Rebinding the secrets
  * context files an API key or repeater password saved before the reboot where
- * the next session looks for it. Writing up front makes the data durable even
- * when the reboot arrives as a power-cycle or after a reload, where no
- * reconnect in this page session could write anything.
+ * the next session looks for it. Moving the context also unloads an API key
+ * held in memory for the outgoing identity, exactly as the reconnect after the
+ * reboot always has: secrets belong to one identity and are never carried
+ * across to another. Writing up front makes the data durable even when the
+ * reboot arrives as a power-cycle or after a reload, where no reconnect in
+ * this page session could write anything.
  *
  * The re-read is best-effort: a radio that cannot answer it has a failing
  * link, and the reconnect that follows reads `SELF_INFO` afresh. Persistence
  * is bound to `pubkey` either way, so nothing in between is filed under the
- * outgoing identity.
+ * outgoing identity — which is why a decision about where this session's data
+ * lives asks {@link boundPubkey}, not `selfInfo`.
  *
  * The outgoing identity's records are deleted once the incoming ones have
  * landed: that identity is gone from the radio, nothing will write to its
@@ -211,6 +215,45 @@ export async function beginIdentityHandover(
     await deleteRadioRecords(outgoing);
   }
   return persisted;
+}
+
+/**
+ * Moves this session onto an identity the radio has just been given whose
+ * data this store does not hold: persists the outgoing identity's records
+ * where they are, then stops writing them, binds the secrets context to the
+ * incoming identity, and re-reads `SELF_INFO`.
+ *
+ * @remarks For a restore from a recovery phrase, where the incoming identity
+ * keeps whatever records it already has here. The store still holds the
+ * outgoing identity's data, so it may be written neither there (the radio no
+ * longer is that identity) nor under the incoming one (it would overwrite that
+ * identity's own history). Nothing persists until the session restarts and
+ * hydrates the incoming identity, which is the caller's to do. The secrets
+ * context has no such conflict, so a secret saved before that restart is
+ * filed where the next session looks for it.
+ *
+ * @param pubkey - as for {@link beginIdentityHandover}.
+ */
+export async function beginIdentitySwitch(
+  client: MeshCoreClient,
+  pubkey: string,
+): Promise<void> {
+  await flushSessionAsync();
+  binding = null;
+  setSecretContext(pubkey, await incomingKey(client, pubkey));
+  await client.refreshSelfInfo().catch(() => {});
+}
+
+/**
+ * The public key whose namespace this session's records are written to, or
+ * undefined while nothing is bound.
+ *
+ * @remarks Usually `selfInfo.pubkey`, but it is what decides where data lives:
+ * after an identity handover whose `SELF_INFO` re-read failed, `selfInfo`
+ * still names the outgoing identity while the binding has already moved.
+ */
+export function boundPubkey(): string | undefined {
+  return binding?.pubkey;
 }
 
 /**
