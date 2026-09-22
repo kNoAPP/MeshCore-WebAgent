@@ -707,6 +707,15 @@
       "vaultName": "Recovery phrase {{id}}",
       "unlock": "Unlock",
       "unlocking": "Unlocking…",
+      "delete": {
+        "question": "Delete this vault from this device?",
+        "keeps": "The personas it lists are untouched, on the radio and in the records this browser keeps for each one.",
+        "loses": "Their names, and the record of which identities this phrase made, are lost.",
+        "keys": "Their storage keys can then only be re-derived from the recovery phrase.",
+        "unfinished": "A persona switch is unfinished, and only the vault that started it can finish it. If that is this vault, finish the switch before deleting it.",
+        "action": "Delete vault",
+        "failed": "Could not delete the vault from this device’s storage."
+      },
       "lock": "Lock",
       "live": "Live",
       "switch": "Switch",
@@ -720,6 +729,14 @@
       "phraseLabel": "Recovery phrase",
       "mint": "Create persona",
       "minting": "Creating…",
+      "forgetPhrase": {
+        "action": "Forget the recovery phrase on this device",
+        "body": "This vault keeps the recovery phrase, so personas can be created and switched to without typing it. Forgetting removes it from the vault on this device, and creating or switching to a persona then asks for it again. Check that you have it written down first.",
+        "confirm": "Forget phrase",
+        "forgetting": "Forgetting…",
+        "failed": "Could not save the vault, so the phrase is still remembered on this device.",
+        "done": "The recovery phrase is no longer kept on this device. Creating or switching to a persona now asks for it."
+      },
       "switchTitle": "Switch to {{name}}",
       "switchIntro": "This puts the persona's key on the radio and gives it back the radio-side state it had when it was last live. It can take up to a minute with a full contact list.",
       "switchRadio": "The radio's name, location, channels and contacts are replaced with this persona's. The current persona's are kept on this device for when you switch back.",

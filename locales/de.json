@@ -708,6 +708,15 @@
       "vaultName": "Wiederherstellungsphrase {{id}}",
       "unlock": "Entsperren",
       "unlocking": "Wird entsperrt…",
+      "delete": {
+        "question": "Diesen Tresor von diesem Gerät löschen?",
+        "keeps": "Die darin aufgeführten Personas bleiben unverändert, auf dem Funkgerät und in den Datensätzen, die dieser Browser für jede von ihnen speichert.",
+        "loses": "Ihre Namen und die Aufzeichnung, welche Identitäten diese Phrase erstellt hat, gehen verloren.",
+        "keys": "Ihre Speicherschlüssel lassen sich danach nur noch aus der Wiederherstellungsphrase ableiten.",
+        "unfinished": "Ein Persona-Wechsel ist nicht abgeschlossen, und nur der Tresor, der ihn gestartet hat, kann ihn abschließen. Ist es dieser Tresor, schließe den Wechsel ab, bevor du ihn löschst.",
+        "action": "Tresor löschen",
+        "failed": "Der Tresor konnte nicht aus dem Speicher dieses Geräts gelöscht werden."
+      },
       "lock": "Sperren",
       "live": "Aktiv",
       "switch": "Wechseln",
@@ -721,6 +730,14 @@
       "phraseLabel": "Wiederherstellungsphrase",
       "mint": "Persona erstellen",
       "minting": "Wird erstellt…",
+      "forgetPhrase": {
+        "action": "Wiederherstellungsphrase auf diesem Gerät vergessen",
+        "body": "Dieser Tresor speichert die Wiederherstellungsphrase, sodass Personas ohne Eingabe erstellt und gewechselt werden können. Vergessen entfernt sie aus dem Tresor auf diesem Gerät; danach wird sie beim Erstellen oder Wechseln einer Persona wieder abgefragt. Prüfe vorher, dass du sie notiert hast.",
+        "confirm": "Phrase vergessen",
+        "forgetting": "Wird vergessen…",
+        "failed": "Der Tresor konnte nicht gespeichert werden, die Phrase bleibt also auf diesem Gerät gespeichert.",
+        "done": "Die Wiederherstellungsphrase wird auf diesem Gerät nicht mehr gespeichert. Beim Erstellen oder Wechseln einer Persona wird sie jetzt abgefragt."
+      },
       "switchTitle": "Zu {{name}} wechseln",
       "switchIntro": "Damit kommt der Schlüssel der Persona auf das Funkgerät, zusammen mit dem Zustand, den sie zuletzt hatte. Mit einer vollen Kontaktliste kann das bis zu einer Minute dauern.",
       "switchRadio": "Name, Standort, Kanäle und Kontakte des Funkgeräts werden durch die dieser Persona ersetzt. Die der aktuellen Persona bleiben auf diesem Gerät, bis du zurückwechselst.",

@@ -218,11 +218,29 @@ export async function channelHashHex(secret: Uint8Array): Promise<string> {
   return toHex(new Uint8Array(hash).slice(0, 1));
 }
 
-/** Constant-time-agnostic byte-array equality (length, then element-wise). */
+/**
+ * Byte-array equality, in constant time for arrays of equal length.
+ *
+ * @remarks Every byte is compared, rather than stopping at the first
+ * difference, so the loop's running time does not depend on where the arrays
+ * first differ and cannot say how much of them matched. That matters where
+ * one side is secret, such as the identity vault's passphrase check value;
+ * elsewhere it costs a few extra iterations. Arrays of different lengths
+ * return at once: the length is never hidden, only the contents.
+ */
 export function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
+/**
+ * Whether `v` is an object whose fields can be read by name: any object but
+ * null and arrays. It says nothing about which fields are present.
+ */
+export function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
 /**

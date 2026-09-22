@@ -8,7 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { usePersonaSwitch } from '@/hooks/usePersonaSwitch';
 import { loadPendingSwitch, type PersonaState } from '@/lib/identity/persona';
-import { burnerPersona, isBurnerNameTaken } from '@/lib/identity/burner';
+import { isBurnerNameTaken } from '@/lib/identity/burner';
+import { freshPersona } from '@/lib/identity/personaSwitch';
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
 import {
   listVaults,
@@ -91,7 +92,7 @@ export function PersonaResumeModal() {
       }
       await finish(
         controller.signal,
-        renamed ? burnerPersona(trimmed) : (state ?? undefined),
+        renamed ? freshPersona(trimmed) : (state ?? undefined),
       );
     } catch (err) {
       if (!controller.signal.aborted) {

@@ -157,6 +157,29 @@ export async function mintPersona(
 }
 
 /**
+ * Drops the recovery phrase the vault remembers and saves it, so minting and
+ * switching ask for the phrase again. Nothing is sent to the radio.
+ *
+ * @remarks The vault is unchanged when the save fails. Only this copy's
+ * phrase is dropped: another tab that has the vault unlocked keeps it until
+ * that tab locks it, and its next save is refused as stale.
+ * @returns whether the write landed; false when IndexedDB failed.
+ * @throws `VaultError` `stale` when another tab changed the vault.
+ */
+export async function forgetPhrase(vault: Vault): Promise<boolean> {
+  const before = vault.phrase;
+  vault.phrase = null;
+  try {
+    if (await saveVault(vault)) return true;
+  } catch (err) {
+    vault.phrase = before;
+    throw err;
+  }
+  vault.phrase = before;
+  return false;
+}
+
+/**
  * Checks that `phrase` derives the key the vault lists for `target`, without
  * sending anything.
  *
@@ -178,8 +201,11 @@ export async function verifyPersonaKey(
  * @remarks Best-effort: a vault that cannot be saved (another tab changed
  * it, or IndexedDB failed) is left as it was, and a stale flag only costs a
  * warning, so the switch goes on regardless.
- * @returns an undo that writes back both identities' flags as they were, for
- * a switch that turns out to leave the radio on `outgoing`.
+ * @returns an undo that writes back both identities' flags as they were, and
+ * touches no other identity's, for a switch that turns out to leave the radio
+ * on `outgoing`. Only this session can run it: a switch found not to have
+ * landed at the next connect keeps the flags this set (see
+ * `VaultIdentity.live`).
  */
 export async function recordLive(
   vault: Vault,
@@ -194,7 +220,12 @@ export async function recordLive(
   await writeLive(vault, (key) =>
     key === incoming ? true : key === outgoing ? false : undefined,
   );
-  return () => writeLive(vault, (key) => (was.has(key) ? was.get(key) : null));
+  // An involved identity's absent flag reads back undefined, which writeLive
+  // takes as "leave it"; it must be cleared instead.
+  return () =>
+    writeLive(vault, (key) =>
+      was.has(key) ? (was.get(key) ?? null) : undefined,
+    );
 }
 
 // Rewrites the live flag of each identity `flag` names — undefined leaves it,
