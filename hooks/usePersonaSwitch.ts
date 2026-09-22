@@ -143,7 +143,7 @@ export function usePersonaSwitch(): {
       // Before the key is written, so every way the switch can end — resumed
       // after a drop or a reload included — inherits it; only an outcome that
       // leaves the radio on the outgoing identity puts it back.
-      await recordLive(vault, target.publicKey, outgoing);
+      const undoLive = await recordLive(vault, target.publicKey, outgoing);
       setProgress({ stage: 'importing' });
       await beginIdentitySwitch(client, target.publicKey);
       store.resetIdentityData();
@@ -154,7 +154,7 @@ export function usePersonaSwitch(): {
       } catch (err) {
         // A refusal: the radio kept the outgoing identity.
         await deletePendingPersona(target.publicKey);
-        await recordLive(vault, outgoing, target.publicKey);
+        await undoLive();
         store.setPersonaSwitch(untouched);
         setProgress(null);
         restartSession();
@@ -163,7 +163,7 @@ export function usePersonaSwitch(): {
       if (landed !== true) {
         if (landed === false) {
           await deletePendingPersona(target.publicKey);
-          await recordLive(vault, outgoing, target.publicKey);
+          await undoLive();
           store.setPersonaSwitch(untouched);
         } else {
           // The next session decides; see PersonaSwitch.

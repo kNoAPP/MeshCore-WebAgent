@@ -167,25 +167,42 @@ export async function verifyPersonaKey(
 /**
  * Records in the vault that `incoming` is now live on a radio and `outgoing`
  * no longer is, so a later switch onto `incoming` from another radio can be
- * warned about. Swap the arguments to put it back.
+ * warned about.
  *
  * @remarks Best-effort: a vault that cannot be saved (another tab changed
  * it, or IndexedDB failed) is left as it was, and a stale flag only costs a
  * warning, so the switch goes on regardless.
+ * @returns an undo that writes back both identities' flags as they were, for
+ * a switch that turns out to leave the radio on `outgoing`.
  */
 export async function recordLive(
   vault: Vault,
   incoming: string,
   outgoing: string,
+): Promise<() => Promise<void>> {
+  const was = new Map(
+    vault.identities
+      .filter((i) => i.publicKey === incoming || i.publicKey === outgoing)
+      .map((i) => [i.publicKey, i.live]),
+  );
+  await writeLive(vault, (key) =>
+    key === incoming ? true : key === outgoing ? false : undefined,
+  );
+  return () => writeLive(vault, (key) => (was.has(key) ? was.get(key) : null));
+}
+
+// Rewrites the live flag of each identity `flag` names — undefined leaves it,
+// null clears it — and saves, keeping the vault as it was if the save fails.
+async function writeLive(
+  vault: Vault,
+  flag: (publicKey: string) => boolean | null | undefined,
 ): Promise<void> {
   const before = vault.identities;
-  vault.identities = before.map((i) =>
-    i.publicKey === incoming
-      ? { ...i, live: true }
-      : i.publicKey === outgoing
-        ? { ...i, live: false }
-        : i,
-  );
+  vault.identities = before.map((i) => {
+    const next = flag(i.publicKey);
+    if (next === null) return { ...i, live: undefined };
+    return next === undefined ? i : { ...i, live: next };
+  });
   try {
     if (!(await saveVault(vault))) vault.identities = before;
   } catch {
