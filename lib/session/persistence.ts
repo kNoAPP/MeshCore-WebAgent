@@ -23,6 +23,10 @@ const SAVE_DEBOUNCE_MS = 1000;
 // and a namespace written under another identity's key is a record nothing
 // can decrypt.
 let binding: { pubkey: string; key: CryptoKey } | null = null;
+// Set by {@link beginIdentitySwitch}: the store holds an identity's data that
+// may be written nowhere until the session restarts. Distinct from a merely
+// unbound session, which has simply not derived a key yet.
+let switchPending = false;
 // The public key a backup restore was meant for, while that restore exists
 // only in the live store because its encrypted write failed. Deliberately
 // outlives the per-session reset in {@link resetPersistence}: the reconnect
@@ -55,6 +59,7 @@ let prefsSaveTimer: ReturnType<typeof setTimeout> | null = null;
  */
 export function setStorageKey(pubkey: string, key: CryptoKey): void {
   binding = { pubkey, key };
+  switchPending = false;
 }
 
 /**
@@ -228,7 +233,10 @@ export async function beginIdentityHandover(
  * outgoing identity's data, so it may be written neither there (the radio no
  * longer is that identity) nor under the incoming one (it would overwrite that
  * identity's own history). Nothing persists until the session restarts and
- * hydrates the incoming identity, which is the caller's to do. The secrets
+ * binds the incoming identity, which is the caller's to do — and that restart
+ * merges the identity's saved history into the store rather than replacing
+ * it, as every reconnect does. Until then {@link identitySwitchPending}
+ * reports true, so nothing merges more data into the store. The secrets
  * context has no such conflict, so a secret saved before that restart is
  * filed where the next session looks for it.
  *
@@ -240,8 +248,19 @@ export async function beginIdentitySwitch(
 ): Promise<void> {
   await flushSessionAsync();
   binding = null;
+  switchPending = true;
   setSecretContext(pubkey, await incomingKey(client, pubkey));
   await client.refreshSelfInfo().catch(() => {});
+}
+
+/**
+ * Whether {@link beginIdentitySwitch} has moved the radio onto an identity the
+ * store's data does not belong to, and the session has not restarted since.
+ * Nothing may add to the store's persisted data meanwhile: there is no
+ * namespace it could be written to.
+ */
+export function identitySwitchPending(): boolean {
+  return switchPending;
 }
 
 /**
@@ -446,4 +465,5 @@ export function resetPersistence(): void {
   prefsSaveUnsub?.();
   prefsSaveUnsub = null;
   binding = null;
+  switchPending = false;
 }

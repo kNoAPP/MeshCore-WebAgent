@@ -10,8 +10,10 @@ import {
   beginIdentityHandover,
   boundPubkey,
   flushSessionAsync,
+  identitySwitchPending,
   markUnsavedRestore,
 } from '@/lib/session/persistence';
+import i18n from '@/lib/i18n';
 import { derivePublicKey } from '@/lib/identity/seed';
 import { toHex, fromHex } from '@/lib/utils';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
@@ -125,13 +127,19 @@ export interface ApplyResult {
  * restore was requested and refused — the browser data is applied and
  * persisted by then, and the caller surfaces the failure against the identity
  * step alone. A backup key that has no public key at all is refused here as
- * `PrivateKeyError` `rejected`, without being sent.
+ * `PrivateKeyError` `rejected`, without being sent. Throws before touching
+ * anything while an identity switch awaits its restart
+ * ({@link identitySwitchPending}): the store's data belongs to an identity the
+ * radio no longer is, and there is nowhere to persist a merge into it.
  */
 export async function applyBackup(
   payload: BackupPayload,
   client: MeshCoreClient | null,
   opts: ApplyOptions,
 ): Promise<ApplyResult> {
+  if (client && identitySwitchPending()) {
+    throw new Error(i18n.t('settings.backup.sessionChanged'));
+  }
   const state = useMeshStore.getState();
   // `interleave`: unlike a reconnect hydrate, a backup is not a strictly older
   // prefix of the live transcript — it can hold messages newer than ones this
