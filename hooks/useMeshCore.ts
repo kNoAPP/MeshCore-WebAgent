@@ -974,12 +974,13 @@ export function useMeshCore() {
    * Restarts the session over the same transport, exactly as a dropped link
    * would: the reconnect loop reopens it and runs a full sync.
    *
-   * @remarks For a radio whose identity changed under a live link. A reboot
-   * does not always drop it — native USB serial can survive the restart — and
-   * a session that carried on would keep a store hydrated for the outgoing
+   * @remarks For a radio that restarted, or whose identity changed, under a
+   * live link: a reboot does not always drop it (native USB serial can survive
+   * the restart). A session that carried on would miss the connect sync, and
+   * after an identity change would keep a store hydrated for the outgoing
    * identity, along with whatever storage key and secrets context the import
-   * left it bound to. No-op once the link has already dropped, since the
-   * loop is then running anyway.
+   * left it bound to. No-op once the link has already dropped, since the loop
+   * is then running anyway.
    */
   const restartSession = useCallback(() => {
     const c = useMeshStore.getState().client;
@@ -2027,33 +2028,40 @@ export function useMeshCore() {
   );
 
   /**
-   * Reboots the radio, and reports "Rebooting…" once it has restarted. The
-   * restart usually drops the transport link; we deliberately do *not* call
-   * {@link disconnect} (which would set `userInitiatedDisconnect` and suppress
-   * reconnect). Instead the drop flows through the client's `onDisconnect`
-   * into the auto-reconnect loop, which recovers the session once the radio
-   * comes back.
+   * Reboots the radio, and once it has restarted reports "Rebooting…" and
+   * restarts the session through the auto-reconnect loop
+   * ({@link restartSession}), which re-runs the connect sync against the
+   * restarted radio.
+   *
+   * @remarks Never {@link disconnect}, which would set
+   * `userInitiatedDisconnect` and suppress the reconnect. A restart that
+   * dropped the link (BLE, for one) already started the loop, and
+   * {@link restartSession} is then a no-op; a USB serial link — native USB on
+   * an ESP32-S3, or a bridge chip that stays enumerated — can survive the
+   * restart, and without this the session would carry on unsynced against a
+   * radio that has booted since.
    */
   const rebootDevice = useCallback(async () => {
     if (!canTransmit(client)) return;
     try {
       await client.reboot();
-      // Kept, not just flashed: by now the link has usually dropped and the
-      // reconnect overlay has the screen, so the drawer row is what explains
-      // why once the session is back.
-      notify({
-        level: 'info',
-        text: i18n.t('notify.rebooting'),
-        key: 'rebooting',
-      });
     } catch (err) {
       notify({
         level: 'error',
         text: i18n.t('notify.rebootFailed', { error: (err as Error).message }),
         key: 'rebootFailed',
       });
+      return;
     }
-  }, [client, notify]);
+    // Kept, not just flashed: the reconnect overlay takes the screen next, so
+    // the drawer row is what explains why once the session is back.
+    notify({
+      level: 'info',
+      text: i18n.t('notify.rebooting'),
+      key: 'rebooting',
+    });
+    restartSession();
+  }, [client, notify, restartSession]);
 
   // A save writes two commands, and the client's queue only serializes
   // individual exchanges — so two overlapping saves could leave the radio with
