@@ -383,6 +383,17 @@
     "units_metric": "Metric (km)",
     "units_imperial": "Imperial (mi)",
     "showFullPublicKeys": "Show full public keys",
+    "identityAccent": {
+      "label": "Identity color",
+      "hint": "Frames the header and status bar in this color while this identity is live, so you can tell at a glance which one you are sending as.",
+      "none": "No color",
+      "teal": "Teal",
+      "lime": "Lime",
+      "amber": "Amber",
+      "orange": "Orange",
+      "pink": "Pink",
+      "violet": "Violet"
+    },
     "edit": "Edit",
     "editRadio": "Edit radio settings",
     "radioEdit": {

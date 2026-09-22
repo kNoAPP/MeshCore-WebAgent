@@ -16,6 +16,7 @@ import {
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
 import { unknownWords } from './RestorePhraseSteps';
 import { PersonaSwitchModal, switchErrorMessage } from './PersonaSwitchModal';
+import { KeyAvatar } from './KeyAvatar';
 
 const BUTTON_CLASS =
   'rounded-md border border-border-control px-3 py-1.5 text-xs font-semibold text-text hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent';
@@ -71,6 +72,7 @@ export function PersonaList({
             key={identity.publicKey}
             className='flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border p-2'
           >
+            <KeyAvatar pubkey={identity.publicKey} size={24} />
             <div className='min-w-0 flex-1'>
               <p className='truncate text-sm text-text'>
                 {identity.label || t('settings.persona.unnamed')}

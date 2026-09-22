@@ -12,6 +12,12 @@ import { Wordmark } from './Wordmark';
 import { Select } from './Select';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 import { DEFAULT_THEME } from '@/lib/theme/config';
+import {
+  IDENTITY_TEXT_CLASS,
+  IDENTITY_TOP_FRAME_CLASS,
+  type IdentityAccent,
+} from '@/lib/identity/accent';
+import { KeyAvatar } from './KeyAvatar';
 
 // "/" must not hijack a text field.
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -49,6 +55,8 @@ export function Header() {
   const openCommandPalette = useMeshStore((s) => s.openCommandPalette);
   const closeCommandPalette = useMeshStore((s) => s.closeCommandPalette);
   const setWindowFocused = useMeshStore((s) => s.setWindowFocused);
+  const pubkey = useMeshStore((s) => s.selfInfo?.pubkey);
+  const accent = useMeshStore((s) => s.identityAccent);
 
   // Global shortcut for the command palette: Ctrl/⌘ + K toggles it, and a bare
   // "/" opens it unless the user is typing in a field. Only armed while
@@ -102,7 +110,11 @@ export function Header() {
   const displayTheme = hydrated ? theme : DEFAULT_THEME;
 
   return (
-    <header className='flex shrink-0 items-center gap-3 border-b px-4 py-2.5 bg-surface border-border'>
+    <header
+      className={`flex shrink-0 items-center gap-3 border-b px-4 py-2.5 bg-surface border-border ${
+        active ? IDENTITY_TOP_FRAME_CLASS[accent] : ''
+      }`}
+    >
       {/* Status dot */}
       <div
         className={`h-2 w-2 shrink-0 rounded-full ${
@@ -165,7 +177,7 @@ export function Header() {
 
       {active && (
         <>
-          <DeviceName name={deviceName} />
+          <DeviceName name={deviceName} pubkey={pubkey} accent={accent} />
           <KillSwitchButton />
           <button
             onClick={disconnect}
@@ -209,13 +221,29 @@ export function Header() {
 // Purely visual, unlike that one: the truncation is CSS, so the full name is
 // already this element's accessible content. Describing it with a tooltip that
 // repeats the same string verbatim would only have it announced twice.
-function DeviceName({ name }: { name: string }) {
+//
+// The fingerprint glyph sits outside the truncation, so a long name never
+// clips the one mark that tells two same-named identities apart.
+function DeviceName({
+  name,
+  pubkey,
+  accent,
+}: {
+  name: string;
+  pubkey?: string;
+  accent: IdentityAccent;
+}) {
   return (
     <span
       tabIndex={0}
-      className='group/dev relative ml-auto min-w-0 max-w-[16ch] cursor-help'
+      className='group/dev relative ml-auto flex min-w-0 max-w-[18ch] cursor-help items-center gap-1.5'
     >
-      <span className='block truncate text-sm font-semibold text-accent'>
+      {pubkey && <KeyAvatar pubkey={pubkey} />}
+      <span
+        className={`block min-w-0 truncate text-sm font-semibold ${
+          accent === 'none' ? 'text-accent' : IDENTITY_TEXT_CLASS[accent]
+        }`}
+      >
         {name}
       </span>
       <span

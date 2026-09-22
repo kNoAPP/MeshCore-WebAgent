@@ -384,6 +384,17 @@
     "units_metric": "Metrisch (km)",
     "units_imperial": "Imperial (mi)",
     "showFullPublicKeys": "Vollständige öffentliche Schlüssel anzeigen",
+    "identityAccent": {
+      "label": "Identitätsfarbe",
+      "hint": "Rahmt Kopfzeile und Statusleiste in dieser Farbe ein, solange diese Identität aktiv ist, damit du auf einen Blick siehst, als wer du sendest.",
+      "none": "Keine Farbe",
+      "teal": "Petrol",
+      "lime": "Limette",
+      "amber": "Bernstein",
+      "orange": "Orange",
+      "pink": "Pink",
+      "violet": "Violett"
+    },
     "edit": "Bearbeiten",
     "editRadio": "Funkeinstellungen bearbeiten",
     "radioEdit": {
