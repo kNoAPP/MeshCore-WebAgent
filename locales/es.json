@@ -1561,6 +1561,7 @@
     "addContactFailed": "Fallo al añadir contacto: {{error}}",
     "contactRemoved": "Contacto eliminado",
     "contactsFull": "El almacenamiento de contactos está lleno: no se añaden nodos nuevos. Elimina contactos o activa «Sobrescribir el más antiguo» en los ajustes de adición automática.",
+    "contactsIncomplete": "La radio dejó de enviar su lista de contactos a mitad de camino, así que puede estar incompleta. Vuelve a conectarte para cargarla de nuevo.",
     "removeContactFailed": "Fallo al eliminar contacto: {{error}}",
     "alreadyJoined": "Ya unido a “{{name}}”",
     "allSlotsFull": "Todas las ranuras de canal están llenas",

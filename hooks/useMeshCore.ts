@@ -298,6 +298,12 @@ export function useMeshCore() {
             text: i18n.t('toast.contactsFull'),
             key: 'contactsFull',
           }),
+        onContactsIncomplete: () =>
+          notify({
+            level: 'warning',
+            text: i18n.t('toast.contactsIncomplete'),
+            key: 'contactsIncomplete',
+          }),
         onChannelsUpdated: (channels) => {
           setChannels({ ...channels });
           followChannelSecrets(channels);

@@ -1561,6 +1561,7 @@
     "addContactFailed": "Échec de l'ajout du contact : {{error}}",
     "contactRemoved": "Contact supprimé",
     "contactsFull": "Le stockage des contacts est plein : les nouveaux nœuds ne sont pas ajoutés. Supprimez des contacts ou activez « Écraser le plus ancien » dans les paramètres d’ajout automatique.",
+    "contactsIncomplete": "La radio a cessé d’envoyer sa liste de contacts en cours de route, elle est donc peut-être incomplète. Reconnectez-vous pour la recharger.",
     "removeContactFailed": "Échec de la suppression du contact : {{error}}",
     "alreadyJoined": "Déjà rejoint « {{name}} »",
     "allSlotsFull": "Tous les emplacements de canal sont pleins",

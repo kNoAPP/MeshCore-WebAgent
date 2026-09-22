@@ -159,8 +159,11 @@ export const CONTACTS_IDLE_TIMEOUT_MS = 8000;
  * over native USB, the tail of the stream can then sit in the radio's TX
  * buffer until the host next writes. Without a write, collection waited out
  * {@link CONTACTS_IDLE_TIMEOUT_MS} and dropped the whole table.
- * `GET_DEVICE_TIME` is read-only, and a quiet moment in a healthy stream costs
- * one extra exchange.
+ * `GET_DEVICE_TIME` is read-only, so the nudge is not gated on being
+ * mid-stream: it follows any quiet second, including one before
+ * `CONTACTS_START`, and costs a healthy stream one extra exchange. It queues on
+ * the `cmd` chain like any command, so behind a busy chain it may go out after
+ * collection has already ended, which is equally harmless.
  */
 export const CONTACTS_NUDGE_MS = 1000;
 
@@ -258,6 +261,12 @@ export interface MeshCoreCallbacks {
    * {@link CONTACTS_FULL_NOTIFY_INTERVAL_MS}.
    */
   onContactsFull?: () => void;
+  /**
+   * A contact enumeration went quiet for {@link CONTACTS_IDLE_TIMEOUT_MS}
+   * before `END_OF_CONTACTS`, so the table was not replaced and may be stale or
+   * empty. Not fired when the link closes mid-enumeration.
+   */
+  onContactsIncomplete?: () => void;
   /** The channel list changed. */
   onChannelsUpdated?: (channels: Record<number, Channel>) => void;
   /** The heard-adverts log changed (a node advertised or re-advertised). */
@@ -1054,7 +1063,10 @@ export class MeshCoreClient {
       this.rearmContactsIdle = () => {
         clearTimeout(timer);
         clearTimeout(nudge);
-        timer = setTimeout(finish, CONTACTS_IDLE_TIMEOUT_MS);
+        timer = setTimeout(() => {
+          finish();
+          this.callbacks.onContactsIncomplete?.();
+        }, CONTACTS_IDLE_TIMEOUT_MS);
         nudge = setTimeout(() => {
           this.cmd(buildGetDeviceTime(), [RESP.CURR_TIME], 2000).catch(
             () => {},
