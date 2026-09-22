@@ -362,6 +362,10 @@ export class MeshCoreClient {
   // reports are dropped); a stalled sync discards it and keeps the last good
   // snapshot rather than pruning against a partial read.
   private pendingContacts: Record<string, Contact> | null = null;
+  private _contactsSynced = false;
+  // Slots whose CHANNEL_INFO read failed in the last channel sync. Their
+  // mirror entry is unknown rather than free.
+  private _unreadChannelSlots = new Set<number>();
   private contactsFullNotifiedAt = 0;
   private initialSync = false;
   private _closed = false;
@@ -622,10 +626,13 @@ export class MeshCoreClient {
     const h = this.handlers.splice(i, 1)[0];
     clearTimeout(h.timer);
     if (type === RESP.ERR) {
-      const err: Error & { code?: number } = new Error(
+      const err: Error & { code?: number; device?: true } = new Error(
         `Device error code ${d[1]}`,
       );
       err.code = d[1];
+      // Tagged like `timeout` and `transportClosed`: transport failures are
+      // DOMExceptions, which carry a numeric `code` of their own.
+      err.device = true;
       h.reject(err);
     } else h.resolve(d);
     return true;
@@ -780,7 +787,10 @@ export class MeshCoreClient {
         // A complete enumeration is authoritative, so it replaces the table —
         // contacts deleted on the radio (evicted, or removed from another
         // client) disappear instead of lingering for the session.
-        if (this.pendingContacts) this.contacts = this.pendingContacts;
+        if (this.pendingContacts) {
+          this.contacts = this.pendingContacts;
+          this._contactsSynced = true;
+        }
         this.foldAdvertObservations();
         this.contactsResolve?.();
         return;
@@ -1028,7 +1038,16 @@ export class MeshCoreClient {
       this.reportSync('channels', 45 + (30 * i) / slots, i + 1, slots);
       try {
         await this.cmd(buildGetChannelInfo(i), [RESP.CHANNEL_INFO], 2000);
-      } catch {}
+        this._unreadChannelSlots.delete(i);
+      } catch (err) {
+        // A device ERR is an answer — firmware without that slot says
+        // NOT_FOUND — so only a timeout or a dropped link leaves it unknown.
+        if ((err as { device?: true }).device) {
+          this._unreadChannelSlots.delete(i);
+        } else {
+          this._unreadChannelSlots.add(i);
+        }
+      }
     }
     this.callbacks.onChannelsUpdated?.(this.channels);
   }
@@ -1421,6 +1440,7 @@ export class MeshCoreClient {
   ): Promise<void> {
     await this.cmd(buildSetChannel(idx, name, secret), [RESP.OK], 5000);
     this.channels[idx] = { idx, name, secret };
+    this._unreadChannelSlots.delete(idx);
     this.callbacks.onChannelsUpdated?.(this.channels);
   }
 
@@ -1443,6 +1463,7 @@ export class MeshCoreClient {
         5000,
       );
       delete this.channels[idx];
+      this._unreadChannelSlots.delete(idx);
       this.callbacks.onChannelsUpdated?.(this.channels);
     } finally {
       this.pendingRemovals.delete(idx);
@@ -1917,6 +1938,26 @@ export class MeshCoreClient {
       clearTimeout(this.pathSyncTimer);
       this.pathSyncTimer = null;
     }
+  }
+
+  /**
+   * Whether a contact enumeration has run to `END_OF_CONTACTS` on this link,
+   * so {@link contacts} is the radio's table. False means it may be empty or
+   * partial: the connect sync stalled or its request failed, which `init`
+   * tolerates.
+   */
+  get contactsSynced(): boolean {
+    return this._contactsSynced;
+  }
+
+  /**
+   * Channel slots the last channel sync got no answer for (`GET_CHANNEL_INFO`
+   * timed out or the link failed). A slot the radio refused with `ERR` is not
+   * here: that is an answer. A slot here is missing from {@link channels}
+   * because its content is unknown, not because it is free.
+   */
+  get unreadChannelSlots(): ReadonlySet<number> {
+    return this._unreadChannelSlots;
   }
 
   /**
