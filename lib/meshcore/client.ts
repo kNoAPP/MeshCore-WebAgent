@@ -151,6 +151,13 @@ export const CLOCK_SKEW_THRESHOLD_SECS = 30;
 export const CONTACTS_IDLE_TIMEOUT_MS = 8000;
 
 /**
+ * The longest {@link MeshCoreClient.reboot} waits for a rebooting radio to
+ * show it restarted, well past a full contact-table save plus a boot. Only a
+ * radio that stays silent this long is given up on.
+ */
+export const REBOOT_SETTLE_TIMEOUT_MS = 30000;
+
+/**
  * How long the initial `APP_START` waits for `SELF_INFO`, sized to outlast a
  * first-time BLE pairing. Chrome accepts the write but queues it *in progress*
  * behind the OS pairing dialog, delivering it only once bonding completes and
@@ -1794,26 +1801,50 @@ export class MeshCoreClient {
   }
 
   /**
-   * Reboots the radio (`REBOOT`). The radio usually restarts before it can
-   * reply, dropping the transport link as part of the command, so the command
-   * resolving as a bare response timeout — or the link dropping first — is
-   * treated as success. A device `ERR` (e.g. the firmware doesn't support the
-   * command) or a transport/send failure is surfaced as a failure.
-   * The dropped link then flows through {@link MeshCoreCallbacks.onDisconnect}
-   * into the hook's auto-reconnect loop, which recovers the session once the
-   * device comes back.
+   * Reboots the radio (`REBOOT`) and resolves once it has restarted: the
+   * transport link dropped, or the radio answered a command again, or
+   * {@link REBOOT_SETTLE_TIMEOUT_MS} passed without either.
+   *
+   * @remarks The firmware never replies to `REBOOT`: it first saves any
+   * contact writes still waiting for their lazy save, then restarts. Closing
+   * or reopening the link before the restart can reset the radio mid-save —
+   * reopening a native USB serial port resets an ESP32-S3 — which truncates
+   * its stored contact table, so callers must not restart the session until
+   * this resolves. A dropped link flows through
+   * {@link MeshCoreCallbacks.onDisconnect} into the hook's auto-reconnect
+   * loop; one that survives the restart (native USB can) is the caller's to
+   * restart.
+   * @throws the device `ERR` of firmware that refuses the command, or a
+   * transport/send failure: either way the reboot never took effect.
+   * @see `CMD_REBOOT` and `LAZY_CONTACTS_WRITE_DELAY` in
+   * `examples/companion_radio/MyMesh.cpp`.
    */
   async reboot(): Promise<void> {
     try {
       await this.cmd(buildReboot(), [RESP.OK], 1000);
     } catch (err) {
-      // Two outcomes are expected: a bare response timeout (the radio replied
-      // too slowly) or the link dropping as the radio restarts, which rejects
-      // the in-flight command with the tagged `transportClosed` error. Surface
-      // everything else: a device ERR (numeric `code`) or a transport/send
-      // failure means the reboot never took effect.
+      // Two outcomes are expected: a bare response timeout (the radio is
+      // saving or restarting) or the link dropping as the radio restarts,
+      // which rejects the in-flight command with the tagged `transportClosed`
+      // error. Anything else means the reboot never took effect.
       const e = err as { timeout?: true; transportClosed?: true };
       if (!e.timeout && !e.transportClosed) throw err;
+    }
+    // Frames sent while the radio saves are lost when it restarts, so the
+    // first answer can only come from the restarted radio.
+    const deadline = Date.now() + REBOOT_SETTLE_TIMEOUT_MS;
+    while (!this._closed && Date.now() < deadline) {
+      try {
+        await this.cmd(buildGetBattery(), [RESP.BATT_AND_STORAGE], 1000);
+        return;
+      } catch (err) {
+        // A device ERR is an answer too, and a closed link ends the wait.
+        // A send that fails on an open link proves nothing, so it is retried
+        // after a pause rather than in a tight loop.
+        const e = err as { timeout?: true; device?: true };
+        if (e.device || this._closed) return;
+        if (!e.timeout) await new Promise((r) => setTimeout(r, 250));
+      }
     }
   }
 

@@ -668,7 +668,7 @@
         "importing": "Écriture de la nouvelle clé sur la radio…",
         "syncing": "Lecture des contacts de la radio…",
         "applying": "Application de la persona : {{done}} sur {{total}} changements…",
-        "announcing": "Annonce de la persona…"
+        "restarting": "Redémarrage de la radio pour enregistrer la persona…"
       },
       "progressHint": "Gardez la radio connectée. Si la liaison tombe, le basculement pourra être terminé à la reconnexion.",
       "unknown": "La liaison a échoué avant que la radio confirme la nouvelle clé. Ce sera vérifié à la reconnexion.",
@@ -1571,7 +1571,8 @@
     "repeaterNameTooLongForLocation": "Raccourcissez le nom du nœud à 24 octets ou moins avant de définir une position.",
     "repeaterLoadBeforeLocationEdit": "Chargez le nom et la position du nœud avant de modifier l’un ou l’autre.",
     "repeaterActionSent": "Commande envoyée.",
-    "personaSwitchNotLanded": "Cette radio porte toujours l’identité précédente : le basculement vers {{name}} n’a pas pris effet ici."
+    "personaSwitchNotLanded": "Cette radio porte toujours l’identité précédente : le basculement vers {{name}} n’a pas pris effet ici.",
+    "personaSwitchNotSaved": "Les contacts de la radio n’ont pas pu être confirmés après son redémarrage : le basculement vers la nouvelle persona n’est pas terminé. Terminez-le pour les appliquer à nouveau."
   },
   "update": {
     "available": "Une nouvelle version est disponible",

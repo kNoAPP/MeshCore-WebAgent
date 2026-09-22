@@ -668,7 +668,7 @@
         "importing": "Escribiendo la nueva clave en la radio…",
         "syncing": "Leyendo los contactos de la radio…",
         "applying": "Aplicando la persona: {{done}} de {{total}} cambios…",
-        "announcing": "Anunciando la persona…"
+        "restarting": "Reiniciando la radio para guardar la persona…"
       },
       "progressHint": "Mantén la radio conectada. Si se cae el enlace, el cambio se puede terminar cuando vuelva a conectar.",
       "unknown": "El enlace falló antes de que la radio confirmara la nueva clave. Se comprobará cuando la radio vuelva a conectar.",
@@ -1571,7 +1571,8 @@
     "repeaterNameTooLongForLocation": "Acorta el nombre del nodo a 24 bytes o menos antes de establecer una ubicación.",
     "repeaterLoadBeforeLocationEdit": "Carga el nombre y la ubicación del nodo antes de cambiar cualquiera de los dos.",
     "repeaterActionSent": "Comando enviado.",
-    "personaSwitchNotLanded": "Esta radio sigue con la identidad anterior, así que el cambio a {{name}} no tuvo efecto aquí."
+    "personaSwitchNotLanded": "Esta radio sigue con la identidad anterior, así que el cambio a {{name}} no tuvo efecto aquí.",
+    "personaSwitchNotSaved": "No se pudieron confirmar los contactos de la radio tras reiniciarse, así que el cambio a la nueva persona no está terminado. Termínalo para aplicarlos de nuevo."
   },
   "update": {
     "available": "Hay una nueva versión disponible",
