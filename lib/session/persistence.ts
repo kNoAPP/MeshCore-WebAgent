@@ -35,8 +35,9 @@ const SAVE_DEBOUNCE_MS = 1000;
 let binding: Binding | null = null;
 // The last binding made, kept past {@link resetPersistence} while a re-key is
 // still queued: a session torn down mid re-key left its records under this
-// key, and the re-key still has to move them. Dropped once nothing needs it,
-// so no radio's key outlives its session for longer than that.
+// key, and the re-key still has to move them. Dropped by the reset or once
+// the queue drains with nothing bound; an identity switch, which unbinds
+// without a reset, keeps it until the restart's reset.
 let lastBound: Binding | null = null;
 // Serializes re-keys, so two channel updates in quick succession cannot
 // derive in parallel and bind whichever finishes last.
@@ -176,6 +177,9 @@ async function rekey(channels: Record<number, Channel>): Promise<void> {
   } else if (lastBound === from) {
     lastBound = { pubkey: from.pubkey, ...next };
   }
+  // A torn-down session's flush is fire-and-forget; its writes started before
+  // the derivation above and are assumed to have landed before the re-encrypt
+  // reads them.
   // Queued in the same synchronous step as the rebind above: each secret
   // module's saves and clears already queued run first, under the key they
   // captured, and every later one captures the new key.
