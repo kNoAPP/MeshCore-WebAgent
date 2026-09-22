@@ -40,13 +40,14 @@ export function SeedUnlockModal() {
     return null;
   }
 
+  // A vault opened elsewhere in this tab since — the persona list — has
+  // registered the key already, and there is nothing left to open.
+  const registered = !!registeredIdentityKey(lock.pubkey);
   const dismiss = () => setSeedLock({ ...lock, dismissed: true });
   const run = async () => {
     setError(null);
     setBusy(true);
     try {
-      // A vault opened elsewhere in this tab since — the persona list — has
-      // registered the key already, and there is nothing left to open.
       if (!registeredIdentityKey(lock.pubkey)) {
         const vault = await openVaultFor(lock.pubkey, passphrase);
         if (!vault) {
@@ -88,7 +89,9 @@ export function SeedUnlockModal() {
         disabled={busy}
         onChange={(e) => setPassphrase(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && passphrase && !busy) void run();
+          if (e.key === 'Enter' && (passphrase || registered) && !busy) {
+            void run();
+          }
         }}
         className='w-full rounded-md border border-border-control bg-surface2 px-3 py-1.5 text-sm outline-none focus:border-accent-solid disabled:opacity-50'
       />
@@ -107,7 +110,7 @@ export function SeedUnlockModal() {
         </button>
         <button
           onClick={() => void run()}
-          disabled={!passphrase || busy}
+          disabled={(!passphrase && !registered) || busy}
           className='rounded-md bg-accent-solid px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-accent-solid'
         >
           {busy

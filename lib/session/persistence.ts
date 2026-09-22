@@ -121,18 +121,27 @@ export async function deriveSessionKey(
 // session keeps for it moves onto the vault-derived key, as a re-key does,
 // so nothing more is written under public material.
 onIdentityKeyRegistered((pubkey, key) => {
-  if (binding?.pubkey !== pubkey || binding.material === null) return;
+  if (binding?.pubkey === pubkey && binding.material !== null) {
+    rebindToIdentityKey(pubkey, key);
+  }
+});
+
+// Queued like a re-key. Like one, it waits while the session is bound but not
+// yet wired: the connect flow's hydrate is still reading under the channel
+// key, and writing under it would race those reads. wirePersistence catches
+// up then.
+function rebindToIdentityKey(pubkey: string, key: CryptoKey): void {
   rekeysPending++;
   rekeyChain = rekeyChain
     .then(async () => {
       const from = binding;
-      if (from?.pubkey !== pubkey || from.material === null) return;
+      if (from?.pubkey !== pubkey || from.material === null || !saveUnsub) {
+        return;
+      }
       setStorageKey(pubkey, { key, channels: from.channels, material: null });
       if (getStorageContext()?.pubkey === pubkey) setSecretContext(pubkey, key);
       await Promise.all([
-        saveUnsub
-          ? saveSessionNamespace(pubkey, key)
-          : reencryptRadioRecords(pubkey, from.key, key),
+        saveSessionNamespace(pubkey, key),
         reencryptApiKey(pubkey, from.key, key),
         reencryptRepeaterCreds(pubkey, from.key, key),
       ]);
@@ -141,7 +150,7 @@ onIdentityKeyRegistered((pubkey, key) => {
     .finally(() => {
       if (--rekeysPending === 0 && !binding) lastBound = null;
     });
-});
+}
 
 /**
  * Derives the storage key for `pubkey` from a radio's current channel
@@ -614,7 +623,8 @@ async function saveSessionNamespace(
  * exist and so goes unpersisted. {@link resetPersistence} undoes all of it.
  *
  * Also catches the storage key up with a channel change that arrived before
- * the store was hydrated (see {@link followChannelSecrets}).
+ * the store was hydrated (see {@link followChannelSecrets}), and with a
+ * seed-born identity's key registered meanwhile.
  */
 export function wirePersistence(): void {
   saveUnsub = useMeshStore.subscribe((state, prev) => {
@@ -673,7 +683,15 @@ export function wirePersistence(): void {
     }, SAVE_DEBOUNCE_MS);
   });
 
-  if (binding) followChannelSecrets(binding.channels);
+  if (binding) {
+    followChannelSecrets(binding.channels);
+    // A seed-born identity's key registered while the hydrate ran: the rebind
+    // waited for this.
+    const key = registeredIdentityKey(binding.pubkey);
+    if (key && binding.material !== null) {
+      rebindToIdentityKey(binding.pubkey, key);
+    }
+  }
 }
 
 /**
