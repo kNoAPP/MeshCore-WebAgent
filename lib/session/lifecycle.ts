@@ -8,8 +8,8 @@ import { resetCliQueue } from '@/lib/session/cliQueue';
 import { resetSharedReads } from '@/lib/session/sharedReads';
 import { resetRxCorrelation } from '@/lib/session/rxCorrelation';
 import {
-  dropUnsavedRestore,
   flushSession,
+  releaseStore,
   resetPersistence,
 } from '@/lib/session/persistence';
 import { clearReconnect, clearReconnectSource } from '@/lib/session/reconnect';
@@ -101,8 +101,9 @@ export function teardownSession(flush = false): void {
   wipeApiKey();
   // The reset below discards the unsaved restore itself, so nothing is left
   // for the mark to protect — and a later connect as that identity must load
-  // its stored data over the reset defaults, not keep them.
-  dropUnsavedRestore();
+  // its stored data over the reset defaults, not keep them. Nor does the
+  // store belong to any identity afterwards.
+  releaseStore();
   store.setClient(null);
   store.reset();
 }

@@ -177,7 +177,8 @@
     "personaSwitchNotLanded": "Dieses Funkgerät trägt weiter die vorherige Identität, daher wurde der Wechsel zu {{name}} hier nicht wirksam.",
     "personaSwitchNotSaved": "Die Kontakte des Funkgeräts ließen sich nach dem Neustart nicht bestätigen, daher ist der Wechsel zur neuen Persona nicht abgeschlossen. Schließe ihn ab, um sie erneut anzuwenden.",
     "burnerLive": "Wegwerf-Identität aktiv. Nichts, was sie empfängt, wird in diesem Browser gespeichert.",
-    "burnerAssumed": "Eine Wegwerf-Identität kann noch aktiv sein, daher wird für diese Identität nichts gespeichert. Bei einem neuen Funkgerät siehe Einstellungen, unter Identität."
+    "burnerAssumed": "Eine Wegwerf-Identität kann noch aktiv sein, daher wird für diese Identität nichts gespeichert. Bei einem neuen Funkgerät siehe Einstellungen, unter Identität.",
+    "identityChangedUnsaved": "Das Funkgerät hat sich mit einer anderen Identität wieder verbunden. Was die vorherige Identität nur in dieser Sitzung hatte, wurde nie gespeichert und ist jetzt gelöscht."
   },
   "command": {
     "title": "Alles finden",

@@ -59,6 +59,12 @@ let switchPending = false;
 // outlives the per-session reset in {@link resetPersistence}: the reconnect
 // it protects runs that reset first. See {@link claimUnsavedRestore}.
 let unsavedRestore: string | null = null;
+// The identity whose data the store holds; see {@link claimStore}. Not the
+// binding: that is null in several states where the store still holds an
+// identity's data (a seed-locked session, a burner, an unsaved restore, a
+// pending switch), and every connect resets it before the radio has said who
+// it is. So this outlives {@link resetPersistence}, as `unsavedRestore` does.
+let storeIdentity: string | null = null;
 let saveUnsub: (() => void) | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 // Independent save subscription/timer for the per-radio advert cache, kept
@@ -417,6 +423,8 @@ export async function beginIdentityHandover(
 ): Promise<boolean> {
   const outgoing = binding?.pubkey;
   const key = await deriveSessionKey(client.channels, pubkey);
+  // The data moves with the key, whether or not it can be written yet.
+  storeIdentity = pubkey;
   if (!key) {
     // A seed-born identity whose vault is not open here: nothing may be
     // written for it yet, and the store already holds its data, so nothing
@@ -499,6 +507,8 @@ export async function beginIdentitySwitch(
   // restore has installed it already, so what this clears is the incoming
   // identity's own traffic, a few seconds of it at most.
   useMeshStore.getState().resetIdentityData();
+  // A burner's traffic is never stored, so the store is nobody's to protect.
+  storeIdentity = pubkey;
 }
 
 /**
@@ -593,11 +603,59 @@ export async function retryUnsavedRestore(): Promise<void> {
 }
 
 /**
- * Forgets an unsaved restore. For a session teardown, which resets the store
- * and so discards the in-memory data the mark was protecting.
+ * Forgets which identity the store holds data for, and any unsaved restore.
+ * For a session teardown, which resets the store and so discards the data
+ * both describe.
  */
-export function dropUnsavedRestore(): void {
+export function releaseStore(): void {
   unsavedRestore = null;
+  storeIdentity = null;
+}
+
+/**
+ * Claims the store for the identity a session being built reports, first
+ * clearing whatever it holds of another identity (`resetIdentityData`).
+ *
+ * @remarks Call with the connect handshake's `SELF_INFO`, before anything of
+ * that identity reaches the store. A reconnect keeps the store, and its
+ * hydrate merges the reported identity's saved records into whatever it
+ * holds, then saves the result under that identity. A reconnect that comes
+ * back as a different identity — another radio on a shared endpoint, or a
+ * key changed from another client — would otherwise link the two identities
+ * in this browser.
+ *
+ * What is cleared was written already, unless it was never meant to be (a
+ * burner), or cannot be yet: a restore whose write failed
+ * ({@link markUnsavedRestore}), or a seed-born session whose vault was never
+ * opened. Either is the outgoing identity's alone, so it is dropped rather
+ * than kept under the incoming one, and the return value says so. A bound
+ * session was flushed when its link dropped (`beginReconnect`). The in-memory
+ * API key goes too: a session that binds no secrets context (a burner, an
+ * unfinished persona switch) would otherwise keep the outgoing identity's.
+ *
+ * A session that reports the identity the store already holds keeps it, as
+ * does the first one after a teardown or an identity switch onto a burner,
+ * for which there is nothing to protect. So does the identity an unsaved
+ * restore was meant for: an unacknowledged regenerate leaves the store the
+ * outgoing identity's while marking it for the incoming one, since the radio
+ * may come back as either.
+ * @param pubkey - the reported public key, lowercase hex.
+ * @returns whether data that existed only in the store was discarded.
+ */
+export function claimStore(pubkey: string): boolean {
+  const owner = storeIdentity;
+  storeIdentity = pubkey;
+  if (owner === null || owner === pubkey || unsavedRestore === pubkey) {
+    return false;
+  }
+  const store = useMeshStore.getState();
+  const unsaved = unsavedRestore === owner || store.seedLock?.pubkey === owner;
+  // The restore it marks is being discarded, and a later session as that
+  // identity must load its own records over whatever the store then holds.
+  unsavedRestore = null;
+  wipeApiKey();
+  store.resetIdentityData();
+  return unsaved;
 }
 
 // Writes every per-radio record, keyed by `RadioRecord`: the list in
