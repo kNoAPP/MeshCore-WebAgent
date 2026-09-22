@@ -22,9 +22,10 @@ import {
   selectPreferences,
 } from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
-import { personaContactsApplied } from '@/lib/identity/persona';
+import { capturePersona, personaContactsApplied } from '@/lib/identity/persona';
 import {
   burnerSession,
+  isBurnerShaped,
   settleKeptSwitch,
   settleLandedSwitch,
 } from '@/lib/identity/burner';
@@ -683,7 +684,7 @@ export function useMeshCore() {
           c.selfInfo?.name ?? c.deviceInfo?.model ?? i18n.t('common.device');
         setDeviceName(deviceName);
 
-        if (burner && sessionAlive()) {
+        if (burner && reported && sessionAlive()) {
           // Hydrated from memory: what this session set is all there is.
           const store = useMeshStore.getState();
           restorePreferences(selectPreferences(store), true);
@@ -696,6 +697,23 @@ export function useMeshCore() {
               level: 'info',
               text: i18n.t('toast.burnerLive'),
               key: 'burnerLive',
+            });
+          }
+          // Cut off by a reload before its persona was applied, the burner may
+          // still carry the previous persona's name, channels and contacts:
+          // offered for finishing like any switch that stopped part way.
+          if (burner === 'assumed' && !isBurnerShaped(capturePersona(c))) {
+            store.setPersonaSwitch({
+              target: reported,
+              outgoing: '',
+              label: i18n.t('settings.persona.burner.live'),
+              state: null,
+              removed: [],
+              announce: false,
+              stage: 'switching',
+              running: false,
+              dismissed: false,
+              burner: true,
             });
           }
           if (burner === 'assumed') {

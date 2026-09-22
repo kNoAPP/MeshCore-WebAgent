@@ -709,7 +709,8 @@
         "liveHint": "Rien de ce que reçoit cette identité n’est enregistré dans ce navigateur. Passez à l’un des personas ci-dessous pour y mettre fin.",
         "switchAway": "Le nom, les canaux et les contacts de l’identité jetable sont supprimés, et sa clé disparaît pour de bon : impossible d’y revenir.",
         "assumed": "Rien n’est enregistré pour cette identité dans ce navigateur, et une identité jetable lancée ici peut être encore active : elle est donc traitée comme celle-ci et rien n’est enregistré. S’il s’agit plutôt d’une radio nouvelle pour ce navigateur, conservez ses données.",
-        "keepData": "Conserver les données de cette radio"
+        "keepData": "Conserver les données de cette radio",
+        "resumeBody": "Le passage à cette identité jetable a été interrompu : la radio peut encore porter le nom, la position, les canaux ou les contacts du persona précédent, qui les relient. Terminer lui donne un nouveau nom d’annonce, sans partage de position, uniquement le canal Public et sans contacts."
       }
     }
   },

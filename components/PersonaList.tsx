@@ -6,7 +6,7 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
-import { useBackupReady } from './BackupCommon';
+import { isBurnerSession, useBackupReady } from './BackupCommon';
 import { mintPersona } from '@/lib/identity/personaSwitch';
 import {
   VaultError,
@@ -47,7 +47,12 @@ export function PersonaList({
   const ready = useBackupReady();
   const live = useMeshStore((s) => s.selfInfo?.pubkey?.toLowerCase());
   const liveName = useMeshStore((s) => s.selfInfo?.name);
-  const burnerLive = useMeshStore((s) => !!live && s.burner?.pubkey === live);
+  const burnerLive = useMeshStore(isBurnerSession);
+  // A burner's session is never backup-ready, since nothing of it may be
+  // kept, but switching away from it needs only the link.
+  const linked = useMeshStore(
+    (s) => s.status === 'connected' && !!s.client && !s.client.closed,
+  );
   const switching = useMeshStore((s) => !!s.personaSwitch?.running);
   // Mid-switch, the session is never hydrated, and switching away (back to
   // the persona it came from, say) must still be possible.
@@ -64,7 +69,8 @@ export function PersonaList({
   // A burner is never listed, but it has nothing to keep, so switching away
   // from it needs nowhere to keep it.
   const liveKnown = burnerLive || identities.some((i) => i.publicKey === live);
-  const canSwitch = liveKnown && (ready || mixed) && !switching;
+  const canSwitch =
+    liveKnown && (ready || mixed || (burnerLive && linked)) && !switching;
 
   return (
     <>

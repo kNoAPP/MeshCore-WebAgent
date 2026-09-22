@@ -708,7 +708,8 @@
         "liveHint": "Nothing this identity receives is saved in this browser. Switch to one of the personas below to end it.",
         "switchAway": "The burner’s name, channels and contacts are discarded, and its key is gone for good: there is no switching back to it.",
         "assumed": "This identity has nothing saved in this browser, and a burner started here may still be live, so it is treated as that burner and nothing is saved for it. If this is a radio new to this browser instead, keep its data.",
-        "keepData": "Keep this radio’s data"
+        "keepData": "Keep this radio’s data",
+        "resumeBody": "This burner's switch was cut off, so the radio may still carry the previous persona's name, location, channels or contacts, which link the two. Finishing gives it a new advert name, location sharing off, only the Public channel and no contacts."
       }
     }
   },

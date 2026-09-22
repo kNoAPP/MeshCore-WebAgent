@@ -709,7 +709,8 @@
         "liveHint": "Nada de lo que recibe esta identidad se guarda en este navegador. Cambia a una de las personas de abajo para terminarla.",
         "switchAway": "El nombre, los canales y los contactos de la identidad desechable se descartan, y su clave desaparece para siempre: no se puede volver a ella.",
         "assumed": "Esta identidad no tiene nada guardado en este navegador y una identidad desechable iniciada aquí puede seguir activa, así que se trata como esa y no se guarda nada de ella. Si en cambio es una radio nueva para este navegador, conserva sus datos.",
-        "keepData": "Conservar los datos de esta radio"
+        "keepData": "Conservar los datos de esta radio",
+        "resumeBody": "El cambio a esta identidad desechable se interrumpió, así que la radio puede conservar el nombre, la ubicación, los canales o los contactos de la persona anterior, que las vinculan. Terminarlo le da un nuevo nombre de anuncio, sin compartir ubicación, solo el canal Público y sin contactos."
       }
     }
   },

@@ -709,7 +709,8 @@
         "liveHint": "Nichts, was diese Identität empfängt, wird in diesem Browser gespeichert. Wechsle zu einer der Personas unten, um sie zu beenden.",
         "switchAway": "Name, Kanäle und Kontakte der Wegwerf-Identität werden verworfen, und ihr Schlüssel ist für immer weg: Es gibt kein Zurück zu ihr.",
         "assumed": "Für diese Identität ist in diesem Browser nichts gespeichert, und eine hier gestartete Wegwerf-Identität kann noch aktiv sein. Daher wird sie als diese behandelt und nichts gespeichert. Ist es stattdessen ein für diesen Browser neues Funkgerät, behalte seine Daten.",
-        "keepData": "Daten dieses Funkgeräts behalten"
+        "keepData": "Daten dieses Funkgeräts behalten",
+        "resumeBody": "Der Wechsel zu dieser Wegwerf-Identität wurde unterbrochen, daher trägt das Funkgerät womöglich noch Namen, Standort, Kanäle oder Kontakte der vorigen Persona, die beide verknüpfen. Das Abschließen gibt ihr einen neuen Advert-Namen, keine Standortfreigabe, nur den öffentlichen Kanal und keine Kontakte."
       }
     }
   },

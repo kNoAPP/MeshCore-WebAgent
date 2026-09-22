@@ -234,8 +234,8 @@ async function writeLive(
  * key is known not to have landed.
  * @returns the incoming persona's saved state, or a {@link freshPersona} for
  * an identity that has never been live on this device.
- * @throws {@link PersonaSwitchError} `notInVault`, `unsynced`, `damaged` or
- * `saveFailed`.
+ * @throws {@link PersonaSwitchError} `damaged` or `saveFailed`; and, when
+ * capturing, `notInVault` or `unsynced`.
  */
 export async function preparePersonaSwitch(
   client: MeshCoreClient,

@@ -704,7 +704,7 @@ export async function hasRadioRecords(pubkey: string): Promise<boolean> {
       const req = db
         .transaction(STORE_NAME, 'readonly')
         .objectStore(STORE_NAME)
-        .count(IDBKeyRange.bound(pubkey, `${pubkey}￿`));
+        .count(IDBKeyRange.bound(pubkey, `${pubkey}\uffff`));
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });

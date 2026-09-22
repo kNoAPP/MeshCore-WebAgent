@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { usePersonaSwitch } from '@/hooks/usePersonaSwitch';
 import { isBurnerNameTaken } from '@/lib/identity/burner';
+import { loadPersona } from '@/lib/identity/persona';
 import type { Vault } from '@/lib/identity/vault';
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
 import { ModalShell } from './ModalShell';
@@ -28,8 +29,9 @@ const noop = () => {};
  *
  * @remarks Says plainly what a burner does and does not protect against, and
  * asks the user to acknowledge that switching away from it is final. Its
- * advert name must differ from the radio's current one and from every
- * persona the vault lists, since a shared name would link them.
+ * advert name must differ from the radio's current one and from every name
+ * the vault's personas go by — their labels and the advert names their saved
+ * state holds — since a shared name would link them.
  *
  * @param vault - the unlocked vault the outgoing persona is kept in.
  * @param onClose - dismissal; also called once the switch has finished or
@@ -52,9 +54,26 @@ export function BurnerModal({
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedNames, setSavedNames] = useState<(string | null)[]>([]);
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
+  // A persona renamed after it was minted advertises a name its label does
+  // not show.
+  useEffect(() => {
+    let live = true;
+    Promise.all(
+      vault.identities.map((i) =>
+        loadPersona(vault, i.publicKey).then(
+          (state) => state?.name ?? null,
+          () => null,
+        ),
+      ),
+    ).then((names) => live && setSavedNames(names));
+    return () => {
+      live = false;
+    };
+  }, [vault]);
 
   const trimmed = name.trim();
   const bytes = enc.encode(trimmed).length;
@@ -63,6 +82,7 @@ export function BurnerModal({
     isBurnerNameTaken(trimmed, [
       current,
       ...vault.identities.map((i) => i.label),
+      ...savedNames,
     ]);
   const canStart =
     !busy &&

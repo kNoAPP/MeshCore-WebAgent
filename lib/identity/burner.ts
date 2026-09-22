@@ -74,6 +74,27 @@ export function burnerPersona(name: string): PersonaState {
 }
 
 /**
+ * Whether the radio state is what a finished {@link burnerPersona} leaves:
+ * location sharing off, only the Public channel, and no contacts.
+ *
+ * @remarks For a burner found after a reload, whose switch may have been cut
+ * off before its persona was applied — the name cannot be checked, since the
+ * burner's own was never kept. A contact the radio added by itself since
+ * reads as unfinished too; finishing then only clears it again.
+ */
+export function isBurnerShaped(state: PersonaState): boolean {
+  const [publicChannel] = burnerPersona('').channels ?? [];
+  const [channel, ...others] = state.channels ?? [];
+  return (
+    state.locationPolicy === ADVERT_LOC_POLICY.NONE &&
+    others.length === 0 &&
+    channel?.idx === publicChannel?.idx &&
+    channel?.secret === publicChannel?.secret &&
+    state.contacts?.length === 0
+  );
+}
+
+/**
  * Whether `name` would repeat one the user's other personas advertise, so a
  * burner using it would be linked to them by name alone. Compared trimmed and
  * case-insensitively.
@@ -97,7 +118,9 @@ export function isBurnerNameTaken(
  * guard exists and this browser has no records at all for `pubkey`, which is
  * how a burner looks after a reload — and also how a radio new here looks,
  * which is why that session is marked assumed. A restore or regenerate still
- * being checked is new here by design, and is never taken for one.
+ * being checked is new here by design, and is never taken for one; nor is the
+ * target of a switch onto a persona of the vault, whose first session may
+ * find its only record, the pending one, already deleted.
  * @returns `'live'` for a burner already known, `'assumed'` for one this call
  * has just inferred, false otherwise.
  */
@@ -107,6 +130,8 @@ export async function burnerSession(
   const store = useMeshStore.getState();
   if (store.burner?.pubkey === pubkey) return 'live';
   if (store.identityCheck) return false;
+  const pending = store.personaSwitch;
+  if (pending && !pending.burner && pending.target === pubkey) return false;
   if (!(await hasBurnerGuard()) || (await hasRadioRecords(pubkey))) {
     return false;
   }
