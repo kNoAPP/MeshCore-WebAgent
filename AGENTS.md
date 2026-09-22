@@ -113,7 +113,8 @@ The encryption/IO primitives live in `lib/storage.ts`
 per-radio key is derived from the radio's channel secrets at connect
 (`deriveChannelKey` in `lib/session/persistence.ts`), and re-derived whenever
 they change: `followChannelSecrets` rebinds it and rewrites every per-radio
-record under it, so a new record must be listed in `saveSessionNamespace`.
+record under it. A new record is added to `RADIO_RECORDS` in `lib/storage.ts`:
+`saveSessionNamespace` and `deleteRadioRecords` both derive from that one list.
 Sensitive values (e.g. an LLM API key) never go in the blob or the store — they
 use the separate encrypted `secrets` store (`lib/ai/secret.ts`).
 
