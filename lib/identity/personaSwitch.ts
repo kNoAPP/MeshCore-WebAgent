@@ -219,8 +219,8 @@ async function writeLive(
  * @remarks The outgoing persona is captured from the client's mirror and
  * sealed in its record first, so the radio state it leaves behind can be
  * given back later. Pass `capture` false when the radio holds a switch that
- * never finished: its state is then part one persona, part another, and
- * would overwrite the good record.
+ * never finished — its state is then part one persona, part another, and
+ * would overwrite the good record — or a burner, which is never kept.
  *
  * Both personas must be whole in their channels and contacts. The storage
  * key follows the channels, so a persona that goes live without its own
@@ -243,16 +243,7 @@ export async function preparePersonaSwitch(
   target: VaultIdentity,
   capture: boolean,
 ): Promise<PersonaState> {
-  const outgoing = client.selfInfo?.pubkey?.toLowerCase();
-  if (!outgoing || !vault.identities.some((i) => i.publicKey === outgoing)) {
-    throw new PersonaSwitchError('notInVault');
-  }
-  if (capture) {
-    const captured = capturePersona(client);
-    if (!isWhole(captured)) throw new PersonaSwitchError('unsynced');
-    const saved = await savePersona(vault, outgoing, captured);
-    if (!saved) throw new PersonaSwitchError('saveFailed');
-  }
+  if (capture) await keepOutgoingPersona(client, vault);
   const state =
     (await loadPersona(vault, target.publicKey)) ?? freshPersona(target.label);
   if (!isWhole(state)) throw new PersonaSwitchError('damaged');
@@ -260,6 +251,28 @@ export async function preparePersonaSwitch(
     throw new PersonaSwitchError('saveFailed');
   }
   return state;
+}
+
+/**
+ * Captures the radio's persona from the client's mirror and seals it in the
+ * live identity's record, so a switch away can give it back later.
+ *
+ * @throws {@link PersonaSwitchError} `notInVault`, `unsynced` or
+ * `saveFailed`.
+ */
+export async function keepOutgoingPersona(
+  client: MeshCoreClient,
+  vault: Vault,
+): Promise<void> {
+  const outgoing = client.selfInfo?.pubkey?.toLowerCase();
+  if (!outgoing || !vault.identities.some((i) => i.publicKey === outgoing)) {
+    throw new PersonaSwitchError('notInVault');
+  }
+  const captured = capturePersona(client);
+  if (!isWhole(captured)) throw new PersonaSwitchError('unsynced');
+  if (!(await savePersona(vault, outgoing, captured))) {
+    throw new PersonaSwitchError('saveFailed');
+  }
 }
 
 function isWhole(state: PersonaState): boolean {
@@ -288,6 +301,24 @@ export async function installPersonaKey(
   target: VaultIdentity,
 ): Promise<boolean | null> {
   const { privateKey } = await derivePersonaKey(phrase, target);
+  return installKey(client, privateKey, target.publicKey);
+}
+
+/**
+ * Puts a key on the radio and zeroes it, as {@link installPersonaKey} does
+ * for a key already known to be the one wanted.
+ *
+ * @param publicKey - the key's public half, lowercase hex, to tell whether an
+ * exchange that did not settle landed it anyway.
+ * @returns as for {@link installPersonaKey}.
+ * @throws `PrivateKeyError` when the radio refuses the key and keeps its
+ * identity.
+ */
+export async function installKey(
+  client: MeshCoreClient,
+  privateKey: Uint8Array,
+  publicKey: string,
+): Promise<boolean | null> {
   try {
     await client.importPrivateKey(privateKey);
   } catch (err) {
@@ -297,7 +328,7 @@ export async function installPersonaKey(
       () => false,
     );
     if (!asked) return null;
-    if (client.selfInfo?.pubkey?.toLowerCase() !== target.publicKey) {
+    if (client.selfInfo?.pubkey?.toLowerCase() !== publicKey) {
       return false;
     }
   } finally {

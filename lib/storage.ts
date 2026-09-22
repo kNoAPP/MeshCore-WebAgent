@@ -689,6 +689,79 @@ export async function deletePendingPersona(pubkey: string): Promise<boolean> {
   }
 }
 
+/**
+ * Whether anything at all is stored in the `radios` store for `pubkey`: its
+ * history, advert cache, automation rules, preferences, persona or pending
+ * switch. Needs no key.
+ *
+ * @returns false when IndexedDB cannot be read, which is also what an
+ * identity new to this browser reports.
+ */
+export async function hasRadioRecords(pubkey: string): Promise<boolean> {
+  try {
+    const db = await openDB();
+    const count = await new Promise<number>((resolve, reject) => {
+      const req = db
+        .transaction(STORE_NAME, 'readonly')
+        .objectStore(STORE_NAME)
+        .count(IDBKeyRange.bound(pubkey, `${pubkey}￿`));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return count > 0;
+  } catch {
+    return false;
+  }
+}
+
+// A burner may be live on a radio: see `lib/identity/burner.ts`. The record
+// is empty and its key names no identity — every other key in the store is
+// a public key, so it cannot collide with one — so it says only that a
+// burner was started from this browser and not yet known to have ended.
+const BURNER_GUARD_KEY = 'burner-live';
+
+/**
+ * Records that a burner may be live on a radio, so a connect after a page
+ * reload saves nothing for an identity this browser has no records of.
+ *
+ * @returns whether the write landed.
+ */
+export async function saveBurnerGuard(): Promise<boolean> {
+  try {
+    await idbWrite(STORE_NAME, BURNER_GUARD_KEY, {}, 'put');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether {@link saveBurnerGuard} was called and the guard not deleted since.
+ *
+ * @returns false when IndexedDB cannot be read.
+ */
+export async function hasBurnerGuard(): Promise<boolean> {
+  try {
+    return (await idbGet(STORE_NAME, BURNER_GUARD_KEY)) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Deletes the burner guard, once no burner is known to be live.
+ *
+ * @returns whether the delete landed.
+ */
+export async function deleteBurnerGuard(): Promise<boolean> {
+  try {
+    await idbDelete(STORE_NAME, BURNER_GUARD_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** How a {@link replaceVaultRecord} call ended. */
 export type VaultWriteResult = 'saved' | 'stale' | 'failed';
 

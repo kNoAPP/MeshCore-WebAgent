@@ -16,6 +16,7 @@ import {
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
 import { unknownWords } from './RestorePhraseSteps';
 import { PersonaSwitchModal, switchErrorMessage } from './PersonaSwitchModal';
+import { BurnerModal } from './BurnerModal';
 import { KeyAvatar } from './KeyAvatar';
 
 const BUTTON_CLASS =
@@ -27,7 +28,7 @@ const enc = new TextEncoder();
 
 /**
  * The personas an unlocked vault lists, which one is live on the radio, and
- * the way to switch to another or mint a new one.
+ * the way to switch to another, mint a new one, or start a burner.
  *
  * @param onLock - locks the vault and returns to the unlock prompt.
  * @param onStale - the stored vault changed in another tab since it was
@@ -45,6 +46,8 @@ export function PersonaList({
   const { t } = useTranslation();
   const ready = useBackupReady();
   const live = useMeshStore((s) => s.selfInfo?.pubkey?.toLowerCase());
+  const liveName = useMeshStore((s) => s.selfInfo?.name);
+  const burnerLive = useMeshStore((s) => !!live && s.burner?.pubkey === live);
   const switching = useMeshStore((s) => !!s.personaSwitch?.running);
   // Mid-switch, the session is never hydrated, and switching away (back to
   // the persona it came from, say) must still be possible.
@@ -57,16 +60,36 @@ export function PersonaList({
   const [identities, setIdentities] = useState(vault.identities);
   const [target, setTarget] = useState<VaultIdentity | null>(null);
   const [minting, setMinting] = useState(false);
-  const liveListed = identities.some((i) => i.publicKey === live);
+  const [burning, setBurning] = useState(false);
+  // A burner is never listed, but it has nothing to keep, so switching away
+  // from it needs nowhere to keep it.
+  const liveKnown = burnerLive || identities.some((i) => i.publicKey === live);
+  const canSwitch = liveKnown && (ready || mixed) && !switching;
 
   return (
     <>
-      {!liveListed && (
+      {!liveKnown && (
         <p className='mb-3 text-xs leading-relaxed text-text2'>
           {t('settings.persona.liveNotListed')}
         </p>
       )}
       <ul className='space-y-2'>
+        {burnerLive && live && (
+          <li className='flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-red p-2'>
+            <KeyAvatar pubkey={live} size={24} />
+            <div className='min-w-0 flex-1'>
+              <p className='truncate text-sm text-text'>
+                {liveName || t('settings.persona.unnamed')}
+              </p>
+              <p className='text-xs leading-relaxed text-text2'>
+                {t('settings.persona.burner.liveHint')}
+              </p>
+            </div>
+            <span className='rounded-full bg-red px-2 py-0.5 text-xs font-semibold text-white'>
+              {t('settings.persona.burner.live')}
+            </span>
+          </li>
+        )}
         {identities.map((identity) => (
           <li
             key={identity.publicKey}
@@ -92,7 +115,7 @@ export function PersonaList({
             ) : (
               <button
                 onClick={() => setTarget(identity)}
-                disabled={!liveListed || !(ready || mixed) || switching}
+                disabled={!canSwitch}
                 className={BUTTON_CLASS}
               >
                 {t('settings.persona.switch')}
@@ -115,6 +138,13 @@ export function PersonaList({
           <button onClick={() => setMinting(true)} className={BUTTON_CLASS}>
             {t('settings.persona.new')}
           </button>
+          <button
+            onClick={() => setBurning(true)}
+            disabled={!canSwitch}
+            className={BUTTON_CLASS}
+          >
+            {t('settings.persona.burner.new')}
+          </button>
           <button onClick={onLock} className={BUTTON_CLASS}>
             {t('settings.persona.lock')}
           </button>
@@ -126,6 +156,9 @@ export function PersonaList({
           target={target}
           onClose={() => setTarget(null)}
         />
+      )}
+      {burning && (
+        <BurnerModal vault={vault} onClose={() => setBurning(false)} />
       )}
     </>
   );

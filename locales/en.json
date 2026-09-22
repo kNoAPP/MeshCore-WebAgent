@@ -689,6 +689,26 @@
         "unsynced": "Some of the radio’s channels or contacts have not been read yet, so the current persona cannot be kept whole. Reconnect the radio and try again.",
         "damaged": "This persona’s saved channels or contacts no longer read back, so switching to it could lose its history. Nothing was sent to the radio.",
         "other": "The switch failed: {{error}}"
+      },
+      "burner": {
+        "new": "New burner",
+        "title": "Start a burner",
+        "intro": "A burner is a throwaway identity with a random key that no recovery phrase can reproduce. It lasts only as long as it is live on the radio.",
+        "saves": "Nothing about it is saved in this browser: no messages, discovered nodes, preferences, automation rules or secrets, and no entry in the vault. The current persona is kept on this device as usual.",
+        "radio": "It starts with its own advert name, location sharing off, only the Public channel and no contacts, so it inherits nothing from the current persona.",
+        "protects": "What it protects: nobody on the mesh can tie it to your other personas by its key, name, location, channels or contacts, and nothing in this browser ties them together either.",
+        "limits": "What it does not protect: it runs on the same radio, from the same place, with the same habits. Anyone watching airtime, transmission times or signal can still link it to you. It is not anonymity.",
+        "reload": "Reloading this page forgets the burner here but leaves it on the radio. While it may still be live, an identity that arrives with nothing saved in this browser is treated as the burner, and nothing is saved for it.",
+        "nameField": "Advert name",
+        "nameTaken": "Pick a name none of your other personas uses, or it would link the burner to them.",
+        "gone": "Switching away from a burner is final: its key is discarded and there is no way back to it. It can never become a regular persona.",
+        "ack": "I understand the burner cannot be recovered once I switch away",
+        "action": "Start burner",
+        "live": "Burner",
+        "liveHint": "Nothing this identity receives is saved in this browser. Switch to one of the personas below to end it.",
+        "switchAway": "The burner’s name, channels and contacts are discarded, and its key is gone for good: there is no switching back to it.",
+        "assumed": "This identity has nothing saved in this browser, and a burner started here may still be live, so it is treated as that burner and nothing is saved for it. If this is a radio new to this browser instead, keep its data.",
+        "keepData": "Keep this radio’s data"
       }
     }
   },
@@ -1571,7 +1591,9 @@
     "repeaterLoadBeforeLocationEdit": "Load the node name and location before changing either.",
     "repeaterActionSent": "Command sent.",
     "personaSwitchNotLanded": "This radio is still on the previous identity, so the switch to {{name}} did not take effect here.",
-    "personaSwitchNotSaved": "The radio’s contacts could not be confirmed after its restart, so the switch to the new persona is not finished. Finish it to apply them again."
+    "personaSwitchNotSaved": "The radio’s contacts could not be confirmed after its restart, so the switch to the new persona is not finished. Finish it to apply them again.",
+    "burnerLive": "Burner live. Nothing it receives is saved in this browser.",
+    "burnerAssumed": "A burner may still be live, so nothing is saved for this identity. If this is a new radio, see Settings, under Identity."
   },
   "update": {
     "available": "A new version is available",

@@ -690,6 +690,26 @@
         "unsynced": "Noch nicht alle Kanäle oder Kontakte des Funkgeräts wurden gelesen, daher lässt sich die aktuelle Persona nicht vollständig sichern. Verbinde das Funkgerät neu und versuche es erneut.",
         "damaged": "Die gespeicherten Kanäle oder Kontakte dieser Persona lassen sich nicht mehr lesen; ein Wechsel könnte ihren Verlauf verlieren. An das Funkgerät wurde nichts gesendet.",
         "other": "Der Wechsel ist fehlgeschlagen: {{error}}"
+      },
+      "burner": {
+        "new": "Neue Wegwerf-Identität",
+        "title": "Wegwerf-Identität starten",
+        "intro": "Eine Wegwerf-Identität nutzt einen zufälligen Schlüssel, den keine Wiederherstellungsphrase erzeugen kann. Sie besteht nur, solange sie auf dem Funkgerät aktiv ist.",
+        "saves": "Nichts davon wird in diesem Browser gespeichert: keine Nachrichten, entdeckten Knoten, Einstellungen, Automatisierungsregeln oder Geheimnisse und kein Eintrag im Tresor. Die aktuelle Persona bleibt wie gewohnt auf diesem Gerät erhalten.",
+        "radio": "Sie beginnt mit eigenem Advert-Namen, ohne Standortfreigabe, nur mit dem öffentlichen Kanal und ohne Kontakte, erbt also nichts von der aktuellen Persona.",
+        "protects": "Was sie schützt: Niemand im Mesh kann sie über Schlüssel, Namen, Standort, Kanäle oder Kontakte mit deinen anderen Personas verknüpfen, und auch in diesem Browser verknüpft nichts sie miteinander.",
+        "limits": "Was sie nicht schützt: Sie läuft auf demselben Funkgerät, am selben Ort, mit denselben Gewohnheiten. Wer Sendezeit, Sendezeitpunkte oder das Signal beobachtet, kann sie weiterhin mit dir verknüpfen. Das ist keine Anonymität.",
+        "reload": "Ein Neuladen dieser Seite vergisst die Wegwerf-Identität hier, lässt sie aber auf dem Funkgerät. Solange sie noch aktiv sein kann, gilt eine Identität, für die in diesem Browser nichts gespeichert ist, als diese Wegwerf-Identität, und für sie wird nichts gespeichert.",
+        "nameField": "Advert-Name",
+        "nameTaken": "Wähle einen Namen, den keine deiner anderen Personas nutzt, sonst würde er sie verknüpfen.",
+        "gone": "Das Wechseln weg von einer Wegwerf-Identität ist endgültig: Ihr Schlüssel wird verworfen, und es gibt keinen Weg zurück. Sie kann nie zu einer normalen Persona werden.",
+        "ack": "Ich verstehe, dass sie nach dem Wechsel nicht wiederherstellbar ist",
+        "action": "Wegwerf-Identität starten",
+        "live": "Wegwerf",
+        "liveHint": "Nichts, was diese Identität empfängt, wird in diesem Browser gespeichert. Wechsle zu einer der Personas unten, um sie zu beenden.",
+        "switchAway": "Name, Kanäle und Kontakte der Wegwerf-Identität werden verworfen, und ihr Schlüssel ist für immer weg: Es gibt kein Zurück zu ihr.",
+        "assumed": "Für diese Identität ist in diesem Browser nichts gespeichert, und eine hier gestartete Wegwerf-Identität kann noch aktiv sein. Daher wird sie als diese behandelt und nichts gespeichert. Ist es stattdessen ein für diesen Browser neues Funkgerät, behalte seine Daten.",
+        "keepData": "Daten dieses Funkgeräts behalten"
       }
     }
   },
@@ -1572,7 +1592,9 @@
     "repeaterLoadBeforeLocationEdit": "Laden Sie Name und Standort des Knotens, bevor Sie eines von beiden ändern.",
     "repeaterActionSent": "Befehl gesendet.",
     "personaSwitchNotLanded": "Dieses Funkgerät trägt weiter die vorherige Identität, daher wurde der Wechsel zu {{name}} hier nicht wirksam.",
-    "personaSwitchNotSaved": "Die Kontakte des Funkgeräts ließen sich nach dem Neustart nicht bestätigen, daher ist der Wechsel zur neuen Persona nicht abgeschlossen. Schließe ihn ab, um sie erneut anzuwenden."
+    "personaSwitchNotSaved": "Die Kontakte des Funkgeräts ließen sich nach dem Neustart nicht bestätigen, daher ist der Wechsel zur neuen Persona nicht abgeschlossen. Schließe ihn ab, um sie erneut anzuwenden.",
+    "burnerLive": "Wegwerf-Identität aktiv. Nichts, was sie empfängt, wird in diesem Browser gespeichert.",
+    "burnerAssumed": "Eine Wegwerf-Identität kann noch aktiv sein, daher wird für diese Identität nichts gespeichert. Bei einem neuen Funkgerät siehe Einstellungen, unter Identität."
   },
   "update": {
     "available": "Eine neue Version ist verfügbar",

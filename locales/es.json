@@ -690,6 +690,26 @@
         "unsynced": "Aún no se han leído todos los canales o contactos de la radio, así que la persona actual no se puede guardar completa. Vuelve a conectar la radio e inténtalo de nuevo.",
         "damaged": "Los canales o contactos guardados de esta persona ya no se pueden leer, así que cambiar a ella podría perder su historial. No se envió nada a la radio.",
         "other": "El cambio falló: {{error}}"
+      },
+      "burner": {
+        "new": "Nuevo desechable",
+        "title": "Iniciar una identidad desechable",
+        "intro": "Una identidad desechable usa una clave aleatoria que ninguna frase de recuperación puede reproducir. Dura solo mientras está activa en la radio.",
+        "saves": "No se guarda nada de ella en este navegador: ni mensajes, ni nodos descubiertos, ni preferencias, reglas de automatización o secretos, ni una entrada en el almacén. La persona actual se conserva en este dispositivo como siempre.",
+        "radio": "Empieza con su propio nombre de anuncio, sin compartir ubicación, solo con el canal Público y sin contactos, así que no hereda nada de la persona actual.",
+        "protects": "Qué protege: nadie en la malla puede vincularla con tus otras personas por su clave, nombre, ubicación, canales o contactos, y nada en este navegador las vincula tampoco.",
+        "limits": "Qué no protege: funciona en la misma radio, desde el mismo lugar y con los mismos hábitos. Quien observe el tiempo de aire, los horarios de transmisión o la señal aún puede vincularla contigo. No es anonimato.",
+        "reload": "Recargar esta página olvida la identidad desechable aquí, pero la deja en la radio. Mientras pueda seguir activa, una identidad que llegue sin nada guardado en este navegador se trata como la desechable y no se guarda nada de ella.",
+        "nameField": "Nombre de anuncio",
+        "nameTaken": "Elige un nombre que no use ninguna de tus otras personas, o la vincularía con ellas.",
+        "gone": "Cambiar a otra identidad es definitivo: su clave se descarta y no hay forma de volver a ella. Nunca puede convertirse en una persona normal.",
+        "ack": "Entiendo que no se puede recuperar una vez que cambie a otra",
+        "action": "Iniciar desechable",
+        "live": "Desechable",
+        "liveHint": "Nada de lo que recibe esta identidad se guarda en este navegador. Cambia a una de las personas de abajo para terminarla.",
+        "switchAway": "El nombre, los canales y los contactos de la identidad desechable se descartan, y su clave desaparece para siempre: no se puede volver a ella.",
+        "assumed": "Esta identidad no tiene nada guardado en este navegador y una identidad desechable iniciada aquí puede seguir activa, así que se trata como esa y no se guarda nada de ella. Si en cambio es una radio nueva para este navegador, conserva sus datos.",
+        "keepData": "Conservar los datos de esta radio"
       }
     }
   },
@@ -1572,7 +1592,9 @@
     "repeaterLoadBeforeLocationEdit": "Carga el nombre y la ubicación del nodo antes de cambiar cualquiera de los dos.",
     "repeaterActionSent": "Comando enviado.",
     "personaSwitchNotLanded": "Esta radio sigue con la identidad anterior, así que el cambio a {{name}} no tuvo efecto aquí.",
-    "personaSwitchNotSaved": "No se pudieron confirmar los contactos de la radio tras reiniciarse, así que el cambio a la nueva persona no está terminado. Termínalo para aplicarlos de nuevo."
+    "personaSwitchNotSaved": "No se pudieron confirmar los contactos de la radio tras reiniciarse, así que el cambio a la nueva persona no está terminado. Termínalo para aplicarlos de nuevo.",
+    "burnerLive": "Identidad desechable activa. Nada de lo que recibe se guarda en este navegador.",
+    "burnerAssumed": "Una identidad desechable puede seguir activa, así que no se guarda nada de esta identidad. Si es una radio nueva, ve a Ajustes, en Identidad."
   },
   "update": {
     "available": "Hay una nueva versión disponible",
