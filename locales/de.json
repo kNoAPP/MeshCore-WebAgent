@@ -1572,7 +1572,7 @@
     "repeaterLoadBeforeLocationEdit": "Laden Sie Name und Standort des Knotens, bevor Sie eines von beiden ändern.",
     "repeaterActionSent": "Befehl gesendet.",
     "personaSwitchNotLanded": "Dieses Funkgerät trägt weiter die vorherige Identität, daher wurde der Wechsel zu {{name}} hier nicht wirksam.",
-    "personaSwitchNotSaved": "Das Funkgerät hat die Kontakte der neuen Persona beim Neustart nicht behalten. Schließe den Wechsel ab, um sie erneut anzuwenden."
+    "personaSwitchNotSaved": "Die Kontakte des Funkgeräts ließen sich nach dem Neustart nicht bestätigen, daher ist der Wechsel zur neuen Persona nicht abgeschlossen. Schließe ihn ab, um sie erneut anzuwenden."
   },
   "update": {
     "available": "Eine neue Version ist verfügbar",

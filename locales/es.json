@@ -1572,7 +1572,7 @@
     "repeaterLoadBeforeLocationEdit": "Carga el nombre y la ubicación del nodo antes de cambiar cualquiera de los dos.",
     "repeaterActionSent": "Comando enviado.",
     "personaSwitchNotLanded": "Esta radio sigue con la identidad anterior, así que el cambio a {{name}} no tuvo efecto aquí.",
-    "personaSwitchNotSaved": "La radio no conservó los contactos de la nueva persona tras reiniciarse. Termina el cambio para aplicarlos de nuevo."
+    "personaSwitchNotSaved": "No se pudieron confirmar los contactos de la radio tras reiniciarse, así que el cambio a la nueva persona no está terminado. Termínalo para aplicarlos de nuevo."
   },
   "update": {
     "available": "Hay una nueva versión disponible",

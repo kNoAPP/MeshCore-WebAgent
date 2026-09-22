@@ -587,7 +587,10 @@ export function useMeshCore() {
           // and may have come back with its table from before them. A table
           // the connect sync could not read gets one more try.
           if (!c.contactsSynced) await c.resyncContacts().catch(() => {});
-          if (
+          if (!sessionAlive()) {
+            // Dropped during that try: nothing was learned, so the record is
+            // left 'done' for the next session to check.
+          } else if (
             pending.state &&
             !personaContactsApplied(c, pending.state, pending.removed)
           ) {
