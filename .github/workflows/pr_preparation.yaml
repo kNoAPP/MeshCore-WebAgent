@@ -25,7 +25,7 @@ jobs:
   pr-label:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v6
+      - uses: actions/labeler@v7
         with:
           sync-labels: true
           configuration-path: .github/labeler.yaml
