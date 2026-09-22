@@ -653,6 +653,14 @@
       "phraseLabel": "Frase de recuperación",
       "mint": "Crear persona",
       "minting": "Creando…",
+      "forgetPhrase": {
+        "action": "Olvidar la frase de recuperación",
+        "body": "Esta bóveda guarda la frase de recuperación, así que se pueden crear personas y cambiar a ellas sin escribirla. Olvidarla la quita de la bóveda en este dispositivo, y crear una persona o cambiar a ella volverá a pedirla. Comprueba antes que la tienes anotada.",
+        "confirm": "Olvidar la frase",
+        "forgetting": "Olvidando…",
+        "failed": "No se pudo guardar la bóveda, así que la frase sigue recordada en este dispositivo.",
+        "done": "La frase de recuperación ya no se guarda en este dispositivo. Crear una persona o cambiar a ella ahora la pide."
+      },
       "switchTitle": "Cambiar a {{name}}",
       "switchIntro": "Esto pone la clave de la persona en la radio y le devuelve el estado que tenía la última vez que estuvo activa. Con una lista de contactos llena puede tardar hasta un minuto.",
       "switchRadio": "El nombre, la ubicación, los canales y los contactos de la radio se sustituyen por los de esta persona. Los de la persona actual se guardan en este dispositivo para cuando vuelvas a ella.",

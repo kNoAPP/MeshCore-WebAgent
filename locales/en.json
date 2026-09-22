@@ -652,6 +652,14 @@
       "phraseLabel": "Recovery phrase",
       "mint": "Create persona",
       "minting": "Creating…",
+      "forgetPhrase": {
+        "action": "Forget recovery phrase",
+        "body": "This vault keeps the recovery phrase, so personas can be created and switched to without typing it. Forgetting removes it from the vault on this device, and creating or switching to a persona then asks for it again. Check that you have it written down first.",
+        "confirm": "Forget phrase",
+        "forgetting": "Forgetting…",
+        "failed": "Could not save the vault, so the phrase is still remembered on this device.",
+        "done": "The recovery phrase is no longer kept on this device. Creating or switching to a persona now asks for it."
+      },
       "switchTitle": "Switch to {{name}}",
       "switchIntro": "This puts the persona's key on the radio and gives it back the radio-side state it had when it was last live. It can take up to a minute with a full contact list.",
       "switchRadio": "The radio's name, location, channels and contacts are replaced with this persona's. The current persona's are kept on this device for when you switch back.",

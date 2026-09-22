@@ -157,6 +157,29 @@ export async function mintPersona(
 }
 
 /**
+ * Drops the recovery phrase the vault remembers and saves it, so minting and
+ * switching ask for the phrase again. Nothing is sent to the radio.
+ *
+ * @remarks The vault is unchanged when the save fails. Only this copy's
+ * phrase is dropped: another tab that has the vault unlocked keeps it until
+ * that tab locks it, and its next save is refused as stale.
+ * @returns whether the write landed; false when IndexedDB failed.
+ * @throws `VaultError` `stale` when another tab changed the vault.
+ */
+export async function forgetPhrase(vault: Vault): Promise<boolean> {
+  const before = vault.phrase;
+  vault.phrase = null;
+  try {
+    if (await saveVault(vault)) return true;
+  } catch (err) {
+    vault.phrase = before;
+    throw err;
+  }
+  vault.phrase = before;
+  return false;
+}
+
+/**
  * Checks that `phrase` derives the key the vault lists for `target`, without
  * sending anything.
  *
