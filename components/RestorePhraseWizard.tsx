@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
-import { useMeshCore } from '@/hooks/useMeshCore';
+import { useFinishIdentityWrite } from '@/hooks/useFinishIdentityWrite';
 import { boundPubkey } from '@/lib/session/persistence';
 import { SeedPhraseError, type SeedPhraseErrorCode } from '@/lib/identity/seed';
 import {
@@ -97,8 +97,7 @@ export function RestorePhraseWizard({ onClose }: { onClose: () => void }) {
   const client = useMeshStore((s) => s.client);
   const selfInfo = useMeshStore((s) => s.selfInfo);
   const notify = useMeshStore((s) => s.notify);
-  const setIdentityCheck = useMeshStore((s) => s.setIdentityCheck);
-  const { restartSession } = useMeshCore();
+  const finish = useFinishIdentityWrite(onClose);
   const sessionReady = useBackupReady();
   const installed = useMeshStore(
     (s) => !!client && s.identityCheck?.client === client,
@@ -268,7 +267,7 @@ export function RestorePhraseWizard({ onClose }: { onClose: () => void }) {
         setError(<RestoreErrorText err={err} />);
         return;
       }
-      setIdentityCheck({
+      const failed = await finish({
         kind: 'restore',
         expected: preview.publicKey,
         outgoing,
@@ -276,33 +275,7 @@ export function RestorePhraseWizard({ onClose }: { onClose: () => void }) {
         fingerprint: preview.fingerprint,
         client,
       });
-      if (!confirmed) {
-        notify({
-          level: 'error',
-          text: t('settings.restore.error.unconfirmed'),
-          key: 'restoreUnconfirmed',
-          surface: 'bar',
-        });
-      }
-      try {
-        await client.reboot();
-      } catch (err) {
-        setError(
-          t('settings.recovery.error.rebootFailed', {
-            error: (err as Error).message,
-          }),
-        );
-        return;
-      }
-      notify({
-        level: 'info',
-        text: t('settings.restore.rebooting'),
-        key: 'rebooting',
-      });
-      onClose();
-      // The check needs a fresh session, and the restart may not have dropped
-      // the link to trigger one.
-      restartSession();
+      if (failed) setError(failed);
     } finally {
       setBusy(false);
     }

@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
-import { useMeshCore } from '@/hooks/useMeshCore';
+import { useFinishIdentityWrite } from '@/hooks/useFinishIdentityWrite';
 import { boundPubkey } from '@/lib/session/persistence';
 import { generateMnemonic, identityFromMnemonic } from '@/lib/identity/seed';
 import {
@@ -98,9 +98,7 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const client = useMeshStore((s) => s.client);
   const selfInfo = useMeshStore((s) => s.selfInfo);
-  const notify = useMeshStore((s) => s.notify);
-  const setIdentityCheck = useMeshStore((s) => s.setIdentityCheck);
-  const { restartSession } = useMeshCore();
+  const finish = useFinishIdentityWrite(onClose);
   const sessionReady = useBackupReady();
   // Once the key is on the radio the only way forward is the reboot, and the
   // steps before it no longer describe anything that can be changed.
@@ -204,51 +202,18 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
         setError(<WriteErrorText err={err} />);
         return;
       }
-      // From here the radio may hold the new identity, acknowledged or not:
-      // whatever else happens, the next session is checked against it.
-      setIdentityCheck({
-        kind: 'regenerate',
-        expected: draft.publicKey,
-        outgoing,
-        confirmed: result.confirmed,
-        fingerprint: result.fingerprint,
-        client,
-      });
-      if (!result.confirmed) {
-        notify({
-          level: 'error',
-          text: t('settings.recovery.error.unconfirmed'),
-          key: 'recoveryUnconfirmed',
-          surface: 'bar',
-        });
-      }
-      if (!result.persisted) {
-        notify({
-          level: 'error',
-          text: t('settings.recovery.error.unsaved'),
-          key: 'recoveryUnsaved',
-          surface: 'bar',
-        });
-      }
-      try {
-        await client.reboot();
-      } catch (err) {
-        setError(
-          t('settings.recovery.error.rebootFailed', {
-            error: (err as Error).message,
-          }),
-        );
-        return;
-      }
-      notify({
-        level: 'info',
-        text: t('settings.recovery.rebooting'),
-        key: 'rebooting',
-      });
-      onClose();
-      // The check needs a fresh session, and the restart may not have dropped
-      // the link to trigger one.
-      restartSession();
+      const failed = await finish(
+        {
+          kind: 'regenerate',
+          expected: draft.publicKey,
+          outgoing,
+          confirmed: result.confirmed,
+          fingerprint: result.fingerprint,
+          client,
+        },
+        result.persisted,
+      );
+      if (failed) setError(failed);
     } finally {
       setBusy(false);
     }
