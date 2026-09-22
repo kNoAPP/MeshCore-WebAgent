@@ -2027,33 +2027,39 @@ export function useMeshCore() {
   );
 
   /**
-   * Reboots the radio, and reports "Rebooting…" once it has restarted. The
-   * restart usually drops the transport link; we deliberately do *not* call
-   * {@link disconnect} (which would set `userInitiatedDisconnect` and suppress
-   * reconnect). Instead the drop flows through the client's `onDisconnect`
-   * into the auto-reconnect loop, which recovers the session once the radio
-   * comes back.
+   * Reboots the radio, and once it has restarted reports "Rebooting…" and
+   * restarts the session through the auto-reconnect loop
+   * ({@link restartSession}), which re-runs the connect sync against the
+   * restarted radio.
+   *
+   * @remarks Never {@link disconnect}, which would set
+   * `userInitiatedDisconnect` and suppress the reconnect. A restart that
+   * dropped the link (BLE, most serial bridges) already started the loop, and
+   * {@link restartSession} is then a no-op; native USB serial on an ESP32-S3
+   * can survive the restart, and without this the session would carry on
+   * unsynced against a radio that has booted since.
    */
   const rebootDevice = useCallback(async () => {
     if (!canTransmit(client)) return;
     try {
       await client.reboot();
-      // Kept, not just flashed: by now the link has usually dropped and the
-      // reconnect overlay has the screen, so the drawer row is what explains
-      // why once the session is back.
-      notify({
-        level: 'info',
-        text: i18n.t('notify.rebooting'),
-        key: 'rebooting',
-      });
     } catch (err) {
       notify({
         level: 'error',
         text: i18n.t('notify.rebootFailed', { error: (err as Error).message }),
         key: 'rebootFailed',
       });
+      return;
     }
-  }, [client, notify]);
+    // Kept, not just flashed: the reconnect overlay takes the screen next, so
+    // the drawer row is what explains why once the session is back.
+    notify({
+      level: 'info',
+      text: i18n.t('notify.rebooting'),
+      key: 'rebooting',
+    });
+    restartSession();
+  }, [client, notify, restartSession]);
 
   // A save writes two commands, and the client's queue only serializes
   // individual exchanges — so two overlapping saves could leave the radio with
