@@ -244,6 +244,31 @@ export interface PersonaSwitch {
    * it is unfinished, and offer it again.
    */
   dismissed: boolean;
+  /**
+   * Whether the incoming identity is a burner, whose key exists only in this
+   * session's memory. Such a switch writes no pending record, and the session
+   * it lands on binds no persistence; see `lib/identity/burner.ts`.
+   */
+  burner: boolean;
+}
+
+/**
+ * A burner live on the connected radio: an identity nothing is saved for.
+ *
+ * @remarks Kept through a teardown as well as a reconnect, like
+ * {@link PersonaSwitch}, so a hand reconnect still saves nothing. A page
+ * reload loses it; the burner guard in IndexedDB then has the connect flow
+ * rebuild it, marked {@link BurnerSession.assumed}.
+ */
+export interface BurnerSession {
+  /** The burner's public key, lowercase hex. */
+  pubkey: string;
+  /**
+   * True when it was rebuilt after a reload from the guard alone: an identity
+   * this browser has no records of arrived while a burner may be live, and
+   * may be a new radio instead. The user can then choose to keep its data.
+   */
+  assumed: boolean;
 }
 
 /**
@@ -700,6 +725,8 @@ interface MeshState {
   restoreOffer: boolean;
   /** A persona switch not yet finished, or null; see {@link PersonaSwitch}. */
   personaSwitch: PersonaSwitch | null;
+  /** The burner live on the radio, or null; see {@link BurnerSession}. */
+  burner: BurnerSession | null;
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
 
@@ -1004,6 +1031,7 @@ interface MeshActions {
   setIdentityCheck: (check: IdentityCheck | null) => void;
   setRestoreOffer: (offer: boolean) => void;
   setPersonaSwitch: (next: PersonaSwitch | null) => void;
+  setBurner: (burner: BurnerSession | null) => void;
   /**
    * Resets everything that belongs to one identity rather than to the radio
    * or the link: history, conversations and drafts, the advert cache, the
@@ -1300,6 +1328,7 @@ const initialState: MeshState = {
   identityCheck: null,
   restoreOffer: false,
   personaSwitch: null,
+  burner: null,
   battery: null,
   syncProgress: null,
   deviceStats: null,
@@ -1436,6 +1465,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setIdentityCheck: (identityCheck) => set({ identityCheck }),
   setRestoreOffer: (restoreOffer) => set({ restoreOffer }),
   setPersonaSwitch: (personaSwitch) => set({ personaSwitch }),
+  setBurner: (burner) => set({ burner }),
   resetIdentityData: () => {
     mapPrefsTouched = false;
     mapFiltersTouched.clear();
@@ -2179,6 +2209,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       // The same for a persona switch, which a hand reconnect must be able to
       // finish.
       personaSwitch: get().personaSwitch,
+      // And a live burner, so a hand reconnect still saves nothing for it.
+      burner: get().burner,
       // Every other preference is per-radio (encrypted in IndexedDB) and
       // reloaded on the next connect, so it resets to defaults here.
     }),

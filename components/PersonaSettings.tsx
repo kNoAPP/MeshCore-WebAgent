@@ -6,6 +6,8 @@
 import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
+import { useMeshCore } from '@/hooks/useMeshCore';
+import { releaseAssumedBurner } from '@/lib/identity/burner';
 import {
   listVaults,
   lockVault,
@@ -54,12 +56,15 @@ export function PersonaRow() {
   }, []);
   useEffect(() => () => void (vault && lockVault(vault)), [vault]);
 
-  if (vaults.length === 0) return null;
+  if (vaults.length === 0) {
+    return <AssumedBurner />;
+  }
   return (
     <div className='mt-4 border-t border-border pt-3'>
       <p className='mb-1 text-xs font-semibold text-text'>
         {t('settings.persona.title')}
       </p>
+      <AssumedBurner />
       <UnfinishedSwitch />
       {vault ? (
         <PersonaList
@@ -98,7 +103,9 @@ function UnfinishedSwitch() {
     !record ||
     record.stage !== 'switching' ||
     record.running ||
-    reported !== record.target
+    reported !== record.target ||
+    // An assumed burner's, which AssumedBurner offers instead.
+    (record.burner && record.state === null)
   ) {
     return null;
   }
@@ -114,6 +121,67 @@ function UnfinishedSwitch() {
       >
         {t('settings.persona.resumeAction')}
       </button>
+    </div>
+  );
+}
+
+// An identity taken for a burner only because it arrived with nothing saved
+// while a burner may still be live; it may be a radio new here instead.
+function AssumedBurner() {
+  const { t } = useTranslation();
+  const { restartSession } = useMeshCore();
+  const assumed = useMeshStore(
+    (s) =>
+      !!s.burner?.assumed &&
+      s.burner.pubkey === s.selfInfo?.pubkey?.toLowerCase(),
+  );
+  // The radio does not look like a finished burner, which a burner switch
+  // cut off by a reload leaves behind — and so does a radio new here.
+  const unfinished = useMeshStore((s) =>
+    s.personaSwitch?.burner &&
+    s.personaSwitch.state === null &&
+    s.personaSwitch.stage === 'switching' &&
+    !s.personaSwitch.running &&
+    s.personaSwitch.target === s.burner?.pubkey
+      ? s.personaSwitch
+      : null,
+  );
+  const setPersonaSwitch = useMeshStore((s) => s.setPersonaSwitch);
+  const [busy, setBusy] = useState(false);
+  if (!assumed) return null;
+  return (
+    <div
+      role='alert'
+      className='my-3 rounded-md border border-red bg-red/10 p-3 text-xs leading-relaxed text-text'
+    >
+      <p>{t('settings.persona.burner.assumed')}</p>
+      {unfinished && (
+        <p className='mt-2'>{t('settings.persona.burner.assumedUnfinished')}</p>
+      )}
+      <div className='mt-2 flex flex-wrap gap-2'>
+        <button
+          onClick={() => {
+            setBusy(true);
+            // The restart binds this identity's persistence like any other's.
+            void releaseAssumedBurner().then(restartSession);
+          }}
+          disabled={busy}
+          className={BUTTON_CLASS}
+        >
+          {t('settings.persona.burner.keepData')}
+        </button>
+        {unfinished && (
+          <button
+            onClick={() =>
+              setPersonaSwitch({ ...unfinished, dismissed: false })
+            }
+            disabled={busy}
+            className={BUTTON_CLASS}
+          >
+            {t('settings.persona.burner.finish')}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

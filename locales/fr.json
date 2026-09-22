@@ -690,6 +690,29 @@
         "unsynced": "Les canaux ou contacts de la radio n’ont pas tous été lus, la persona actuelle ne peut donc pas être conservée entière. Reconnectez la radio et réessayez.",
         "damaged": "Les canaux ou contacts enregistrés de cette persona ne se relisent plus ; basculer vers elle pourrait perdre son historique. Rien n’a été envoyé à la radio.",
         "other": "Le basculement a échoué : {{error}}"
+      },
+      "burner": {
+        "new": "Nouvelle identité jetable",
+        "title": "Lancer une identité jetable",
+        "intro": "Une identité jetable utilise une clé aléatoire qu’aucune phrase de récupération ne peut reproduire. Elle ne dure que tant qu’elle est active sur la radio.",
+        "saves": "Rien la concernant n’est enregistré dans ce navigateur : ni messages, ni nœuds découverts, ni préférences, règles d’automatisation ou secrets, ni entrée dans le coffre. Le persona actuel est conservé sur cet appareil comme d’habitude.",
+        "radio": "Elle démarre avec son propre nom d’annonce, sans partage de position, uniquement avec le canal Public et sans contacts, elle n’hérite donc de rien du persona actuel.",
+        "protects": "Ce qu’elle protège : personne sur le maillage ne peut la relier à vos autres personas par sa clé, son nom, sa position, ses canaux ou ses contacts, et rien dans ce navigateur ne les relie non plus.",
+        "limits": "Ce qu’elle ne protège pas : elle fonctionne sur la même radio, depuis le même endroit, avec les mêmes habitudes. Quiconque observe le temps d’antenne, les heures d’émission ou le signal peut encore la relier à vous. Ce n’est pas de l’anonymat.",
+        "reload": "Recharger cette page oublie l’identité jetable ici mais la laisse sur la radio. Tant qu’elle peut être encore active, une identité qui arrive sans rien d’enregistré dans ce navigateur est traitée comme l’identité jetable, et rien n’est enregistré pour elle.",
+        "nameField": "Nom d’annonce",
+        "nameTaken": "Choisissez un nom qu’aucun de vos autres personas n’utilise, sinon il les relierait.",
+        "gone": "Quitter une identité jetable est définitif : sa clé est supprimée et il n’y a aucun retour possible. Elle ne peut jamais devenir un persona ordinaire.",
+        "ack": "Je comprends qu’elle est irrécupérable une fois quittée",
+        "action": "Lancer l’identité jetable",
+        "live": "Jetable",
+        "liveHint": "Rien de ce que reçoit cette identité n’est enregistré dans ce navigateur. Passez à l’un des personas ci-dessous pour y mettre fin.",
+        "switchAway": "Le nom, les canaux et les contacts de l’identité jetable sont supprimés, et sa clé disparaît pour de bon : impossible d’y revenir.",
+        "assumed": "Rien n’est enregistré pour cette identité dans ce navigateur, et une identité jetable lancée ici peut être encore active : elle est donc traitée comme celle-ci et rien n’est enregistré. S’il s’agit plutôt d’une radio nouvelle pour ce navigateur, conservez ses données.",
+        "keepData": "Conserver les données de cette radio",
+        "resumeBody": "Le passage à cette identité jetable a été interrompu : la radio peut encore porter le nom, la position, les canaux ou les contacts du persona précédent, qui les relient. Terminer lui donne un nouveau nom d’annonce, sans partage de position, uniquement le canal Public et sans contacts.",
+        "assumedUnfinished": "Elle porte aussi des canaux, des contacts ou un partage de position sans lesquels une identité jetable démarre. Si c’est une identité jetable dont un rechargement a interrompu le passage, terminez-la : elle reçoit un nouveau nom d’annonce et perd tout cela. Si c’est une radio nouvelle ici, terminer l’effacerait : conservez plutôt ses données.",
+        "finish": "Terminer comme identité jetable"
       }
     }
   },
@@ -1572,7 +1595,9 @@
     "repeaterLoadBeforeLocationEdit": "Chargez le nom et la position du nœud avant de modifier l’un ou l’autre.",
     "repeaterActionSent": "Commande envoyée.",
     "personaSwitchNotLanded": "Cette radio porte toujours l’identité précédente : le basculement vers {{name}} n’a pas pris effet ici.",
-    "personaSwitchNotSaved": "Les contacts de la radio n’ont pas pu être confirmés après son redémarrage : le basculement vers la nouvelle persona n’est pas terminé. Terminez-le pour les appliquer à nouveau."
+    "personaSwitchNotSaved": "Les contacts de la radio n’ont pas pu être confirmés après son redémarrage : le basculement vers la nouvelle persona n’est pas terminé. Terminez-le pour les appliquer à nouveau.",
+    "burnerLive": "Identité jetable active. Rien de ce qu’elle reçoit n’est enregistré dans ce navigateur.",
+    "burnerAssumed": "Une identité jetable peut être encore active, donc rien n’est enregistré pour cette identité. S’il s’agit d’une nouvelle radio, voir Réglages, sous Identité."
   },
   "update": {
     "available": "Une nouvelle version est disponible",

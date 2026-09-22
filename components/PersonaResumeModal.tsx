@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { usePersonaSwitch } from '@/hooks/usePersonaSwitch';
 import { loadPendingSwitch, type PersonaState } from '@/lib/identity/persona';
+import { burnerPersona, isBurnerNameTaken } from '@/lib/identity/burner';
+import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
 import {
   listVaults,
   lockVault,
@@ -29,8 +31,10 @@ const noop = () => {};
  * this session receives is saved until the switch is finished, since the
  * storage key depends on the channels still being written. Finishing re-applies
  * the recorded state. After a reload only the sealed pending record is left,
- * so the vault's passphrase is asked for to read it. Putting it off leaves the
- * Identity settings offering it again.
+ * so the vault's passphrase is asked for to read it. A burner has no pending
+ * record, so one cut off by a reload is finished from a fresh burner persona
+ * under a new advert name instead. Putting it off leaves the Identity settings
+ * offering it again.
  *
  * Mounted by {@link AppShell} while connected, since the reconnect after a
  * drop closes the Settings page the switch was started from.
@@ -38,11 +42,14 @@ const noop = () => {};
 export function PersonaResumeModal() {
   const { t } = useTranslation();
   const passphraseId = useId();
+  const nameId = useId();
   const record = useMeshStore((s) => s.personaSwitch);
   const reported = useMeshStore((s) => s.selfInfo?.pubkey?.toLowerCase());
+  const current = useMeshStore((s) => s.selfInfo?.name);
   const setPersonaSwitch = useMeshStore((s) => s.setPersonaSwitch);
   const { finish, progress } = usePersonaSwitch();
   const [passphrase, setPassphrase] = useState('');
+  const [burnerName, setBurnerName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -59,7 +66,15 @@ export function PersonaResumeModal() {
     return null;
   }
 
-  const sealed = record.state === null;
+  // A burner's state was never written anywhere: it is rebuilt, not unsealed.
+  const renamed = record.burner && record.state === null;
+  const sealed = record.state === null && !record.burner;
+  const trimmed = burnerName.trim();
+  const bytes = new TextEncoder().encode(trimmed).length;
+  const taken = bytes > 0 && isBurnerNameTaken(trimmed, [current]);
+  const canRun = renamed
+    ? bytes > 0 && bytes <= MAX_ADVERT_NAME_BYTES && !taken
+    : !sealed || !!passphrase;
   const dismiss = () => setPersonaSwitch({ ...record, dismissed: true });
   const run = async () => {
     setError(null);
@@ -74,7 +89,10 @@ export function PersonaResumeModal() {
         setError(t('settings.persona.resumeWrongPassphrase'));
         return;
       }
-      await finish(controller.signal, state ?? undefined);
+      await finish(
+        controller.signal,
+        renamed ? burnerPersona(trimmed) : (state ?? undefined),
+      );
     } catch (err) {
       if (!controller.signal.aborted) {
         setError(switchErrorMessage(err));
@@ -96,11 +114,36 @@ export function PersonaResumeModal() {
       ) : (
         <>
           <p role='alert' className='text-xs leading-relaxed text-text'>
-            {t('settings.persona.resumeBody', { name })}
+            {renamed
+              ? t('settings.persona.burner.resumeBody')
+              : t('settings.persona.resumeBody', { name })}
           </p>
           <p className='mt-3 text-xs leading-relaxed text-text2'>
             {t('settings.persona.resumeUnsaved')}
           </p>
+          {renamed && (
+            <>
+              <label
+                htmlFor={nameId}
+                className='mt-3 mb-1 block text-xs text-text2'
+              >
+                {t('settings.persona.burner.nameField')}
+              </label>
+              <input
+                id={nameId}
+                value={burnerName}
+                disabled={busy}
+                onChange={(e) => setBurnerName(e.target.value)}
+                aria-invalid={taken || bytes > MAX_ADVERT_NAME_BYTES}
+                className='w-full rounded-md border border-border-control bg-surface2 px-3 py-1.5 text-sm outline-none focus:border-accent-solid disabled:opacity-50'
+              />
+              {taken && (
+                <p role='alert' className='mt-2 text-xs text-red'>
+                  {t('settings.persona.burner.nameTaken')}
+                </p>
+              )}
+            </>
+          )}
           {sealed && (
             <>
               <p className='mt-3 mb-2 text-xs leading-relaxed text-text2'>
@@ -141,7 +184,7 @@ export function PersonaResumeModal() {
         {!busy && (
           <button
             onClick={() => void run()}
-            disabled={sealed && !passphrase}
+            disabled={!canRun}
             className='rounded-md bg-accent-solid px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-accent-solid'
           >
             {t('settings.persona.resumeAction')}

@@ -76,6 +76,9 @@ export function PersonaSwitchModal({
   const { t } = useTranslation();
   const phraseId = useId();
   const notify = useMeshStore((s) => s.notify);
+  const fromBurner = useMeshStore(
+    (s) => !!s.burner && s.burner.pubkey === s.selfInfo?.pubkey?.toLowerCase(),
+  );
   const heardElsewhere = useMeshStore(
     (s) =>
       Object.values(s.adverts).some((a) => a.pubkey === target.publicKey) ||
@@ -176,7 +179,13 @@ export function PersonaSwitchModal({
             {t('settings.persona.switchIntro')}
           </p>
           <ul className='mb-4 list-disc space-y-1.5 pl-4 text-xs leading-relaxed text-text'>
-            <li>{t('settings.persona.switchRadio')}</li>
+            <li>
+              {t(
+                fromBurner
+                  ? 'settings.persona.burner.switchAway'
+                  : 'settings.persona.switchRadio',
+              )}
+            </li>
             <li>{t('settings.persona.switchBrowser')}</li>
             <li>{t('settings.persona.switchContacts')}</li>
           </ul>

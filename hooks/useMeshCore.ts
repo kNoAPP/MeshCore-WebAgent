@@ -22,7 +22,13 @@ import {
   selectPreferences,
 } from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
-import { personaContactsApplied } from '@/lib/identity/persona';
+import { capturePersona, personaContactsApplied } from '@/lib/identity/persona';
+import {
+  burnerSession,
+  isBurnerShaped,
+  settleKeptSwitch,
+  settleLandedSwitch,
+} from '@/lib/identity/burner';
 import {
   loadRadioData,
   loadAutomationRules,
@@ -569,6 +575,7 @@ export function useMeshCore() {
         const pending = store0.personaSwitch;
         const reported = pubkey?.toLowerCase();
         if (pending?.stage === 'switching' && reported === pending.outgoing) {
+          await settleKeptSwitch(pending);
           store0.setPersonaSwitch(null);
           void deletePendingPersona(pending.target);
           notify({
@@ -578,6 +585,11 @@ export function useMeshCore() {
             }),
             key: 'personaSwitchNotLanded',
           });
+        }
+        // The radio holds the switch's key, whichever stage it reached: a
+        // burner it put on is the live one now, and one it took off is over.
+        if (pending && reported === pending.target) {
+          await settleLandedSwitch(pending);
         }
         let unfinishedSwitch =
           pending?.stage === 'switching' && reported === pending.target;
@@ -607,7 +619,8 @@ export function useMeshCore() {
               key: 'personaSwitchNotSaved',
             });
           } else {
-            void deletePendingPersona(reported);
+            // A burner's switch wrote no pending record to delete.
+            if (!pending.burner) void deletePendingPersona(reported);
             // Only now that the radio is known to hold the persona. The
             // switch is complete either way; a failed advert only means peers
             // learn it at the next one.
@@ -631,9 +644,15 @@ export function useMeshCore() {
             stage: 'switching',
             running: false,
             dismissed: false,
+            // A burner's switch writes no pending record to rebuild from.
+            burner: false,
           });
         }
-        if (pubkey && sessionAlive() && !unfinishedSwitch) {
+        // A burner's session saves nothing, so it binds no storage key and no
+        // secrets context: every write below is then a no-op.
+        const burner =
+          reported && !unfinishedSwitch ? await burnerSession(reported) : false;
+        if (pubkey && sessionAlive() && !unfinishedSwitch && !burner) {
           // Declared before the await, so a read that still beats the binding
           // waits for it rather than concluding nothing is stored; the finally
           // answers those reads on every path that never binds one.
@@ -664,6 +683,49 @@ export function useMeshCore() {
         const deviceName =
           c.selfInfo?.name ?? c.deviceInfo?.model ?? i18n.t('common.device');
         setDeviceName(deviceName);
+
+        if (burner && reported && sessionAlive()) {
+          // Hydrated from memory: what this session set is all there is.
+          const store = useMeshStore.getState();
+          restorePreferences(selectPreferences(store), true);
+          if (
+            store.personaSwitch?.stage === 'done' &&
+            store.personaSwitch.target === reported
+          ) {
+            store.setPersonaSwitch(null);
+            notify({
+              level: 'info',
+              text: i18n.t('toast.burnerLive'),
+              key: 'burnerLive',
+            });
+          }
+          // Cut off by a reload before its persona was applied, the burner may
+          // still carry the previous persona's name, channels and contacts,
+          // so finishing it is offered. Only from Settings, beside keeping
+          // the radio's data: an identity assumed to be the burner may be a
+          // radio new here, and finishing would wipe it.
+          if (burner === 'assumed' && !isBurnerShaped(capturePersona(c))) {
+            store.setPersonaSwitch({
+              target: reported,
+              outgoing: '',
+              label: i18n.t('settings.persona.burner.live'),
+              state: null,
+              removed: [],
+              announce: false,
+              stage: 'switching',
+              running: false,
+              dismissed: true,
+              burner: true,
+            });
+          }
+          if (burner === 'assumed') {
+            notify({
+              level: 'warning',
+              text: i18n.t('toast.burnerAssumed'),
+              key: 'burnerAssumed',
+            });
+          }
+        }
 
         // Wire history persistence FIRST — before the best-effort hydrate
         // round-trips below — so the now-'connected' link can't accept a send

@@ -8,6 +8,7 @@ import {
   getStorageContext,
   reencryptApiKey,
   setSecretContext,
+  wipeApiKey,
 } from '@/lib/ai/secret';
 import { reencryptRepeaterCreds } from '@/lib/meshcore/adminCreds';
 import { toHex } from '@/lib/utils';
@@ -381,11 +382,13 @@ export async function beginIdentityHandover(
  * the outgoing identity's records: they stay under the channel set that
  * identity had, which is the one a persona switch gives back to it.
  *
- * @param pubkey - as for {@link beginIdentityHandover}.
+ * @param pubkey - as for {@link beginIdentityHandover}; null for a burner,
+ * for which nothing may be stored at all: the secrets context is dropped
+ * instead, along with any API key held in memory for the outgoing identity.
  */
 export async function beginIdentitySwitch(
   client: MeshCoreClient,
-  pubkey: string,
+  pubkey: string | null,
 ): Promise<void> {
   // A re-key still queued is the outgoing identity's, and has to land before
   // the flush below writes under whichever key is bound.
@@ -393,10 +396,14 @@ export async function beginIdentitySwitch(
   await flushSessionAsync();
   binding = null;
   switchPending = true;
-  setSecretContext(
-    pubkey,
-    (await deriveChannelKey(client.channels, pubkey)).key,
-  );
+  if (pubkey === null) {
+    wipeApiKey();
+  } else {
+    setSecretContext(
+      pubkey,
+      (await deriveChannelKey(client.channels, pubkey)).key,
+    );
+  }
   await client.refreshSelfInfo().catch(() => {});
 }
 

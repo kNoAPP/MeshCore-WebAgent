@@ -6,19 +6,35 @@
 import { useCallback, useState } from 'react';
 import { useMeshStore, type PersonaSwitch } from '@/store/meshStore';
 import {
+  burnerPersona,
+  generateBurnerKey,
+  settleKeptSwitch,
+  settleLandedSwitch,
+} from '@/lib/identity/burner';
+import {
   applyPersona,
   personaRemovals,
   type PersonaState,
 } from '@/lib/identity/persona';
 import {
+  installKey,
   installPersonaKey,
+  keepOutgoingPersona,
+  PersonaSwitchError,
   preparePersonaSwitch,
   recordLive,
   verifyPersonaKey,
 } from '@/lib/identity/personaSwitch';
+import type { SeedIdentity } from '@/lib/identity/seed';
 import type { Vault, VaultIdentity } from '@/lib/identity/vault';
+import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { beginIdentitySwitch } from '@/lib/session/persistence';
-import { deletePendingPersona } from '@/lib/storage';
+import {
+  deleteBurnerGuard,
+  deletePendingPersona,
+  saveBurnerGuard,
+} from '@/lib/storage';
+import { toHex } from '@/lib/utils';
 import { useMeshCore } from './useMeshCore';
 
 /** Where a persona switch run has got to, for its progress display. */
@@ -34,13 +50,44 @@ export type SwitchProgress =
  */
 export type SwitchOutcome = 'switched' | 'kept' | 'unknown';
 
+// What a new switch starts from: the session, the identity the radio holds,
+// and whether that is a burner or a switch that never finished.
+function current(): {
+  client: MeshCoreClient;
+  outgoing: string;
+  fromBurner: boolean;
+  mixed: boolean;
+  untouched: PersonaSwitch | null;
+} {
+  const store = useMeshStore.getState();
+  const client = store.client;
+  const outgoing = store.selfInfo?.pubkey?.toLowerCase();
+  if (!client || !outgoing) throw new Error('Not connected');
+  const pending = store.personaSwitch;
+  // The radio is still mid-switch onto this identity: its state is a mix,
+  // and the record already saved for it is the one to keep.
+  const mixed = pending?.stage === 'switching' && pending.target === outgoing;
+  return {
+    client,
+    outgoing,
+    // A burner is never kept, so there is nothing to capture from it.
+    fromBurner: store.burner?.pubkey === outgoing,
+    mixed,
+    // What the store goes back to when the run changes nothing.
+    untouched: mixed && pending ? { ...pending, running: false } : null,
+  };
+}
+
 /**
- * Runs persona switches, and finishes one a previous run left unfinished.
+ * Runs persona switches, onto a persona of the vault or onto a new burner,
+ * and finishes one a previous run left unfinished.
  *
  * @remarks Every step that can leave the radio part one persona, part another
- * is recorded first — in the store's `personaSwitch`, and durably as the
- * switch's pending record — so a cancel, a failure, a dropped link or a
- * reload is offered for finishing rather than lost.
+ * is recorded first — in the store's `personaSwitch`, and, for a persona of
+ * the vault, durably as the switch's pending record — so a cancel, a failure,
+ * a dropped link or a reload is offered for finishing rather than lost. A
+ * burner writes no pending record; its guard keeps a reload from saving
+ * anything for it instead (see `lib/identity/burner.ts`).
  *
  * The session leaves the outgoing identity, and the store is cleared of its
  * data, before the key is written, so nothing the new key receives can be
@@ -50,13 +97,20 @@ export type SwitchOutcome = 'switched' | 'kept' | 'unknown';
  * switch reboots the radio and restarts the session onto the incoming
  * identity, which checks the radio kept the persona before announcing it.
  *
- * @returns `start` and `finish`, and the run's `progress`, null when idle.
+ * @returns `start`, `startBurner` and `finish`, and the run's `progress`,
+ * null when idle.
  */
 export function usePersonaSwitch(): {
   start: (
     vault: Vault,
     phrase: string,
     target: VaultIdentity,
+    announce: boolean,
+    signal: AbortSignal,
+  ) => Promise<SwitchOutcome>;
+  startBurner: (
+    vault: Vault,
+    name: string,
     announce: boolean,
     signal: AbortSignal,
   ) => Promise<SwitchOutcome>;
@@ -105,6 +159,71 @@ export function usePersonaSwitch(): {
     [restartSession],
   );
 
+  // Everything from the point the switch is recorded: the session leaves the
+  // outgoing identity, the key goes on, and the persona is applied.
+  const runSwitch = useCallback(
+    async (
+      vault: Vault,
+      record: PersonaSwitch & { state: PersonaState },
+      untouched: PersonaSwitch | null,
+      install: () => Promise<boolean | null>,
+      discard: () => Promise<unknown>,
+      signal: AbortSignal,
+    ): Promise<SwitchOutcome> => {
+      const store = useMeshStore.getState();
+      const client = store.client;
+      if (!client) throw new Error('Not connected');
+      store.setPersonaSwitch(record);
+      // Before the key is written, so every way the switch can end — resumed
+      // after a drop or a reload included — inherits it; only an outcome that
+      // leaves the radio on the outgoing identity puts it back.
+      const undoLive = await recordLive(vault, record.target, record.outgoing);
+      // Undoes what was recorded, for an outcome that leaves the radio on the
+      // outgoing identity.
+      const keep = async () => {
+        await discard();
+        await undoLive();
+        await settleKeptSwitch(record);
+        store.setPersonaSwitch(untouched);
+      };
+      setProgress({ stage: 'importing' });
+      await beginIdentitySwitch(client, record.burner ? null : record.target);
+      store.resetIdentityData();
+
+      let landed: boolean | null;
+      try {
+        landed = await install();
+      } catch (err) {
+        // A refusal: the radio kept the outgoing identity.
+        await keep();
+        setProgress(null);
+        restartSession();
+        throw err;
+      }
+      if (landed !== true) {
+        if (landed === false) {
+          await keep();
+        } else {
+          // The next session decides; see PersonaSwitch.
+          store.setPersonaSwitch({ ...record, running: false });
+        }
+        setProgress(null);
+        restartSession();
+        return landed === false ? 'kept' : 'unknown';
+      }
+
+      await settleLandedSwitch(record);
+      // The identity the radio was mid-switch onto is gone from it again, and
+      // its good persona record was never overwritten.
+      if (untouched) await deletePendingPersona(untouched.target);
+      setProgress({ stage: 'syncing' });
+      await client.resyncContacts();
+      await apply(record, record.state, signal);
+      return 'switched';
+    },
+    [apply, restartSession],
+  );
+
   const start = useCallback(
     async (
       vault: Vault,
@@ -113,24 +232,18 @@ export function usePersonaSwitch(): {
       announce: boolean,
       signal: AbortSignal,
     ): Promise<SwitchOutcome> => {
-      const store = useMeshStore.getState();
-      const client = store.client;
-      const outgoing = store.selfInfo?.pubkey?.toLowerCase();
-      if (!client || !outgoing) throw new Error('Not connected');
-      const pending = store.personaSwitch;
-      // The radio is still mid-switch onto this identity: its state is a mix,
-      // and the record already saved for it is the one to keep.
-      const mixed =
-        pending?.stage === 'switching' && pending.target === outgoing;
-      // What the store goes back to when this run changes nothing.
-      const untouched =
-        mixed && pending ? { ...pending, running: false } : null;
+      const { client, outgoing, fromBurner, mixed, untouched } = current();
 
       setProgress({ stage: 'saving' });
       let state: PersonaState;
       try {
         await verifyPersonaKey(phrase, target);
-        state = await preparePersonaSwitch(client, vault, target, !mixed);
+        state = await preparePersonaSwitch(
+          client,
+          vault,
+          target,
+          !mixed && !fromBurner,
+        );
       } catch (err) {
         setProgress(null);
         throw err;
@@ -141,61 +254,80 @@ export function usePersonaSwitch(): {
         signal.throwIfAborted();
       }
 
-      const record: PersonaSwitch = {
-        target: target.publicKey,
-        outgoing,
-        label: target.label,
-        state,
-        removed: [],
-        announce,
-        stage: 'switching',
-        running: true,
-        dismissed: false,
-      };
-      store.setPersonaSwitch(record);
-      // Before the key is written, so every way the switch can end — resumed
-      // after a drop or a reload included — inherits it; only an outcome that
-      // leaves the radio on the outgoing identity puts it back.
-      const undoLive = await recordLive(vault, target.publicKey, outgoing);
-      setProgress({ stage: 'importing' });
-      await beginIdentitySwitch(client, target.publicKey);
-      store.resetIdentityData();
+      return runSwitch(
+        vault,
+        {
+          target: target.publicKey,
+          outgoing,
+          label: target.label,
+          state,
+          removed: [],
+          announce,
+          stage: 'switching',
+          running: true,
+          dismissed: false,
+          burner: false,
+        },
+        untouched,
+        () => installPersonaKey(client, phrase, target),
+        () => deletePendingPersona(target.publicKey),
+        signal,
+      );
+    },
+    [runSwitch],
+  );
 
-      let landed: boolean | null;
+  const startBurner = useCallback(
+    async (
+      vault: Vault,
+      name: string,
+      announce: boolean,
+      signal: AbortSignal,
+    ): Promise<SwitchOutcome> => {
+      const { client, outgoing, fromBurner, mixed, untouched } = current();
+
+      setProgress({ stage: 'saving' });
+      let key: SeedIdentity;
       try {
-        landed = await installPersonaKey(client, phrase, target);
+        if (!mixed && !fromBurner) await keepOutgoingPersona(client, vault);
+        key = await generateBurnerKey();
       } catch (err) {
-        // A refusal: the radio kept the outgoing identity.
-        await deletePendingPersona(target.publicKey);
-        await undoLive();
-        store.setPersonaSwitch(untouched);
         setProgress(null);
-        restartSession();
         throw err;
       }
-      if (landed !== true) {
-        if (landed === false) {
-          await deletePendingPersona(target.publicKey);
-          await undoLive();
-          store.setPersonaSwitch(untouched);
-        } else {
-          // The next session decides; see PersonaSwitch.
-          store.setPersonaSwitch({ ...record, running: false });
-        }
+      // Written before the key goes on, so a reload from then on still saves
+      // nothing for it. A burner already live has one.
+      const guarded = !!useMeshStore.getState().burner;
+      if (signal.aborted || !(await saveBurnerGuard())) {
+        key.privateKey.fill(0);
+        if (!guarded) await deleteBurnerGuard();
         setProgress(null);
-        restartSession();
-        return landed === false ? 'kept' : 'unknown';
+        signal.throwIfAborted();
+        throw new PersonaSwitchError('saveFailed');
       }
 
-      // The identity the radio was mid-switch onto is gone from it again, and
-      // its good persona record was never overwritten.
-      if (untouched) await deletePendingPersona(untouched.target);
-      setProgress({ stage: 'syncing' });
-      await client.resyncContacts();
-      await apply(record, state, signal);
-      return 'switched';
+      const target = toHex(key.publicKey);
+      return runSwitch(
+        vault,
+        {
+          target,
+          outgoing,
+          label: name,
+          state: burnerPersona(name),
+          removed: [],
+          announce,
+          stage: 'switching',
+          running: true,
+          dismissed: false,
+          burner: true,
+        },
+        untouched,
+        () => installKey(client, key.privateKey, target),
+        async () => {},
+        signal,
+      );
     },
-    [apply, restartSession],
+    [runSwitch],
   );
 
   const finish = useCallback(
@@ -209,5 +341,5 @@ export function usePersonaSwitch(): {
     [apply],
   );
 
-  return { start, finish, progress };
+  return { start, startBurner, finish, progress };
 }
