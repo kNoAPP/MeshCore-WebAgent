@@ -2,7 +2,7 @@
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
-import type { Channel } from '@/types/meshcore';
+import type { Channel, Message } from '@/types/meshcore';
 import { useMeshStore, selectPreferences } from '@/store/meshStore';
 import {
   getStorageContext,
@@ -65,6 +65,9 @@ let unsavedRestore: string | null = null;
 // pending switch), and every connect resets it before the radio has said who
 // it is. So this outlives {@link resetPersistence}, as `unsavedRestore` does.
 let storeIdentity: string | null = null;
+// The message history as last handed to a write, by reference: a store whose
+// history is any other object holds messages no write has seen.
+let writtenHistory: Record<string, Message[]> | null = null;
 let saveUnsub: (() => void) | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 // Independent save subscription/timer for the per-radio advert cache, kept
@@ -286,9 +289,8 @@ async function rekey(channels: Record<number, Channel>): Promise<void> {
 export function flushHistory(): void {
   const t = binding;
   if (t) {
-    saveRadioData(t.pubkey, t.key, {
-      msgHistory: useMeshStore.getState().msgHistory,
-    });
+    writtenHistory = useMeshStore.getState().msgHistory;
+    saveRadioData(t.pubkey, t.key, { msgHistory: writtenHistory });
   }
 }
 
@@ -507,8 +509,11 @@ export async function beginIdentitySwitch(
   // restore has installed it already, so what this clears is the incoming
   // identity's own traffic, a few seconds of it at most.
   useMeshStore.getState().resetIdentityData();
-  // A burner's traffic is never stored, so the store is nobody's to protect.
-  storeIdentity = pubkey;
+  // Whatever arrives from here on is the traffic of the identity the radio
+  // actually holds, which only the restart can tell: a switch the radio
+  // refused leaves it on the outgoing one. So the store is nobody's until
+  // that session claims it.
+  storeIdentity = null;
 }
 
 /**
@@ -560,7 +565,10 @@ export async function seedIdentityNamespace(
  * Records that a backup restore for `pubkey` is live in the store but did not
  * reach encrypted storage.
  *
- * @remarks Without this, the next connect as `pubkey` — the reboot after an
+ * @remarks Also marks the store for the incoming identity of an
+ * unacknowledged regenerate, whose data is newer than what was seeded there.
+ *
+ * Without this, the next connect as `pubkey` — the reboot after an
  * identity restore, or any drop and reconnect — reads a blob that is absent
  * (or older than the restore) and normalizes the restored preferences and
  * automation rules out of the live store, a loss the "session only" warning
@@ -610,6 +618,7 @@ export async function retryUnsavedRestore(): Promise<void> {
 export function releaseStore(): void {
   unsavedRestore = null;
   storeIdentity = null;
+  writtenHistory = null;
 }
 
 /**
@@ -624,23 +633,26 @@ export function releaseStore(): void {
  * key changed from another client — would otherwise link the two identities
  * in this browser.
  *
- * What is cleared was written already, unless it was never meant to be (a
- * burner), or cannot be yet: a restore whose write failed
- * ({@link markUnsavedRestore}), or a seed-born session whose vault was never
- * opened. Either is the outgoing identity's alone, so it is dropped rather
- * than kept under the incoming one, and the return value says so. A bound
- * session was flushed when its link dropped (`beginReconnect`). The in-memory
- * API key goes too: a session that binds no secrets context (a burner, an
- * unfinished persona switch) would otherwise keep the outgoing identity's.
+ * A bound session was flushed when its link dropped (`beginReconnect`), so
+ * what is cleared is usually on disk already. Not always: a restore whose
+ * write failed ({@link markUnsavedRestore}), a session that never bound (a
+ * seed-born identity whose vault was not opened, a burner, an unfinished
+ * persona switch), or messages drained from the radio by an attempt that
+ * dropped before it bound. Each is the outgoing identity's alone, so it is
+ * dropped rather than kept under the incoming one, and the return value says
+ * so. The in-memory API key goes too: a session that binds no secrets context
+ * (a burner, an unfinished persona switch) would otherwise keep the outgoing
+ * identity's.
  *
  * A session that reports the identity the store already holds keeps it, as
- * does the first one after a teardown or an identity switch onto a burner,
- * for which there is nothing to protect. So does the identity an unsaved
- * restore was meant for: an unacknowledged regenerate leaves the store the
- * outgoing identity's while marking it for the incoming one, since the radio
- * may come back as either.
+ * does the first one after a teardown or an identity switch, which leave the
+ * store nobody's. So does the identity an unsaved restore was meant for: an
+ * unacknowledged regenerate leaves the store the outgoing identity's while
+ * marking it for the incoming one, since the radio may come back as either.
  * @param pubkey - the reported public key, lowercase hex.
- * @returns whether data that existed only in the store was discarded.
+ * @returns whether data that existed only in the store was discarded: an
+ * unsaved restore, or messages no write has seen. Unsaved preferences are
+ * cleared without a word.
  */
 export function claimStore(pubkey: string): boolean {
   const owner = storeIdentity;
@@ -649,7 +661,10 @@ export function claimStore(pubkey: string): boolean {
     return false;
   }
   const store = useMeshStore.getState();
-  const unsaved = unsavedRestore === owner || store.seedLock?.pubkey === owner;
+  const unsaved =
+    unsavedRestore === owner ||
+    (store.msgHistory !== writtenHistory &&
+      Object.values(store.msgHistory).some((thread) => thread.length > 0));
   // The restore it marks is being discarded, and a later session as that
   // identity must load its own records over whatever the store then holds.
   unsavedRestore = null;
@@ -667,6 +682,7 @@ async function saveSessionNamespace(
   key: CryptoKey,
 ): Promise<boolean> {
   const state = useMeshStore.getState();
+  writtenHistory = state.msgHistory;
   const writes: Record<RadioRecord, Promise<boolean>> = {
     history: saveRadioData(pubkey, key, { msgHistory: state.msgHistory }),
     'advert-cache': saveAdvertCache(pubkey, key, state.advertCache),
