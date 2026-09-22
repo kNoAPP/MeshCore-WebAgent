@@ -640,6 +640,14 @@
       "vaultName": "Phrase de récupération {{id}}",
       "unlock": "Déverrouiller",
       "unlocking": "Déverrouillage…",
+      "delete": {
+        "question": "Supprimer ce coffre de cet appareil ?",
+        "keeps": "Les personas qu’il répertorie restent intactes, sur la radio et dans les enregistrements que ce navigateur conserve pour chacune.",
+        "loses": "Leurs noms, et la trace des identités que cette phrase a créées, sont perdus.",
+        "keys": "Leurs clés de stockage ne pourront alors être redérivées qu’à partir de la phrase de récupération.",
+        "action": "Supprimer le coffre",
+        "failed": "Impossible de supprimer le coffre du stockage de cet appareil."
+      },
       "lock": "Verrouiller",
       "live": "Active",
       "switch": "Basculer",

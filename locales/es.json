@@ -640,6 +640,14 @@
       "vaultName": "Frase de recuperación {{id}}",
       "unlock": "Desbloquear",
       "unlocking": "Desbloqueando…",
+      "delete": {
+        "question": "¿Eliminar esta bóveda de este dispositivo?",
+        "keeps": "Las personas que enumera no se modifican, ni en la radio ni en los registros que este navegador guarda de cada una.",
+        "loses": "Se pierden sus nombres y el registro de qué identidades creó esta frase.",
+        "keys": "Después, sus claves de almacenamiento solo se pueden volver a derivar a partir de la frase de recuperación.",
+        "action": "Eliminar bóveda",
+        "failed": "No se pudo eliminar la bóveda del almacenamiento de este dispositivo."
+      },
       "lock": "Bloquear",
       "live": "Activa",
       "switch": "Cambiar",

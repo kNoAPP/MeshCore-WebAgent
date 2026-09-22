@@ -639,6 +639,14 @@
       "vaultName": "Recovery phrase {{id}}",
       "unlock": "Unlock",
       "unlocking": "Unlocking…",
+      "delete": {
+        "question": "Delete this vault from this device?",
+        "keeps": "The personas it lists are untouched, on the radio and in the records this browser keeps for each one.",
+        "loses": "Their names, and the record of which identities this phrase made, are lost.",
+        "keys": "Their storage keys can then only be re-derived from the recovery phrase.",
+        "action": "Delete vault",
+        "failed": "Could not delete the vault from this device’s storage."
+      },
       "lock": "Lock",
       "live": "Live",
       "switch": "Switch",
