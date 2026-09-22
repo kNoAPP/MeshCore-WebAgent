@@ -768,7 +768,7 @@
       "seedLock": {
         "title": "Déverrouiller les données enregistrées de cette identité",
         "body": "Cette identité a été créée à partir d'une phrase de récupération : ce que ce navigateur conserve pour elle — messages, nœuds découverts, préférences, règles et secrets — est scellé dans le coffre d'identités de cette phrase. Saisissez la phrase secrète du coffre pour l'ouvrir. D'ici là, rien de ce que reçoit cette session n'est enregistré dans ce navigateur.",
-        "wrongPassphrase": "Aucun coffre de cet appareil ne s'ouvre avec cette phrase secrète en contenant cette identité.",
+        "wrongPassphrase": "Aucun coffre de cet appareil ne s'ouvre avec cette phrase secrète en contenant cette identité. Si son coffre a été supprimé ou remplacé, restaurez-le avec la phrase de récupération (Restaurer depuis une phrase de récupération, ou recréez la persona) : la phrase rouvre les données de cette identité.",
         "failed": "Le coffre s'est ouvert, mais cette session n'a pas pu être enregistrée. Réessayez.",
         "pending": "Le coffre de cette identité est toujours verrouillé : rien de ce qu'elle reçoit n'est encore enregistré dans ce navigateur."
       },

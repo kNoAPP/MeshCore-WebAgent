@@ -31,17 +31,37 @@ import { deriveNode, MESH_PURPOSE, wipeNode } from './slip10';
 // persisted, so a reconnect in the same tab does not ask for the vault's
 // passphrase again, and a reload does.
 const identityKeys = new Map<string, CryptoKey>();
+const registeredListeners = new Set<
+  (publicKey: string, key: CryptoKey) => void
+>();
 
 /**
  * Holds a seed-born identity's storage key for this tab, so the session seals
  * its records under it rather than the channel-secret key
- * (`deriveSessionKey` in `lib/session/persistence.ts`).
+ * (`deriveSessionKey` in `lib/session/persistence.ts`), and tells every
+ * {@link onIdentityKeyRegistered} listener.
  *
  * @param publicKey - the identity's public key, hex.
  * @param key - its key from {@link deriveIdentityStorageKey}.
  */
 export function registerIdentityKey(publicKey: string, key: CryptoKey): void {
-  identityKeys.set(publicKey.toLowerCase(), key);
+  const normalized = publicKey.toLowerCase();
+  identityKeys.set(normalized, key);
+  for (const listener of registeredListeners) listener(normalized, key);
+}
+
+/**
+ * Calls `listener` with each key {@link registerIdentityKey} registers from
+ * now on, with its public key in lowercase hex. For a session already bound
+ * to that identity under another key, which has to move onto this one.
+ *
+ * @returns a function that removes the listener.
+ */
+export function onIdentityKeyRegistered(
+  listener: (publicKey: string, key: CryptoKey) => void,
+): () => void {
+  registeredListeners.add(listener);
+  return () => registeredListeners.delete(listener);
 }
 
 /**

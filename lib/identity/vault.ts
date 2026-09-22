@@ -206,12 +206,12 @@ export async function listVaults(): Promise<string[]> {
  *
  * @remarks Every vault the passphrase opens is adopted on the way, as any
  * unlock is, and locked again unless it is the one returned. Vaults it does
- * not open are skipped.
+ * not open — the wrong passphrase, or a record this build cannot read — are
+ * skipped.
  * @param publicKey - lowercase hex.
  * @returns the unlocked vault, which the caller locks; null when no vault the
  * passphrase opens lists the identity.
- * @throws {@link VaultError} other than `wrongPassphrase`, and whatever
- * IndexedDB throws.
+ * @throws whatever IndexedDB throws.
  */
 export async function openVaultFor(
   publicKey: string,
@@ -222,7 +222,7 @@ export async function openVaultFor(
     try {
       vault = await unlockVault(fingerprint, passphrase);
     } catch (err) {
-      if (err instanceof VaultError && err.code === 'wrongPassphrase') continue;
+      if (err instanceof VaultError) continue;
       throw err;
     }
     if (vault.identities.some((i) => i.publicKey === publicKey)) return vault;
@@ -371,10 +371,15 @@ export async function saveVault(vault: Vault): Promise<boolean> {
 
 async function writeVault(vault: Vault): Promise<boolean> {
   const seen = lastSeen.get(vault);
+  // Started before the first await, so each derivation's importKey copies the
+  // root now, in the same step sealVault checks it is not locked: a lock can
+  // land during any await below, and a zeroed root would derive keys anyone
+  // can compute.
+  const keys = identityKeys(vault);
+  // Observed here too, so a save sealVault refuses leaves no unhandled
+  // rejection behind; the await below still sees the original outcome.
+  keys.catch(() => {});
   const record = await sealVault(vault);
-  // Derived while the root is known to be intact: sealVault has just refused
-  // a locked vault, and a lock can land during the write below.
-  const keys = await identityKeys(vault);
   const result = await replaceVaultRecord(
     vault.fingerprint,
     record,
@@ -387,7 +392,7 @@ async function writeVault(vault: Vault): Promise<boolean> {
   if (result === 'stale') throw new VaultError('stale');
   if (result === 'failed') return false;
   lastSeen.set(vault, record.iv);
-  await adoptIdentities(keys);
+  await adoptIdentities(await keys);
   return true;
 }
 

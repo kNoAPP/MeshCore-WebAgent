@@ -11,10 +11,14 @@ import {
   wipeApiKey,
 } from '@/lib/ai/secret';
 import { reencryptRepeaterCreds } from '@/lib/meshcore/adminCreds';
-import { registeredIdentityKey } from '@/lib/identity/storageRoot';
+import {
+  onIdentityKeyRegistered,
+  registeredIdentityKey,
+} from '@/lib/identity/storageRoot';
 import { toHex } from '@/lib/utils';
 import {
   deleteRadioRecords,
+  hasSeedMarker,
   deriveStorageKey,
   reencryptRadioRecords,
   saveRadioData,
@@ -92,24 +96,52 @@ export interface ChannelKey {
  * key when it is seed-born and this tab holds one (`registeredIdentityKey`),
  * otherwise the key derived from the radio's channel secrets.
  *
- * @remarks A seed-born identity whose key is not held here must not fall
- * through to the channel-secret key, which would seal its records under
- * public material and hide the ones already written. The connect flow checks
- * for that case first (`hasSeedMarker`) and binds nothing until the vault is
- * unlocked; the flows that write under an incoming identity (a regenerate, a
- * restore, a persona switch) all run with its vault open, which registers the
- * key before they get here.
+ * @remarks A seed-born identity (`hasSeedMarker`) whose key is not held here
+ * has no key to give: the channel-secret one would seal its records under
+ * public material and hide the ones already written. Every caller binds
+ * nothing for it then, until its vault is opened.
  * @param channels - the client's channel mirror, keyed by slot.
  * @param pubkey - as for {@link deriveChannelKey}.
+ * @returns null for a seed-born identity whose vault has not been opened in
+ * this tab.
  */
 export async function deriveSessionKey(
   channels: Record<number, Channel>,
   pubkey: string,
-): Promise<ChannelKey> {
+): Promise<ChannelKey | null> {
   const key = registeredIdentityKey(pubkey);
   if (key) return { key, channels, material: null };
+  if (await hasSeedMarker(pubkey)) return null;
   return deriveChannelKey(channels, pubkey);
 }
+
+// A seed-born identity's key registered while the session is bound to that
+// identity under its channel-secret key — its vault opened only now, as for an
+// identity minted before its records were keyed from the root. Everything the
+// session keeps for it moves onto the vault-derived key, as a re-key does,
+// so nothing more is written under public material.
+onIdentityKeyRegistered((pubkey, key) => {
+  if (binding?.pubkey !== pubkey || binding.material === null) return;
+  rekeysPending++;
+  rekeyChain = rekeyChain
+    .then(async () => {
+      const from = binding;
+      if (from?.pubkey !== pubkey || from.material === null) return;
+      setStorageKey(pubkey, { key, channels: from.channels, material: null });
+      if (getStorageContext()?.pubkey === pubkey) setSecretContext(pubkey, key);
+      await Promise.all([
+        saveUnsub
+          ? saveSessionNamespace(pubkey, key)
+          : reencryptRadioRecords(pubkey, from.key, key),
+        reencryptApiKey(pubkey, from.key, key),
+        reencryptRepeaterCreds(pubkey, from.key, key),
+      ]);
+    })
+    .catch(() => {})
+    .finally(() => {
+      if (--rekeysPending === 0 && !binding) lastBound = null;
+    });
+});
 
 /**
  * Derives the storage key for `pubkey` from a radio's current channel
@@ -367,7 +399,8 @@ export async function flushSessionAsync(): Promise<boolean> {
  * from the private key that was imported; it is both the record namespace and
  * the key-derivation salt, so its case must match.
  * @returns whether all four writes landed, for callers that report persistence
- * state.
+ * state; false, with nothing written or bound, for a seed-born identity whose
+ * vault is not open in this tab.
  */
 export async function beginIdentityHandover(
   client: MeshCoreClient,
@@ -375,6 +408,18 @@ export async function beginIdentityHandover(
 ): Promise<boolean> {
   const outgoing = binding?.pubkey;
   const key = await deriveSessionKey(client.channels, pubkey);
+  if (!key) {
+    // A seed-born identity whose vault is not open here: nothing may be
+    // written for it yet, and the store already holds its data, so nothing
+    // may be written for the outgoing identity either. The session runs
+    // unbound until the restart asks for the vault; the caller marks the
+    // store's data an unsaved restore, which that unlock then writes.
+    binding = null;
+    switchPending = true;
+    wipeApiKey();
+    await client.refreshSelfInfo().catch(() => {});
+    return false;
+  }
   // Bound before the re-read, which hands the refreshed `selfInfo` to the
   // store: whatever reacts to the new identity finds its namespace and its
   // secrets already in place.
@@ -429,13 +474,14 @@ export async function beginIdentitySwitch(
   await flushSessionAsync();
   binding = null;
   switchPending = true;
-  if (pubkey === null) {
+  const incoming =
+    pubkey === null ? null : await deriveSessionKey(client.channels, pubkey);
+  // A burner stores nothing, and a seed-born identity whose vault is not open
+  // has no key yet: either way no secrets context carries over.
+  if (pubkey === null || !incoming) {
     wipeApiKey();
   } else {
-    setSecretContext(
-      pubkey,
-      (await deriveSessionKey(client.channels, pubkey)).key,
-    );
+    setSecretContext(pubkey, incoming.key);
   }
   await client.refreshSelfInfo().catch(() => {});
 }
@@ -474,14 +520,15 @@ export function boundPubkey(): string | undefined {
  * {@link beginIdentityHandover}, and a refused one with `deleteRadioRecords`.
  *
  * @param pubkey - as for {@link beginIdentityHandover}.
- * @returns whether all four writes landed.
+ * @returns whether all four writes landed; false, with nothing written, for a
+ * seed-born identity whose vault is not open in this tab.
  */
 export async function seedIdentityNamespace(
   client: MeshCoreClient,
   pubkey: string,
 ): Promise<boolean> {
-  const { key } = await deriveSessionKey(client.channels, pubkey);
-  return saveSessionNamespace(pubkey, key);
+  const derived = await deriveSessionKey(client.channels, pubkey);
+  return derived ? saveSessionNamespace(pubkey, derived.key) : false;
 }
 
 /**

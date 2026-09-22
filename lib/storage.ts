@@ -4,8 +4,10 @@
 import type { Advert, Message } from '@/types/meshcore';
 
 // Per-radio message history persisted in IndexedDB, encrypted at rest with
-// AES-256-GCM under a key derived from the radio's own secrets (see
-// deriveStorageKey) — so the data is unreadable without that radio's channels.
+// AES-256-GCM under a key derived from the radio's channel secrets (see
+// deriveStorageKey) — or, for a seed-born identity, from its identity vault's
+// storage root — so the data is unreadable without those channels, or that
+// vault.
 const DB_NAME = 'meshcore';
 const DB_VERSION = 3;
 const STORE_NAME = 'radios';
@@ -281,11 +283,12 @@ function recordKey(pubkey: string, suffix: string): string {
 }
 
 // The one list of the records each identity keeps in the radios store under
-// its channel-secret key. The session save (`saveSessionNamespace`) must write
-// every member of it to type-check, and `deleteRadioRecords` deletes exactly
-// its members, so no record can be saved there and never deleted. `persona`
-// and `persona-pending` stay out: they are sealed under the vault's storage
-// root, and a handover must not delete them.
+// its session key (`deriveSessionKey`). The session save
+// (`saveSessionNamespace`) must write every member of it to type-check, and
+// `deleteRadioRecords` deletes exactly its members, so no record can be saved
+// there and never deleted. `persona`
+// and `persona-pending` stay out: a handover must not delete them, since a
+// persona switched back to later still needs them.
 const RADIO_RECORDS = [
   'history',
   'advert-cache',
@@ -322,9 +325,8 @@ function radioRecordKey(pubkey: string, record: RadioRecord): string {
  * after the reboot — but they are not this function's to destroy, and an
  * identity change has always left them that way.
  *
- * The `persona` record is left too, deliberately: it is sealed under the
- * vault's storage root rather than this radio's key, so an outgoing persona
- * that is switched back to later still needs it. So is `persona-pending`,
+ * The `persona` record is left too, deliberately: an outgoing persona that
+ * is switched back to later still needs it. So is `persona-pending`,
  * which {@link deletePendingPersona} collects once its switch is settled.
  * @returns whether every delete landed; best-effort, like the `save*` helpers.
  */

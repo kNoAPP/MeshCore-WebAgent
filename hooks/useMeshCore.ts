@@ -32,7 +32,6 @@ import {
   loadAutomationRules,
   loadAdvertCache,
   loadPreferences,
-  hasSeedMarker,
 } from '@/lib/storage';
 import {
   expectSecretContext,
@@ -49,6 +48,7 @@ import {
   teardownSession,
 } from '@/lib/session/lifecycle';
 import {
+  boundPubkey,
   claimUnsavedRestore,
   deriveSessionKey,
   flushAdvertCache,
@@ -608,6 +608,28 @@ export function useMeshCore() {
     ],
   );
 
+  // Hydrates auto-add settings FROM the radio so the app reflects the device's
+  // persisted state (shared with any other companion client) instead of
+  // overwriting it. The mode always comes from the handshake; the per-type
+  // bitmask needs CMD_GET_AUTOADD_CONFIG, which older firmware lacks — when
+  // it's absent we keep the existing local values rather than wiping them.
+  // Runs after hydrateSession, whose preferences restore would otherwise put
+  // the stored values over the radio's.
+  const hydrateRadioAutoAdd = useCallback(
+    async (c: MeshCoreClient): Promise<void> => {
+      const mode = c.manualAddMode;
+      const bits = await c.readAutoAddBits();
+      if (mode || bits) {
+        setAutoAddConfig({
+          ...useMeshStore.getState().autoAddConfig,
+          ...(mode ? { mode } : {}),
+          ...(bits ?? {}),
+        });
+      }
+    },
+    [setAutoAddConfig],
+  );
+
   // Shared connect path for all transports: build + wire the client, run the
   // initial sync, hydrate settings/history, then subscribe history to be saved.
   const connect = useCallback(
@@ -677,29 +699,16 @@ export function useMeshCore() {
           sessionAlive,
         );
         // A seed-born identity whose vault has not been opened in this tab has
-        // no key to bind: the channel-secret one would seal its records under
-        // public material and hide the ones already written. The session runs
+        // no key to bind (deriveSessionKey gives null): the session runs
         // unsaved until the vault is unlocked (see unlockSeedSession).
-        const seedLocked =
-          !!reported &&
-          !unfinishedSwitch &&
-          !burner &&
-          !registeredIdentityKey(reported) &&
-          (await hasSeedMarker(reported));
-        if (
-          pubkey &&
-          sessionAlive() &&
-          !unfinishedSwitch &&
-          !burner &&
-          !seedLocked
-        ) {
+        let seedLocked = false;
+        if (pubkey && sessionAlive() && !unfinishedSwitch && !burner) {
           // Declared before the await, so a read that still beats the binding
           // waits for it rather than concluding nothing is stored; the finally
           // answers those reads on every path that never binds one.
           expectSecretContext();
           try {
             const derived = await deriveSessionKey(c.channels, pubkey);
-            key = derived.key;
             // This is now the last await before the UI goes live, and a drop or
             // a Disconnect during it is nobody else's to catch: `onDisconnect`
             // stands down while the status is still 'connecting'. Bail exactly
@@ -709,10 +718,18 @@ export function useMeshCore() {
             if (!sessionAlive()) {
               throw new Error('Closed during sync');
             }
-            setStorageKey(pubkey, derived);
-            // Reuse the same per-radio key for secret storage — there is no
-            // second key-derivation path.
-            setSecretContext(pubkey, key);
+            if (derived) {
+              key = derived.key;
+              setStorageKey(pubkey, derived);
+              // Reuse the same per-radio key for secret storage — there is no
+              // second key-derivation path.
+              setSecretContext(pubkey, key);
+            } else {
+              seedLocked = true;
+              // A reconnect keeps the previous session's secrets context, which
+              // may be another identity's; nothing of it may carry over.
+              wipeApiKey();
+            }
           } finally {
             releaseSecretContext();
           }
@@ -727,10 +744,16 @@ export function useMeshCore() {
         if (burner && reported && sessionAlive()) {
           hydrateBurnerSession(c, reported, burner);
         }
-        if (seedLocked && reported && sessionAlive()) {
+        // Assigned rather than only raised: the store survives a reconnect, and
+        // a lock left from before would outlive a session that has bound.
+        if (sessionAlive()) {
           useMeshStore
             .getState()
-            .setSeedLock({ pubkey: reported, dismissed: false });
+            .setSeedLock(
+              seedLocked && reported
+                ? { pubkey: reported, dismissed: false }
+                : null,
+            );
         }
 
         // Wire history persistence FIRST — before the best-effort hydrate
@@ -746,21 +769,7 @@ export function useMeshCore() {
         const batt = await c.getBattery();
         if (batt) setBattery(batt);
 
-        // Hydrate auto-add settings FROM the radio so the app reflects the
-        // device's persisted state (shared with any other companion client)
-        // instead of overwriting it. The mode always comes from the handshake;
-        // the per-type bitmask needs CMD_GET_AUTOADD_CONFIG, which older
-        // firmware lacks — when it's absent we keep the existing local values
-        // rather than wiping them.
-        const mode = c.manualAddMode;
-        const bits = await c.readAutoAddBits();
-        if (mode || bits) {
-          setAutoAddConfig({
-            ...useMeshStore.getState().autoAddConfig,
-            ...(mode ? { mode } : {}),
-            ...(bits ?? {}),
-          });
-        }
+        await hydrateRadioAutoAdd(c);
 
         // Announce success only after the hydrate survived: a drop during it
         // already flipped us back to 'reconnecting' (with its own "connection
@@ -822,7 +831,7 @@ export function useMeshCore() {
       setLastConnectFailure,
       wireClient,
       hydrateSession,
-      setAutoAddConfig,
+      hydrateRadioAutoAdd,
     ],
   );
 
@@ -920,12 +929,22 @@ export function useMeshCore() {
     if (!key) return false;
     const alive = () =>
       !c.closed && !isUserDisconnect() && useMeshStore.getState().client === c;
-    setStorageKey(pubkey, { key, channels: c.channels, material: null });
-    setSecretContext(pubkey, key);
-    if (!(await hydrateSession(pubkey, key, alive))) return false;
-    useMeshStore.getState().setSeedLock(null);
-    return flushSessionAsync();
-  }, [hydrateSession]);
+    // A session already bound to this identity — an earlier unlock whose
+    // final write failed — only needs that write again: hydrating and wiring
+    // it twice would put the stored preferences back over the live ones.
+    if (boundPubkey() !== pubkey) {
+      setStorageKey(pubkey, { key, channels: c.channels, material: null });
+      setSecretContext(pubkey, key);
+      if (!(await hydrateSession(pubkey, key, alive))) return false;
+      await hydrateRadioAutoAdd(c);
+      if (!alive()) return false;
+    }
+    // The lock clears only once the session is on disk, so a failed write
+    // leaves the dialog up to say so and to try again.
+    const saved = await flushSessionAsync();
+    if (saved) useMeshStore.getState().setSeedLock(null);
+    return saved;
+  }, [hydrateSession, hydrateRadioAutoAdd]);
 
   /**
    * Persists history, tears down the client and session state, and resets the

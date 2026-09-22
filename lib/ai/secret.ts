@@ -166,8 +166,9 @@ export function releaseSecretContext(): void {
 
 /**
  * Binds the per-radio encryption context for later persistence. Called once
- * per session after {@link deriveStorageKey} in useMeshCore, and again when
- * the session re-keys after a channel change.
+ * per session once useMeshCore has the session's key (`deriveSessionKey`),
+ * and again when the session re-keys: after a channel change, or onto a
+ * seed-born identity's vault-derived key.
  */
 export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
   // A reconnect keeps the in-memory key alive for the same radio, but if the
@@ -214,7 +215,7 @@ export function reencryptApiKey(
 /**
  * The active per-radio storage context (pubkey + AES key), or null when no
  * session is bound. Reused by automation-rule persistence so it shares the
- * single {@link deriveStorageKey} path rather than inventing a second one.
+ * session key (`deriveSessionKey`) rather than inventing a second one.
  *
  * @remarks
  * Null here means "not bound *yet*" just as readily as "no session", so a read

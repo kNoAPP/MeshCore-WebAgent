@@ -768,7 +768,7 @@
       "seedLock": {
         "title": "Gespeicherte Daten dieser Identität entsperren",
         "body": "Diese Identität wurde aus einer Wiederherstellungsphrase erzeugt. Was dieser Browser für sie speichert – Nachrichten, entdeckte Knoten, Einstellungen, Regeln und Geheimnisse – ist daher im Identitätstresor dieser Phrase versiegelt. Gib die Passphrase des Tresors ein, um ihn zu öffnen. Bis dahin wird nichts, was diese Sitzung empfängt, in diesem Browser gespeichert.",
-        "wrongPassphrase": "Kein Tresor auf diesem Gerät lässt sich mit dieser Passphrase öffnen und enthält diese Identität.",
+        "wrongPassphrase": "Kein Tresor auf diesem Gerät lässt sich mit dieser Passphrase öffnen und enthält diese Identität. Wurde ihr Tresor gelöscht oder ersetzt, stelle ihn mit der Wiederherstellungsphrase wieder her (Aus Wiederherstellungsphrase wiederherstellen, oder die Persona erneut erzeugen): Die Phrase öffnet die Daten dieser Identität wieder.",
         "failed": "Der Tresor wurde geöffnet, aber diese Sitzung konnte nicht gespeichert werden. Versuche es erneut.",
         "pending": "Der Tresor dieser Identität ist noch gesperrt, daher wird nichts, was sie empfängt, bisher in diesem Browser gespeichert."
       },

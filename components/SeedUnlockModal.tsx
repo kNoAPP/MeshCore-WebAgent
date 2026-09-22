@@ -7,6 +7,7 @@ import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
+import { registeredIdentityKey } from '@/lib/identity/storageRoot';
 import { lockVault, openVaultFor } from '@/lib/identity/vault';
 import { ModalShell } from './ModalShell';
 
@@ -44,13 +45,17 @@ export function SeedUnlockModal() {
     setError(null);
     setBusy(true);
     try {
-      const vault = await openVaultFor(lock.pubkey, passphrase);
-      if (!vault) {
-        setError(t('settings.persona.seedLock.wrongPassphrase'));
-        return;
+      // A vault opened elsewhere in this tab since — the persona list — has
+      // registered the key already, and there is nothing left to open.
+      if (!registeredIdentityKey(lock.pubkey)) {
+        const vault = await openVaultFor(lock.pubkey, passphrase);
+        if (!vault) {
+          setError(t('settings.persona.seedLock.wrongPassphrase'));
+          return;
+        }
+        // Opening it registered the identity's key; nothing else is needed.
+        lockVault(vault);
       }
-      // Opening it registered the identity's key; nothing else is needed.
-      lockVault(vault);
       if (!(await unlockSeedSession())) {
         setError(t('settings.persona.seedLock.failed'));
       }
