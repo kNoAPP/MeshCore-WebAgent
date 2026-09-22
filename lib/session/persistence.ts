@@ -61,12 +61,13 @@ let switchPending = false;
 let unsavedRestore: string | null = null;
 // The identity whose data the store holds; see {@link claimStore}. Not the
 // binding: that is null in several states where the store still holds an
-// identity's data (a seed-locked session, a burner, an unsaved restore, a
-// pending switch), and every connect resets it before the radio has said who
-// it is. So this outlives {@link resetPersistence}, as `unsavedRestore` does.
+// identity's data (a seed-locked session, a burner, an unsaved restore), and
+// every connect resets it before the radio has said who it is. So this
+// outlives {@link resetPersistence}, as `unsavedRestore` does. Null while the
+// store is nobody's: after a teardown, and during an identity switch.
 let storeIdentity: string | null = null;
-// The message history as last handed to a write, by reference: a store whose
-// history is any other object holds messages no write has seen.
+// The message history the last successful history write held; see
+// hasUnwrittenMessages.
 let writtenHistory: Record<string, Message[]> | null = null;
 let saveUnsub: (() => void) | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -289,8 +290,10 @@ async function rekey(channels: Record<number, Channel>): Promise<void> {
 export function flushHistory(): void {
   const t = binding;
   if (t) {
-    writtenHistory = useMeshStore.getState().msgHistory;
-    saveRadioData(t.pubkey, t.key, { msgHistory: writtenHistory });
+    const msgHistory = useMeshStore.getState().msgHistory;
+    void saveRadioData(t.pubkey, t.key, { msgHistory }).then((ok) => {
+      if (ok) writtenHistory = msgHistory;
+    });
   }
 }
 
@@ -651,8 +654,8 @@ export function releaseStore(): void {
  * marking it for the incoming one, since the radio may come back as either.
  * @param pubkey - the reported public key, lowercase hex.
  * @returns whether data that existed only in the store was discarded: an
- * unsaved restore, or messages no write has seen. Unsaved preferences are
- * cleared without a word.
+ * unsaved restore, or messages no successful write held. Unsaved preferences
+ * are cleared without a word.
  */
 export function claimStore(pubkey: string): boolean {
   const owner = storeIdentity;
@@ -662,15 +665,31 @@ export function claimStore(pubkey: string): boolean {
   }
   const store = useMeshStore.getState();
   const unsaved =
-    unsavedRestore === owner ||
-    (store.msgHistory !== writtenHistory &&
-      Object.values(store.msgHistory).some((thread) => thread.length > 0));
+    unsavedRestore === owner || hasUnwrittenMessages(store.msgHistory);
   // The restore it marks is being discarded, and a later session as that
   // identity must load its own records over whatever the store then holds.
   unsavedRestore = null;
   wipeApiKey();
   store.resetIdentityData();
   return unsaved;
+}
+
+// Whether `history` holds a message the last successful history write did
+// not. By message rather than by reference: a delivery status flipped or a
+// thread marked read replaces the history without adding anything unsaved.
+function hasUnwrittenMessages(history: Record<string, Message[]>): boolean {
+  if (history === writtenHistory) return false;
+  // An id-less message is known by its timestamp and text instead.
+  const key = (convo: string, m: Message) =>
+    [convo, m.id ?? `${m.timestamp}|${m.text}`].join('|');
+  const written = new Set(
+    Object.entries(writtenHistory ?? {}).flatMap(([convo, thread]) =>
+      thread.map((m) => key(convo, m)),
+    ),
+  );
+  return Object.entries(history).some(([convo, thread]) =>
+    thread.some((m) => !written.has(key(convo, m))),
+  );
 }
 
 // Writes every per-radio record, keyed by `RadioRecord`: the list in
@@ -682,9 +701,12 @@ async function saveSessionNamespace(
   key: CryptoKey,
 ): Promise<boolean> {
   const state = useMeshStore.getState();
-  writtenHistory = state.msgHistory;
+  const { msgHistory } = state;
   const writes: Record<RadioRecord, Promise<boolean>> = {
-    history: saveRadioData(pubkey, key, { msgHistory: state.msgHistory }),
+    history: saveRadioData(pubkey, key, { msgHistory }).then((ok) => {
+      if (ok) writtenHistory = msgHistory;
+      return ok;
+    }),
     'advert-cache': saveAdvertCache(pubkey, key, state.advertCache),
     preferences: savePreferences(pubkey, key, selectPreferences(state)),
     'automation-rules': saveAutomationRules(pubkey, key, state.automationRules),
