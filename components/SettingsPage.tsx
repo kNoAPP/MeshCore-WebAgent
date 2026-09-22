@@ -95,7 +95,10 @@ export function SettingsPage() {
             <h2 className='text-base font-bold'>{t('settings.title')}</h2>
           </div>
 
-          <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
+          {/* At xl, Identity spans rows 1-2 beside Device/Radio over Location.
+              The 1fr row takes whatever height Identity adds, so Device and
+              Radio never stretch; Identity and Location hug their content. */}
+          <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 xl:grid-rows-[auto_1fr]'>
             <Card title={t('settings.section.device')} section='device'>
               <Row
                 label={t('settings.model')}
@@ -187,7 +190,7 @@ export function SettingsPage() {
 
             <Card
               title={t('settings.section.identity')}
-              className='md:col-span-2 xl:col-span-1'
+              className='md:col-span-2 xl:col-span-1 xl:row-span-2 xl:self-start'
               section='identity'
               action={
                 <button
@@ -217,7 +220,7 @@ export function SettingsPage() {
 
             <Card
               title={t('settings.section.notifications')}
-              className='md:col-span-2 xl:col-span-1'
+              className='md:col-span-2'
               section='notifications'
             >
               <NotificationSettingsBody />
@@ -589,7 +592,7 @@ function LocationCard() {
   return (
     <Card
       title={t('settings.section.location')}
-      className='md:col-span-2'
+      className='md:col-span-2 xl:self-start'
       section='location'
     >
       <p className='mb-3 text-xs text-text2'>{t('settings.locationHint')}</p>
