@@ -654,7 +654,7 @@
       "mint": "Créer la persona",
       "minting": "Création…",
       "forgetPhrase": {
-        "action": "Oublier la phrase de récupération",
+        "action": "Oublier la phrase de récupération sur cet appareil",
         "body": "Ce coffre conserve la phrase de récupération, ce qui permet de créer des personas et d’en changer sans la saisir. L’oublier la retire du coffre sur cet appareil, et créer une persona ou en changer la demandera de nouveau. Vérifiez d’abord que vous l’avez notée.",
         "confirm": "Oublier la phrase",
         "forgetting": "Oubli en cours…",

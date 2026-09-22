@@ -654,7 +654,7 @@
       "mint": "Persona erstellen",
       "minting": "Wird erstellt…",
       "forgetPhrase": {
-        "action": "Wiederherstellungsphrase vergessen",
+        "action": "Wiederherstellungsphrase auf diesem Gerät vergessen",
         "body": "Dieser Tresor speichert die Wiederherstellungsphrase, sodass Personas ohne Eingabe erstellt und gewechselt werden können. Vergessen entfernt sie aus dem Tresor auf diesem Gerät; danach wird sie beim Erstellen oder Wechseln einer Persona wieder abgefragt. Prüfe vorher, dass du sie notiert hast.",
         "confirm": "Phrase vergessen",
         "forgetting": "Wird vergessen…",

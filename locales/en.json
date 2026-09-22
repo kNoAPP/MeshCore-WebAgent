@@ -653,7 +653,7 @@
       "mint": "Create persona",
       "minting": "Creating…",
       "forgetPhrase": {
-        "action": "Forget recovery phrase",
+        "action": "Forget the recovery phrase on this device",
         "body": "This vault keeps the recovery phrase, so personas can be created and switched to without typing it. Forgetting removes it from the vault on this device, and creating or switching to a persona then asks for it again. Check that you have it written down first.",
         "confirm": "Forget phrase",
         "forgetting": "Forgetting…",

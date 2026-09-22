@@ -654,7 +654,7 @@
       "mint": "Crear persona",
       "minting": "Creando…",
       "forgetPhrase": {
-        "action": "Olvidar la frase de recuperación",
+        "action": "Olvidar la frase de recuperación en este dispositivo",
         "body": "Esta bóveda guarda la frase de recuperación, así que se pueden crear personas y cambiar a ellas sin escribirla. Olvidarla la quita de la bóveda en este dispositivo, y crear una persona o cambiar a ella volverá a pedirla. Comprueba antes que la tienes anotada.",
         "confirm": "Olvidar la frase",
         "forgetting": "Olvidando…",
