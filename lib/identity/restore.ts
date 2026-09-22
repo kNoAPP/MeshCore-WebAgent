@@ -135,9 +135,13 @@ export async function recordInVault(
  * @remarks
  * Unlike a regenerate, nothing in this browser moves: the incoming identity's
  * records, if this device has any, are its own history and are left exactly
- * as they are, and so are the outgoing identity's. The session is moved onto
- * the incoming identity without its data ({@link beginIdentitySwitch}), and
- * must then be restarted to hydrate it, which is the caller's to do.
+ * as they are, and so are the outgoing identity's. Unless the radio refused
+ * the key, the session is moved onto the incoming identity without the
+ * outgoing one's data ({@link beginIdentitySwitch}), and must then be
+ * restarted to hydrate whichever identity the radio reports, which is the
+ * caller's to do. An unacknowledged import is moved too: it may have landed,
+ * and a restart as the outgoing identity reloads that identity's records,
+ * losing only what was never saved, such as drafts and unread markers.
  *
  * The vault is written first and kept whatever the radio does: it records only
  * that the phrase derives this identity, which a refusal does not change.
@@ -159,24 +163,28 @@ export async function restoreIdentity(
   plan: VaultPlan,
 ): Promise<boolean> {
   const { privateKey, publicKey } = await identityFromMnemonic(phrase);
+  const incoming = toHex(publicKey);
+  let acknowledged = true;
   try {
-    await recordInVault(phrase, toHex(publicKey), label, plan);
+    await recordInVault(phrase, incoming, label, plan);
     try {
       await client.importPrivateKey(privateKey);
     } catch (err) {
       if (err instanceof PrivateKeyError) throw err;
-      return false;
+      acknowledged = false;
     }
   } finally {
     privateKey.fill(0);
   }
-  // A persona switch onto this identity that never finished is superseded:
-  // the restore puts the identity back as it is, not as that switch left it.
-  await deletePendingPersona(toHex(publicKey));
-  const store = useMeshStore.getState();
-  if (store.personaSwitch?.target === toHex(publicKey)) {
-    store.setPersonaSwitch(null);
+  if (acknowledged) {
+    // A persona switch onto this identity that never finished is superseded:
+    // the restore puts the identity back as it is, not as that switch left it.
+    await deletePendingPersona(incoming);
+    const store = useMeshStore.getState();
+    if (store.personaSwitch?.target === incoming) {
+      store.setPersonaSwitch(null);
+    }
   }
-  await beginIdentitySwitch(client, toHex(publicKey));
-  return true;
+  await beginIdentitySwitch(client, incoming);
+  return acknowledged;
 }

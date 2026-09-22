@@ -188,7 +188,6 @@ export function usePersonaSwitch(): {
       };
       setProgress({ stage: 'importing' });
       await beginIdentitySwitch(client, record.burner ? null : record.target);
-      store.resetIdentityData();
 
       let landed: boolean | null;
       try {

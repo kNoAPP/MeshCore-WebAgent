@@ -451,19 +451,19 @@ export async function beginIdentityHandover(
  * Moves this session onto an identity the radio has just been given whose
  * data this store does not hold: persists the outgoing identity's records
  * where they are, then stops writing them, binds the secrets context to the
- * incoming identity, and re-reads `SELF_INFO`.
+ * incoming identity, re-reads `SELF_INFO`, and clears the outgoing identity's
+ * data from the store (`resetIdentityData`).
  *
- * @remarks For a restore from a recovery phrase, where the incoming identity
- * keeps whatever records it already has here. The store still holds the
- * outgoing identity's data, so it may be written neither there (the radio no
- * longer is that identity) nor under the incoming one (it would overwrite that
- * identity's own history). Nothing persists until the session restarts and
- * binds the incoming identity, which is the caller's to do — and that restart
- * merges the identity's saved history into the store rather than replacing
- * it, as every reconnect does. Until then {@link identitySwitchPending}
- * reports true, so nothing merges more data into the store. The secrets
- * context has no such conflict, so a secret saved before that restart is
- * filed where the next session looks for it.
+ * @remarks For a restore from a recovery phrase or a persona switch, where
+ * the incoming identity keeps whatever records it already has here. Nothing
+ * persists until the session restarts and binds the incoming identity, which
+ * is the caller's to do. That restart merges the identity's saved history into
+ * the store rather than replacing it, as every reconnect does, so the store is
+ * cleared here: whatever it still held of the outgoing identity would be filed
+ * under the incoming one, linking the two. Until the restart
+ * {@link identitySwitchPending} reports true, so nothing merges more data into
+ * the store. The secrets context has no such conflict, so a secret saved
+ * before that restart is filed where the next session looks for it.
  *
  * A channel change after this is the incoming identity's, and does not re-key
  * the outgoing identity's records: they stay under the channel set that
@@ -493,6 +493,12 @@ export async function beginIdentitySwitch(
     setSecretContext(pubkey, incoming.key);
   }
   await client.refreshSelfInfo().catch(() => {});
+  // After the last await: a persona switch installs the key only once this
+  // returns, so the radio is still the outgoing identity until then, and
+  // anything it received meanwhile has to be cleared along with the rest. A
+  // restore has installed it already, so what this clears is the incoming
+  // identity's own traffic, a few seconds of it at most.
+  useMeshStore.getState().resetIdentityData();
 }
 
 /**
