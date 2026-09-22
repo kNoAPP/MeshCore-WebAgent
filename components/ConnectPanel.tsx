@@ -215,7 +215,7 @@ export function ConnectPanel() {
 
         {connectError && (
           <div className='mb-5' role='alert'>
-            <WarningBox>{t(`toast.${connectError}`)}</WarningBox>
+            <WarningBox>{t(`notify.${connectError}`)}</WarningBox>
           </div>
         )}
 

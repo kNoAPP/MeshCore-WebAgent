@@ -287,7 +287,7 @@ export function useMeshCore() {
           if (count > 0 && useMeshStore.getState().client === c && !c.closed) {
             notify({
               level: 'success',
-              text: i18n.t('toast.caughtUp', { count }),
+              text: i18n.t('notify.caughtUp', { count }),
               key: 'caughtUp',
             });
           }
@@ -296,13 +296,13 @@ export function useMeshCore() {
         onContactsFull: () =>
           notify({
             level: 'warning',
-            text: i18n.t('toast.contactsFull'),
+            text: i18n.t('notify.contactsFull'),
             key: 'contactsFull',
           }),
         onContactsIncomplete: () =>
           notify({
             level: 'warning',
-            text: i18n.t('toast.contactsIncomplete'),
+            text: i18n.t('notify.contactsIncomplete'),
             key: 'contactsIncomplete',
           }),
         onContactsSynced: () => retractNotification('contactsIncomplete'),
@@ -373,11 +373,11 @@ export function useMeshCore() {
               // the drain ends.
               if (!visible && !state.backlogDraining) {
                 const text = sender
-                  ? i18n.t('toast.newMessageInFrom', {
+                  ? i18n.t('notify.newMessageInFrom', {
                       sender,
                       channel: chName,
                     })
-                  : i18n.t('toast.newMessageIn', { channel: chName });
+                  : i18n.t('notify.newMessageIn', { channel: chName });
                 notify({
                   level: 'info',
                   text,
@@ -461,8 +461,8 @@ export function useMeshCore() {
               // channel branch above.
               if (!visible && !state.backlogDraining) {
                 const text = isRoom
-                  ? i18n.t('toast.newPostIn', { room })
-                  : i18n.t('toast.newMessageFrom', { sender });
+                  ? i18n.t('notify.newPostIn', { room })
+                  : i18n.t('notify.newMessageFrom', { sender });
                 // Keyed and surfaced exactly as the channel branch above.
                 notify({
                   level: 'info',
@@ -589,7 +589,7 @@ export function useMeshCore() {
           void deletePendingPersona(pending.target);
           notify({
             level: 'warning',
-            text: i18n.t('toast.personaSwitchNotLanded', {
+            text: i18n.t('notify.personaSwitchNotLanded', {
               name: pending.label,
             }),
             key: 'personaSwitchNotLanded',
@@ -624,7 +624,7 @@ export function useMeshCore() {
             });
             notify({
               level: 'warning',
-              text: i18n.t('toast.personaSwitchNotSaved'),
+              text: i18n.t('notify.personaSwitchNotSaved'),
               key: 'personaSwitchNotSaved',
             });
           } else {
@@ -704,7 +704,7 @@ export function useMeshCore() {
             store.setPersonaSwitch(null);
             notify({
               level: 'info',
-              text: i18n.t('toast.burnerLive'),
+              text: i18n.t('notify.burnerLive'),
               key: 'burnerLive',
             });
           }
@@ -730,7 +730,7 @@ export function useMeshCore() {
           if (burner === 'assumed') {
             notify({
               level: 'warning',
-              text: i18n.t('toast.burnerAssumed'),
+              text: i18n.t('notify.burnerAssumed'),
               key: 'burnerAssumed',
             });
           }
@@ -860,7 +860,7 @@ export function useMeshCore() {
           notify({
             level: 'success',
             text: i18n.t(
-              isReconnect ? 'toast.reconnected' : 'toast.connected',
+              isReconnect ? 'notify.reconnected' : 'notify.connected',
               { device: deviceName },
             ),
             key: isReconnect ? 'reconnected' : 'connected',
@@ -1005,7 +1005,7 @@ export function useMeshCore() {
     // session that no longer has a drawer to sit in.
     notify({
       level: 'info',
-      text: i18n.t('toast.disconnected'),
+      text: i18n.t('notify.disconnected'),
       key: 'disconnected',
       surface: 'none',
     });
@@ -1030,7 +1030,7 @@ export function useMeshCore() {
             updateMessage(convo.id, msgId, { status: 'failed' });
             notify({
               level: 'error',
-              text: i18n.t('toast.channelNotFound'),
+              text: i18n.t('notify.channelNotFound'),
               key: 'channelNotFound',
             });
             return;
@@ -1042,7 +1042,9 @@ export function useMeshCore() {
           updateMessage(convo.id, msgId, { status: 'failed' });
           notify({
             level: 'error',
-            text: i18n.t('toast.sendFailed', { error: (err as Error).message }),
+            text: i18n.t('notify.sendFailed', {
+              error: (err as Error).message,
+            }),
             key: `sendFailed:${convo.id}`,
           });
         }
@@ -1138,7 +1140,7 @@ export function useMeshCore() {
         if (!quiet) {
           notify({
             level: 'success',
-            text: i18n.t('toast.routeReset'),
+            text: i18n.t('notify.routeReset'),
             key: 'routeReset',
             surface: 'none',
           });
@@ -1146,7 +1148,7 @@ export function useMeshCore() {
       } catch (err) {
         notify({
           level: 'error',
-          text: i18n.t('toast.routeResetFailed', {
+          text: i18n.t('notify.routeResetFailed', {
             error: (err as Error).message,
           }),
           key: `routeResetFailed:${contact.pubkeyPrefix}`,
@@ -1166,15 +1168,15 @@ export function useMeshCore() {
         notify({
           level: 'info',
           text: fav
-            ? i18n.t('toast.addedToFavorites')
-            : i18n.t('toast.removedFromFavorites'),
+            ? i18n.t('notify.addedToFavorites')
+            : i18n.t('notify.removedFromFavorites'),
           key: `favorite:${contact.pubkeyPrefix}`,
           surface: 'none',
         });
       } catch (err) {
         notify({
           level: 'error',
-          text: i18n.t('toast.favoriteUpdateFailed', {
+          text: i18n.t('notify.favoriteUpdateFailed', {
             error: (err as Error).message,
           }),
           key: `favoriteFailed:${contact.pubkeyPrefix}`,
@@ -1188,14 +1190,12 @@ export function useMeshCore() {
    * Logs in to a repeater/room server for remote admin. Marks the session
    * `pending`, then on success the granted level, or `loggedOut` on failure
    * (surfaced as a notification). A room server's own reported role wins,
-   * because it
-   * is what decides whether the member may post; a repeater's is ignored in
-   * favour of the level the user selected (`kind`), since a blank/guest login
-   * re-uses an admin-enrolled node's stored ACL role and would otherwise show
-   * a guest session as admin. When `remember`
-   * is set, the password is persisted encrypted per-radio in the `secrets`
-   * store (never in the store, prefs blob, or localStorage); otherwise it is
-   * not persisted.
+   * because it is what decides whether the member may post; a repeater's is
+   * ignored in favour of the level the user selected (`kind`), since a
+   * blank/guest login re-uses an admin-enrolled node's stored ACL role and
+   * would otherwise show a guest session as admin. When `remember` is set, the
+   * password is persisted encrypted per-radio in the `secrets` store (never in
+   * the store, prefs blob, or localStorage); otherwise it is not persisted.
    *
    * @param quiet - suppress the *timeout* notice, for a caller that shows the
    * outcome itself. An automatic retry cycle sets it on every attempt but its
@@ -1261,10 +1261,10 @@ export function useMeshCore() {
           notify({
             level: 'error',
             text: timedOut
-              ? i18n.t('toast.repeaterLoginTimedOut', {
+              ? i18n.t('notify.repeaterLoginTimedOut', {
                   name: contact.name || contact.pubkeyPrefix.slice(0, 8),
                 })
-              : i18n.t('toast.repeaterLoginFailed', {
+              : i18n.t('notify.repeaterLoginFailed', {
                   error: (err as Error).message,
                 }),
             key: `repeaterLogin:${contact.pubkeyPrefix}`,
@@ -1303,7 +1303,7 @@ export function useMeshCore() {
           if (!canTransmit(client)) return;
           notify({
             level: 'error',
-            text: i18n.t('toast.repeaterStatusFailed', {
+            text: i18n.t('notify.repeaterStatusFailed', {
               error: (err as Error).message,
             }),
             key: `repeaterStatus:${prefix}`,
@@ -1332,7 +1332,7 @@ export function useMeshCore() {
         if (!canTransmit(client)) return;
         notify({
           level: 'error',
-          text: i18n.t('toast.telemetryFailed', {
+          text: i18n.t('notify.telemetryFailed', {
             error: (err as Error).message,
           }),
           key: `telemetry:${contact.pubkeyPrefix}`,
@@ -1424,7 +1424,7 @@ export function useMeshCore() {
         if (isErrorReply(reply)) {
           notify({
             level: 'error',
-            text: i18n.t('toast.repeaterCliFailed', { error: reply.trim() }),
+            text: i18n.t('notify.repeaterCliFailed', { error: reply.trim() }),
             key: `repeaterCli:${contact.pubkeyPrefix}`,
           });
           return 'error';
@@ -1439,7 +1439,7 @@ export function useMeshCore() {
         if (!canTransmit(client)) return 'error';
         notify({
           level: 'error',
-          text: i18n.t('toast.repeaterCliFailed', {
+          text: i18n.t('notify.repeaterCliFailed', {
             error: (err as Error).message,
           }),
           key: `repeaterCli:${contact.pubkeyPrefix}`,
@@ -1469,7 +1469,7 @@ export function useMeshCore() {
       if (!pubkeyBytes) {
         notify({
           level: 'error',
-          text: i18n.t('toast.invalidPublicKey'),
+          text: i18n.t('notify.invalidPublicKey'),
           key: 'invalidPublicKey',
         });
         return false;
@@ -1491,7 +1491,7 @@ export function useMeshCore() {
         await client.addContact(contact);
         notify({
           level: 'success',
-          text: i18n.t('toast.added', {
+          text: i18n.t('notify.added', {
             name: advert.name || advert.pubkeyPrefix,
           }),
           key: `added:${advert.pubkeyPrefix}`,
@@ -1505,7 +1505,7 @@ export function useMeshCore() {
         // tell apart. One row per distinct failure, counted, says more.
         notify({
           level: 'error',
-          text: i18n.t('toast.addContactFailed', {
+          text: i18n.t('notify.addContactFailed', {
             error: (err as Error).message,
           }),
           key: `addContactFailed:${(err as Error).message}`,
@@ -1539,7 +1539,7 @@ export function useMeshCore() {
       if (!pubkeyBytes) {
         notify({
           level: 'error',
-          text: i18n.t('toast.invalidPublicKey'),
+          text: i18n.t('notify.invalidPublicKey'),
           key: 'invalidPublicKey',
         });
         return;
@@ -1548,7 +1548,7 @@ export function useMeshCore() {
       if (client.contacts[pubkeyPrefix]) {
         notify({
           level: 'warning',
-          text: i18n.t('toast.contactAlreadyAdded', {
+          text: i18n.t('notify.contactAlreadyAdded', {
             name: client.contacts[pubkeyPrefix].name || pubkeyPrefix,
           }),
           key: `contactAlreadyAdded:${pubkeyPrefix}`,
@@ -1569,7 +1569,7 @@ export function useMeshCore() {
         await client.addContact(contact);
         notify({
           level: 'success',
-          text: i18n.t('toast.added', { name: name || pubkeyPrefix }),
+          text: i18n.t('notify.added', { name: name || pubkeyPrefix }),
           key: `added:${pubkeyPrefix}`,
           surface: 'none',
         });
@@ -1578,7 +1578,7 @@ export function useMeshCore() {
         // string never carries two key schemes.
         notify({
           level: 'error',
-          text: i18n.t('toast.addContactFailed', {
+          text: i18n.t('notify.addContactFailed', {
             error: (err as Error).message,
           }),
           key: `addContactFailed:${(err as Error).message}`,
@@ -1599,7 +1599,7 @@ export function useMeshCore() {
         await client.shareContact(contact);
         notify({
           level: 'success',
-          text: i18n.t('toast.advertSent'),
+          text: i18n.t('notify.advertSent'),
           key: `advertSent:${contact.pubkeyPrefix}`,
           surface: 'none',
         });
@@ -1610,13 +1610,13 @@ export function useMeshCore() {
         if ((err as { code?: number }).code === ERR_CODE.TABLE_FULL) {
           notify({
             level: 'warning',
-            text: i18n.t('toast.advertNoRecent'),
+            text: i18n.t('notify.advertNoRecent'),
             key: `advertNoRecent:${contact.pubkeyPrefix}`,
           });
         } else {
           notify({
             level: 'error',
-            text: i18n.t('toast.advertFailed', {
+            text: i18n.t('notify.advertFailed', {
               error: (err as Error).message,
             }),
             key: `advertFailed:${contact.pubkeyPrefix}`,
@@ -1640,15 +1640,15 @@ export function useMeshCore() {
         notify({
           level: 'success',
           text: flood
-            ? i18n.t('toast.selfAdvertFloodSent')
-            : i18n.t('toast.selfAdvertZeroHopSent'),
+            ? i18n.t('notify.selfAdvertFloodSent')
+            : i18n.t('notify.selfAdvertZeroHopSent'),
           key: 'selfAdvert',
           surface: 'none',
         });
       } catch (err) {
         notify({
           level: 'error',
-          text: i18n.t('toast.selfAdvertFailed', {
+          text: i18n.t('notify.selfAdvertFailed', {
             error: (err as Error).message,
           }),
           key: 'selfAdvertFailed',
@@ -1671,7 +1671,7 @@ export function useMeshCore() {
         await client.removeContact(contact);
         notify({
           level: 'info',
-          text: i18n.t('toast.contactRemoved'),
+          text: i18n.t('notify.contactRemoved'),
           key: `contactRemoved:${contact.pubkeyPrefix}`,
           surface: 'none',
         });
@@ -1681,7 +1681,7 @@ export function useMeshCore() {
         // {@link addDiscoveredContact}.
         notify({
           level: 'error',
-          text: i18n.t('toast.removeContactFailed', {
+          text: i18n.t('notify.removeContactFailed', {
             error: (err as Error).message,
           }),
           key: `removeContactFailed:${(err as Error).message}`,
@@ -1710,7 +1710,7 @@ export function useMeshCore() {
       if (existing) {
         notify({
           level: 'warning',
-          text: i18n.t('toast.alreadyJoined', { name: existing.name || name }),
+          text: i18n.t('notify.alreadyJoined', { name: existing.name || name }),
           // Scoped to the slot, like `contactAlreadyAdded` is to its contact:
           // the text names a channel, so a bare key would relabel an earlier
           // channel's row with a later one's name.
@@ -1729,7 +1729,7 @@ export function useMeshCore() {
       if (idx === -1) {
         notify({
           level: 'error',
-          text: i18n.t('toast.allSlotsFull'),
+          text: i18n.t('notify.allSlotsFull'),
           key: 'allSlotsFull',
         });
         return;
@@ -1738,14 +1738,14 @@ export function useMeshCore() {
         await client.setChannel(idx, name, secret);
         notify({
           level: 'success',
-          text: i18n.t('toast.channelAdded', { name }),
+          text: i18n.t('notify.channelAdded', { name }),
           key: 'channelAdded',
           surface: 'none',
         });
       } catch (err) {
         notify({
           level: 'error',
-          text: i18n.t('toast.addChannelFailed', {
+          text: i18n.t('notify.addChannelFailed', {
             error: (err as Error).message,
           }),
           key: 'addChannelFailed',
@@ -1782,14 +1782,14 @@ export function useMeshCore() {
         }
         notify({
           level: 'info',
-          text: i18n.t('toast.channelRemoved'),
+          text: i18n.t('notify.channelRemoved'),
           key: `channelRemoved:${idx}`,
           surface: 'none',
         });
       } catch (err) {
         notify({
           level: 'error',
-          text: i18n.t('toast.removeChannelFailed', {
+          text: i18n.t('notify.removeChannelFailed', {
             error: (err as Error).message,
           }),
           key: `removeChannelFailed:${idx}`,
@@ -1817,12 +1817,12 @@ export function useMeshCore() {
   const setNodeName = useCallback(
     async (name: string): Promise<WriteResult> => {
       if (!canTransmit(client))
-        return { ok: false, error: i18n.t('toast.notConnected') };
+        return { ok: false, error: i18n.t('notify.notConnected') };
       try {
         await client.setNodeName(name);
         return { ok: true };
       } catch (err) {
-        const error = i18n.t('toast.nodeNameSaveFailed', {
+        const error = i18n.t('notify.nodeNameSaveFailed', {
           error: (err as Error).message,
         });
         notify({ level: 'error', text: error, key: 'nodeNameSaveFailed' });
@@ -1844,12 +1844,12 @@ export function useMeshCore() {
   const setLocation = useCallback(
     async (latDeg: number, lonDeg: number): Promise<WriteResult> => {
       if (!canTransmit(client))
-        return { ok: false, error: i18n.t('toast.notConnected') };
+        return { ok: false, error: i18n.t('notify.notConnected') };
       try {
         await client.setLocation(latDeg, lonDeg);
         return { ok: true };
       } catch (err) {
-        const error = i18n.t('toast.locationSaveFailed', {
+        const error = i18n.t('notify.locationSaveFailed', {
           error: (err as Error).message,
         });
         notify({ level: 'error', text: error, key: 'locationSaveFailed' });
@@ -1886,12 +1886,12 @@ export function useMeshCore() {
     (policy: number): Promise<WriteResult> =>
       serializeLocation(async () => {
         if (!canTransmit(client))
-          return { ok: false, error: i18n.t('toast.notConnected') };
+          return { ok: false, error: i18n.t('notify.notConnected') };
         try {
           await client.setLocationPolicy(policy);
           return { ok: true };
         } catch (err) {
-          const error = i18n.t('toast.sharePositionSaveFailed', {
+          const error = i18n.t('notify.sharePositionSaveFailed', {
             error: (err as Error).message,
           });
           notify({
@@ -1928,7 +1928,7 @@ export function useMeshCore() {
     (useGps: boolean): Promise<WriteResult> =>
       serializeLocation(async () => {
         if (!canTransmit(client))
-          return { ok: false, error: i18n.t('toast.notConnected') };
+          return { ok: false, error: i18n.t('notify.notConnected') };
         try {
           const policy = client.selfInfo?.advLocPolicy;
           const realigned =
@@ -1956,7 +1956,7 @@ export function useMeshCore() {
           await client.refreshSelfInfo().catch(() => {});
           return { ok: true };
         } catch (err) {
-          const error = i18n.t('toast.locationSourceSaveFailed', {
+          const error = i18n.t('notify.locationSourceSaveFailed', {
             error: (err as Error).message,
           });
           notify({
@@ -2004,7 +2004,7 @@ export function useMeshCore() {
         // receipt is transient and keeps no row.
         notify({
           level: 'success',
-          text: i18n.t('toast.radioParamsSaved'),
+          text: i18n.t('notify.radioParamsSaved'),
           key: 'radioParamsSaved',
           surface: 'none',
         });
@@ -2012,7 +2012,7 @@ export function useMeshCore() {
       } catch (err) {
         notify({
           level: 'error',
-          text: i18n.t('toast.radioParamsSaveFailed', {
+          text: i18n.t('notify.radioParamsSaveFailed', {
             error: (err as Error).message,
           }),
           key: 'radioParamsSaveFailed',
@@ -2040,13 +2040,13 @@ export function useMeshCore() {
       // why once the session is back.
       notify({
         level: 'info',
-        text: i18n.t('toast.rebooting'),
+        text: i18n.t('notify.rebooting'),
         key: 'rebooting',
       });
     } catch (err) {
       notify({
         level: 'error',
-        text: i18n.t('toast.rebootFailed', { error: (err as Error).message }),
+        text: i18n.t('notify.rebootFailed', { error: (err as Error).message }),
         key: 'rebootFailed',
       });
     }
@@ -2068,13 +2068,13 @@ export function useMeshCore() {
           // that has dropped behind an earlier queued save is a failure, not
           // an offline preference edit.
           if (!canTransmit(client))
-            return { ok: false, error: i18n.t('toast.notConnected') };
+            return { ok: false, error: i18n.t('notify.notConnected') };
           try {
             await client.setAutoAddPrefs(cfg);
             setAutoAddConfig(cfg);
             return { ok: true };
           } catch (err) {
-            const error = i18n.t('toast.saveSettingsFailed', {
+            const error = i18n.t('notify.saveSettingsFailed', {
               error: (err as Error).message,
             });
             notify({ level: 'error', text: error, key: 'saveSettingsFailed' });

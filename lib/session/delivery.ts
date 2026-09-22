@@ -183,7 +183,7 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
     store.notify({
       level: 'error',
       text: i18n.t(
-        contact ? 'toast.repeaterCantMessage' : 'toast.contactNotFound',
+        contact ? 'notify.repeaterCantMessage' : 'notify.contactNotFound',
       ),
       key: `undeliverable:${cycle.contactKey}`,
     });
@@ -199,7 +199,7 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
     settleUndelivered(cycle);
     store.notify({
       level: 'warning',
-      text: i18n.t('toast.roomPostNoAccess'),
+      text: i18n.t('notify.roomPostNoAccess'),
       key: `roomPostNoAccess:${cycle.contactKey}`,
     });
     return;
@@ -220,7 +220,7 @@ async function runDeliveryAttempt(cycle: DeliveryCycle): Promise<void> {
     if (deliveryCycles.get(cycle.msgId) !== cycle) return;
     store.notify({
       level: 'error',
-      text: i18n.t('toast.sendFailed', { error: (err as Error).message }),
+      text: i18n.t('notify.sendFailed', { error: (err as Error).message }),
       key: `sendFailed:${cycle.convo.id}`,
     });
     // A refused send is a failed attempt like any other — it counts toward the
