@@ -145,7 +145,11 @@ function UnfinishedSwitch() {
       role='alert'
       className='mb-3 rounded-md border border-red bg-red/10 p-3 text-xs leading-relaxed text-text'
     >
-      <p>{t('settings.persona.unfinished', { name: record.label })}</p>
+      <p>
+        {t('settings.persona.unfinished', {
+          name: record.label || t('settings.persona.unnamed'),
+        })}
+      </p>
       <button
         onClick={() => setPersonaSwitch({ ...record, dismissed: false })}
         className={`${BUTTON_CLASS} mt-2`}
