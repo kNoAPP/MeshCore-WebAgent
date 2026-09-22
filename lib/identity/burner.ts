@@ -63,14 +63,11 @@ export async function generateBurnerKey(): Promise<SeedIdentity> {
 
 /**
  * The persona a burner starts from: its own advert name, no location and
- * location sharing off, only the Public channel, and no contacts.
- *
- * @remarks Location sharing is switched off rather than left as the radio has
- * it: with the live GPS fix attached, every advert would place the burner
- * where the outgoing persona was.
+ * location sharing off, only the Public channel, and no contacts — the same
+ * as any {@link freshPersona}.
  */
 export function burnerPersona(name: string): PersonaState {
-  return { ...freshPersona(name), locationPolicy: ADVERT_LOC_POLICY.NONE };
+  return freshPersona(name);
 }
 
 /**
