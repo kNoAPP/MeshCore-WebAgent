@@ -3,16 +3,11 @@
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { ADVERT_LOC_POLICY, MAX_CHANNEL_SLOTS } from '@/lib/meshcore/constants';
-import {
-  loadPendingPersona,
-  loadPersonaState,
-  savePendingPersona,
-  savePersonaState,
-} from '@/lib/storage';
-import { fromHex, toHex } from '@/lib/utils';
+import { loadPersonaRecord, savePersonaRecord } from '@/lib/storage';
+import { fromHex, isRecord, toHex } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
 import { deriveIdentityStorageKey } from './storageRoot';
-import type { Vault } from './vault';
+import { isVaultLocked, type Vault } from './vault';
 
 /**
  * A persona's radio-side state, and the capture and apply that move it
@@ -286,7 +281,7 @@ export async function savePersona(
   state: PersonaState,
 ): Promise<boolean> {
   const key = await personaKey(vault, publicKey);
-  return savePersonaState(publicKey, key, state);
+  return savePersonaRecord(publicKey, 'persona', key, state);
 }
 
 /**
@@ -302,7 +297,7 @@ export async function loadPersona(
   publicKey: string,
 ): Promise<PersonaState | null> {
   const key = await personaKey(vault, publicKey);
-  const raw = await loadPersonaState(publicKey, key);
+  const raw = await loadPersonaRecord(publicKey, 'persona', key);
   return raw === null ? null : normalizePersona(raw);
 }
 
@@ -319,7 +314,7 @@ export async function savePendingSwitch(
   state: PersonaState,
 ): Promise<boolean> {
   const key = await personaKey(vault, publicKey);
-  return savePendingPersona(publicKey, key, state);
+  return savePersonaRecord(publicKey, 'persona-pending', key, state);
 }
 
 /**
@@ -335,7 +330,7 @@ export async function loadPendingSwitch(
   publicKey: string,
 ): Promise<PersonaState | null> {
   const key = await personaKey(vault, publicKey);
-  const raw = await loadPendingPersona(publicKey, key);
+  const raw = await loadPersonaRecord(publicKey, 'persona-pending', key);
   return raw === null ? null : normalizePersona(raw);
 }
 
@@ -343,8 +338,7 @@ async function personaKey(vault: Vault, publicKey: string): Promise<CryptoKey> {
   if (!PUBKEY_HEX.test(publicKey)) {
     throw new RangeError('Public key must be 64 lowercase hex characters');
   }
-  // A real root is 32 bytes of HMAC output; all zeros means lockVault ran.
-  if (vault.root.every((b) => b === 0)) throw new Error('Vault is locked');
+  if (isVaultLocked(vault)) throw new Error('Vault is locked');
   return deriveIdentityStorageKey(
     vault.root,
     new Uint8Array(fromHex(publicKey, 32) as Uint8Array),
@@ -550,8 +544,4 @@ function isByte(v: unknown): v is number {
 
 function isIntIn(v: unknown, min: number, max: number): v is number {
   return Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
 }

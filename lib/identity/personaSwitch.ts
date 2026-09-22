@@ -201,8 +201,11 @@ export async function verifyPersonaKey(
  * @remarks Best-effort: a vault that cannot be saved (another tab changed
  * it, or IndexedDB failed) is left as it was, and a stale flag only costs a
  * warning, so the switch goes on regardless.
- * @returns an undo that writes back both identities' flags as they were, for
- * a switch that turns out to leave the radio on `outgoing`.
+ * @returns an undo that writes back both identities' flags as they were, and
+ * touches no other identity's, for a switch that turns out to leave the radio
+ * on `outgoing`. Only this session can run it: a switch found not to have
+ * landed at the next connect keeps the flags this set (see
+ * `VaultIdentity.live`).
  */
 export async function recordLive(
   vault: Vault,
@@ -217,7 +220,12 @@ export async function recordLive(
   await writeLive(vault, (key) =>
     key === incoming ? true : key === outgoing ? false : undefined,
   );
-  return () => writeLive(vault, (key) => (was.has(key) ? was.get(key) : null));
+  // An involved identity's absent flag reads back undefined, which writeLive
+  // takes as "leave it"; it must be cleared instead.
+  return () =>
+    writeLive(vault, (key) =>
+      was.has(key) ? (was.get(key) ?? null) : undefined,
+    );
 }
 
 // Rewrites the live flag of each identity `flag` names — undefined leaves it,
