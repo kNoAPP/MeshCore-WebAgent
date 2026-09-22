@@ -1561,7 +1561,7 @@
     "addContactFailed": "Hinzufügen des Kontakts fehlgeschlagen: {{error}}",
     "contactRemoved": "Kontakt entfernt",
     "contactsFull": "Kontaktspeicher ist voll – neue Knoten werden nicht hinzugefügt. Entferne Kontakte oder aktiviere „Älteste überschreiben“ in den Auto-Hinzufügen-Einstellungen.",
-    "contactsIncomplete": "Das Funkgerät hat die Kontaktliste nicht vollständig gesendet, sie ist möglicherweise unvollständig. Verbinde dich erneut, um sie neu zu laden.",
+    "contactsIncomplete": "Das Funkgerät hat seine Kontaktliste nicht vollständig gesendet, sie ist möglicherweise unvollständig. Verbinde dich erneut, um sie neu zu laden.",
     "removeContactFailed": "Entfernen des Kontakts fehlgeschlagen: {{error}}",
     "alreadyJoined": "Bereits „{{name}}“ beigetreten",
     "allSlotsFull": "Alle Kanalplätze sind belegt",
