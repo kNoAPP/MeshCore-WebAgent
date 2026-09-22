@@ -87,8 +87,11 @@ export interface VaultIdentity {
    * on a radio, and no switch has taken it off since. Absent means false.
    *
    * @remarks Only switches through the vault set or clear it, so it can be
-   * stale — a radio reset or re-flashed out of band still counts as live. It
-   * is a reason to warn, never to refuse.
+   * stale — a radio reset or re-flashed out of band still counts as live. So
+   * can a switch that the next connect finds did not land: the flags were
+   * set before the key was written, and with the vault locked by then they
+   * stay set, the incoming identity live and the outgoing one not, until a
+   * later switch rewrites them. It is a reason to warn, never to refuse.
    */
   live?: boolean;
 }

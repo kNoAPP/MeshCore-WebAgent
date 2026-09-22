@@ -475,23 +475,18 @@ export class MeshCoreClient {
     this.reportSync('contacts', 10);
     await this.syncStep(() => this.syncContacts());
     await this.syncStep(() => this.syncChannels());
-    // A queue deeper than one pass is finished in the background rather than
-    // held against the connect screen, so the cap has to travel back out of
-    // the step: claiming 100% here is what used to make a truncated drain look
-    // like a completed one.
+    // The outcome has to travel back out of the step: a queue deeper than one
+    // pass is finished in the background, so a truncated drain must not
+    // report 100% as if it had completed.
     let outcome: DrainOutcome = 'drained';
     await this.syncStep(async () => {
       outcome = await this.pollMessages();
     });
-    // Anything but a drained queue defers. `unknown` covers two cases that
-    // both look like "nothing left" if they aren't separated out: a pass that
-    // timed out, and one that never ran because another already held the
-    // queue — the read loop is live from the top of init, so a
-    // PUSH_MSG_WAITING answered during the seconds of contact enumeration can
-    // be mid-drain by the time we get here. `draining` is the companion test:
-    // a drain still running has not reached NO_MORE_MESSAGES yet — it loops
-    // until it does — so the queue is demonstrably not empty, while one that
-    // has finished ended on exactly that and leaves nothing to defer.
+    // Anything but a drained queue defers. `unknown` is a pass that timed out
+    // or never ran because another held the queue: the read loop is live from
+    // the top of init, so a PUSH_MSG_WAITING answered during contact
+    // enumeration can still be mid-drain here. A drain still running has not
+    // reached NO_MORE_MESSAGES, so its queue is not empty either.
     const deferred = outcome !== 'drained' || this.draining;
     if (!deferred) this.reportSync('messages', 100);
     this.initialSync = false;
@@ -972,7 +967,7 @@ export class MeshCoreClient {
   // A known node re-advertised. The 0x80 push carries only the pubkey, so the
   // matching sender timestamp arrives with the contact resync this schedules —
   // hold our clock until then rather than writing it over `lastHeard`, which
-  // is what used to leave the two facts indistinguishable.
+  // would leave the two facts indistinguishable.
   private touchAdvert(d: Uint8Array): void {
     const prefix = toHex(d.slice(1, 7));
     const nowSecs = Math.floor(Date.now() / 1000);
@@ -998,47 +993,40 @@ export class MeshCoreClient {
   // Pairs each pending live-push observation with the contact row the resync
   // just delivered, which carries that advert's sender timestamp. Both clocks
   // for one advert are known only here, so this is where skew is measured.
-  // Entries that no contact row answered, or that have aged past the window,
-  // are dropped rather than left to measure a later advert.
+  // Entries still unproven once they age past the window are dropped rather
+  // than left to measure a later advert.
   private foldAdvertObservations(): void {
     const nowSecs = Math.floor(Date.now() / 1000);
     for (const [prefix, seen] of Object.entries(this.advertObservations)) {
       const expired = nowSecs - seen.at > ADVERT_OBSERVATION_WINDOW_SECS;
       const contact = this.contacts[prefix];
-      // `scheduleContactResync` drops its resync when a sync is already in
-      // flight, so this enumeration may have started *before* the push and
-      // still carry the previous advert's timestamp. Only a claim that has
-      // moved past the one we held when the push landed is demonstrably the
-      // advert we heard. No reference at all — a push during the very first
-      // enumeration, before either map is filled — proves nothing either, so
-      // it measures nothing rather than pairing our clock with whatever row
-      // happens to arrive. (A row can still be one advert behind if two
-      // arrived inside a single enumeration, which bounds the error by that
-      // enumeration rather than by the gap between adverts.)
+      // `scheduleContactResync` drops its resync while a sync is in flight,
+      // so this enumeration may predate the push and carry the previous
+      // advert's timestamp: only a claim past the one held at the push proves
+      // the advert we heard. No held claim (a push during the first
+      // enumeration) proves nothing. Two adverts inside one enumeration can
+      // still leave the row one behind, bounding the error by that
+      // enumeration.
       //
-      // Past the window the pairing is refused outright, however the claim
-      // looks: an observation can sit pending across a quiet stretch with no
-      // enumeration, and by the time one arrives the row may carry a later
-      // advert whose own push never reached us. Measuring then would pin our
-      // stale clock to it and invent a skew the size of that gap. Failing to
-      // measure costs one sighting's worth of data; measuring wrongly is
-      // persisted and ages the node from then on.
+      // Past the window the pairing is refused however the claim looks: the
+      // row may by then carry a later advert whose push never reached us, and
+      // pairing our stale clock with it would invent a skew the size of that
+      // gap. A wrong skew is persisted and ages the node; a missed one costs
+      // only that sighting's measurement.
       const measure =
         !expired &&
         contact?.lastAdvert !== undefined &&
         seen.claim !== undefined &&
         contact.lastAdvert > seen.claim;
       // Record the sighting either way, so a coalesced resync cannot lose it.
-      // Gated on the contact, not on its claim: a node whose RTC is unset has
-      // no claim to offer, and dropping it here would leave it with no advert
-      // record at all — reading as "unknown" and hidden by every "heard
-      // within" window seconds after we heard it live.
+      // Gated on the contact, not its claim: a node with an unset RTC has no
+      // claim, and skipping it would leave no advert record, hiding a node we
+      // just heard from every "heard within" window.
       if (contact) {
         this.recordAdvert(contact, { at: seen.at, measure });
       }
-      // An unproven observation stays pending: the enumeration that answered
-      // it may simply have predated the advert, and a later one can still
-      // complete the pairing inside the window.
+      // Unproven stays pending: a later enumeration can still complete the
+      // pairing inside the window.
       if (measure || expired) delete this.advertObservations[prefix];
     }
   }
@@ -1194,20 +1182,16 @@ export class MeshCoreClient {
     return outcome;
   }
 
-  // One drain to exhaustion: consecutive full passes mean the radio still has
-  // a queue, so the next starts as soon as the last answers instead of waiting
-  // out the 5s poll — which would spend eight ticks on a 500-message backlog.
-  // Guarded because the poll timer and PUSH_MSG_WAITING both land here: a
-  // second loop would find the queue already owned, fall straight through, and
-  // clear the backlog flag out from under the pass still running.
+  // One drain to exhaustion: a full pass means the radio still has a queue, so
+  // the next starts at once instead of waiting out the 5s poll. Guarded
+  // because the poll timer and PUSH_MSG_WAITING both land here: a second loop
+  // would find the queue owned, fall through, and clear the backlog flag out
+  // from under the pass still running.
   //
-  // The flag arms only once a pass has come back full, so a drain entered from
-  // the timer or a push notifies normally for its first MESSAGE_DRAIN_CAP
-  // messages and goes quiet after. That is deliberate: arriving traffic is not
-  // a backlog until there is more of it than one pass can carry, and arming on
-  // entry would silence every ordinary message instead. `init` is the one
-  // caller that arms up front, because a connect-time pass that came back full
-  // has already established the backlog this one is still only a burst.
+  // The flag arms only once a pass comes back full: arriving traffic is not a
+  // backlog until one pass can't carry it, and arming on entry would silence
+  // every ordinary message. `init` arms up front whenever its connect-time
+  // pass did not drain the queue.
   private async drainMessages(): Promise<void> {
     if (this.draining) return;
     this.draining = true;

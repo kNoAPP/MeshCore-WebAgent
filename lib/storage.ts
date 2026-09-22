@@ -241,7 +241,12 @@ export async function saveRadioData(
   key: CryptoKey,
   data: PersistedRadioData,
 ): Promise<boolean> {
-  return putEncrypted(STORE_NAME, pubkey, key, JSON.stringify(data));
+  return putEncrypted(
+    STORE_NAME,
+    radioRecordKey(pubkey, 'history'),
+    key,
+    JSON.stringify(data),
+  );
 }
 
 /**
@@ -255,7 +260,11 @@ export async function loadRadioData(
   pubkey: string,
   key: CryptoKey,
 ): Promise<PersistedRadioData | null> {
-  const plaintext = await getDecrypted(STORE_NAME, pubkey, key);
+  const plaintext = await getDecrypted(
+    STORE_NAME,
+    radioRecordKey(pubkey, 'history'),
+    key,
+  );
   return plaintext === null
     ? null
     : (JSON.parse(plaintext) as PersistedRadioData);
@@ -271,9 +280,37 @@ function recordKey(pubkey: string, suffix: string): string {
   return `${pubkey}:${suffix}`;
 }
 
+// The one list of the records each identity keeps in the radios store under
+// its channel-secret key. The session save (`saveSessionNamespace`) must write
+// every member of it to type-check, and `deleteRadioRecords` deletes exactly
+// its members, so no record can be saved there and never deleted. `persona`
+// and `persona-pending` stay out: they are sealed under the vault's storage
+// root, and a handover must not delete them.
+const RADIO_RECORDS = [
+  'history',
+  'advert-cache',
+  'automation-rules',
+  'preferences',
+] as const;
+
 /**
- * Deletes every per-radio record belonging to one identity — message history,
- * advert cache, automation rules and preferences.
+ * One of the records each identity keeps in the `radios` store under the key
+ * from {@link deriveStorageKey}: its message history, advert cache,
+ * automation rules and preferences.
+ *
+ * @remarks A new record joins this list, which makes the session save fail to
+ * type-check until it writes it and makes {@link deleteRadioRecords} delete it.
+ */
+export type RadioRecord = (typeof RADIO_RECORDS)[number];
+
+// The history record is the bare pubkey; every other one is namespaced.
+function radioRecordKey(pubkey: string, record: RadioRecord): string {
+  return record === 'history' ? pubkey : recordKey(pubkey, record);
+}
+
+/**
+ * Deletes every {@link RadioRecord} belonging to one identity — message
+ * history, advert cache, automation rules and preferences.
  *
  * @remarks For a deliberate identity handover: once the radio's key has been
  * replaced, the outgoing identity's records describe a node that no longer
@@ -287,17 +324,17 @@ function recordKey(pubkey: string, suffix: string): string {
  *
  * The `persona` record is left too, deliberately: it is sealed under the
  * vault's storage root rather than this radio's key, so an outgoing persona
- * that is switched back to later still needs it.
+ * that is switched back to later still needs it. So is `persona-pending`,
+ * which {@link deletePendingPersona} collects once its switch is settled.
  * @returns whether every delete landed; best-effort, like the `save*` helpers.
  */
 export async function deleteRadioRecords(pubkey: string): Promise<boolean> {
   try {
-    await Promise.all([
-      idbDelete(STORE_NAME, pubkey),
-      idbDelete(STORE_NAME, recordKey(pubkey, 'advert-cache')),
-      idbDelete(STORE_NAME, recordKey(pubkey, 'automation-rules')),
-      idbDelete(STORE_NAME, recordKey(pubkey, 'preferences')),
-    ]);
+    await Promise.all(
+      RADIO_RECORDS.map((r) =>
+        idbDelete(STORE_NAME, radioRecordKey(pubkey, r)),
+      ),
+    );
     return true;
   } catch {
     return false;
@@ -443,7 +480,7 @@ export async function saveAutomationRules(
 ): Promise<boolean> {
   return putEncrypted(
     STORE_NAME,
-    recordKey(pubkey, 'automation-rules'),
+    radioRecordKey(pubkey, 'automation-rules'),
     key,
     JSON.stringify(rules),
   );
@@ -462,7 +499,7 @@ export async function loadAutomationRules<T>(
 ): Promise<T | null> {
   const plaintext = await getDecrypted(
     STORE_NAME,
-    recordKey(pubkey, 'automation-rules'),
+    radioRecordKey(pubkey, 'automation-rules'),
     key,
   );
   return plaintext === null ? null : (JSON.parse(plaintext) as T);
@@ -488,7 +525,7 @@ export async function saveAdvertCache(
 ): Promise<boolean> {
   return putEncrypted(
     STORE_NAME,
-    recordKey(pubkey, 'advert-cache'),
+    radioRecordKey(pubkey, 'advert-cache'),
     key,
     JSON.stringify(cache),
   );
@@ -508,7 +545,7 @@ export async function loadAdvertCache(
 ): Promise<Record<string, Advert> | null> {
   const plaintext = await getDecrypted(
     STORE_NAME,
-    recordKey(pubkey, 'advert-cache'),
+    radioRecordKey(pubkey, 'advert-cache'),
     key,
   );
   return plaintext === null
@@ -539,7 +576,7 @@ export async function savePreferences(
 ): Promise<boolean> {
   return putEncrypted(
     STORE_NAME,
-    recordKey(pubkey, 'preferences'),
+    radioRecordKey(pubkey, 'preferences'),
     key,
     JSON.stringify(prefs),
   );
@@ -560,7 +597,7 @@ export async function loadPreferences<T>(
 ): Promise<T | null> {
   const plaintext = await getDecrypted(
     STORE_NAME,
-    recordKey(pubkey, 'preferences'),
+    radioRecordKey(pubkey, 'preferences'),
     key,
   );
   return plaintext === null ? null : (JSON.parse(plaintext) as T);
