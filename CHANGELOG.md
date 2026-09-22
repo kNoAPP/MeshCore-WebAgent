@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.33.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.32.0...v1.33.0) (2026-09-22)
+
+
+### Features
+
+* **identity:** add a passphrase-sealed identity vault ([#378](https://github.com/kNoAPP/MeshCore-WebAgent/issues/378)) ([f57570b](https://github.com/kNoAPP/MeshCore-WebAgent/commit/f57570b8ba66586e073e7119c993d64d517a9427))
+* **identity:** add BIP-39 and seed-to-Ed25519 derivation core ([#375](https://github.com/kNoAPP/MeshCore-WebAgent/issues/375)) ([1496a83](https://github.com/kNoAPP/MeshCore-WebAgent/commit/1496a831a436307ca47762aab7f02d54be63dc18))
+* **identity:** add burner personas with zero persistence ([#389](https://github.com/kNoAPP/MeshCore-WebAgent/issues/389)) ([39b52e1](https://github.com/kNoAPP/MeshCore-WebAgent/commit/39b52e11773ffdcae9a4ba436cee0880c17de703))
+* **identity:** add SLIP-0010 hardened sub-identity derivation ([#376](https://github.com/kNoAPP/MeshCore-WebAgent/issues/376)) ([72409fd](https://github.com/kNoAPP/MeshCore-WebAgent/commit/72409fd297da4aa84dc06e9dfec1f7b3b2235bc2))
+* **identity:** add the per-persona radio-state blob with capture and apply ([#383](https://github.com/kNoAPP/MeshCore-WebAgent/issues/383)) ([eac93b5](https://github.com/kNoAPP/MeshCore-WebAgent/commit/eac93b5ef8b088eba50a52031d1a77d6ea4d6d09))
+* **identity:** derive the storage root from the seed ([#377](https://github.com/kNoAPP/MeshCore-WebAgent/issues/377)) ([c7e541f](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c7e541f8153b572dab77b46021f2a2d0afde066e))
+* **protocol:** probe private-key export capability on first use ([#374](https://github.com/kNoAPP/MeshCore-WebAgent/issues/374)) ([c2b64ea](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c2b64ea0fd9d0ce3e10f4d089a84f02100c043d6))
+* **ui:** add a regenerate-identity-under-a-recovery-phrase wizard ([#379](https://github.com/kNoAPP/MeshCore-WebAgent/issues/379)) ([033be89](https://github.com/kNoAPP/MeshCore-WebAgent/commit/033be8931f34cbbe1d776e170b419147e91e0919))
+* **ui:** add restore-identity-from-recovery-phrase ([#380](https://github.com/kNoAPP/MeshCore-WebAgent/issues/380)) ([0da05c9](https://github.com/kNoAPP/MeshCore-WebAgent/commit/0da05c9124310ca43bd4cedc2c98c6fa014aee87))
+* **ui:** add the identity list and persona switch ceremony ([#385](https://github.com/kNoAPP/MeshCore-WebAgent/issues/385)) ([e7c6d70](https://github.com/kNoAPP/MeshCore-WebAgent/commit/e7c6d706dbeefdefde44ee638ef9743623d5e97f))
+* **ui:** frame the live identity in its own accent color ([#386](https://github.com/kNoAPP/MeshCore-WebAgent/issues/386)) ([d253475](https://github.com/kNoAPP/MeshCore-WebAgent/commit/d253475d69dfca9e7d4b97bbe5aea990916e2953))
+
+
+### Bug Fixes
+
+* **identity:** save a persona switch's contacts before restarting the radio ([#388](https://github.com/kNoAPP/MeshCore-WebAgent/issues/388)) ([a7a55fa](https://github.com/kNoAPP/MeshCore-WebAgent/commit/a7a55fa5b81b66903ee5a4a99ad5dfb5e2621b17))
+* **identity:** switch location sharing off for a newly minted persona ([#391](https://github.com/kNoAPP/MeshCore-WebAgent/issues/391)) ([cea83e4](https://github.com/kNoAPP/MeshCore-WebAgent/commit/cea83e431a9474bb863f5314dad3104c86b6bc7d))
+* **protocol:** refresh selfInfo after an identity import ([#381](https://github.com/kNoAPP/MeshCore-WebAgent/issues/381)) ([e43de03](https://github.com/kNoAPP/MeshCore-WebAgent/commit/e43de0320fad99e612f6605526d42731db26be98))
+* **state:** keep an unsaved backup restore across the next hydrate ([#373](https://github.com/kNoAPP/MeshCore-WebAgent/issues/373)) ([53ee466](https://github.com/kNoAPP/MeshCore-WebAgent/commit/53ee4668371e320474f8dc2a11d7fcb7d816a1d2))
+* **storage:** persist a restored backup under the incoming identity ([#369](https://github.com/kNoAPP/MeshCore-WebAgent/issues/369)) ([897dc20](https://github.com/kNoAPP/MeshCore-WebAgent/commit/897dc20cec78f87c4e4d4bc173612dd87c0e547b))
+* **storage:** re-key per-radio data when the channel set changes ([#384](https://github.com/kNoAPP/MeshCore-WebAgent/issues/384)) ([827ee63](https://github.com/kNoAPP/MeshCore-WebAgent/commit/827ee633d75b7e5178c1874b622c9cb87ef4dc48))
+
 ## [1.32.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.31.0...v1.32.0) (2026-09-21)
 
 
