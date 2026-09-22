@@ -974,12 +974,13 @@ export function useMeshCore() {
    * Restarts the session over the same transport, exactly as a dropped link
    * would: the reconnect loop reopens it and runs a full sync.
    *
-   * @remarks For a radio whose identity changed under a live link. A reboot
-   * does not always drop it — native USB serial can survive the restart — and
-   * a session that carried on would keep a store hydrated for the outgoing
+   * @remarks For a radio that restarted, or whose identity changed, under a
+   * live link: a reboot does not always drop it (native USB serial can survive
+   * the restart). A session that carried on would miss the connect sync, and
+   * after an identity change would keep a store hydrated for the outgoing
    * identity, along with whatever storage key and secrets context the import
-   * left it bound to. No-op once the link has already dropped, since the
-   * loop is then running anyway.
+   * left it bound to. No-op once the link has already dropped, since the loop
+   * is then running anyway.
    */
   const restartSession = useCallback(() => {
     const c = useMeshStore.getState().client;
@@ -2034,10 +2035,11 @@ export function useMeshCore() {
    *
    * @remarks Never {@link disconnect}, which would set
    * `userInitiatedDisconnect` and suppress the reconnect. A restart that
-   * dropped the link (BLE, most serial bridges) already started the loop, and
-   * {@link restartSession} is then a no-op; native USB serial on an ESP32-S3
-   * can survive the restart, and without this the session would carry on
-   * unsynced against a radio that has booted since.
+   * dropped the link (BLE, for one) already started the loop, and
+   * {@link restartSession} is then a no-op; a USB serial link — native USB on
+   * an ESP32-S3, or a bridge chip that stays enumerated — can survive the
+   * restart, and without this the session would carry on unsynced against a
+   * radio that has booted since.
    */
   const rebootDevice = useCallback(async () => {
     if (!canTransmit(client)) return;
