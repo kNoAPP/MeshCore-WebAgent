@@ -602,6 +602,12 @@
       }
     },
     "recovery": {
+      "seedBorn": {
+        "hint": "Diese Identität wurde aus einer Wiederherstellungsphrase erzeugt. Bewahre die Phrase sicher auf: Mit ihr lässt sich genau diese Identität auf Ersatzhardware wiederherstellen, falls das Gerät je verloren geht.",
+        "action": "Durch neue Phrase ersetzen",
+        "explainIntro": "Die Identität dieses Funkgeräts wurde aus einer Wiederherstellungsphrase erzeugt, die sie bereits wiederherstellt. Eine neue Phrase macht sie nicht wiederherstellbarer: Sie ersetzt diese Identität durch eine neue, andere.",
+        "costOld": "Die aktuelle Identität wird vom Funkgerät gelöscht. Nur ihre eigene Wiederherstellungsphrase oder ein Backup kann sie zurückholen."
+      },
       "hint": "Die Identität dieses Funkgeräts existiert nur in seinem eigenen Flash-Speicher. Erzeuge sie mit einer Wiederherstellungsphrase neu, damit du dieselbe Identität auf Ersatzhardware übertragen kannst, falls das Gerät je verloren geht.",
       "action": "Wiederherstellungsphrase erstellen",
       "checking": "Wird geprüft…",

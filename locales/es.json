@@ -602,6 +602,12 @@
       }
     },
     "recovery": {
+      "seedBorn": {
+        "hint": "Esta identidad se creó a partir de una frase de recuperación. Guarda bien la frase: restaura esta misma identidad en un equipo de reemplazo si alguna vez pierdes la radio.",
+        "action": "Sustituir por una frase nueva",
+        "explainIntro": "La identidad que guarda esta radio se creó a partir de una frase de recuperación, que ya la restaura. Una frase nueva no la hace más recuperable: sustituye esta identidad por otra nueva y distinta.",
+        "costOld": "La identidad actual se borra de la radio. Solo su propia frase de recuperación, o una copia de seguridad, puede recuperarla."
+      },
       "hint": "La identidad de esta radio solo existe en su propia memoria flash. Regénerala bajo una frase de recuperación para poder poner la misma identidad en un equipo de reemplazo si alguna vez pierdes la radio.",
       "action": "Crear frase de recuperación",
       "checking": "Comprobando…",

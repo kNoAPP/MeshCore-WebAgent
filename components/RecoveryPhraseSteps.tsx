@@ -5,6 +5,7 @@
 
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSeedBorn } from '@/hooks/useSeedBorn';
 import { Switch } from './Switch';
 import { MIN_PASSPHRASE_LENGTH } from './BackupCommon';
 
@@ -25,10 +26,15 @@ const INPUT_CLASS =
  */
 export function ExplainStep({ onBackup }: { onBackup: () => void }) {
   const { t } = useTranslation();
+  const seedBorn = useSeedBorn();
   return (
     <>
       <p className='mb-4 text-xs leading-relaxed text-text2'>
-        {t('settings.recovery.explainIntro')}
+        {t(
+          seedBorn
+            ? 'settings.recovery.seedBorn.explainIntro'
+            : 'settings.recovery.explainIntro',
+        )}
       </p>
       <div className='rounded-md border border-red bg-red/10 p-3'>
         <p className='mb-2 text-xs font-semibold text-text'>
@@ -36,7 +42,13 @@ export function ExplainStep({ onBackup }: { onBackup: () => void }) {
         </p>
         <ul className='list-disc space-y-1.5 pl-4 text-xs leading-relaxed text-text'>
           <li>{t('settings.recovery.costPubkey')}</li>
-          <li>{t('settings.recovery.costOld')}</li>
+          <li>
+            {t(
+              seedBorn
+                ? 'settings.recovery.seedBorn.costOld'
+                : 'settings.recovery.costOld',
+            )}
+          </li>
           <li>{t('settings.recovery.costSecrets')}</li>
         </ul>
       </div>
