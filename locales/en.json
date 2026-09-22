@@ -653,6 +653,7 @@
       "stage": {
         "saving": "Saving the current persona…",
         "importing": "Writing the new key to the radio…",
+        "syncing": "Reading the radio’s contacts…",
         "applying": "Applying the persona: {{done}} of {{total}} changes…",
         "announcing": "Announcing the persona…"
       },
@@ -662,6 +663,8 @@
       "resumeTitle": "Finish switching to {{name}}",
       "resumeBody": "The switch to {{name}} stopped part way. The radio already holds its key, but only some of its name, location, channels and contacts.",
       "resumeUnsaved": "Nothing this session receives is saved in this browser until the switch is finished.",
+      "resumeSealed": "The page was reloaded during the switch, so the persona to finish it with is sealed in the vault. Enter the vault’s passphrase to read it.",
+      "resumeWrongPassphrase": "No vault on this device opens with that passphrase and holds this switch.",
       "resumeAction": "Finish switch",
       "resumeLater": "Not now",
       "resumeFailed": "The switch stopped again: {{error}}",
@@ -671,7 +674,10 @@
         "keyMismatch": "The phrase does not derive the key this vault lists for the persona.",
         "saveFailed": "Could not save to this device's storage. Nothing was sent to the radio.",
         "kept": "The radio did not take the new key and still holds the current persona. Nothing changed.",
-        "phrase": "That recovery phrase is not valid. Check it against your written copy."
+        "phrase": "That recovery phrase is not valid. Check it against your written copy.",
+        "unsynced": "Some of the radio’s channels or contacts have not been read yet, so the current persona cannot be kept whole. Reconnect the radio and try again.",
+        "damaged": "This persona’s saved channels or contacts no longer read back, so switching to it could lose its history. Nothing was sent to the radio.",
+        "other": "The switch failed: {{error}}"
       }
     }
   },
@@ -1553,7 +1559,7 @@
     "repeaterNameTooLongForLocation": "Shorten the node name to 24 bytes or fewer before setting a location.",
     "repeaterLoadBeforeLocationEdit": "Load the node name and location before changing either.",
     "repeaterActionSent": "Command sent.",
-    "personaSwitchNotLanded": "The switch to {{name}} did not take effect: the radio still holds the previous identity."
+    "personaSwitchNotLanded": "This radio is still on the previous identity, so the switch to {{name}} did not take effect here."
   },
   "update": {
     "available": "A new version is available",

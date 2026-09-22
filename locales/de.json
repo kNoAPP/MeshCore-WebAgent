@@ -654,6 +654,7 @@
       "stage": {
         "saving": "Aktuelle Persona wird gespeichert…",
         "importing": "Neuer Schlüssel wird auf das Funkgerät geschrieben…",
+        "syncing": "Kontakte des Funkgeräts werden gelesen…",
         "applying": "Persona wird angewendet: {{done}} von {{total}} Änderungen…",
         "announcing": "Persona wird angekündigt…"
       },
@@ -663,6 +664,8 @@
       "resumeTitle": "Wechsel zu {{name}} abschließen",
       "resumeBody": "Der Wechsel zu {{name}} wurde unterbrochen. Das Funkgerät hat bereits den Schlüssel, aber erst einen Teil von Name, Standort, Kanälen und Kontakten.",
       "resumeUnsaved": "Nichts, was diese Sitzung empfängt, wird in diesem Browser gespeichert, bis der Wechsel abgeschlossen ist.",
+      "resumeSealed": "Die Seite wurde während des Wechsels neu geladen, daher liegt die Persona zum Abschließen versiegelt im Tresor. Gib die Passphrase des Tresors ein, um sie zu lesen.",
+      "resumeWrongPassphrase": "Kein Tresor auf diesem Gerät öffnet sich mit dieser Passphrase und enthält diesen Wechsel.",
       "resumeAction": "Wechsel abschließen",
       "resumeLater": "Später",
       "resumeFailed": "Der Wechsel wurde erneut unterbrochen: {{error}}",
@@ -672,7 +675,10 @@
         "keyMismatch": "Die Phrase ergibt nicht den Schlüssel, den dieser Tresor für die Persona führt.",
         "saveFailed": "Speichern auf diesem Gerät fehlgeschlagen. An das Funkgerät wurde nichts gesendet.",
         "kept": "Das Funkgerät hat den neuen Schlüssel nicht übernommen und trägt weiter die aktuelle Persona. Nichts wurde geändert.",
-        "phrase": "Diese Wiederherstellungsphrase ist ungültig. Vergleiche sie mit deiner Abschrift."
+        "phrase": "Diese Wiederherstellungsphrase ist ungültig. Vergleiche sie mit deiner Abschrift.",
+        "unsynced": "Noch nicht alle Kanäle oder Kontakte des Funkgeräts wurden gelesen, daher lässt sich die aktuelle Persona nicht vollständig sichern. Verbinde das Funkgerät neu und versuche es erneut.",
+        "damaged": "Die gespeicherten Kanäle oder Kontakte dieser Persona lassen sich nicht mehr lesen; ein Wechsel könnte ihren Verlauf verlieren. An das Funkgerät wurde nichts gesendet.",
+        "other": "Der Wechsel ist fehlgeschlagen: {{error}}"
       }
     }
   },
@@ -1554,7 +1560,7 @@
     "repeaterNameTooLongForLocation": "Kürzen Sie den Knotennamen auf höchstens 24 Bytes, bevor Sie einen Standort festlegen.",
     "repeaterLoadBeforeLocationEdit": "Laden Sie Name und Standort des Knotens, bevor Sie eines von beiden ändern.",
     "repeaterActionSent": "Befehl gesendet.",
-    "personaSwitchNotLanded": "Der Wechsel zu {{name}} wurde nicht wirksam: Das Funkgerät trägt weiter die vorherige Identität."
+    "personaSwitchNotLanded": "Dieses Funkgerät trägt weiter die vorherige Identität, daher wurde der Wechsel zu {{name}} hier nicht wirksam."
   },
   "update": {
     "available": "Eine neue Version ist verfügbar",

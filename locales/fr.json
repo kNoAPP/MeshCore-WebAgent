@@ -654,6 +654,7 @@
       "stage": {
         "saving": "Enregistrement de la persona actuelle…",
         "importing": "Écriture de la nouvelle clé sur la radio…",
+        "syncing": "Lecture des contacts de la radio…",
         "applying": "Application de la persona : {{done}} sur {{total}} changements…",
         "announcing": "Annonce de la persona…"
       },
@@ -663,6 +664,8 @@
       "resumeTitle": "Terminer le basculement vers {{name}}",
       "resumeBody": "Le basculement vers {{name}} s’est arrêté en cours de route. La radio porte déjà sa clé, mais seulement une partie de son nom, de sa position, de ses canaux et de ses contacts.",
       "resumeUnsaved": "Rien de ce que reçoit cette session n’est enregistré dans ce navigateur tant que le basculement n’est pas terminé.",
+      "resumeSealed": "La page a été rechargée pendant le basculement : la persona pour le terminer est scellée dans le coffre. Saisissez la phrase secrète du coffre pour la lire.",
+      "resumeWrongPassphrase": "Aucun coffre de cet appareil ne s’ouvre avec cette phrase secrète en contenant ce basculement.",
       "resumeAction": "Terminer le basculement",
       "resumeLater": "Plus tard",
       "resumeFailed": "Le basculement s’est de nouveau arrêté : {{error}}",
@@ -672,7 +675,10 @@
         "keyMismatch": "La phrase ne donne pas la clé que ce coffre indique pour la persona.",
         "saveFailed": "Impossible d’enregistrer sur cet appareil. Rien n’a été envoyé à la radio.",
         "kept": "La radio n’a pas accepté la nouvelle clé et porte toujours la persona actuelle. Rien n’a changé.",
-        "phrase": "Cette phrase de récupération n’est pas valide. Comparez-la à votre copie écrite."
+        "phrase": "Cette phrase de récupération n’est pas valide. Comparez-la à votre copie écrite.",
+        "unsynced": "Les canaux ou contacts de la radio n’ont pas tous été lus, la persona actuelle ne peut donc pas être conservée entière. Reconnectez la radio et réessayez.",
+        "damaged": "Les canaux ou contacts enregistrés de cette persona ne se relisent plus ; basculer vers elle pourrait perdre son historique. Rien n’a été envoyé à la radio.",
+        "other": "Le basculement a échoué : {{error}}"
       }
     }
   },
@@ -1554,7 +1560,7 @@
     "repeaterNameTooLongForLocation": "Raccourcissez le nom du nœud à 24 octets ou moins avant de définir une position.",
     "repeaterLoadBeforeLocationEdit": "Chargez le nom et la position du nœud avant de modifier l’un ou l’autre.",
     "repeaterActionSent": "Commande envoyée.",
-    "personaSwitchNotLanded": "Le basculement vers {{name}} n’a pas pris effet : la radio porte toujours l’identité précédente."
+    "personaSwitchNotLanded": "Cette radio porte toujours l’identité précédente : le basculement vers {{name}} n’a pas pris effet ici."
   },
   "update": {
     "available": "Une nouvelle version est disponible",

@@ -27,6 +27,7 @@ import {
   loadAutomationRules,
   loadAdvertCache,
   loadPreferences,
+  hasPendingPersona,
 } from '@/lib/storage';
 import {
   expectSecretContext,
@@ -557,12 +558,33 @@ export function useMeshCore() {
         // a key derived now may be neither persona's, and the hydrate would
         // find nothing and the saves overwrite the real records. The session
         // runs with persistence off until the switch is finished, which
-        // restarts it. A radio still on the outgoing identity never took the
-        // key, so the switch is over.
+        // restarts it. The switch's pending record says so after a page reload
+        // too, when the store's record is gone. A radio on the outgoing
+        // identity is either one that never took the key or another radio
+        // running it; either way this session's record is done, while the
+        // pending record, filed under the incoming key, still guards a radio
+        // that did take it.
         const pending = useMeshStore.getState().personaSwitch;
         const reported = pubkey?.toLowerCase();
-        const unfinishedSwitch =
+        let unfinishedSwitch =
           pending?.stage === 'switching' && reported === pending.target;
+        if (
+          reported &&
+          !unfinishedSwitch &&
+          (await hasPendingPersona(reported))
+        ) {
+          unfinishedSwitch = true;
+          useMeshStore.getState().setPersonaSwitch({
+            target: reported,
+            outgoing: '',
+            label: '',
+            state: null,
+            announce: true,
+            stage: 'switching',
+            running: false,
+            dismissed: false,
+          });
+        }
         if (pending?.stage === 'switching' && reported === pending.outgoing) {
           useMeshStore.getState().setPersonaSwitch(null);
           notify({
@@ -678,7 +700,7 @@ export function useMeshCore() {
             !prefs &&
             !unsaved &&
             !store.identityCheck &&
-            !store.personaSwitch
+            store.personaSwitch?.target !== pubkey.toLowerCase()
           ) {
             store.setRestoreOffer(true);
           }

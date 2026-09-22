@@ -17,8 +17,10 @@ import {
 } from '@/lib/identity/personaSwitch';
 import { SeedPhraseError } from '@/lib/identity/seed';
 import type { Vault, VaultIdentity } from '@/lib/identity/vault';
+import { PrivateKeyError } from '@/lib/meshcore/errors';
+import i18n from '@/lib/i18n';
 import { ModalShell } from './ModalShell';
-import { WriteErrorText } from './RecoveryPhraseWizard';
+import { PRIVATE_KEY_ERROR_KEY } from './RecoveryPhraseWizard';
 import { Switch } from './Switch';
 import { unknownWords } from './RestorePhraseSteps';
 
@@ -27,11 +29,14 @@ const SWITCH_ERROR_KEY = {
   phraseMismatch: 'settings.persona.error.phraseMismatch',
   keyMismatch: 'settings.persona.error.keyMismatch',
   saveFailed: 'settings.persona.error.saveFailed',
+  unsynced: 'settings.persona.error.unsynced',
+  damaged: 'settings.persona.error.damaged',
 } as const satisfies Record<PersonaSwitchErrorCode, string>;
 
 const STAGE_KEY = {
   saving: 'settings.persona.stage.saving',
   importing: 'settings.persona.stage.importing',
+  syncing: 'settings.persona.stage.syncing',
   applying: 'settings.persona.stage.applying',
   announcing: 'settings.persona.stage.announcing',
 } as const satisfies Record<SwitchProgress['stage'], string>;
@@ -80,7 +85,7 @@ export function PersonaSwitchModal({
   const [announce, setAnnounce] = useState(true);
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<React.ReactNode>(null);
+  const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
 
   // A dialog that goes away mid-run (the reconnect after a dropped link
@@ -111,9 +116,13 @@ export function PersonaSwitchModal({
         announce,
         controller.signal,
       );
+      // Both restart the session, which closes Settings and this dialog.
       if (outcome === 'kept') {
-        setError(t('settings.persona.error.kept'));
-        return;
+        notify({
+          level: 'warning',
+          text: t('settings.persona.error.kept'),
+          key: 'personaSwitchKept',
+        });
       }
       if (outcome === 'unknown') {
         notify({
@@ -130,7 +139,17 @@ export function PersonaSwitchModal({
         return;
       }
       if (controller.signal.aborted) return;
-      setError(<SwitchErrorText err={err} />);
+      // A refusal came after the session left the outgoing identity, so the
+      // restart that brings it back is closing this dialog.
+      if (useMeshStore.getState().status !== 'connected') {
+        notify({
+          level: 'error',
+          text: switchErrorMessage(err),
+          key: 'personaSwitchFailed',
+        });
+        return;
+      }
+      setError(switchErrorMessage(err));
     } finally {
       abort.current = null;
       setBusy(false);
@@ -260,14 +279,22 @@ export function SwitchProgressView({ progress }: { progress: SwitchProgress }) {
   );
 }
 
-/** A switch failure that stopped before the radio took the key. */
-export function SwitchErrorText({ err }: { err: unknown }) {
-  const { t } = useTranslation();
+/** Localized copy for a persona switch or mint that failed. */
+export function switchErrorMessage(err: unknown): string {
   if (err instanceof PersonaSwitchError) {
-    return <>{t(SWITCH_ERROR_KEY[err.code])}</>;
+    return i18n.t(SWITCH_ERROR_KEY[err.code]);
   }
   if (err instanceof SeedPhraseError) {
-    return <>{t('settings.persona.error.phrase')}</>;
+    return i18n.t('settings.persona.error.phrase');
   }
-  return <WriteErrorText err={err} />;
+  if (err instanceof PrivateKeyError) {
+    return i18n.t(
+      err.code === 'disabled'
+        ? 'settings.backup.identityError.disabledImport'
+        : PRIVATE_KEY_ERROR_KEY[err.code],
+    );
+  }
+  return i18n.t('settings.persona.error.other', {
+    error: (err as Error).message,
+  });
 }

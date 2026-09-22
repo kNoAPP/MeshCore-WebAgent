@@ -5,17 +5,20 @@
 
 import { useCallback, useState } from 'react';
 import { useMeshStore, type PersonaSwitch } from '@/store/meshStore';
-import { applyPersona } from '@/lib/identity/persona';
+import { applyPersona, type PersonaState } from '@/lib/identity/persona';
 import {
   installPersonaKey,
   preparePersonaSwitch,
+  verifyPersonaKey,
 } from '@/lib/identity/personaSwitch';
 import type { Vault, VaultIdentity } from '@/lib/identity/vault';
+import { beginIdentitySwitch } from '@/lib/session/persistence';
+import { deletePendingPersona } from '@/lib/storage';
 import { useMeshCore } from './useMeshCore';
 
 /** Where a persona switch run has got to, for its progress display. */
 export type SwitchProgress =
-  | { stage: 'saving' | 'importing' | 'announcing' }
+  | { stage: 'saving' | 'importing' | 'syncing' | 'announcing' }
   | { stage: 'applying'; done: number; total: number };
 
 /**
@@ -30,9 +33,16 @@ export type SwitchOutcome = 'switched' | 'kept' | 'unknown';
  * Runs persona switches, and finishes one a previous run left unfinished.
  *
  * @remarks Every step that can leave the radio part one persona, part another
- * is recorded in the store's `personaSwitch` first, so a cancel, a failure or
- * a dropped link is offered for finishing rather than lost. A finished switch
- * restarts the session, which hydrates the incoming identity's data.
+ * is recorded first — in the store's `personaSwitch`, and durably as the
+ * switch's pending record — so a cancel, a failure, a dropped link or a
+ * reload is offered for finishing rather than lost.
+ *
+ * The session leaves the outgoing identity, and the store is cleared of its
+ * data, before the key is written, so nothing the new key receives can be
+ * filed under the old one and nothing of the old one can be merged into the
+ * new. Any outcome that leaves the radio on the outgoing identity restarts the
+ * session, which hydrates it again from what was just flushed. A finished
+ * switch restarts it too, onto the incoming identity.
  *
  * @returns `start` and `finish`, and the run's `progress`, null when idle.
  */
@@ -44,20 +54,21 @@ export function usePersonaSwitch(): {
     announce: boolean,
     signal: AbortSignal,
   ) => Promise<SwitchOutcome>;
-  finish: (signal: AbortSignal) => Promise<void>;
+  finish: (signal: AbortSignal, state?: PersonaState) => Promise<void>;
   progress: SwitchProgress | null;
 } {
   const { restartSession } = useMeshCore();
   const [progress, setProgress] = useState<SwitchProgress | null>(null);
 
   const apply = useCallback(
-    async (record: PersonaSwitch, signal: AbortSignal) => {
+    async (record: PersonaSwitch, state: PersonaState, signal: AbortSignal) => {
       const store = useMeshStore.getState();
       const client = store.client;
       if (!client) throw new Error('Not connected');
-      store.setPersonaSwitch({ ...record, running: true, dismissed: false });
+      const running = { ...record, state, running: true, dismissed: false };
+      store.setPersonaSwitch(running);
       try {
-        await applyPersona(client, record.state, {
+        await applyPersona(client, state, {
           signal,
           onProgress: (done, total) =>
             setProgress({ stage: 'applying', done, total }),
@@ -69,12 +80,13 @@ export function usePersonaSwitch(): {
           await client.sendSelfAdvert(true).catch(() => {});
         }
       } catch (err) {
-        store.setPersonaSwitch({ ...record, running: false, dismissed: false });
+        store.setPersonaSwitch({ ...running, running: false });
         throw err;
       } finally {
         setProgress(null);
       }
-      store.setPersonaSwitch({ ...record, stage: 'done', running: false });
+      await deletePendingPersona(record.target);
+      store.setPersonaSwitch({ ...running, stage: 'done', running: false });
       restartSession();
     },
     [restartSession],
@@ -100,15 +112,22 @@ export function usePersonaSwitch(): {
       // What the store goes back to when this run changes nothing.
       const untouched =
         mixed && pending ? { ...pending, running: false } : null;
+
       setProgress({ stage: 'saving' });
-      let state;
+      let state: PersonaState;
       try {
+        await verifyPersonaKey(phrase, target);
         state = await preparePersonaSwitch(client, vault, target, !mixed);
-        signal.throwIfAborted();
       } catch (err) {
         setProgress(null);
         throw err;
       }
+      if (signal.aborted) {
+        await deletePendingPersona(target.publicKey);
+        setProgress(null);
+        signal.throwIfAborted();
+      }
+
       const record: PersonaSwitch = {
         target: target.publicKey,
         outgoing,
@@ -121,42 +140,51 @@ export function usePersonaSwitch(): {
       };
       store.setPersonaSwitch(record);
       setProgress({ stage: 'importing' });
+      await beginIdentitySwitch(client, target.publicKey);
+      store.resetIdentityData();
+
       let landed: boolean | null;
       try {
         landed = await installPersonaKey(client, phrase, target);
       } catch (err) {
+        // A refusal: the radio kept the outgoing identity.
+        await deletePendingPersona(target.publicKey);
         store.setPersonaSwitch(untouched);
         setProgress(null);
+        restartSession();
         throw err;
       }
       if (landed !== true) {
-        // The next session decides an unknown outcome; see PersonaSwitch.
         if (landed === false) {
+          await deletePendingPersona(target.publicKey);
           store.setPersonaSwitch(untouched);
         } else {
+          // The next session decides; see PersonaSwitch.
           store.setPersonaSwitch({ ...record, running: false });
-          // A link that is merely slow would otherwise carry on as a session
-          // bound to the outgoing identity, whichever the radio now holds.
-          restartSession();
         }
         setProgress(null);
+        restartSession();
         return landed === false ? 'kept' : 'unknown';
       }
-      // From here the store must hold nothing of the outgoing persona: the
-      // restart merges into it, and messages the new key receives meanwhile
-      // are the incoming persona's to keep.
-      store.resetIdentityData();
-      await apply(record, signal);
+
+      // The identity the radio was mid-switch onto is gone from it again, and
+      // its good persona record was never overwritten.
+      if (untouched) await deletePendingPersona(untouched.target);
+      setProgress({ stage: 'syncing' });
+      await client.resyncContacts();
+      await apply(record, state, signal);
       return 'switched';
     },
     [apply, restartSession],
   );
 
   const finish = useCallback(
-    async (signal: AbortSignal) => {
+    async (signal: AbortSignal, state?: PersonaState) => {
       const record = useMeshStore.getState().personaSwitch;
       if (!record || record.stage !== 'switching') return;
-      await apply(record, signal);
+      const toApply = state ?? record.state;
+      if (!toApply) throw new Error('Persona state is still sealed');
+      await apply(record, toApply, signal);
     },
     [apply],
   );

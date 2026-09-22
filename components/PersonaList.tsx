@@ -15,7 +15,7 @@ import {
 } from '@/lib/identity/vault';
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
 import { unknownWords } from './RestorePhraseSteps';
-import { PersonaSwitchModal, SwitchErrorText } from './PersonaSwitchModal';
+import { PersonaSwitchModal, switchErrorMessage } from './PersonaSwitchModal';
 
 const BUTTON_CLASS =
   'rounded-md border border-border-control px-3 py-1.5 text-xs font-semibold text-text hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent';
@@ -45,6 +45,14 @@ export function PersonaList({
   const ready = useBackupReady();
   const live = useMeshStore((s) => s.selfInfo?.pubkey?.toLowerCase());
   const switching = useMeshStore((s) => !!s.personaSwitch?.running);
+  // Mid-switch, the session is never hydrated, and switching away (back to
+  // the persona it came from, say) must still be possible.
+  const mixed = useMeshStore(
+    (s) =>
+      s.status === 'connected' &&
+      s.personaSwitch?.stage === 'switching' &&
+      s.personaSwitch.target === s.selfInfo?.pubkey?.toLowerCase(),
+  );
   const [identities, setIdentities] = useState(vault.identities);
   const [target, setTarget] = useState<VaultIdentity | null>(null);
   const [minting, setMinting] = useState(false);
@@ -82,7 +90,7 @@ export function PersonaList({
             ) : (
               <button
                 onClick={() => setTarget(identity)}
-                disabled={!liveListed || !ready || switching}
+                disabled={!liveListed || !(ready || mixed) || switching}
                 className={BUTTON_CLASS}
               >
                 {t('settings.persona.switch')}
@@ -138,7 +146,7 @@ function MintForm({
   const [label, setLabel] = useState('');
   const [phrase, setPhrase] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<React.ReactNode>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const needsPhrase = vault.phrase === null;
   const bytes = enc.encode(label.trim()).length;
@@ -159,7 +167,7 @@ function MintForm({
         onStale();
         return;
       }
-      setError(<SwitchErrorText err={err} />);
+      setError(switchErrorMessage(err));
     } finally {
       setBusy(false);
     }

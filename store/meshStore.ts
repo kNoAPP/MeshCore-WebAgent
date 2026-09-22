@@ -189,17 +189,25 @@ export interface IdentityCheck {
  * drops the record.
  *
  * Kept through a teardown as well as a reconnect, like {@link IdentityCheck}.
- * Only a page reload loses it.
+ * A page reload loses it, but not the switch's pending record in IndexedDB:
+ * the connect flow rebuilds this from that, without the state or the label,
+ * which only the vault can unseal.
  */
 export interface PersonaSwitch {
   /** The incoming identity's public key, lowercase hex. */
   target: string;
-  /** The identity the radio held before, lowercase hex. */
+  /**
+   * The identity the radio held before, lowercase hex; empty when rebuilt
+   * after a reload, which does not record it.
+   */
   outgoing: string;
-  /** The incoming persona's name in the vault. */
+  /** The incoming persona's name in the vault; empty until it is unsealed. */
   label: string;
-  /** What the radio is being given; applying it again is harmless. */
-  state: PersonaState;
+  /**
+   * What the radio is being given; applying it again is harmless. Null when
+   * rebuilt after a reload, until the vault is unlocked to read it.
+   */
+  state: PersonaState | null;
   /** Whether to flood a self-advert once the state is applied. */
   announce: boolean;
   /**

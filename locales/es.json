@@ -654,6 +654,7 @@
       "stage": {
         "saving": "Guardando la persona actual…",
         "importing": "Escribiendo la nueva clave en la radio…",
+        "syncing": "Leyendo los contactos de la radio…",
         "applying": "Aplicando la persona: {{done}} de {{total}} cambios…",
         "announcing": "Anunciando la persona…"
       },
@@ -663,6 +664,8 @@
       "resumeTitle": "Terminar el cambio a {{name}}",
       "resumeBody": "El cambio a {{name}} se detuvo a medias. La radio ya tiene su clave, pero solo parte de su nombre, ubicación, canales y contactos.",
       "resumeUnsaved": "Nada de lo que reciba esta sesión se guarda en este navegador hasta terminar el cambio.",
+      "resumeSealed": "La página se recargó durante el cambio, así que la persona con la que terminarlo está sellada en la bóveda. Introduce la contraseña de la bóveda para leerla.",
+      "resumeWrongPassphrase": "Ninguna bóveda de este dispositivo se abre con esa contraseña y contiene este cambio.",
       "resumeAction": "Terminar el cambio",
       "resumeLater": "Ahora no",
       "resumeFailed": "El cambio se detuvo de nuevo: {{error}}",
@@ -672,7 +675,10 @@
         "keyMismatch": "La frase no deriva la clave que esta bóveda indica para la persona.",
         "saveFailed": "No se pudo guardar en el almacenamiento de este dispositivo. No se envió nada a la radio.",
         "kept": "La radio no aceptó la nueva clave y sigue con la persona actual. No cambió nada.",
-        "phrase": "Esa frase de recuperación no es válida. Compárala con tu copia escrita."
+        "phrase": "Esa frase de recuperación no es válida. Compárala con tu copia escrita.",
+        "unsynced": "Aún no se han leído todos los canales o contactos de la radio, así que la persona actual no se puede guardar completa. Vuelve a conectar la radio e inténtalo de nuevo.",
+        "damaged": "Los canales o contactos guardados de esta persona ya no se pueden leer, así que cambiar a ella podría perder su historial. No se envió nada a la radio.",
+        "other": "El cambio falló: {{error}}"
       }
     }
   },
@@ -1554,7 +1560,7 @@
     "repeaterNameTooLongForLocation": "Acorta el nombre del nodo a 24 bytes o menos antes de establecer una ubicación.",
     "repeaterLoadBeforeLocationEdit": "Carga el nombre y la ubicación del nodo antes de cambiar cualquiera de los dos.",
     "repeaterActionSent": "Comando enviado.",
-    "personaSwitchNotLanded": "El cambio a {{name}} no tuvo efecto: la radio sigue con la identidad anterior."
+    "personaSwitchNotLanded": "Esta radio sigue con la identidad anterior, así que el cambio a {{name}} no tuvo efecto aquí."
   },
   "update": {
     "available": "Hay una nueva versión disponible",
