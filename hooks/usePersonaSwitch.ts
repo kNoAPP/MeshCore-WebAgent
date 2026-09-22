@@ -5,7 +5,11 @@
 
 import { useCallback, useState } from 'react';
 import { useMeshStore, type PersonaSwitch } from '@/store/meshStore';
-import { applyPersona, type PersonaState } from '@/lib/identity/persona';
+import {
+  applyPersona,
+  personaRemovals,
+  type PersonaState,
+} from '@/lib/identity/persona';
 import {
   installPersonaKey,
   preparePersonaSwitch,
@@ -67,7 +71,13 @@ export function usePersonaSwitch(): {
       const store = useMeshStore.getState();
       const client = store.client;
       if (!client) throw new Error('Not connected');
-      const running = { ...record, state, running: true, dismissed: false };
+      const running = {
+        ...record,
+        state,
+        removed: personaRemovals(client, state),
+        running: true,
+        dismissed: false,
+      };
       store.setPersonaSwitch(running);
       try {
         await applyPersona(client, state, {
@@ -136,6 +146,7 @@ export function usePersonaSwitch(): {
         outgoing,
         label: target.label,
         state,
+        removed: [],
         announce,
         stage: 'switching',
         running: true,

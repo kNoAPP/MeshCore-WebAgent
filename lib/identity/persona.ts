@@ -200,30 +200,52 @@ export async function applyPersona(
 }
 
 /**
- * Whether the radio's contact table, as the client mirrors it, already holds
- * the contacts `state` would apply — the same test {@link applyPersona} uses
- * to decide what to send.
+ * The public keys of the contacts an apply of `state` would remove from the
+ * radio: every one the client's mirror holds that the persona lacks.
  *
- * @remarks For checking a switch after the radio restarted: the firmware
- * saves contact writes lazily, so a restart can undo an apply that every
- * command acknowledged.
- * @returns true as well when `state` leaves contacts alone, or when the
- * mirror cannot vouch for the table because its enumeration never completed:
- * only a difference the mirror shows counts.
+ * @returns lowercase hex keys; empty when `state` leaves contacts alone or
+ * the mirror cannot vouch for the table.
+ */
+export function personaRemovals(
+  client: MeshCoreClient,
+  state: PersonaState,
+): string[] {
+  if (state.contacts === null || !client.contactsSynced) return [];
+  const wanted = new Set(state.contacts.map((c) => c.pubkey));
+  return Object.values(client.contacts)
+    .map((c) => c.pubkey)
+    .filter((pubkey) => !wanted.has(pubkey));
+}
+
+/**
+ * Whether the radio's contact table, as the client mirrors it, shows an apply
+ * of `state` survived the radio restarting.
+ *
+ * @remarks The firmware saves contact writes lazily, so a restart can undo an
+ * apply that every command acknowledged. Only what that leaves behind
+ * counts: a contact of `state` missing or with other flags, or one of
+ * `removed` back on the radio. A contact the radio added by itself from an
+ * advert it heard meanwhile is neither.
+ * @param removed - the public keys the apply removed, as
+ * {@link personaRemovals} listed them before it.
+ * @returns true when `state` leaves contacts alone; false when the mirror
+ * cannot vouch for the table, since an unread table proves nothing.
  */
 export function personaContactsApplied(
   client: MeshCoreClient,
   state: PersonaState,
+  removed: readonly string[],
 ): boolean {
-  if (state.contacts === null || !client.contactsSynced) return true;
-  const contactsOnly: PersonaState = {
-    name: null,
-    location: null,
-    locationPolicy: null,
-    channels: null,
-    contacts: state.contacts,
-  };
-  return planApply(client, contactsOnly).length === 0;
+  if (state.contacts === null) return true;
+  if (!client.contactsSynced) return false;
+  const held = new Map(
+    Object.values(client.contacts).map((c) => [c.pubkey, c]),
+  );
+  return (
+    state.contacts.every(
+      (want) => held.get(want.pubkey)?.flags === want.flags,
+    ) && !removed.some((pubkey) => held.has(pubkey))
+  );
 }
 
 /**

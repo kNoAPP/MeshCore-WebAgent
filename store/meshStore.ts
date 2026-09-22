@@ -214,6 +214,12 @@ export interface PersonaSwitch {
    */
   state: PersonaState | null;
   /**
+   * The contacts the apply took off the radio, as lowercase hex public keys,
+   * for the restarted session to check they stayed off. Empty until the
+   * apply runs.
+   */
+  removed: string[];
+  /**
    * Whether to flood a self-advert once the restarted session has confirmed
    * the state.
    */

@@ -1838,9 +1838,12 @@ export class MeshCoreClient {
         await this.cmd(buildGetBattery(), [RESP.BATT_AND_STORAGE], 1000);
         return;
       } catch (err) {
-        // A device ERR is an answer too; a closed or failing link has
-        // restarted as far as this client can tell.
-        if (!(err as { timeout?: true }).timeout) return;
+        // A device ERR is an answer too, and a closed link ends the wait.
+        // A send that fails on an open link proves nothing, so it is retried
+        // after a pause rather than in a tight loop.
+        const e = err as { timeout?: true; device?: true };
+        if (e.device || this._closed) return;
+        if (!e.timeout) await new Promise((r) => setTimeout(r, 250));
       }
     }
   }

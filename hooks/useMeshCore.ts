@@ -584,8 +584,13 @@ export function useMeshCore() {
         if (pending?.stage === 'done' && reported === pending.target) {
           // The finished switch's own restart, which is where it is checked:
           // every write was acknowledged, but the radio saves contacts lazily
-          // and may have come back with its table from before them.
-          if (pending.state && !personaContactsApplied(c, pending.state)) {
+          // and may have come back with its table from before them. A table
+          // the connect sync could not read gets one more try.
+          if (!c.contactsSynced) await c.resyncContacts().catch(() => {});
+          if (
+            pending.state &&
+            !personaContactsApplied(c, pending.state, pending.removed)
+          ) {
             unfinishedSwitch = true;
             store0.setPersonaSwitch({
               ...pending,
@@ -616,7 +621,10 @@ export function useMeshCore() {
             outgoing: '',
             label: '',
             state: null,
-            announce: true,
+            removed: [],
+            // What the user chose was not recorded, and an unwanted advert
+            // links the personas while a missed one only delays peers.
+            announce: false,
             stage: 'switching',
             running: false,
             dismissed: false,
@@ -1941,20 +1949,20 @@ export function useMeshCore() {
   );
 
   /**
-   * Reboots the radio. The command drops the transport link as the device
-   * restarts; we deliberately do *not* call {@link disconnect} (which would set
-   * `userInitiatedDisconnect` and suppress reconnect). Instead the drop flows
-   * through the client's `onDisconnect` into the auto-reconnect loop, which
-   * recovers the session once the radio comes back. Just report
-   * "Rebooting…".
+   * Reboots the radio, and reports "Rebooting…" once it has restarted. The
+   * restart usually drops the transport link; we deliberately do *not* call
+   * {@link disconnect} (which would set `userInitiatedDisconnect` and suppress
+   * reconnect). Instead the drop flows through the client's `onDisconnect`
+   * into the auto-reconnect loop, which recovers the session once the radio
+   * comes back.
    */
   const rebootDevice = useCallback(async () => {
     if (!canTransmit(client)) return;
     try {
       await client.reboot();
-      // Kept, not just flashed: the link drops a moment later and the reconnect
-      // overlay takes the screen, so the drawer row is what explains why once
-      // the session is back.
+      // Kept, not just flashed: by now the link has usually dropped and the
+      // reconnect overlay has the screen, so the drawer row is what explains
+      // why once the session is back.
       notify({
         level: 'info',
         text: i18n.t('toast.rebooting'),
