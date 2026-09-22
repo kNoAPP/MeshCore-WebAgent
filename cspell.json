@@ -15,6 +15,7 @@
     "public",
     "locales",
     "AUTHORS",
+    "CHANGELOG.md",
     "docs",
     "lib/identity/wordlist.ts"
   ],
