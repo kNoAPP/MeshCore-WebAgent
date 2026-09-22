@@ -105,6 +105,9 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
       }
     };
     try {
+      // Also before the export, so a session no backup may act on is refused
+      // before the private key has crossed the link.
+      stillOurs();
       if (includeIdentity) {
         if (!client) throw new PrivateKeyError('unsupported');
         identity = await client.exportPrivateKey();
