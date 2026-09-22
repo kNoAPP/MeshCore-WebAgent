@@ -149,8 +149,14 @@ export function ConfirmStep({
   );
 }
 
-/** Step 4: the vault passphrase, and whether the vault keeps the phrase. */
+/**
+ * Step 4: the vault passphrase, and whether the vault keeps the phrase.
+ *
+ * @param intro - replaces the step's opening sentence, for a flow the default
+ * does not describe.
+ */
 export function PassphraseStep({
+  intro,
   passphrase,
   confirm,
   remember,
@@ -158,6 +164,7 @@ export function PassphraseStep({
   onConfirm,
   onRemember,
 }: {
+  intro?: string;
   passphrase: string;
   confirm: string;
   remember: boolean;
@@ -177,7 +184,7 @@ export function PassphraseStep({
   return (
     <>
       <p className='mb-4 text-xs leading-relaxed text-text2'>
-        {t('settings.recovery.passphraseIntro')}
+        {intro ?? t('settings.recovery.passphraseIntro')}
       </p>
       <label htmlFor={passId} className='mb-1 block text-xs text-text2'>
         {t('settings.backup.passphrase')}

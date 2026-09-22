@@ -22,6 +22,7 @@ import { AutoAddSettings } from './AutoAddSettings';
 import { AddChannelModal } from './AddChannelModal';
 import { AddContactModal } from './AddContactModal';
 import { IdentityCheckModal } from './IdentityCheckModal';
+import { RestoreOfferModal } from './RestoreOfferModal';
 import { CommandPalette } from './CommandPalette';
 import { AutomationRunner } from './AutomationRunner';
 import { MessageAnnouncer } from './MessageAnnouncer';
@@ -127,6 +128,7 @@ export function AppShell() {
           <AddChannelModal />
           <AddContactModal />
           <IdentityCheckModal />
+          <RestoreOfferModal />
           {commandPaletteOpen && <CommandPalette />}
           <AutomationRunner />
         </>

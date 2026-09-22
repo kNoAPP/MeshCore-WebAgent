@@ -206,6 +206,7 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
       // From here the radio may hold the new identity, acknowledged or not:
       // whatever else happens, the next session is checked against it.
       setIdentityCheck({
+        kind: 'regenerate',
         expected: draft.publicKey,
         outgoing,
         confirmed: result.confirmed,
@@ -355,9 +356,12 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
   );
 }
 
-// Each failure means something different to the user: a refusal left the old
-// identity in place, and a vault failure never reached the radio.
-function WriteErrorText({ err }: { err: unknown }) {
+/**
+ * Explains why a recovery-phrase write failed. Each failure means something
+ * different to the user: a refusal left the old identity in place, and a vault
+ * failure never reached the radio.
+ */
+export function WriteErrorText({ err }: { err: unknown }) {
   const { t } = useTranslation();
   if (err instanceof PrivateKeyError) {
     return (
