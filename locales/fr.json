@@ -602,6 +602,12 @@
       }
     },
     "recovery": {
+      "seedBorn": {
+        "hint": "Cette identité a été créée à partir d’une phrase de récupération. Conservez la phrase en lieu sûr : elle restaure cette même identité sur un matériel de remplacement si la radio est un jour perdue.",
+        "action": "Remplacer par une nouvelle phrase",
+        "explainIntro": "L’identité de cette radio a été créée à partir d’une phrase de récupération, qui la restaure déjà. Une nouvelle phrase ne la rend pas plus récupérable : elle remplace cette identité par une nouvelle identité, différente.",
+        "costOld": "L’identité actuelle est effacée de la radio. Seule sa propre phrase de récupération, ou une sauvegarde, peut la rétablir."
+      },
       "hint": "L’identité de cette radio n’existe que dans sa propre mémoire flash. Régénérez-la sous une phrase de récupération pour pouvoir remettre la même identité sur un matériel de remplacement si la radio est un jour perdue.",
       "action": "Créer une phrase de récupération",
       "checking": "Vérification…",

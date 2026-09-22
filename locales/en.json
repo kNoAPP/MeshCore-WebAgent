@@ -601,6 +601,12 @@
       }
     },
     "recovery": {
+      "seedBorn": {
+        "hint": "This identity was made from a recovery phrase. Keep the phrase safe: it restores this same identity onto replacement hardware if the radio is ever lost.",
+        "action": "Replace with a new phrase",
+        "explainIntro": "The identity this radio holds was made from a recovery phrase, which already restores it. A new phrase does not make it any more recoverable: it replaces this identity with a new, different one.",
+        "costOld": "The current identity is erased from the radio. Only its own recovery phrase, or a backup, can bring it back."
+      },
       "hint": "This radio's identity exists only in its own flash. Regenerate it under a recovery phrase so you can put the same identity onto replacement hardware if the radio is ever lost.",
       "action": "Create recovery phrase",
       "checking": "Checking…",
