@@ -584,6 +584,9 @@ export function useMeshCore() {
         const pending = store0.personaSwitch;
         const reported = pubkey?.toLowerCase();
         if (pending?.stage === 'switching' && reported === pending.outgoing) {
+          // The vault's live flags keep what the switch recorded: the vault
+          // is locked, and a stale flag only misplaces a warning (see
+          // VaultIdentity.live).
           await settleKeptSwitch(pending);
           store0.setPersonaSwitch(null);
           void deletePendingPersona(pending.target);
