@@ -626,10 +626,13 @@ export class MeshCoreClient {
     const h = this.handlers.splice(i, 1)[0];
     clearTimeout(h.timer);
     if (type === RESP.ERR) {
-      const err: Error & { code?: number } = new Error(
+      const err: Error & { code?: number; device?: true } = new Error(
         `Device error code ${d[1]}`,
       );
       err.code = d[1];
+      // Tagged like `timeout` and `transportClosed`: transport failures are
+      // DOMExceptions, which carry a numeric `code` of their own.
+      err.device = true;
       h.reject(err);
     } else h.resolve(d);
     return true;
@@ -1039,7 +1042,7 @@ export class MeshCoreClient {
       } catch (err) {
         // A device ERR is an answer — firmware without that slot says
         // NOT_FOUND — so only a timeout or a dropped link leaves it unknown.
-        if (typeof (err as { code?: unknown }).code === 'number') {
+        if ((err as { device?: true }).device) {
           this._unreadChannelSlots.delete(i);
         } else {
           this._unreadChannelSlots.add(i);
