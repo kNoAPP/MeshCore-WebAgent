@@ -162,9 +162,9 @@ export function capturePersona(client: MeshCoreClient): PersonaState {
  * a mix of both personas.
  *
  * Writes through the client only. The store's session state that follows a
- * channel slot (an open conversation, a draft) is the caller's to settle. So
- * is the storage key: a channel change moves the key a non-seed identity's
- * records derive, which the session does not follow (#382).
+ * channel slot (an open conversation, a draft) is the caller's to settle. The
+ * storage key a channel change moves is not: the session re-keys to follow
+ * the mirror.
  *
  * The plan is fixed from the mirror when the apply starts, so a contact the
  * radio evicts or auto-adds meanwhile, or a background contact resync that

@@ -2,11 +2,19 @@
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
+import type { Channel } from '@/types/meshcore';
 import { useMeshStore, selectPreferences } from '@/store/meshStore';
-import { setSecretContext } from '@/lib/ai/secret';
+import {
+  getStorageContext,
+  reencryptApiKey,
+  setSecretContext,
+} from '@/lib/ai/secret';
+import { reencryptRepeaterCreds } from '@/lib/meshcore/adminCreds';
+import { toHex } from '@/lib/utils';
 import {
   deleteRadioRecords,
   deriveStorageKey,
+  reencryptRadioRecords,
   saveRadioData,
   saveAdvertCache,
   savePreferences,
@@ -21,8 +29,20 @@ const SAVE_DEBOUNCE_MS = 1000;
 // pair rather than read from `selfInfo` at write time: an identity import
 // refreshes `selfInfo` without the store's data necessarily moving with it,
 // and a namespace written under another identity's key is a record nothing
-// can decrypt.
-let binding: { pubkey: string; key: CryptoKey } | null = null;
+// can decrypt. The channel set the key was derived from rides along, so a
+// later change to it can be told apart from a mirror update that changed
+// nothing the key depends on (see {@link followChannelSecrets}).
+let binding: Binding | null = null;
+// The last binding made, kept past {@link resetPersistence} while a re-key is
+// still queued: a session torn down mid re-key left its records under this
+// key, and the re-key still has to move them. Dropped by the reset or once
+// the queue drains with nothing bound; an identity switch, which unbinds
+// without a reset, keeps it until the restart's reset.
+let lastBound: Binding | null = null;
+// Serializes re-keys, so two channel updates in quick succession cannot
+// derive in parallel and bind whichever finishes last.
+let rekeyChain: Promise<unknown> = Promise.resolve();
+let rekeysPending = 0;
 // Set by {@link beginIdentitySwitch}: the store holds an identity's data that
 // may be written nowhere until the session restarts. Distinct from a merely
 // unbound session, which has simply not derived a key yet.
@@ -47,6 +67,41 @@ let prefsSaveUnsub: (() => void) | null = null;
 let prefsSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
+ * A per-radio storage key and the channel set it was derived from.
+ */
+export interface ChannelKey {
+  key: CryptoKey;
+  /**
+   * The client's live channel mirror the key was derived from, by reference:
+   * it identifies the session the key belongs to.
+   */
+  channels: Record<number, Channel>;
+  /** The derivation's secret material as hex, in slot order. */
+  material: string;
+}
+
+/**
+ * Derives the storage key for `pubkey` from a radio's current channel
+ * secrets, recording which secrets it came from.
+ *
+ * @param channels - the client's channel mirror, keyed by slot.
+ * @param pubkey - the identity's public key hex, lowercase, as `SELF_INFO`
+ * reports it: it is the derivation's salt.
+ */
+export async function deriveChannelKey(
+  channels: Record<number, Channel>,
+  pubkey: string,
+): Promise<ChannelKey> {
+  // Read before the derivation's await, so the material recorded is the one
+  // the key was actually derived from even if the mirror moves meanwhile.
+  const secrets = Object.values(channels)
+    .map((ch) => ch.secret)
+    .filter((s): s is Uint8Array => s != null && s.length > 0);
+  const material = secrets.map((s) => toHex(s)).join('');
+  return { key: await deriveStorageKey(secrets, pubkey), channels, material };
+}
+
+/**
  * Binds this session's persistence to a radio identity: the namespace its
  * records are written under, and the per-radio key that encrypts them.
  *
@@ -55,11 +110,86 @@ let prefsSaveTimer: ReturnType<typeof setTimeout> | null = null;
  * nothing without it.
  *
  * @param pubkey - the identity's public key hex, lowercase, as `SELF_INFO`
- * reports it; `key` must have been derived with it as the salt.
+ * reports it; `key` must have been derived with it by
+ * {@link deriveChannelKey}.
  */
-export function setStorageKey(pubkey: string, key: CryptoKey): void {
-  binding = { pubkey, key };
+export function setStorageKey(pubkey: string, key: ChannelKey): void {
+  binding = lastBound = { pubkey, ...key };
   switchPending = false;
+}
+
+type Binding = { pubkey: string } & ChannelKey;
+
+/**
+ * Keeps the session's storage key in step with the radio's channel secrets,
+ * which it is derived from.
+ *
+ * @remarks Call on every channel mirror update. When the secrets differ from
+ * the ones the bound key came from — a channel added, removed or rewritten,
+ * or a slot the connect sync could not read arriving later — the next connect
+ * will derive a different key, and every record written under this one would
+ * read as absent there and then be overwritten. So the key is re-derived and
+ * rebound, the four per-radio records are written under it straight away, and
+ * the secrets store is re-encrypted to it.
+ *
+ * A session torn down before its re-key finished (a disconnect or a drop
+ * right after a channel change) flushed its records under the outgoing key
+ * and reset the store, so those records are re-encrypted on disk instead.
+ * An update for a mirror no binding came from is a no-op: a session that has
+ * not bound a key yet, or an older client's. So is one that arrives while
+ * an identity handover owns the session, which follows the channels itself
+ * once bound. An update before {@link wirePersistence} waits for it: the store
+ * has not been hydrated yet, and writing it would put an empty session over
+ * the records the hydrate is still reading under the outgoing key.
+ *
+ * Fire-and-forget, and best-effort like the writes it makes. The records the
+ * outgoing key encrypted are overwritten in place rather than deleted.
+ */
+export function followChannelSecrets(channels: Record<number, Channel>): void {
+  rekeysPending++;
+  rekeyChain = rekeyChain
+    .then(() => rekey(channels))
+    .catch(() => {})
+    .finally(() => {
+      if (--rekeysPending === 0 && !binding) lastBound = null;
+    });
+}
+
+async function rekey(channels: Record<number, Channel>): Promise<void> {
+  const from =
+    binding?.channels === channels
+      ? binding
+      : lastBound?.channels === channels && !binding
+        ? lastBound
+        : null;
+  if (!from || (from === binding && !saveUnsub)) return;
+  const next = await deriveChannelKey(channels, from.pubkey);
+  if (next.material === from.material) return;
+  // Another binding for this mirror (an identity handover) owns the session
+  // now, and follows the channels itself once it is bound.
+  if (binding !== from && binding?.channels === channels) return;
+  const live = binding === from && saveUnsub !== null;
+  if (live) {
+    setStorageKey(from.pubkey, next);
+    if (getStorageContext()?.pubkey === from.pubkey) {
+      setSecretContext(from.pubkey, next.key);
+    }
+  } else if (lastBound === from) {
+    lastBound = { pubkey: from.pubkey, ...next };
+  }
+  // A torn-down session's flush is fire-and-forget; its writes started before
+  // the derivation above and are assumed to have landed before the re-encrypt
+  // reads them.
+  // Queued in the same synchronous step as the rebind above: each secret
+  // module's saves and clears already queued run first, under the key they
+  // captured, and every later one captures the new key.
+  await Promise.all([
+    live
+      ? saveSessionNamespace(from.pubkey, next.key)
+      : reencryptRadioRecords(from.pubkey, from.key, next.key),
+    reencryptApiKey(from.pubkey, from.key, next.key),
+    reencryptRepeaterCreds(from.pubkey, from.key, next.key),
+  ]);
 }
 
 /**
@@ -206,13 +336,16 @@ export async function beginIdentityHandover(
   pubkey: string,
 ): Promise<boolean> {
   const outgoing = binding?.pubkey;
-  const key = await incomingKey(client, pubkey);
+  const key = await deriveChannelKey(client.channels, pubkey);
   // Bound before the re-read, which hands the refreshed `selfInfo` to the
   // store: whatever reacts to the new identity finds its namespace and its
   // secrets already in place.
   setStorageKey(pubkey, key);
-  setSecretContext(pubkey, key);
-  const persisted = await saveSessionNamespace(pubkey, key);
+  setSecretContext(pubkey, key.key);
+  // The key was derived from the channels as they were before its await; a
+  // channel change during it was left for this binding to follow.
+  followChannelSecrets(client.channels);
+  const persisted = await saveSessionNamespace(pubkey, key.key);
   await client.refreshSelfInfo().catch(() => {});
   // Only once the data is safely under the incoming identity: a failed write
   // would otherwise make this delete the user's last copy.
@@ -249,7 +382,10 @@ export async function beginIdentitySwitch(
   await flushSessionAsync();
   binding = null;
   switchPending = true;
-  setSecretContext(pubkey, await incomingKey(client, pubkey));
+  setSecretContext(
+    pubkey,
+    (await deriveChannelKey(client.channels, pubkey)).key,
+  );
   await client.refreshSelfInfo().catch(() => {});
 }
 
@@ -293,7 +429,8 @@ export async function seedIdentityNamespace(
   client: MeshCoreClient,
   pubkey: string,
 ): Promise<boolean> {
-  return saveSessionNamespace(pubkey, await incomingKey(client, pubkey));
+  const { key } = await deriveChannelKey(client.channels, pubkey);
+  return saveSessionNamespace(pubkey, key);
 }
 
 /**
@@ -350,20 +487,6 @@ export function dropUnsavedRestore(): void {
   unsavedRestore = null;
 }
 
-// The storage key the next connect derives for `pubkey` on this radio. Channel
-// secrets survive an identity import untouched — the firmware's handler
-// replaces the key pair and reloads contacts, nothing else — so it is this
-// radio's current secrets salted with the new pubkey.
-function incomingKey(
-  client: MeshCoreClient,
-  pubkey: string,
-): Promise<CryptoKey> {
-  const secrets = Object.values(client.channels)
-    .map((ch) => ch.secret)
-    .filter((s): s is Uint8Array => s != null && s.length > 0);
-  return deriveStorageKey(secrets, pubkey);
-}
-
 // The one place the set of per-radio records is listed. Both the live-session
 // flush and the identity handover write the same four, so a fifth added later
 // cannot be wired into one path and forgotten in the other.
@@ -389,6 +512,9 @@ async function saveSessionNamespace(
  * Wired before the connect flow's best-effort hydrate round-trips, so the
  * now-'connected' link can't accept a send that lands before the subscriptions
  * exist and so goes unpersisted. {@link resetPersistence} undoes all of it.
+ *
+ * Also catches the storage key up with a channel change that arrived before
+ * the store was hydrated (see {@link followChannelSecrets}).
  */
 export function wirePersistence(): void {
   saveUnsub = useMeshStore.subscribe((state, prev) => {
@@ -445,6 +571,8 @@ export function wirePersistence(): void {
       flushPreferences();
     }, SAVE_DEBOUNCE_MS);
   });
+
+  if (binding) followChannelSecrets(binding.channels);
 }
 
 /**
@@ -465,5 +593,6 @@ export function resetPersistence(): void {
   prefsSaveUnsub?.();
   prefsSaveUnsub = null;
   binding = null;
+  if (rekeysPending === 0) lastBound = null;
   switchPending = false;
 }

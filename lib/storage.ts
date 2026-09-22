@@ -342,6 +342,77 @@ export async function loadSecret(
 }
 
 /**
+ * Re-encrypts, in place, a radio's secrets whose names start with
+ * `namePrefix`, from one key to another.
+ *
+ * @remarks For a session whose storage key has moved under it (the channel
+ * secrets it derives from changed). Callers run it inside the same I/O queue
+ * as that secret's saves and clears, so a value the user replaces or forgets
+ * meanwhile cannot be written back. A record that does not decrypt under
+ * `from` is left as it is: it is already under `to`, or an orphan no key of
+ * this session could ever read.
+ * @returns whether every record that decrypted under `from` was rewritten;
+ * best-effort, like the `save*` helpers.
+ */
+export async function reencryptSecrets(
+  pubkey: string,
+  namePrefix: string,
+  from: CryptoKey,
+  to: CryptoKey,
+): Promise<boolean> {
+  return reencryptRange(SECRETS_STORE, recordKey(pubkey, namePrefix), from, to);
+}
+
+/**
+ * Re-encrypts, in place, every per-radio record stored for a radio, from one
+ * key to another.
+ *
+ * @remarks For a session torn down while its storage key was moving: its
+ * last writes landed under `from`, and the next connect derives `to`. Records
+ * that do not decrypt under `from` are left alone, which covers the `persona`
+ * record (sealed under the vault's storage root) and anything already under
+ * `to`.
+ * @returns whether every record that decrypted under `from` was rewritten.
+ */
+export async function reencryptRadioRecords(
+  pubkey: string,
+  from: CryptoKey,
+  to: CryptoKey,
+): Promise<boolean> {
+  return reencryptRange(STORE_NAME, pubkey, from, to);
+}
+
+// Rewrites every record in `store` whose key starts with `prefix` and which
+// decrypts under `from`, encrypted under `to`.
+async function reencryptRange(
+  store: string,
+  prefix: string,
+  from: CryptoKey,
+  to: CryptoKey,
+): Promise<boolean> {
+  try {
+    const db = await openDB();
+    const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
+      const req = db
+        .transaction(store, 'readonly')
+        .objectStore(store)
+        .getAllKeys(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const results = await Promise.all(
+      keys.map(async (k) => {
+        const value = await getDecrypted(store, String(k), from);
+        return value === null || putEncrypted(store, String(k), to, value);
+      }),
+    );
+    return results.every(Boolean);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Deletes a named secret for a radio from IndexedDB.
  * @returns whether the deletion transaction completed successfully.
  */

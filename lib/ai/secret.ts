@@ -3,7 +3,12 @@
 
 'use client';
 
-import { saveSecret, loadSecret, clearSecret } from '@/lib/storage';
+import {
+  saveSecret,
+  loadSecret,
+  clearSecret,
+  reencryptSecrets,
+} from '@/lib/storage';
 import { useMeshStore } from '@/store/meshStore';
 
 // The BYO LLM API key lives ONLY in this module-scoped variable for the tab's
@@ -161,7 +166,8 @@ export function releaseSecretContext(): void {
 
 /**
  * Binds the per-radio encryption context for later persistence. Called once
- * per session after {@link deriveStorageKey} in useMeshCore.
+ * per session after {@link deriveStorageKey} in useMeshCore, and again when
+ * the session re-keys after a channel change.
  */
 export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
   // A reconnect keeps the in-memory key alive for the same radio, but if the
@@ -185,6 +191,24 @@ export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
   if (clearIsOwed(pubkey)) {
     void settleOwedClear(pubkey);
   }
+}
+
+/**
+ * Re-encrypts a remembered API key for `pubkey` from one storage key to
+ * another, in this module's I/O order.
+ *
+ * @remarks Call in the same synchronous step that rebinds the context, so
+ * every save or clear already queued runs first (under the key it captured)
+ * and every later one captures the new key. That keeps a key the user
+ * replaces or forgets meanwhile from being written back.
+ * @returns whether the record, if one decrypted under `from`, was rewritten.
+ */
+export function reencryptApiKey(
+  pubkey: string,
+  from: CryptoKey,
+  to: CryptoKey,
+): Promise<boolean> {
+  return enqueue(() => reencryptSecrets(pubkey, API_KEY_NAME, from, to));
 }
 
 /**
