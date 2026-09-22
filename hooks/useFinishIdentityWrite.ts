@@ -37,9 +37,11 @@ const COPY = {
  * session is restarted rather than left to a dropped link, since a native USB
  * link can survive the reboot.
  * @param onClose - closes the wizard, once the radio has rebooted.
- * @returns `finish`, which resolves to the localized reason the reboot failed
- * (the wizard stays open to show it), or null once the session is restarting.
- * Pass `persisted: false` for a run whose data did not reach encrypted storage.
+ * @returns `finish(check, persisted)`, which resolves to the localized reason
+ * the reboot failed (the wizard stays open to show it), or null once the
+ * session is restarting. `persisted` defaults to true; a regenerate passes
+ * its handover's result, since only a regenerate moves this browser's data
+ * and so can leave it unsaved.
  */
 export function useFinishIdentityWrite(
   onClose: () => void,
