@@ -12,6 +12,7 @@ import type { PersonaState } from './persona';
 import { freshPersona } from './personaSwitch';
 import {
   derivePublicKey,
+  ED25519_SEED_BYTES,
   expandSeed,
   isImportablePublicKey,
   type SeedIdentity,
@@ -39,12 +40,10 @@ import {
  * to be off the radio deletes it.
  *
  * @remarks This protects against personas being tied together by what is
- * stored here, and — through {@link burnerPersona} — by what the radio
+ * stored here, and — through {@link freshPersona} — by what the radio
  * advertises. It does nothing against traffic analysis: the same hardware,
  * place and airtime habits are there for anyone listening.
  */
-
-const ED25519_SEED_BYTES = 32;
 
 /**
  * Draws a fresh random identity for a burner, redrawing any the firmware
@@ -62,17 +61,8 @@ export async function generateBurnerKey(): Promise<SeedIdentity> {
 }
 
 /**
- * The persona a burner starts from: its own advert name, no location and
- * location sharing off, only the Public channel, and no contacts — the same
- * as any {@link freshPersona}.
- */
-export function burnerPersona(name: string): PersonaState {
-  return freshPersona(name);
-}
-
-/**
- * Whether the radio state is what a finished {@link burnerPersona} leaves:
- * location sharing off, only the Public channel, and no contacts.
+ * Whether the radio state is what a burner's finished {@link freshPersona}
+ * leaves: location sharing off, only the Public channel, and no contacts.
  *
  * @remarks For a burner found after a reload, whose switch may have been cut
  * off before its persona was applied. The name cannot be checked, since the
@@ -82,7 +72,7 @@ export function burnerPersona(name: string): PersonaState {
  * reads as unfinished; finishing then only clears it again.
  */
 export function isBurnerShaped(state: PersonaState): boolean {
-  const [publicChannel] = burnerPersona('').channels ?? [];
+  const [publicChannel] = freshPersona('').channels ?? [];
   const [channel, ...others] = state.channels ?? [];
   return (
     state.locationPolicy === ADVERT_LOC_POLICY.NONE &&
