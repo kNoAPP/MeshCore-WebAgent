@@ -151,6 +151,23 @@ export const CLOCK_SKEW_THRESHOLD_SECS = 30;
 export const CONTACTS_IDLE_TIMEOUT_MS = 8000;
 
 /**
+ * How long contact collection lets the stream go quiet before sending the
+ * radio a harmless command.
+ *
+ * @remarks The companion firmware writes contact frames into the serial port
+ * with no flow control (`isWriteBusy()` is always false there). On an ESP32-S3
+ * over native USB, the tail of the stream can then sit in the radio's TX
+ * buffer until the host next writes. Without a write, collection waited out
+ * {@link CONTACTS_IDLE_TIMEOUT_MS} and dropped the whole table.
+ * `GET_DEVICE_TIME` is read-only, so the nudge is not gated on being
+ * mid-stream: it follows any quiet second, including one before
+ * `CONTACTS_START`, and costs a healthy stream one extra exchange. It queues on
+ * the `cmd` chain like any command, so behind a busy chain it may go out after
+ * collection has already ended, which is equally harmless.
+ */
+export const CONTACTS_NUDGE_MS = 1000;
+
+/**
  * The longest {@link MeshCoreClient.reboot} waits for a rebooting radio to
  * show it restarted, well past a full contact-table save plus a boot. Only a
  * radio that stays silent this long is given up on.
@@ -244,6 +261,12 @@ export interface MeshCoreCallbacks {
    * {@link CONTACTS_FULL_NOTIFY_INTERVAL_MS}.
    */
   onContactsFull?: () => void;
+  /**
+   * A contact enumeration went quiet for {@link CONTACTS_IDLE_TIMEOUT_MS}
+   * before `END_OF_CONTACTS`, so the table was not replaced and may be stale or
+   * empty. Not fired when the link closes mid-enumeration.
+   */
+  onContactsIncomplete?: () => void;
   /** The channel list changed. */
   onChannelsUpdated?: (channels: Record<number, Channel>) => void;
   /** The heard-adverts log changed (a node advertised or re-advertised). */
@@ -1025,8 +1048,10 @@ export class MeshCoreClient {
     this.contactsStarted = false;
     await new Promise<void>((resolve) => {
       let timer: ReturnType<typeof setTimeout>;
+      let nudge: ReturnType<typeof setTimeout>;
       const finish = () => {
         clearTimeout(timer);
+        clearTimeout(nudge);
         this.collectingContacts = false;
         this.pendingContacts = null;
         this.rearmContactsIdle = null;
@@ -1037,7 +1062,16 @@ export class MeshCoreClient {
       // the whole table streams in regardless of size; only a stall aborts.
       this.rearmContactsIdle = () => {
         clearTimeout(timer);
-        timer = setTimeout(finish, CONTACTS_IDLE_TIMEOUT_MS);
+        clearTimeout(nudge);
+        timer = setTimeout(() => {
+          finish();
+          this.callbacks.onContactsIncomplete?.();
+        }, CONTACTS_IDLE_TIMEOUT_MS);
+        nudge = setTimeout(() => {
+          this.cmd(buildGetDeviceTime(), [RESP.CURR_TIME], 2000).catch(
+            () => {},
+          );
+        }, CONTACTS_NUDGE_MS);
       };
       this.contactsResolve = finish;
       this.rearmContactsIdle();
