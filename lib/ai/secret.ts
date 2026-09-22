@@ -161,7 +161,8 @@ export function releaseSecretContext(): void {
 
 /**
  * Binds the per-radio encryption context for later persistence. Called once
- * per session after {@link deriveStorageKey} in useMeshCore.
+ * per session after {@link deriveStorageKey} in useMeshCore, and again when
+ * the session re-keys after a channel change.
  */
 export function setSecretContext(pubkey: string, storageKey: CryptoKey): void {
   // A reconnect keeps the in-memory key alive for the same radio, but if the

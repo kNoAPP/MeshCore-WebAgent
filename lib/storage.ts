@@ -342,6 +342,47 @@ export async function loadSecret(
 }
 
 /**
+ * Re-encrypts every secret stored for a radio from one key to another, in
+ * place.
+ *
+ * @remarks For a session whose storage key has moved under it (the channel
+ * secrets it derives from changed). A record that does not decrypt under
+ * `from` is left as it is: it is either already under `to`, written by a save
+ * that raced this, or an orphan no key of this session could ever read.
+ * @returns whether every record that decrypted under `from` was rewritten;
+ * best-effort, like the `save*` helpers.
+ */
+export async function reencryptSecrets(
+  pubkey: string,
+  from: CryptoKey,
+  to: CryptoKey,
+): Promise<boolean> {
+  try {
+    const db = await openDB();
+    const prefix = recordKey(pubkey, '');
+    const names = await new Promise<IDBValidKey[]>((resolve, reject) => {
+      const req = db
+        .transaction(SECRETS_STORE, 'readonly')
+        .objectStore(SECRETS_STORE)
+        .getAllKeys(IDBKeyRange.bound(prefix, `${prefix}￿`));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const results = await Promise.all(
+      names.map(async (name) => {
+        const value = await getDecrypted(SECRETS_STORE, String(name), from);
+        return (
+          value === null || putEncrypted(SECRETS_STORE, String(name), to, value)
+        );
+      }),
+    );
+    return results.every(Boolean);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Deletes a named secret for a radio from IndexedDB.
  * @returns whether the deletion transaction completed successfully.
  */

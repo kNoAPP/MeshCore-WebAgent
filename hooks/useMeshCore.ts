@@ -24,7 +24,6 @@ import {
 import { mergeAdvertCache } from '@/lib/map/advertCache';
 import {
   loadRadioData,
-  deriveStorageKey,
   loadAutomationRules,
   loadAdvertCache,
   loadPreferences,
@@ -45,7 +44,9 @@ import {
 } from '@/lib/session/lifecycle';
 import {
   claimUnsavedRestore,
+  deriveChannelKey,
   flushAdvertCache,
+  followChannelSecrets,
   retryUnsavedRestore,
   setStorageKey,
   wirePersistence,
@@ -288,7 +289,10 @@ export function useMeshCore() {
             text: i18n.t('toast.contactsFull'),
             key: 'contactsFull',
           }),
-        onChannelsUpdated: (channels) => setChannels({ ...channels }),
+        onChannelsUpdated: (channels) => {
+          setChannels({ ...channels });
+          followChannelSecrets(channels);
+        },
         onCliReply: ({ pubkeyPrefix, text }) =>
           handleCliReply(c, pubkeyPrefix, text),
         onAdvertsUpdated: (adverts) => {
@@ -554,10 +558,8 @@ export function useMeshCore() {
           // answers those reads on every path that never binds one.
           expectSecretContext();
           try {
-            const secrets = Object.values(c.channels)
-              .map((ch) => ch.secret)
-              .filter((s): s is Uint8Array => s != null && s.length > 0);
-            key = await deriveStorageKey(secrets, pubkey);
+            const derived = await deriveChannelKey(c.channels, pubkey);
+            key = derived.key;
             // This is now the last await before the UI goes live, and a drop or
             // a Disconnect during it is nobody else's to catch: `onDisconnect`
             // stands down while the status is still 'connecting'. Bail exactly
@@ -567,7 +569,7 @@ export function useMeshCore() {
             if (!sessionAlive()) {
               throw new Error('Closed during sync');
             }
-            setStorageKey(pubkey, key);
+            setStorageKey(pubkey, derived);
             // Reuse the same per-radio key for secret storage — there is no
             // second key-derivation path.
             setSecretContext(pubkey, key);
