@@ -1950,8 +1950,8 @@ export class MeshCoreClient {
   /**
    * Channel slots the last channel sync got no answer for (`GET_CHANNEL_INFO`
    * timed out or the link failed). A slot the radio refused with `ERR` is not
-   * here: that is an answer. A slot here is missing from {@link channels} because its
-   * content is unknown, not because it is free.
+   * here: that is an answer. A slot here is missing from {@link channels}
+   * because its content is unknown, not because it is free.
    */
   get unreadChannelSlots(): ReadonlySet<number> {
     return this._unreadChannelSlots;
