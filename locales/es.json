@@ -710,7 +710,9 @@
         "switchAway": "El nombre, los canales y los contactos de la identidad desechable se descartan, y su clave desaparece para siempre: no se puede volver a ella.",
         "assumed": "Esta identidad no tiene nada guardado en este navegador y una identidad desechable iniciada aquí puede seguir activa, así que se trata como esa y no se guarda nada de ella. Si en cambio es una radio nueva para este navegador, conserva sus datos.",
         "keepData": "Conservar los datos de esta radio",
-        "resumeBody": "El cambio a esta identidad desechable se interrumpió, así que la radio puede conservar el nombre, la ubicación, los canales o los contactos de la persona anterior, que las vinculan. Terminarlo le da un nuevo nombre de anuncio, sin compartir ubicación, solo el canal Público y sin contactos."
+        "resumeBody": "El cambio a esta identidad desechable se interrumpió, así que la radio puede conservar el nombre, la ubicación, los canales o los contactos de la persona anterior, que las vinculan. Terminarlo le da un nuevo nombre de anuncio, sin compartir ubicación, solo el canal Público y sin contactos.",
+        "assumedUnfinished": "Además conserva canales, contactos o el uso compartido de la ubicación con los que una identidad desechable no empieza. Si es una desechable cuyo cambio interrumpió una recarga, termínala: recibe un nuevo nombre de anuncio y pierde todo eso. Si es una radio nueva aquí, terminarla la borraría, así que conserva sus datos.",
+        "finish": "Terminar como desechable"
       }
     }
   },

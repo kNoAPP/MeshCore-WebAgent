@@ -700,8 +700,10 @@ export function useMeshCore() {
             });
           }
           // Cut off by a reload before its persona was applied, the burner may
-          // still carry the previous persona's name, channels and contacts:
-          // offered for finishing like any switch that stopped part way.
+          // still carry the previous persona's name, channels and contacts,
+          // so finishing it is offered. Only from Settings, beside keeping
+          // the radio's data: an identity assumed to be the burner may be a
+          // radio new here, and finishing would wipe it.
           if (burner === 'assumed' && !isBurnerShaped(capturePersona(c))) {
             store.setPersonaSwitch({
               target: reported,
@@ -712,7 +714,7 @@ export function useMeshCore() {
               announce: false,
               stage: 'switching',
               running: false,
-              dismissed: false,
+              dismissed: true,
               burner: true,
             });
           }

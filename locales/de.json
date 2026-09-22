@@ -710,7 +710,9 @@
         "switchAway": "Name, Kanäle und Kontakte der Wegwerf-Identität werden verworfen, und ihr Schlüssel ist für immer weg: Es gibt kein Zurück zu ihr.",
         "assumed": "Für diese Identität ist in diesem Browser nichts gespeichert, und eine hier gestartete Wegwerf-Identität kann noch aktiv sein. Daher wird sie als diese behandelt und nichts gespeichert. Ist es stattdessen ein für diesen Browser neues Funkgerät, behalte seine Daten.",
         "keepData": "Daten dieses Funkgeräts behalten",
-        "resumeBody": "Der Wechsel zu dieser Wegwerf-Identität wurde unterbrochen, daher trägt das Funkgerät womöglich noch Namen, Standort, Kanäle oder Kontakte der vorigen Persona, die beide verknüpfen. Das Abschließen gibt ihr einen neuen Advert-Namen, keine Standortfreigabe, nur den öffentlichen Kanal und keine Kontakte."
+        "resumeBody": "Der Wechsel zu dieser Wegwerf-Identität wurde unterbrochen, daher trägt das Funkgerät womöglich noch Namen, Standort, Kanäle oder Kontakte der vorigen Persona, die beide verknüpfen. Das Abschließen gibt ihr einen neuen Advert-Namen, keine Standortfreigabe, nur den öffentlichen Kanal und keine Kontakte.",
+        "assumedUnfinished": "Außerdem trägt sie noch Kanäle, Kontakte oder eine Standortfreigabe, ohne die eine Wegwerf-Identität beginnt. Ist es eine Wegwerf-Identität, deren Wechsel ein Neuladen unterbrochen hat, schließe sie ab: Sie bekommt einen neuen Advert-Namen und verliert all das. Ist es ein hier neues Funkgerät, würde das Abschließen es löschen, also behalte seine Daten.",
+        "finish": "Als Wegwerf-Identität abschließen"
       }
     }
   },

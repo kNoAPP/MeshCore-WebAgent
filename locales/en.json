@@ -709,7 +709,9 @@
         "switchAway": "The burner’s name, channels and contacts are discarded, and its key is gone for good: there is no switching back to it.",
         "assumed": "This identity has nothing saved in this browser, and a burner started here may still be live, so it is treated as that burner and nothing is saved for it. If this is a radio new to this browser instead, keep its data.",
         "keepData": "Keep this radio’s data",
-        "resumeBody": "This burner's switch was cut off, so the radio may still carry the previous persona's name, location, channels or contacts, which link the two. Finishing gives it a new advert name, location sharing off, only the Public channel and no contacts."
+        "resumeBody": "This burner's switch was cut off, so the radio may still carry the previous persona's name, location, channels or contacts, which link the two. Finishing gives it a new advert name, location sharing off, only the Public channel and no contacts.",
+        "assumedUnfinished": "It also still carries channels, contacts or location sharing a burner starts without. If it is a burner whose switch a reload cut off, finish it: it gets a new advert name and loses all of those. If it is a radio new here, finishing would wipe it, so keep its data instead.",
+        "finish": "Finish as a burner"
       }
     }
   },

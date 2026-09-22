@@ -78,9 +78,11 @@ export function burnerPersona(name: string): PersonaState {
  * location sharing off, only the Public channel, and no contacts.
  *
  * @remarks For a burner found after a reload, whose switch may have been cut
- * off before its persona was applied — the name cannot be checked, since the
- * burner's own was never kept. A contact the radio added by itself since
- * reads as unfinished too; finishing then only clears it again.
+ * off before its persona was applied. The name cannot be checked, since the
+ * burner's own was never kept: an outgoing persona that already had location
+ * sharing off, only the Public channel and no contacts, cut off before the
+ * rename, passes with its own name. A contact the radio added by itself since
+ * reads as unfinished; finishing then only clears it again.
  */
 export function isBurnerShaped(state: PersonaState): boolean {
   const [publicChannel] = burnerPersona('').channels ?? [];
@@ -165,10 +167,17 @@ export async function settleKeptSwitch(record: PersonaSwitch): Promise<void> {
 
 /**
  * Stops treating an assumed burner as one, for a user who says the identity
- * is a radio new to this browser. The session must restart to bind its
- * persistence.
+ * is a radio new to this browser, along with the offer to finish it as a
+ * burner. The session must restart to bind its persistence.
  */
 export async function releaseAssumedBurner(): Promise<void> {
-  useMeshStore.getState().setBurner(null);
+  const store = useMeshStore.getState();
+  const pubkey = store.burner?.pubkey;
+  const pending = store.personaSwitch;
+  // Left in place, the restart would read it as a burner switch that landed.
+  if (pending?.burner && pending.target === pubkey) {
+    store.setPersonaSwitch(null);
+  }
+  store.setBurner(null);
   await deleteBurnerGuard();
 }

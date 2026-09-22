@@ -54,7 +54,8 @@ export function BurnerModal({
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedNames, setSavedNames] = useState<(string | null)[]>([]);
+  // Null until every persona's saved name has been read.
+  const [savedNames, setSavedNames] = useState<(string | null)[] | null>(null);
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
@@ -82,10 +83,11 @@ export function BurnerModal({
     isBurnerNameTaken(trimmed, [
       current,
       ...vault.identities.map((i) => i.label),
-      ...savedNames,
+      ...(savedNames ?? []),
     ]);
   const canStart =
     !busy &&
+    savedNames !== null &&
     acknowledged &&
     bytes > 0 &&
     bytes <= MAX_ADVERT_NAME_BYTES &&

@@ -103,7 +103,9 @@ function UnfinishedSwitch() {
     !record ||
     record.stage !== 'switching' ||
     record.running ||
-    reported !== record.target
+    reported !== record.target ||
+    // An assumed burner's, which AssumedBurner offers instead.
+    (record.burner && record.state === null)
   ) {
     return null;
   }
@@ -133,6 +135,18 @@ function AssumedBurner() {
       !!s.burner?.assumed &&
       s.burner.pubkey === s.selfInfo?.pubkey?.toLowerCase(),
   );
+  // The radio does not look like a finished burner, which a burner switch
+  // cut off by a reload leaves behind — and so does a radio new here.
+  const unfinished = useMeshStore((s) =>
+    s.personaSwitch?.burner &&
+    s.personaSwitch.state === null &&
+    s.personaSwitch.stage === 'switching' &&
+    !s.personaSwitch.running &&
+    s.personaSwitch.target === s.burner?.pubkey
+      ? s.personaSwitch
+      : null,
+  );
+  const setPersonaSwitch = useMeshStore((s) => s.setPersonaSwitch);
   const [busy, setBusy] = useState(false);
   if (!assumed) return null;
   return (
@@ -141,17 +155,33 @@ function AssumedBurner() {
       className='my-3 rounded-md border border-red bg-red/10 p-3 text-xs leading-relaxed text-text'
     >
       <p>{t('settings.persona.burner.assumed')}</p>
-      <button
-        onClick={() => {
-          setBusy(true);
-          // The restart binds this identity's persistence like any other's.
-          void releaseAssumedBurner().then(restartSession);
-        }}
-        disabled={busy}
-        className={`${BUTTON_CLASS} mt-2`}
-      >
-        {t('settings.persona.burner.keepData')}
-      </button>
+      {unfinished && (
+        <p className='mt-2'>{t('settings.persona.burner.assumedUnfinished')}</p>
+      )}
+      <div className='mt-2 flex flex-wrap gap-2'>
+        <button
+          onClick={() => {
+            setBusy(true);
+            // The restart binds this identity's persistence like any other's.
+            void releaseAssumedBurner().then(restartSession);
+          }}
+          disabled={busy}
+          className={BUTTON_CLASS}
+        >
+          {t('settings.persona.burner.keepData')}
+        </button>
+        {unfinished && (
+          <button
+            onClick={() =>
+              setPersonaSwitch({ ...unfinished, dismissed: false })
+            }
+            disabled={busy}
+            className={BUTTON_CLASS}
+          >
+            {t('settings.persona.burner.finish')}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

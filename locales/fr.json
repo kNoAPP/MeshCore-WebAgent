@@ -710,7 +710,9 @@
         "switchAway": "Le nom, les canaux et les contacts de l’identité jetable sont supprimés, et sa clé disparaît pour de bon : impossible d’y revenir.",
         "assumed": "Rien n’est enregistré pour cette identité dans ce navigateur, et une identité jetable lancée ici peut être encore active : elle est donc traitée comme celle-ci et rien n’est enregistré. S’il s’agit plutôt d’une radio nouvelle pour ce navigateur, conservez ses données.",
         "keepData": "Conserver les données de cette radio",
-        "resumeBody": "Le passage à cette identité jetable a été interrompu : la radio peut encore porter le nom, la position, les canaux ou les contacts du persona précédent, qui les relient. Terminer lui donne un nouveau nom d’annonce, sans partage de position, uniquement le canal Public et sans contacts."
+        "resumeBody": "Le passage à cette identité jetable a été interrompu : la radio peut encore porter le nom, la position, les canaux ou les contacts du persona précédent, qui les relient. Terminer lui donne un nouveau nom d’annonce, sans partage de position, uniquement le canal Public et sans contacts.",
+        "assumedUnfinished": "Elle porte aussi des canaux, des contacts ou un partage de position sans lesquels une identité jetable démarre. Si c’est une identité jetable dont un rechargement a interrompu le passage, terminez-la : elle reçoit un nouveau nom d’annonce et perd tout cela. Si c’est une radio nouvelle ici, terminer l’effacerait : conservez plutôt ses données.",
+        "finish": "Terminer comme identité jetable"
       }
     }
   },
