@@ -402,6 +402,8 @@ export interface Notice {
   level: NotificationLevel;
   /** Already localized at notify time, like {@link Notification.text}. */
   text: string;
+  /** The {@link NotifyInput.key} it was raised under. */
+  key: string;
 }
 
 /** One call to {@link MeshActions.notify}. */
@@ -1164,6 +1166,12 @@ interface MeshActions {
   /** Removes one row from the history; unknown ids are a no-op. */
   dismissNotification: (id: number) => void;
   /**
+   * Takes back everything raised under `key`: its drawer row, and the action
+   * bar's line if that is still showing it. For a warning a later event has
+   * made untrue. An unknown key is a no-op.
+   */
+  retractNotification: (key: string) => void;
+  /**
    * Drops every row aimed at one conversation. Opening that conversation is
    * the answer its rows were asking for, and a removed channel's rows would
    * otherwise jump to whatever channel reuses the slot.
@@ -1778,7 +1786,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   notify: ({ level, text, key, convo, surface = 'bar' }) => {
     const id = ++noticeSeq;
-    const notice: Notice = { id, level, text };
+    const notice: Notice = { id, level, text, key };
     // Written whatever the status is, deliberately. The connect-time catch-up
     // summary is raised from a client callback while the status is still
     // 'connecting' — its own call site explains at length why the test there
@@ -1848,6 +1856,18 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set((state) => ({
       notifications: state.notifications.filter((n) => n.id !== id),
     })),
+
+  retractNotification: (key) =>
+    set((state) => {
+      const kept = state.notifications.filter((n) => n.key !== key);
+      const bar = state.barNotice?.key === key;
+      // Most calls find nothing to take back; returning no change keeps the
+      // drawer and the bell badge from re-rendering for it.
+      if (kept.length === state.notifications.length && !bar) return {};
+      return bar
+        ? { notifications: kept, barNotice: null }
+        : { notifications: kept };
+    }),
 
   dismissConvoNotifications: (convoId) =>
     set((state) => {

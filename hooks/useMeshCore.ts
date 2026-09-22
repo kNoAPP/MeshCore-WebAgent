@@ -247,6 +247,7 @@ export function useMeshCore() {
     notify,
     clearNotifications,
     dismissConvoNotifications,
+    retractNotification,
     setConnectError,
     setLastConnectFailure,
   } = useMeshStore();
@@ -304,6 +305,7 @@ export function useMeshCore() {
             text: i18n.t('toast.contactsIncomplete'),
             key: 'contactsIncomplete',
           }),
+        onContactsSynced: () => retractNotification('contactsIncomplete'),
         onChannelsUpdated: (channels) => {
           setChannels({ ...channels });
           followChannelSecrets(channels);
@@ -504,6 +506,7 @@ export function useMeshCore() {
       setLatestInbound,
       setBacklogDraining,
       notify,
+      retractNotification,
     ],
   );
 
