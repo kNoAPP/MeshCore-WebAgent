@@ -110,10 +110,12 @@ To add a new per-radio preference:
 
 The encryption/IO primitives live in `lib/storage.ts`
 (`savePreferences`/`loadPreferences`, mirroring `saveAdvertCache`/etc.); the
-per-radio key is derived once per session in `useMeshCore` via
-`deriveStorageKey`. Sensitive values (e.g. an LLM API key) never go in the blob
-or the store — they use the separate encrypted `secrets` store
-(`lib/ai/secret.ts`).
+per-radio key is derived from the radio's channel secrets at connect
+(`deriveChannelKey` in `lib/session/persistence.ts`), and re-derived whenever
+they change: `followChannelSecrets` rebinds it and rewrites every per-radio
+record under it, so a new record must be listed in `saveSessionNamespace`.
+Sensitive values (e.g. an LLM API key) never go in the blob or the store — they
+use the separate encrypted `secrets` store (`lib/ai/secret.ts`).
 
 ### The identity vault — the one exception
 

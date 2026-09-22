@@ -3,7 +3,12 @@
 
 'use client';
 
-import { saveSecret, loadSecret, clearSecret } from '@/lib/storage';
+import {
+  saveSecret,
+  loadSecret,
+  clearSecret,
+  reencryptSecrets,
+} from '@/lib/storage';
 import { getStorageContext, awaitStorageContext } from '@/lib/ai/secret';
 import type { LoginKind } from '@/types/meshcore';
 
@@ -50,6 +55,22 @@ function enqueue<T>(op: () => Promise<T>): Promise<T> {
     () => undefined,
   );
   return run;
+}
+
+/**
+ * Re-encrypts every remembered repeater credential for `pubkey` from one
+ * storage key to another, in this module's I/O order.
+ *
+ * @remarks Call in the same synchronous step that rebinds the storage
+ * context, as for `reencryptApiKey` in `lib/ai/secret.ts`.
+ * @returns whether every record that decrypted under `from` was rewritten.
+ */
+export function reencryptRepeaterCreds(
+  pubkey: string,
+  from: CryptoKey,
+  to: CryptoKey,
+): Promise<boolean> {
+  return enqueue(() => reencryptSecrets(pubkey, credName(''), from, to));
 }
 
 /**

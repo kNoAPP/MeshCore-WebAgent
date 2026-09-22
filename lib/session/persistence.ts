@@ -4,12 +4,17 @@
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import type { Channel } from '@/types/meshcore';
 import { useMeshStore, selectPreferences } from '@/store/meshStore';
-import { getStorageContext, setSecretContext } from '@/lib/ai/secret';
+import {
+  getStorageContext,
+  reencryptApiKey,
+  setSecretContext,
+} from '@/lib/ai/secret';
+import { reencryptRepeaterCreds } from '@/lib/meshcore/adminCreds';
 import { toHex } from '@/lib/utils';
 import {
   deleteRadioRecords,
   deriveStorageKey,
-  reencryptSecrets,
+  reencryptRadioRecords,
   saveRadioData,
   saveAdvertCache,
   savePreferences,
@@ -27,10 +32,16 @@ const SAVE_DEBOUNCE_MS = 1000;
 // can decrypt. The channel set the key was derived from rides along, so a
 // later change to it can be told apart from a mirror update that changed
 // nothing the key depends on (see {@link followChannelSecrets}).
-let binding: ({ pubkey: string } & ChannelKey) | null = null;
+let binding: Binding | null = null;
+// The last binding made, kept past {@link resetPersistence} while a re-key is
+// still queued: a session torn down mid re-key left its records under this
+// key, and the re-key still has to move them. Dropped once nothing needs it,
+// so no radio's key outlives its session for longer than that.
+let lastBound: Binding | null = null;
 // Serializes re-keys, so two channel updates in quick succession cannot
 // derive in parallel and bind whichever finishes last.
 let rekeyChain: Promise<unknown> = Promise.resolve();
+let rekeysPending = 0;
 // Set by {@link beginIdentitySwitch}: the store holds an identity's data that
 // may be written nowhere until the session restarts. Distinct from a merely
 // unbound session, which has simply not derived a key yet.
@@ -102,9 +113,11 @@ export async function deriveChannelKey(
  * {@link deriveChannelKey}.
  */
 export function setStorageKey(pubkey: string, key: ChannelKey): void {
-  binding = { pubkey, ...key };
+  binding = lastBound = { pubkey, ...key };
   switchPending = false;
 }
+
+type Binding = { pubkey: string } & ChannelKey;
 
 /**
  * Keeps the session's storage key in step with the radio's channel secrets,
@@ -116,38 +129,62 @@ export function setStorageKey(pubkey: string, key: ChannelKey): void {
  * will derive a different key, and every record written under this one would
  * read as absent there and then be overwritten. So the key is re-derived and
  * rebound, the four per-radio records are written under it straight away, and
- * the secrets store is re-encrypted to it. Anything else is a no-op, as is an
- * update for a mirror that is not the bound session's: a torn-down session,
- * one that has not bound a key yet, or one an identity handover has moved on.
- * An update before {@link wirePersistence} waits for it: the store has not
- * been hydrated yet, and writing it would put an empty session over the
- * records the hydrate is still reading under the outgoing key.
+ * the secrets store is re-encrypted to it.
+ *
+ * A session torn down before its re-key finished (a disconnect or a drop
+ * right after a channel change) flushed its records under the outgoing key
+ * and reset the store, so those records are re-encrypted on disk instead.
+ * An update for a mirror no binding came from is a no-op: a session that has
+ * not bound a key yet, or an older client's. So is one that arrives while
+ * an identity handover owns the session, which follows the channels itself
+ * once bound. An update before {@link wirePersistence} waits for it: the store
+ * has not been hydrated yet, and writing it would put an empty session over
+ * the records the hydrate is still reading under the outgoing key.
  *
  * Fire-and-forget, and best-effort like the writes it makes. The records the
  * outgoing key encrypted are overwritten in place rather than deleted.
  */
 export function followChannelSecrets(channels: Record<number, Channel>): void {
-  rekeyChain = rekeyChain.then(() => rekey(channels)).catch(() => {});
+  rekeysPending++;
+  rekeyChain = rekeyChain
+    .then(() => rekey(channels))
+    .catch(() => {})
+    .finally(() => {
+      if (--rekeysPending === 0 && !binding) lastBound = null;
+    });
 }
 
 async function rekey(channels: Record<number, Channel>): Promise<void> {
-  const from = binding;
-  if (!from || from.channels !== channels || !saveUnsub) return;
+  const from =
+    binding?.channels === channels
+      ? binding
+      : lastBound?.channels === channels && !binding
+        ? lastBound
+        : null;
+  if (!from || (from === binding && !saveUnsub)) return;
   const next = await deriveChannelKey(channels, from.pubkey);
-  // A reset, a reconnect or a handover during the derivation owns the
-  // binding now, and has derived its own key from the current channels.
-  if (binding !== from || !saveUnsub || next.material === from.material) {
-    return;
+  if (next.material === from.material) return;
+  // Another binding for this mirror (an identity handover) owns the session
+  // now, and follows the channels itself once it is bound.
+  if (binding !== from && binding?.channels === channels) return;
+  const live = binding === from && saveUnsub !== null;
+  if (live) {
+    setStorageKey(from.pubkey, next);
+    if (getStorageContext()?.pubkey === from.pubkey) {
+      setSecretContext(from.pubkey, next.key);
+    }
+  } else if (lastBound === from) {
+    lastBound = { pubkey: from.pubkey, ...next };
   }
-  setStorageKey(from.pubkey, next);
-  // Before the re-encrypt, so a secret saved while it runs lands under the new
-  // key; the re-encrypt skips that record, which the old key cannot open.
-  if (getStorageContext()?.pubkey === from.pubkey) {
-    setSecretContext(from.pubkey, next.key);
-  }
+  // Queued in the same synchronous step as the rebind above: each secret
+  // module's saves and clears already queued run first, under the key they
+  // captured, and every later one captures the new key.
   await Promise.all([
-    saveSessionNamespace(from.pubkey, next.key),
-    reencryptSecrets(from.pubkey, from.key, next.key),
+    live
+      ? saveSessionNamespace(from.pubkey, next.key)
+      : reencryptRadioRecords(from.pubkey, from.key, next.key),
+    reencryptApiKey(from.pubkey, from.key, next.key),
+    reencryptRepeaterCreds(from.pubkey, from.key, next.key),
   ]);
 }
 
@@ -301,6 +338,9 @@ export async function beginIdentityHandover(
   // secrets already in place.
   setStorageKey(pubkey, key);
   setSecretContext(pubkey, key.key);
+  // The key was derived from the channels as they were before its await; a
+  // channel change during it was left for this binding to follow.
+  followChannelSecrets(client.channels);
   const persisted = await saveSessionNamespace(pubkey, key.key);
   await client.refreshSelfInfo().catch(() => {});
   // Only once the data is safely under the incoming identity: a failed write
@@ -549,5 +589,6 @@ export function resetPersistence(): void {
   prefsSaveUnsub?.();
   prefsSaveUnsub = null;
   binding = null;
+  if (rekeysPending === 0) lastBound = null;
   switchPending = false;
 }
