@@ -68,6 +68,7 @@ export function PersonaRow() {
         {t('settings.persona.title')}
       </p>
       <AssumedBurner />
+      <SeedLocked />
       <UnfinishedSwitch />
       {vault ? (
         <PersonaList
@@ -94,6 +95,30 @@ export function PersonaRow() {
           </ul>
         </>
       )}
+    </div>
+  );
+}
+
+// A seed-born identity whose vault is still locked, put off by the user:
+// nothing it receives is saved until the unlock dialog is answered.
+function SeedLocked() {
+  const { t } = useTranslation();
+  const lock = useMeshStore((s) => s.seedLock);
+  const reported = useMeshStore((s) => s.selfInfo?.pubkey?.toLowerCase());
+  const setSeedLock = useMeshStore((s) => s.setSeedLock);
+  if (!lock || reported !== lock.pubkey) return null;
+  return (
+    <div
+      role='alert'
+      className='mb-3 rounded-md border border-red bg-red/10 p-3 text-xs leading-relaxed text-text'
+    >
+      <p>{t('settings.persona.seedLock.pending')}</p>
+      <button
+        onClick={() => setSeedLock({ ...lock, dismissed: false })}
+        className={`${BUTTON_CLASS} mt-2`}
+      >
+        {t('settings.persona.unlock')}
+      </button>
     </div>
   );
 }

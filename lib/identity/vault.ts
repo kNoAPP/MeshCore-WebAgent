@@ -7,9 +7,14 @@ import {
   listVaultFingerprints,
   loadVaultRecord,
   replaceVaultRecord,
+  saveSeedMarker,
 } from '@/lib/storage';
-import { bytesEqual, isRecord, toHex } from '@/lib/utils';
-import { deriveStorageRoot } from './storageRoot';
+import { bytesEqual, fromHex, isRecord, toHex } from '@/lib/utils';
+import {
+  deriveIdentityStorageKey,
+  deriveStorageRoot,
+  registerIdentityKey,
+} from './storageRoot';
 import { MAX_SUB_IDENTITY_INDEX } from './subIdentity';
 
 /**
@@ -195,6 +200,38 @@ export async function listVaults(): Promise<string[]> {
 }
 
 /**
+ * Opens, with one passphrase, whichever vault on this device lists
+ * `publicKey`, for an identity whose vault is not otherwise known — the
+ * record names no vault by design.
+ *
+ * @remarks Every vault the passphrase opens is adopted on the way, as any
+ * unlock is, and locked again unless it is the one returned. Vaults it does
+ * not open — the wrong passphrase, or a record this build cannot read — are
+ * skipped.
+ * @param publicKey - lowercase hex.
+ * @returns the unlocked vault, which the caller locks; null when no vault the
+ * passphrase opens lists the identity.
+ * @throws whatever IndexedDB throws.
+ */
+export async function openVaultFor(
+  publicKey: string,
+  passphrase: string,
+): Promise<Vault | null> {
+  for (const fingerprint of await listVaults()) {
+    let vault: Vault;
+    try {
+      vault = await unlockVault(fingerprint, passphrase);
+    } catch (err) {
+      if (err instanceof VaultError) continue;
+      throw err;
+    }
+    if (vault.identities.some((i) => i.publicKey === publicKey)) return vault;
+    lockVault(vault);
+  }
+  return null;
+}
+
+/**
  * Creates a vault for a phrase, sealed under `passphrase`, and writes it at
  * once with no identities. Writing up front claims the fingerprint in the same
  * transaction that checks it, so two tabs creating a vault for one phrase
@@ -296,6 +333,7 @@ export async function unlockVault(
       seal: { key, salt: sealed.salt, check: sealed.check },
     };
     lastSeen.set(vault, sealed.iv);
+    await adoptIdentities(await identityKeys(vault));
     return vault;
   } finally {
     plaintext.fill(0);
@@ -333,6 +371,14 @@ export async function saveVault(vault: Vault): Promise<boolean> {
 
 async function writeVault(vault: Vault): Promise<boolean> {
   const seen = lastSeen.get(vault);
+  // Started before the first await, so each derivation's importKey copies the
+  // root now, in the same step sealVault checks it is not locked: a lock can
+  // land during any await below, and a zeroed root would derive keys anyone
+  // can compute.
+  const keys = identityKeys(vault);
+  // Observed here too, so a save sealVault refuses leaves no unhandled
+  // rejection behind; the await below still sees the original outcome.
+  keys.catch(() => {});
   const record = await sealVault(vault);
   const result = await replaceVaultRecord(
     vault.fingerprint,
@@ -346,7 +392,32 @@ async function writeVault(vault: Vault): Promise<boolean> {
   if (result === 'stale') throw new VaultError('stale');
   if (result === 'failed') return false;
   lastSeen.set(vault, record.iv);
+  await adoptIdentities(await keys);
   return true;
+}
+
+// Each listed identity's storage key, from the vault's root.
+function identityKeys(vault: Vault): Promise<[string, CryptoKey][]> {
+  return Promise.all(
+    vault.identities.map(async (i): Promise<[string, CryptoKey]> => [
+      i.publicKey,
+      await deriveIdentityStorageKey(
+        vault.root,
+        new Uint8Array(fromHex(i.publicKey, 32) as Uint8Array),
+      ),
+    ]),
+  );
+}
+
+// From here on these identities' records are sealed under the vault's root,
+// not the radio's channel secrets: each is marked seed-born, so a connect
+// before its vault is next opened binds nothing, and its key is held for this
+// tab. The marker write is best-effort, like every other record write: one
+// that failed leaves a connect after a reload on the channel-secret key until
+// the vault is next opened here.
+async function adoptIdentities(keys: [string, CryptoKey][]): Promise<void> {
+  for (const [publicKey, key] of keys) registerIdentityKey(publicKey, key);
+  await Promise.all(keys.map(([publicKey]) => saveSeedMarker(publicKey)));
 }
 
 /**
