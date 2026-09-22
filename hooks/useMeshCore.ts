@@ -792,18 +792,19 @@ export function useMeshCore() {
           // means the offer is made once per identity, not once per connect.
           // A pending identity check is a restore or regenerate still being
           // verified, whose incoming identity is new here by design.
+          // Assigned rather than only raised: the store survives a reconnect,
+          // so an offer left open by a restore run from Settings would
+          // otherwise resurface once that restore's identity check closes.
           const store = useMeshStore.getState();
-          if (
+          store.setRestoreOffer(
             !saved &&
-            !rules &&
-            !advertCache &&
-            !prefs &&
-            !unsaved &&
-            !store.identityCheck &&
-            store.personaSwitch?.target !== pubkey.toLowerCase()
-          ) {
-            store.setRestoreOffer(true);
-          }
+              !rules &&
+              !advertCache &&
+              !prefs &&
+              !unsaved &&
+              !store.identityCheck &&
+              store.personaSwitch?.target !== pubkey.toLowerCase(),
+          );
           // A persona new to this device arrives with nothing stored too, by
           // design; its switch is complete once its session is hydrated.
           if (
