@@ -20,6 +20,7 @@ import {
   saveAdvertCache,
   savePreferences,
   saveAutomationRules,
+  type RadioRecord,
 } from '@/lib/storage';
 
 const SAVE_DEBOUNCE_MS = 1000;
@@ -503,20 +504,22 @@ export function dropUnsavedRestore(): void {
   unsavedRestore = null;
 }
 
-// The one place the set of per-radio records is listed. Both the live-session
-// flush and the identity handover write the same four, so a fifth added later
-// cannot be wired into one path and forgotten in the other.
+// Writes every per-radio record, keyed by `RadioRecord`: the list in
+// `lib/storage.ts` that `deleteRadioRecords` also derives from, so a record
+// added there fails to type-check here until it is written. Both the
+// live-session flush and the identity handover save through this.
 async function saveSessionNamespace(
   pubkey: string,
   key: CryptoKey,
 ): Promise<boolean> {
   const state = useMeshStore.getState();
-  const results = await Promise.all([
-    saveRadioData(pubkey, key, { msgHistory: state.msgHistory }),
-    saveAdvertCache(pubkey, key, state.advertCache),
-    savePreferences(pubkey, key, selectPreferences(state)),
-    saveAutomationRules(pubkey, key, state.automationRules),
-  ]);
+  const writes: Record<RadioRecord, Promise<boolean>> = {
+    history: saveRadioData(pubkey, key, { msgHistory: state.msgHistory }),
+    'advert-cache': saveAdvertCache(pubkey, key, state.advertCache),
+    preferences: savePreferences(pubkey, key, selectPreferences(state)),
+    'automation-rules': saveAutomationRules(pubkey, key, state.automationRules),
+  };
+  const results = await Promise.all(Object.values(writes));
   return results.every(Boolean);
 }
 
