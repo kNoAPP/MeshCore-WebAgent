@@ -262,7 +262,8 @@ export async function loadRadioData(
 }
 
 // Namespaced IndexedDB key for a per-radio record: the pubkey plus a fixed
-// suffix (a secret's name, `automation-rules`, `advert-cache`, `preferences`).
+// suffix (a secret's name, `automation-rules`, `advert-cache`, `preferences`,
+// `persona`).
 // Namespacing by pubkey keeps one radio's records from colliding with
 // another's in a shared store. The bare pubkey (no suffix) is the message
 // history record.
@@ -272,7 +273,7 @@ function recordKey(pubkey: string, suffix: string): string {
 
 /**
  * Deletes every per-radio record belonging to one identity — message history,
- * advert cache, automation rules and preferences.
+ * advert cache, automation rules, preferences and persona state.
  *
  * @remarks For a deliberate identity handover: once the radio's key has been
  * replaced, the outgoing identity's records describe a node that no longer
@@ -292,6 +293,7 @@ export async function deleteRadioRecords(pubkey: string): Promise<boolean> {
       idbDelete(STORE_NAME, recordKey(pubkey, 'advert-cache')),
       idbDelete(STORE_NAME, recordKey(pubkey, 'automation-rules')),
       idbDelete(STORE_NAME, recordKey(pubkey, 'preferences')),
+      idbDelete(STORE_NAME, recordKey(pubkey, 'persona')),
     ]);
     return true;
   } catch {
@@ -488,6 +490,53 @@ export async function loadPreferences<T>(
     key,
   );
   return plaintext === null ? null : (JSON.parse(plaintext) as T);
+}
+
+// A persona's radio-side state (`lib/identity/persona.ts`): what gets written
+// back onto the radio when that persona goes live. Keyed by
+// `${pubkey}:persona` in the radios store, like every other per-identity
+// record, but sealed under the key its phrase's storage root derives for it
+// rather than the channel-secret key, so it can be read before the persona is
+// live — and after the channels it restores have changed.
+
+/**
+ * Encrypts and stores an identity's persona state. Best-effort — any failure
+ * is swallowed, exactly like {@link saveRadioData}.
+ *
+ * @param key - the identity's key from `deriveIdentityStorageKey`.
+ * @param state - the JSON-serializable persona state to persist.
+ * @returns whether the write landed, for callers that report persistence state.
+ */
+export async function savePersonaState(
+  pubkey: string,
+  key: CryptoKey,
+  state: unknown,
+): Promise<boolean> {
+  return putEncrypted(
+    STORE_NAME,
+    recordKey(pubkey, 'persona'),
+    key,
+    JSON.stringify(state),
+  );
+}
+
+/**
+ * Loads and decrypts an identity's persona state.
+ *
+ * @param key - the identity's key from `deriveIdentityStorageKey`.
+ * @returns the parsed record, not yet validated, or null if nothing is stored
+ * or decryption fails (wrong key / corrupt record).
+ */
+export async function loadPersonaState(
+  pubkey: string,
+  key: CryptoKey,
+): Promise<unknown> {
+  const plaintext = await getDecrypted(
+    STORE_NAME,
+    recordKey(pubkey, 'persona'),
+    key,
+  );
+  return plaintext === null ? null : (JSON.parse(plaintext) as unknown);
 }
 
 /** How a {@link replaceVaultRecord} call ended. */
