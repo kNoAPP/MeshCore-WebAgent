@@ -307,28 +307,25 @@ export async function flushSessionAsync(): Promise<boolean> {
  *
  * @remarks For a deliberate identity handover, where this browser's data moves
  * with the key (a backup restore, a regenerate). `CMD_IMPORT_PRIVATE_KEY` does
- * not reboot the radio: the firmware assigns the new identity, replies OK and
- * reloads contacts, and the link stays up. `APP_START` reports the incoming
- * public key from that moment, so a fresh read makes `selfInfo` true again —
- * Settings shows the real key, and a backup exported before the reboot pairs
- * it with the private key the radio actually exports. Rebinding the secrets
- * context files an API key or repeater password saved before the reboot where
- * the next session looks for it. Moving the context also unloads an API key
- * held in memory for the outgoing identity, exactly as the reconnect after the
- * reboot always has: secrets belong to one identity and are never carried
- * across to another. Writing up front makes the data durable even when the
- * reboot arrives as a power-cycle or after a reload, where no reconnect in
- * this page session could write anything.
+ * not reboot the radio and the link stays up, so the records are written here:
+ * the data must survive a later reboot or reconnect, which may be a
+ * power-cycle or follow a page reload, where nothing in this page session
+ * could write it.
  *
- * The re-read is best-effort: a radio that cannot answer it has a failing
- * link, and the reconnect that follows reads `SELF_INFO` afresh. Persistence
- * is bound to `pubkey` either way, so nothing in between is filed under the
- * outgoing identity — which is why a decision about where this session's data
- * lives asks {@link boundPubkey}, not `selfInfo`.
+ * `APP_START` reports the incoming key from the import on, so the re-read
+ * shows it in Settings and pairs a backup exported before that reboot with the
+ * private key the radio exports. Moving the secrets context files a secret
+ * saved in the meantime where the next session looks for it, and unloads the
+ * outgoing identity's in-memory API key: secrets never cross identities.
+ *
+ * The re-read is best-effort; the next reconnect reads `SELF_INFO` afresh.
+ * Persistence is bound to `pubkey` either way, so nothing in between is filed
+ * under the outgoing identity, and where this session's data lives is a
+ * question for {@link boundPubkey}, not `selfInfo`.
  *
  * The outgoing identity's records are deleted once the incoming ones have
- * landed: that identity is gone from the radio, nothing will write to its
- * namespace again, and leaving it would be a readable orphan nothing collects.
+ * landed: that identity is gone from the radio, and its namespace would be an
+ * orphan nothing collects.
  *
  * @param pubkey - the incoming identity's public key hex, lowercase, derived
  * from the private key that was imported; it is both the record namespace and
