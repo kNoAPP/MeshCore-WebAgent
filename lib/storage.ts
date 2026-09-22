@@ -584,10 +584,10 @@ export async function loadPreferences<T>(
  * for the state kept for when the identity goes live, `persona-pending` for
  * the state a switch onto it is applying.
  */
-export type PersonaRecord = 'persona' | 'persona-pending';
+export type PersonaRecordKind = 'persona' | 'persona-pending';
 
 /**
- * Encrypts and stores persona state at `${pubkey}:${record}`. Best-effort —
+ * Encrypts and stores persona state at `${pubkey}:${kind}`. Best-effort —
  * any failure is swallowed, exactly like {@link saveRadioData}.
  *
  * @param key - the identity's key from `deriveIdentityStorageKey`.
@@ -596,20 +596,20 @@ export type PersonaRecord = 'persona' | 'persona-pending';
  */
 export async function savePersonaRecord(
   pubkey: string,
-  record: PersonaRecord,
+  kind: PersonaRecordKind,
   key: CryptoKey,
   state: unknown,
 ): Promise<boolean> {
   return putEncrypted(
     STORE_NAME,
-    recordKey(pubkey, record),
+    recordKey(pubkey, kind),
     key,
     JSON.stringify(state),
   );
 }
 
 /**
- * Loads and decrypts the persona state at `${pubkey}:${record}`.
+ * Loads and decrypts the persona state at `${pubkey}:${kind}`.
  *
  * @param key - the identity's key from `deriveIdentityStorageKey`.
  * @returns the parsed record, not yet validated, or null if nothing is stored
@@ -617,12 +617,12 @@ export async function savePersonaRecord(
  */
 export async function loadPersonaRecord(
   pubkey: string,
-  record: PersonaRecord,
+  kind: PersonaRecordKind,
   key: CryptoKey,
 ): Promise<unknown> {
   const plaintext = await getDecrypted(
     STORE_NAME,
-    recordKey(pubkey, record),
+    recordKey(pubkey, kind),
     key,
   );
   return plaintext === null ? null : (JSON.parse(plaintext) as unknown);
