@@ -147,6 +147,9 @@ export async function burnerSession(
  */
 export async function settleLandedSwitch(record: PersonaSwitch): Promise<void> {
   const store = useMeshStore.getState();
+  // Stateless, it was rebuilt for an assumed burner rather than recorded by a
+  // switch, and nothing about the identity is confirmed until it is finished.
+  if (record.burner && record.state === null) return;
   if (record.burner) {
     store.setBurner({ pubkey: record.target, assumed: false });
   } else if (store.burner && store.burner.pubkey === record.outgoing) {
