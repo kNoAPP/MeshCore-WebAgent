@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.34.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.33.1...v1.34.0) (2026-09-22)
+
+
+### Features
+
+* **storage:** key seed-born identities' records from the storage root ([#422](https://github.com/kNoAPP/MeshCore-WebAgent/issues/422)) ([c000bc0](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c000bc0f90a9e7b9b66557281ad4d48f45171677))
+* **ui:** let the user delete an identity vault ([#417](https://github.com/kNoAPP/MeshCore-WebAgent/issues/417)) ([3f69a79](https://github.com/kNoAPP/MeshCore-WebAgent/commit/3f69a79a4a0a07da179a62dee0844ea5efe6b9e8))
+* **ui:** let the user forget a remembered recovery phrase ([#418](https://github.com/kNoAPP/MeshCore-WebAgent/issues/418)) ([4fcb02a](https://github.com/kNoAPP/MeshCore-WebAgent/commit/4fcb02a821b714ea7e272b9cd7f2299e465b1c8e))
+
+
+### Bug Fixes
+
+* **identity:** clear the outgoing identity's data on a phrase restore ([#426](https://github.com/kNoAPP/MeshCore-WebAgent/issues/426)) ([afbb273](https://github.com/kNoAPP/MeshCore-WebAgent/commit/afbb273f8bc5244b5afff5d34060bbfaf8a5234a))
+* **identity:** restore only the involved live flags on a refused switch ([#411](https://github.com/kNoAPP/MeshCore-WebAgent/issues/411)) ([324d0ee](https://github.com/kNoAPP/MeshCore-WebAgent/commit/324d0ee5d25177ccd51c2134fd41e54eb68d8926))
+* **session:** clear another identity's data when a reconnect returns as it ([#429](https://github.com/kNoAPP/MeshCore-WebAgent/issues/429)) ([8efcd16](https://github.com/kNoAPP/MeshCore-WebAgent/commit/8efcd16babd00a02c06506a23da49860629a9f83))
+* **session:** restart the session after a reboot the link survives ([#419](https://github.com/kNoAPP/MeshCore-WebAgent/issues/419)) ([0806437](https://github.com/kNoAPP/MeshCore-WebAgent/commit/08064370fbe92cce28a0702073734118f4022700))
+* **ui:** name an unnamed persona in the unfinished-switch banner ([#430](https://github.com/kNoAPP/MeshCore-WebAgent/issues/430)) ([fe3085f](https://github.com/kNoAPP/MeshCore-WebAgent/commit/fe3085f80a8f59b612f8323282ecfa193ee9b53e))
+* **ui:** stop telling a phrase-made identity it exists only in flash ([#428](https://github.com/kNoAPP/MeshCore-WebAgent/issues/428)) ([5601e17](https://github.com/kNoAPP/MeshCore-WebAgent/commit/5601e1759202943a289499e539a5c73db16abce4))
+
 ## [1.33.1](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.33.0...v1.33.1) (2026-09-22)
 
 
