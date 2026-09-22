@@ -7,6 +7,7 @@ import type { RadioPreferences } from '@/store/meshStore';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
 import { isProviderId } from '@/lib/ai/provider';
 import { isToolName } from '@/lib/ai/tools';
+import { isRecord } from '@/lib/utils';
 
 /**
  * The passphrase-encrypted backup file: the per-radio blobs this browser holds
@@ -303,10 +304,6 @@ function normalizeBackupPayload(raw: unknown): BackupPayload | null {
       : null,
     ...(p.identityHex ? { identityHex: p.identityHex.toLowerCase() } : {}),
   };
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
 // Null (reject the file) rather than an empty array, so a malformed entry is

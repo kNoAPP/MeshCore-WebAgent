@@ -8,7 +8,7 @@ import {
   loadVaultRecord,
   replaceVaultRecord,
 } from '@/lib/storage';
-import { toHex } from '@/lib/utils';
+import { bytesEqual, isRecord, toHex } from '@/lib/utils';
 import { deriveStorageRoot } from './storageRoot';
 import { MAX_SUB_IDENTITY_INDEX } from './subIdentity';
 
@@ -363,6 +363,14 @@ export function lockVault(vault: Vault): void {
 }
 
 /**
+ * Whether {@link lockVault} has run on this copy. A real root is 32 bytes of
+ * HMAC output, so all zeros means it was zeroed.
+ */
+export function isVaultLocked(vault: Vault): boolean {
+  return vault.root.every((b) => b === 0);
+}
+
+/**
  * Deletes a vault from this device. The identities it listed are untouched —
  * on the radio, and in their per-identity records — but their storage keys can
  * then only be re-derived from the phrase.
@@ -374,10 +382,7 @@ export async function deleteVault(fingerprint: string): Promise<boolean> {
 }
 
 async function sealVault(vault: Vault): Promise<SealedVault> {
-  // A real root is 32 bytes of HMAC output; all zeros means lockVault ran.
-  if (vault.root.every((b) => b === 0)) {
-    throw new Error('Vault is locked');
-  }
+  if (isVaultLocked(vault)) throw new Error('Vault is locked');
   const body: VaultBody = {
     identities: vault.identities.map((i) => ({ ...i })),
     phrase: vault.phrase,
@@ -555,15 +560,4 @@ function isVaultIdentity(v: unknown): v is VaultIdentity {
     typeof v.label === 'string' &&
     (v.live === undefined || typeof v.live === 'boolean')
   );
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
-
-function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
-  return diff === 0;
 }

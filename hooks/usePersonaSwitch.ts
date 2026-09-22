@@ -6,7 +6,6 @@
 import { useCallback, useState } from 'react';
 import { useMeshStore, type PersonaSwitch } from '@/store/meshStore';
 import {
-  burnerPersona,
   generateBurnerKey,
   settleKeptSwitch,
   settleLandedSwitch,
@@ -17,6 +16,7 @@ import {
   type PersonaState,
 } from '@/lib/identity/persona';
 import {
+  freshPersona,
   installKey,
   installPersonaKey,
   keepOutgoingPersona,
@@ -313,7 +313,7 @@ export function usePersonaSwitch(): {
           target,
           outgoing,
           label: name,
-          state: burnerPersona(name),
+          state: freshPersona(name),
           removed: [],
           announce,
           stage: 'switching',
