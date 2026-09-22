@@ -467,7 +467,7 @@ export function useMeshCore() {
           ) {
             return;
           }
-          beginReconnect(c, reconnectDeps(connect));
+          beginReconnect(reconnectDeps(connect));
         },
       };
     },
@@ -567,7 +567,7 @@ export function useMeshCore() {
             if (!sessionAlive()) {
               throw new Error('Closed during sync');
             }
-            setStorageKey(key);
+            setStorageKey(pubkey, key);
             // Reuse the same per-radio key for secret storage — there is no
             // second key-derivation path.
             setSecretContext(pubkey, key);
@@ -640,7 +640,7 @@ export function useMeshCore() {
           // Persist the current cache now — even on a first connect with no
           // stored record — so adverts already heard during this sync (before
           // the subscriptions below are wired) aren't lost until the next one.
-          flushAdvertCache(c);
+          flushAdvertCache();
           // Nothing at all stored for this identity means this browser has
           // never connected it — how a replacement radio arrives, when its
           // owner most wants their old identity back. The write just above
@@ -659,10 +659,10 @@ export function useMeshCore() {
             store.setRestoreOffer(true);
           }
 
-          wirePersistence(c);
+          wirePersistence();
           // Now that this session has a key, give the restore another chance
           // to reach disk.
-          if (unsaved) void retryUnsavedRestore(c);
+          if (unsaved) void retryUnsavedRestore();
         }
 
         const batt = await c.getBattery();
@@ -721,7 +721,7 @@ export function useMeshCore() {
         // recover it via the reconnect loop (a full re-sync) rather than
         // dead-ending at the connect screen with partial data.
         if (c.closed && hasReconnectSource()) {
-          beginReconnect(c, reconnectDeps(connectImpl));
+          beginReconnect(reconnectDeps(connectImpl));
           return false;
         }
         // A genuine connect failure (bad handshake, etc.). Tear down the
@@ -809,8 +809,9 @@ export function useMeshCore() {
    *
    * @remarks For a radio whose identity changed under a live link. A reboot
    * does not always drop it — native USB serial can survive the restart — and
-   * a session that carried on would keep the outgoing `SELF_INFO`, storage key
-   * and secrets context. No-op once the link has already dropped, since the
+   * a session that carried on would keep a store hydrated for the outgoing
+   * identity, along with whatever storage key and secrets context the import
+   * left it bound to. No-op once the link has already dropped, since the
    * loop is then running anyway.
    */
   const restartSession = useCallback(() => {
@@ -819,7 +820,7 @@ export function useMeshCore() {
     // Started before the close: a deliberate close suppresses `onDisconnect`,
     // so nothing else would begin the loop, and the flush it opens with needs
     // the session still bound.
-    beginReconnect(c, reconnectDeps(connect));
+    beginReconnect(reconnectDeps(connect));
     c.destroy();
   }, [connect]);
 

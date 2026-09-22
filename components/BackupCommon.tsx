@@ -5,6 +5,7 @@
 
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
+import { identitySwitchPending } from '@/lib/session/persistence';
 import type { PrivateKeyErrorCode } from '@/lib/meshcore/errors';
 import type { BackupReadErrorCode } from '@/lib/backup/archive';
 
@@ -44,6 +45,11 @@ export function useBackupReady(): boolean {
  * an `await`: comparing it against the pubkey an operation started with catches
  * both halves of the race in one test — the session going away, and a
  * *different* radio having taken its place.
+ *
+ * Also null while an identity switch awaits its restart: the store then holds
+ * the data of an identity the radio no longer is, so a backup would pair that
+ * data with the wrong key, and a restore would merge into it with nowhere to
+ * persist the result.
  */
 export function backupSessionPubkey(): string | null {
   const s = useMeshStore.getState();
@@ -51,7 +57,8 @@ export function backupSessionPubkey(): string | null {
     s.status === 'connected' &&
     !!s.client &&
     !s.client.closed &&
-    s.prefsHydrated;
+    s.prefsHydrated &&
+    !identitySwitchPending();
   return ready ? (s.selfInfo?.pubkey ?? null) : null;
 }
 

@@ -1,7 +1,6 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
-import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { useMeshStore } from '@/store/meshStore';
 import { flushSession } from '@/lib/session/persistence';
 import i18n from '@/lib/i18n';
@@ -221,11 +220,8 @@ function scheduleReconnect(deps: ReconnectDeps): void {
  * before the sync wired the storage key, so the mid-sync caller pays nothing
  * for it.
  */
-export function beginReconnect(
-  client: MeshCoreClient,
-  deps: ReconnectDeps,
-): void {
-  flushSession(client);
+export function beginReconnect(deps: ReconnectDeps): void {
+  flushSession();
   const store = useMeshStore.getState();
   store.setStatus('reconnecting');
   // Close any connection-scoped panel so it doesn't reappear on reconnect.

@@ -8,12 +8,16 @@ import {
 } from '@/store/meshStore';
 import {
   beginIdentityHandover,
+  boundPubkey,
   flushSessionAsync,
+  identitySwitchPending,
   markUnsavedRestore,
-  persistenceNamespace,
 } from '@/lib/session/persistence';
+import i18n from '@/lib/i18n';
+import { derivePublicKey } from '@/lib/identity/seed';
 import { toHex, fromHex } from '@/lib/utils';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';
+import { PrivateKeyError } from '@/lib/meshcore/errors';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import {
   BACKUP_PAYLOAD_VERSION,
@@ -109,24 +113,33 @@ export interface ApplyResult {
  * @remarks
  * An identity restore hands the session over to the *incoming* identity
  * instead, once the radio has accepted the key: see
- * {@link beginIdentityHandover}. `CMD_IMPORT_PRIVATE_KEY` replaces the key
- * pair without rebooting, so the link stays up under the outgoing identity and
- * the ordinary flush would file the restored data under a public key the user
- * stops reading from the moment they reboot — which is how preferences and
- * automation rules went missing. The outgoing identity's records are then
- * deleted: that identity is gone from the radio, nothing will write to its
- * namespace again, and leaving it would be a readable orphan nothing collects.
+ * {@link beginIdentityHandover}, which also collects the outgoing identity's
+ * records. `CMD_IMPORT_PRIVATE_KEY` replaces the key pair without rebooting,
+ * so the ordinary flush would file the restored data under a public key the
+ * user stops reading from the moment they reboot.
+ *
+ * The incoming public key is derived from the backup's private key, not read
+ * from its `pubkey` field. The file's claim decides nothing destructive: a
+ * backup whose two fields disagree still has its data filed under the
+ * identity the radio will actually report.
  *
  * @throws whatever {@link MeshCoreClient.importPrivateKey} throws when identity
  * restore was requested and refused — the browser data is applied and
  * persisted by then, and the caller surfaces the failure against the identity
- * step alone.
+ * step alone. A backup key that has no public key at all is refused here as
+ * `PrivateKeyError` `rejected`, without being sent. Throws before touching
+ * anything while an identity switch awaits its restart
+ * ({@link identitySwitchPending}): the store's data belongs to an identity the
+ * radio no longer is, and there is nowhere to persist a merge into it.
  */
 export async function applyBackup(
   payload: BackupPayload,
   client: MeshCoreClient | null,
   opts: ApplyOptions,
 ): Promise<ApplyResult> {
+  if (client && identitySwitchPending()) {
+    throw new Error(i18n.t('settings.backup.sessionChanged'));
+  }
   const state = useMeshStore.getState();
   // `interleave`: unlike a reconnect hydrate, a backup is not a strictly older
   // prefix of the live transcript — it can hold messages newer than ones this
@@ -155,24 +168,34 @@ export async function applyBackup(
     return {
       identityRestored: false,
       persisted: unsavedUnless(
-        await flushSessionAsync(client),
-        persistenceNamespace(client),
+        await flushSessionAsync(),
+        liveNamespace(client),
       ),
     };
   }
 
-  // Compared against the namespace this session actually writes to, not
-  // against `selfInfo` — `importPrivateKey` never refreshes it, so a second
-  // restore in one session would otherwise measure itself against the original
-  // identity, take the same-identity path, and file the data under the first
-  // restore's key while the namespace the radio comes back as stays empty.
+  let incoming: string;
+  try {
+    incoming = toHex(derivePublicKey(identity));
+  } catch {
+    // Only a crafted file reaches this: a scalar with no public key is one the
+    // firmware's `validatePrivateKey` refuses too, so it fails as that refusal
+    // would, without sending the key.
+    identity.fill(0);
+    unsavedUnless(await flushSessionAsync(), liveNamespace(client));
+    throw new PrivateKeyError('rejected');
+  }
+  // Compared against where this session's data is bound, not `selfInfo`: the
+  // two differ after a handover whose `SELF_INFO` re-read failed, and a
+  // restore that took the same-identity path then would file its data in a
+  // namespace the radio does not come back as.
   //
-  // Only a restore that actually changes that namespace may skip the flush. For
-  // a same-identity restore it is still the one the user reads from, so the
-  // pre-flush stays exactly where it was: it is what protects the merged data
-  // against a reload during the radio's 10s import window.
-  const handover = payload.pubkey !== persistenceNamespace(client);
-  const preImport = handover ? false : await flushSessionAsync(client);
+  // Only a restore that actually changes that namespace may skip the flush.
+  // For a same-identity restore it is still the one the user reads from, so
+  // the pre-flush stays exactly where it was: it is what protects the merged
+  // data against a reload during the radio's 10s import window.
+  const handover = incoming !== boundPubkey();
+  const preImport = handover ? false : await flushSessionAsync();
 
   try {
     // Nested so the key is zeroed the moment the exchange settles, before the
@@ -189,10 +212,7 @@ export async function applyBackup(
     // The radio kept its identity, so this session's own namespace is still
     // the one the user reads from — persist there before surfacing the
     // failure, or a refused key would also cost them the restored data.
-    unsavedUnless(
-      await flushSessionAsync(client),
-      persistenceNamespace(client),
-    );
+    unsavedUnless(await flushSessionAsync(), liveNamespace(client));
     throw err;
   }
 
@@ -201,15 +221,18 @@ export async function applyBackup(
   // here rather than inside the result literal, so the identity write's outcome
   // is settled before anything else can go wrong with the persistence step.
   const persisted = handover
-    ? await beginIdentityHandover(client, payload.pubkey)
+    ? await beginIdentityHandover(client, incoming)
     : preImport;
   return {
     identityRestored: true,
-    persisted: unsavedUnless(
-      persisted,
-      handover ? payload.pubkey : persistenceNamespace(client),
-    ),
+    persisted: unsavedUnless(persisted, incoming),
   };
+}
+
+// Where a flush right now lands, or — with nothing bound, as after a phrase
+// restore awaiting its restart — the identity the next session hydrates.
+function liveNamespace(client: MeshCoreClient | null): string | undefined {
+  return boundPubkey() ?? client?.selfInfo?.pubkey;
 }
 
 // A restore that stayed in memory must survive the next hydrate for the

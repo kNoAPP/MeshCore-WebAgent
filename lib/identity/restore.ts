@@ -3,6 +3,7 @@
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { PrivateKeyError } from '@/lib/meshcore/errors';
+import { beginIdentitySwitch } from '@/lib/session/persistence';
 import { toHex } from '@/lib/utils';
 import { identityFromMnemonic } from './seed';
 import {
@@ -132,9 +133,9 @@ export async function recordInVault(
  * @remarks
  * Unlike a regenerate, nothing in this browser moves: the incoming identity's
  * records, if this device has any, are its own history and are left exactly
- * as they are, and so are the outgoing identity's. The session keeps
- * persisting under the outgoing identity until the radio restarts, which is
- * the caller's to do.
+ * as they are, and so are the outgoing identity's. The session is moved onto
+ * the incoming identity without its data ({@link beginIdentitySwitch}), and
+ * must then be restarted to hydrate it, which is the caller's to do.
  *
  * The vault is written first and kept whatever the radio does: it records only
  * that the phrase derives this identity, which a refusal does not change.
@@ -160,7 +161,6 @@ export async function restoreIdentity(
     await recordInVault(phrase, toHex(publicKey), label, plan);
     try {
       await client.importPrivateKey(privateKey);
-      return true;
     } catch (err) {
       if (err instanceof PrivateKeyError) throw err;
       return false;
@@ -168,4 +168,6 @@ export async function restoreIdentity(
   } finally {
     privateKey.fill(0);
   }
+  await beginIdentitySwitch(client, toHex(publicKey));
+  return true;
 }

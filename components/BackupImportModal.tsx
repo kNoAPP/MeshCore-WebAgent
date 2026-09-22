@@ -133,8 +133,8 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
       onClose();
     } catch (err) {
       // `applyBackup` applies the browser data to the store and persists it on
-      // every path before it throws, so this only ever reports the identity
-      // step failing.
+      // every path before it throws, so this reports either the identity step
+      // failing or a restore refused before it touched anything.
       setError(
         err instanceof PrivateKeyError ? (
           <PrivateKeyErrorText code={err.code} action='import' />
