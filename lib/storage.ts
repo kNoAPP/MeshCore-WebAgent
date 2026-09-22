@@ -273,7 +273,7 @@ function recordKey(pubkey: string, suffix: string): string {
 
 /**
  * Deletes every per-radio record belonging to one identity — message history,
- * advert cache, automation rules, preferences and persona state.
+ * advert cache, automation rules and preferences.
  *
  * @remarks For a deliberate identity handover: once the radio's key has been
  * replaced, the outgoing identity's records describe a node that no longer
@@ -284,6 +284,10 @@ function recordKey(pubkey: string, suffix: string): string {
  * so a remembered API key or saved repeater password simply stops resolving
  * after the reboot — but they are not this function's to destroy, and an
  * identity change has always left them that way.
+ *
+ * The `persona` record is left too, deliberately: it is sealed under the
+ * vault's storage root rather than this radio's key, so an outgoing persona
+ * that is switched back to later still needs it.
  * @returns whether every delete landed; best-effort, like the `save*` helpers.
  */
 export async function deleteRadioRecords(pubkey: string): Promise<boolean> {
@@ -293,7 +297,6 @@ export async function deleteRadioRecords(pubkey: string): Promise<boolean> {
       idbDelete(STORE_NAME, recordKey(pubkey, 'advert-cache')),
       idbDelete(STORE_NAME, recordKey(pubkey, 'automation-rules')),
       idbDelete(STORE_NAME, recordKey(pubkey, 'preferences')),
-      idbDelete(STORE_NAME, recordKey(pubkey, 'persona')),
     ]);
     return true;
   } catch {

@@ -2,7 +2,7 @@
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
-import { ADVERT_LOC_POLICY } from '@/lib/meshcore/constants';
+import { ADVERT_LOC_POLICY, MAX_CHANNEL_SLOTS } from '@/lib/meshcore/constants';
 import { loadPersonaState, savePersonaState } from '@/lib/storage';
 import { fromHex, toHex } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
@@ -48,9 +48,12 @@ export interface PersonaContact {
   pubkey: string;
   advType: number;
   flags: number;
-  /** Hop count, or 255 for no known route; see {@link Contact.outPathLen}. */
+  /**
+   * The firmware's `out_path_len` byte: hop count in the low six bits, hash
+   * size in the top two, or 255 for no known route.
+   */
   outPathLen: number;
-  /** The route, one repeater hash byte per hop, as lowercase hex. */
+  /** The route's hop hashes, as lowercase hex; as long as the byte implies. */
   path: string;
   name: string;
   /** Unix epoch seconds by the contact's clock; 0 when unknown. */
@@ -100,7 +103,10 @@ const LOC_POLICIES: readonly number[] = Object.values(ADVERT_LOC_POLICY);
  *
  * @remarks Reads the mirror, not the radio: the connect sync fills it and
  * every write through the client keeps it current, so no command is sent. A
- * section the radio never reported is null.
+ * section the mirror cannot vouch for is null — the radio never reported it,
+ * the contact enumeration never completed, or a channel slot went unread — so
+ * a sync that failed quietly is never saved as an empty list that a later
+ * apply would enforce.
  */
 export function capturePersona(client: MeshCoreClient): PersonaState {
   const info = client.selfInfo;
@@ -111,17 +117,24 @@ export function capturePersona(client: MeshCoreClient): PersonaState {
         ? { lat: info.advLat, lon: info.advLon }
         : null,
     locationPolicy: info?.advLocPolicy ?? null,
-    channels: Object.values(client.channels)
-      .filter((ch) => ch.secret?.length === 16)
-      .map((ch) => ({
-        idx: ch.idx,
-        name: ch.name,
-        secret: toHex(ch.secret as Uint8Array),
-      }))
-      .sort((a, b) => a.idx - b.idx),
-    contacts: Object.values(client.contacts)
-      .map(toPersonaContact)
-      .sort((a, b) => (a.pubkey < b.pubkey ? -1 : a.pubkey > b.pubkey ? 1 : 0)),
+    channels:
+      client.unreadChannelSlots.size > 0
+        ? null
+        : Object.values(client.channels)
+            .filter((ch) => ch.secret?.length === 16)
+            .map((ch) => ({
+              idx: ch.idx,
+              name: ch.name,
+              secret: toHex(ch.secret as Uint8Array),
+            }))
+            .sort((a, b) => a.idx - b.idx),
+    contacts: !client.contactsSynced
+      ? null
+      : Object.values(client.contacts)
+          .map(toPersonaContact)
+          .sort((a, b) =>
+            a.pubkey < b.pubkey ? -1 : a.pubkey > b.pubkey ? 1 : 0,
+          ),
   };
 }
 
@@ -132,8 +145,15 @@ export function capturePersona(client: MeshCoreClient): PersonaState {
  * Contacts are reconciled by public key: ones the persona lacks are removed
  * before missing ones are added, so a full table has room for them. A contact
  * both hold keeps the radio's copy, whose route and last advert are at least
- * as fresh, and takes only the persona's flags. Channels are reconciled slot
- * by slot.
+ * as fresh, and takes only the persona's flags. A route whose hop bytes the
+ * contact parser does not keep (a multi-byte path hash) is written as no
+ * route, so the contact floods and rediscovers one rather than being sent
+ * through repeaters that do not exist.
+ *
+ * Channels are reconciled slot by slot, including slots the connect sync
+ * could not read, which are written or cleared since their content is
+ * unknown. Slots beyond the radio's channel count are skipped: this radio
+ * cannot hold them.
  *
  * @remarks
  * Idempotent: the plan is recomputed from the mirror on every call, so after
@@ -146,7 +166,15 @@ export function capturePersona(client: MeshCoreClient): PersonaState {
  * is the storage key: a channel change moves the key a non-seed identity's
  * records derive, which the session does not follow (#382).
  *
+ * The plan is fixed from the mirror when the apply starts, so a contact the
+ * radio evicts or auto-adds meanwhile, or a background contact resync that
+ * replaces the mirror mid-apply, can fail a step or leave a difference. A
+ * second apply settles either.
+ *
  * Sends no advert; peers learn the persona when the caller sends one.
+ * @throws Error before sending anything when the state has contacts but the
+ * client's contact enumeration never completed: the mirror may be partial,
+ * and diffing against it would leave the previous persona's contacts behind.
  * @throws whatever the failing radio command throws — a device `ERR`, for
  * instance a contact table already full — or the signal's reason on abort.
  * Commands before it have been applied.
@@ -264,17 +292,22 @@ function planApply(
   }
 
   if (state.channels !== null) {
+    const slotCount = client.deviceInfo?.maxChannels || MAX_CHANNEL_SLOTS;
     const wanted = new Map(state.channels.map((ch) => [ch.idx, ch]));
+    const unread = client.unreadChannelSlots;
     const slots = new Set([
       ...Object.values(client.channels).map((ch) => ch.idx),
+      ...unread,
       ...wanted.keys(),
     ]);
     for (const idx of [...slots].sort((a, b) => a - b)) {
+      if (idx >= slotCount) continue;
       const want = wanted.get(idx);
       const have = client.channels[idx];
       if (!want) {
         steps.push(() => client.removeChannel(idx));
       } else if (
+        unread.has(idx) ||
         !have?.secret ||
         have.name !== want.name ||
         toHex(have.secret) !== want.secret
@@ -286,6 +319,9 @@ function planApply(
   }
 
   if (state.contacts !== null) {
+    if (!client.contactsSynced) {
+      throw new Error('The radio contact table has not been read');
+    }
     const wanted = new Map(state.contacts.map((c) => [c.pubkey, c]));
     const held = new Map(
       Object.values(client.contacts).map((c) => [c.pubkey, c]),
@@ -299,7 +335,7 @@ function planApply(
         const contact = toContact(want);
         steps.push(() => client.addContact(contact));
       } else if (have.flags !== want.flags) {
-        const contact = { ...have, flags: want.flags };
+        const contact = withKnownRoute({ ...have, flags: want.flags });
         steps.push(() => client.addContact(contact));
       }
     }
@@ -313,7 +349,26 @@ function scaled(deg: number): number {
   return Math.round(deg * LATLON_SCALE);
 }
 
-function toPersonaContact(c: Contact): PersonaContact {
+// The number of path bytes an `out_path_len` byte stands for: its top two
+// bits select the hash size (mode + 1 bytes per hop, mode 3 reserved), its
+// low six the hop count; 255 is no route. -1 for a reserved mode.
+function routeBytes(outPathLen: number): number {
+  if (outPathLen === 255) return 0;
+  const mode = outPathLen >> 6;
+  return mode === 3 ? -1 : (outPathLen & 63) * (mode + 1);
+}
+
+// `parseContact` keeps a path only for single-byte-hash routes, so a contact
+// on any other has a hop count but no hops. Re-adding it as is would route it
+// through zeroed hashes; no route makes it flood instead.
+function withKnownRoute(c: Contact): Contact {
+  return routeBytes(c.outPathLen) === c.path.length
+    ? c
+    : { ...c, outPathLen: 255, path: new Uint8Array(0) };
+}
+
+function toPersonaContact(contact: Contact): PersonaContact {
+  const c = withKnownRoute(contact);
   return {
     pubkey: c.pubkey,
     advType: c.advType,
@@ -386,6 +441,7 @@ function isPersonaContact(v: unknown): v is PersonaContact {
     isByte(v.outPathLen) &&
     typeof v.path === 'string' &&
     PATH_HEX.test(v.path) &&
+    routeBytes(v.outPathLen) * 2 === v.path.length &&
     typeof v.name === 'string' &&
     isIntIn(v.lastAdvert, 0, 0xffffffff) &&
     isIntIn(v.advLat, -0x80000000, 0x7fffffff) &&
