@@ -89,7 +89,7 @@ export function clearSessionState(): void {
  * since.
  */
 export function teardownSession(flush = false): void {
-  if (flush) flushSession(useMeshStore.getState().client);
+  if (flush) flushSession();
   clearReconnect();
   clearReconnectSource();
   const store = useMeshStore.getState();

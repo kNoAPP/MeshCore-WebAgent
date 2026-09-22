@@ -134,7 +134,8 @@ export async function recordInVault(
  * records, if this device has any, are its own history and are left exactly
  * as they are, and so are the outgoing identity's. The session keeps
  * persisting under the outgoing identity until the radio restarts, which is
- * the caller's to do.
+ * the caller's to do, since the store still holds that identity's data. Only
+ * `SELF_INFO` is re-read, so the session reports the key the radio now holds.
  *
  * The vault is written first and kept whatever the radio does: it records only
  * that the phrase derives this identity, which a refusal does not change.
@@ -160,7 +161,6 @@ export async function restoreIdentity(
     await recordInVault(phrase, toHex(publicKey), label, plan);
     try {
       await client.importPrivateKey(privateKey);
-      return true;
     } catch (err) {
       if (err instanceof PrivateKeyError) throw err;
       return false;
@@ -168,4 +168,8 @@ export async function restoreIdentity(
   } finally {
     privateKey.fill(0);
   }
+  // Best-effort, as for a handover: a radio that cannot answer has a failing
+  // link, and the reconnect that follows reads it afresh.
+  await client.refreshSelfInfo().catch(() => {});
+  return true;
 }

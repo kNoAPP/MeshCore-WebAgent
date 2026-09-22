@@ -23,7 +23,6 @@ import {
   type Vault,
   type VaultErrorCode,
 } from '@/lib/identity/vault';
-import { persistenceNamespace } from '@/lib/session/persistence';
 import { ModalShell } from './ModalShell';
 import { BackupExportModal } from './BackupExportModal';
 import {
@@ -248,9 +247,6 @@ export function RestorePhraseWizard({ onClose }: { onClose: () => void }) {
         setError(t('settings.backup.sessionChanged'));
         return;
       }
-      // What the radio reports if the key does not land; see
-      // RecoveryPhraseWizard for why this is not `pubkey`.
-      const outgoing = persistenceNamespace(client) ?? pubkey;
       // Unlocked on the vault step already, so this does not prompt again.
       const plan = await vaultPlan();
       if (!plan) return;
@@ -271,7 +267,7 @@ export function RestorePhraseWizard({ onClose }: { onClose: () => void }) {
       setIdentityCheck({
         kind: 'restore',
         expected: preview.publicKey,
-        outgoing: outgoing.toLowerCase(),
+        outgoing: pubkey,
         confirmed,
         fingerprint: preview.fingerprint,
         client,

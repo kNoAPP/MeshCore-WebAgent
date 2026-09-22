@@ -3,6 +3,7 @@
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { useMeshStore, selectPreferences } from '@/store/meshStore';
+import { setSecretContext } from '@/lib/ai/secret';
 import {
   deleteRadioRecords,
   deriveStorageKey,
@@ -14,15 +15,14 @@ import {
 
 const SAVE_DEBOUNCE_MS = 1000;
 
-// The AES-GCM key derived from the connected radio's own secrets. Every write
-// below is a no-op until the connect flow hands it over, so a blob can never be
-// written under the wrong radio's key.
-let storageKey: CryptoKey | null = null;
-// Set by {@link beginIdentityHandover} when the radio's key has been replaced
-// mid-session. It takes precedence over the pair above, because from that
-// moment the outgoing identity is gone from the radio and every further write
-// belongs to the incoming one.
-let handover: { pubkey: string; key: CryptoKey } | null = null;
+// The namespace every write below goes to and the AES-GCM key it is written
+// under, bound together. Every write is a no-op until the connect flow binds
+// them, so a blob can never be written under the wrong radio's key. Held as a
+// pair rather than read from `selfInfo` at write time: an identity import
+// refreshes `selfInfo` without the store's data necessarily moving with it,
+// and a namespace written under another identity's key is a record nothing
+// can decrypt.
+let binding: { pubkey: string; key: CryptoKey } | null = null;
 // The public key a backup restore was meant for, while that restore exists
 // only in the live store because its encrypted write failed. Deliberately
 // outlives the per-session reset in {@link resetPersistence}: the reconnect
@@ -43,26 +43,26 @@ let prefsSaveUnsub: (() => void) | null = null;
 let prefsSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
- * Hands this session's per-radio encryption key to the persistence layer.
+ * Binds this session's persistence to a radio identity: the namespace its
+ * records are written under, and the per-radio key that encrypts them.
  *
  * @remarks
  * Must be set before {@link wirePersistence}: every flush below silently does
  * nothing without it.
+ *
+ * @param pubkey - the identity's public key hex, lowercase, as `SELF_INFO`
+ * reports it; `key` must have been derived with it as the salt.
  */
-export function setStorageKey(key: CryptoKey): void {
-  storageKey = key;
-  // A session binding its own key ends any handover: the reconnect after an
-  // identity swap derives exactly the namespace the handover was redirecting
-  // to, so leaving it set would shadow the live session's own key forever.
-  handover = null;
+export function setStorageKey(pubkey: string, key: CryptoKey): void {
+  binding = { pubkey, key };
 }
 
 /**
  * Encrypts and writes the current history immediately (bypassing the debounce)
  * so a drop or disconnect can't lose the last messages.
  */
-export function flushHistory(client: MeshCoreClient | null): void {
-  const t = writeTarget(client);
+export function flushHistory(): void {
+  const t = binding;
   if (t) {
     saveRadioData(t.pubkey, t.key, {
       msgHistory: useMeshStore.getState().msgHistory,
@@ -74,8 +74,8 @@ export function flushHistory(client: MeshCoreClient | null): void {
  * Encrypts and writes the current advert cache immediately (bypassing the
  * debounce) so a drop or disconnect can't lose the latest discovered nodes.
  */
-export function flushAdvertCache(client: MeshCoreClient | null): void {
-  const t = writeTarget(client);
+export function flushAdvertCache(): void {
+  const t = binding;
   if (t) {
     saveAdvertCache(t.pubkey, t.key, useMeshStore.getState().advertCache);
   }
@@ -85,8 +85,8 @@ export function flushAdvertCache(client: MeshCoreClient | null): void {
  * Encrypts and writes the current per-radio preferences immediately (bypassing
  * the debounce) so a drop or disconnect can't lose the latest preference edit.
  */
-export function flushPreferences(client: MeshCoreClient | null): void {
-  const t = writeTarget(client);
+export function flushPreferences(): void {
+  const t = binding;
   if (t) {
     savePreferences(
       t.pubkey,
@@ -100,17 +100,17 @@ export function flushPreferences(client: MeshCoreClient | null): void {
  * Encrypts and writes the current automation rules immediately.
  *
  * @remarks The rule editor saves through this rather than reaching for the
- * connect-bound storage context directly, so an identity handover redirects
- * rule edits with everything else — writing them to the outgoing namespace
- * would both lose the edit at the next reboot and recreate the orphan record
- * the handover just collected.
+ * secrets context, so rule edits follow the same binding as everything else —
+ * writing them anywhere else after an identity handover would both lose the
+ * edit at the next reboot and recreate the orphan record the handover just
+ * collected.
  *
  * Callers must still gate on `prefsHydrated`: the runner mounts with the
  * app's empty default set before the connect flow's restore lands, and writing
  * there would put that empty set over the radio's saved rules.
  */
-export function flushAutomationRules(client: MeshCoreClient | null): void {
-  const t = writeTarget(client);
+export function flushAutomationRules(): void {
+  const t = binding;
   if (t) {
     saveAutomationRules(
       t.pubkey,
@@ -131,8 +131,8 @@ export function flushAutomationRules(client: MeshCoreClient | null): void {
  * know the data actually reached disk before continuing use
  * {@link flushSessionAsync}.
  */
-export function flushSession(client: MeshCoreClient | null): void {
-  void flushSessionAsync(client);
+export function flushSession(): void {
+  void flushSessionAsync();
 }
 
 /**
@@ -142,8 +142,8 @@ export function flushSession(client: MeshCoreClient | null): void {
  * @remarks For the backup restore, which must not report success while the
  * imported data is still only in memory: a reload in that window would lose it.
  * Individual writes are best-effort and swallow their own failures, so this
- * resolves rather than rejecting. After {@link beginIdentityHandover} this
- * writes the incoming identity's namespace, not the connected radio's.
+ * resolves rather than rejecting. It writes whichever identity the session is
+ * bound to, which after {@link beginIdentityHandover} is the incoming one.
  *
  * Covers automation rules too, which the debounced path above does not: they
  * are saved by an effect in `useAutomation` that nothing awaits, so a restore
@@ -154,41 +154,41 @@ export function flushSession(client: MeshCoreClient | null): void {
  * of the four writes failed. A caller that reports persistence state must not
  * read a resolved promise as a successful write.
  */
-export async function flushSessionAsync(
-  client: MeshCoreClient | null,
-): Promise<boolean> {
-  const t = writeTarget(client);
+export async function flushSessionAsync(): Promise<boolean> {
+  const t = binding;
   return t ? saveSessionNamespace(t.pubkey, t.key) : false;
 }
 
 /**
- * Redirects this session's persistence onto an identity the radio has just
- * been given, and writes the four per-radio records there immediately.
+ * Moves this session onto an identity the radio has just been given: binds
+ * persistence and the secrets context to it, writes the four per-radio
+ * records there immediately, and re-reads `SELF_INFO` so the session reports
+ * the key the radio now holds.
  *
- * @remarks For a deliberate identity handover (a backup restore that replaces
- * the radio's key). `CMD_IMPORT_PRIVATE_KEY` does not reboot the radio: the
- * firmware saves the identity, replies OK and reloads contacts, and the app
- * asks the user to reboot. So the link stays up while `selfInfo` still reports
- * the outgoing public key, and every later write — the debounced save
- * subscriptions, the drop into reconnect, a deliberate disconnect — would go
- * on filing data under a namespace the user stops reading from the moment they
- * reboot. Redirecting here keeps the rest of the session's data with the
- * identity that will actually come back, and writing up front makes it durable
- * even when the reboot arrives as a power-cycle or after a reload, where no
+ * @remarks For a deliberate identity handover, where this browser's data moves
+ * with the key (a backup restore, a regenerate). `CMD_IMPORT_PRIVATE_KEY` does
+ * not reboot the radio: the firmware assigns the new identity, replies OK and
+ * reloads contacts, and the link stays up. `APP_START` reports the incoming
+ * public key from that moment, so a fresh read makes `selfInfo` true again —
+ * Settings shows the real key, and a backup exported before the reboot pairs
+ * it with the private key the radio actually exports. Rebinding the secrets
+ * context files an API key or repeater password saved before the reboot where
+ * the next session looks for it. Writing up front makes the data durable even
+ * when the reboot arrives as a power-cycle or after a reload, where no
  * reconnect in this page session could write anything.
  *
- * Only the four `radios`-store records move. The secrets context in
- * `lib/ai/secret.ts` stays bound to the outgoing identity, so an API key or
- * repeater password saved between the handover and the reboot lands in a
- * namespace nothing reads again — a pre-existing consequence of `selfInfo` not
- * being refreshed, not something this redirect introduces.
+ * The re-read is best-effort: a radio that cannot answer it has a failing
+ * link, and the reconnect that follows reads `SELF_INFO` afresh. Persistence
+ * is bound to `pubkey` either way, so nothing in between is filed under the
+ * outgoing identity.
  *
- * Cleared by {@link setStorageKey} when the next session binds its own key,
- * and by {@link resetPersistence}.
+ * The outgoing identity's records are deleted once the incoming ones have
+ * landed: that identity is gone from the radio, nothing will write to its
+ * namespace again, and leaving it would be a readable orphan nothing collects.
  *
- * @param pubkey - the incoming identity's public key hex, lowercase, as
- * `SELF_INFO` will report it after the reboot; it is both the record namespace
- * and the key-derivation salt, so its case must match.
+ * @param pubkey - the incoming identity's public key hex, lowercase, derived
+ * from the private key that was imported; it is both the record namespace and
+ * the key-derivation salt, so its case must match.
  * @returns whether all four writes landed, for callers that report persistence
  * state.
  */
@@ -196,13 +196,15 @@ export async function beginIdentityHandover(
   client: MeshCoreClient,
   pubkey: string,
 ): Promise<boolean> {
-  // Read before the derivation below, and from the live write target rather
-  // than `selfInfo` — `importPrivateKey` never refreshes `selfInfo`, so on a
-  // second restore in one session that would still name the original identity
-  // and leave the first restore's namespace behind as a full, readable orphan.
-  const outgoing = writeTarget(client)?.pubkey;
-  handover = { pubkey, key: await incomingKey(client, pubkey) };
-  const persisted = await saveSessionNamespace(handover.pubkey, handover.key);
+  const outgoing = binding?.pubkey;
+  const key = await incomingKey(client, pubkey);
+  // Bound before the re-read, which hands the refreshed `selfInfo` to the
+  // store: whatever reacts to the new identity finds its namespace and its
+  // secrets already in place.
+  setStorageKey(pubkey, key);
+  setSecretContext(pubkey, key);
+  const persisted = await saveSessionNamespace(pubkey, key);
+  await client.refreshSelfInfo().catch(() => {});
   // Only once the data is safely under the incoming identity: a failed write
   // would otherwise make this delete the user's last copy.
   if (persisted && outgoing && outgoing !== pubkey) {
@@ -230,24 +232,6 @@ export async function seedIdentityNamespace(
   pubkey: string,
 ): Promise<boolean> {
   return saveSessionNamespace(pubkey, await incomingKey(client, pubkey));
-}
-
-/**
- * The public key whose namespace this session is persisting to right now.
- *
- * @remarks Not the same as `client.selfInfo.pubkey` once a handover has run:
- * `importPrivateKey` never refreshes `selfInfo`, so callers deciding whether a
- * restore changes the identity must ask this rather than the client, or a
- * second restore in one session compares against a public key the radio no
- * longer has.
- *
- * Falls back to the client's own key so a session with no storage key bound
- * still reports the identity it is connected as.
- */
-export function persistenceNamespace(
-  client: MeshCoreClient | null,
-): string | undefined {
-  return writeTarget(client)?.pubkey ?? client?.selfInfo?.pubkey;
 }
 
 /**
@@ -289,15 +273,9 @@ export function claimUnsavedRestore(pubkey: string): boolean {
  * Writes the four per-radio records for a session whose hydrate honoured an
  * unsaved restore, and clears the mark once they are on disk.
  */
-export async function retryUnsavedRestore(
-  client: MeshCoreClient,
-): Promise<void> {
+export async function retryUnsavedRestore(): Promise<void> {
   const pubkey = unsavedRestore;
-  if (
-    pubkey &&
-    (await flushSessionAsync(client)) &&
-    unsavedRestore === pubkey
-  ) {
+  if (pubkey && (await flushSessionAsync()) && unsavedRestore === pubkey) {
     unsavedRestore = null;
   }
 }
@@ -308,16 +286,6 @@ export async function retryUnsavedRestore(
  */
 export function dropUnsavedRestore(): void {
   unsavedRestore = null;
-}
-
-// Where the per-radio records belong right now: the identity a handover moved
-// this session onto, or the connected radio's own namespace and session key.
-function writeTarget(
-  client: MeshCoreClient | null,
-): { pubkey: string; key: CryptoKey } | null {
-  if (handover) return handover;
-  const pubkey = client?.selfInfo?.pubkey;
-  return pubkey && storageKey ? { pubkey, key: storageKey } : null;
 }
 
 // The storage key the next connect derives for `pubkey` on this radio. Channel
@@ -360,16 +328,16 @@ async function saveSessionNamespace(
  * now-'connected' link can't accept a send that lands before the subscriptions
  * exist and so goes unpersisted. {@link resetPersistence} undoes all of it.
  */
-export function wirePersistence(client: MeshCoreClient): void {
+export function wirePersistence(): void {
   saveUnsub = useMeshStore.subscribe((state, prev) => {
     if (state.msgHistory === prev.msgHistory) return;
     // Status flickers arrive in bursts — debounce the full-history
-    // encrypt-and-write (flushHistory reads the live storageKey set above, so
-    // the debounced and immediate writes stay in lock-step).
+    // encrypt-and-write (flushHistory reads the live binding, so the debounced
+    // and immediate writes stay in lock-step).
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       saveTimer = null;
-      flushHistory(client);
+      flushHistory();
     }, SAVE_DEBOUNCE_MS);
   });
 
@@ -380,7 +348,7 @@ export function wirePersistence(client: MeshCoreClient): void {
     if (advertSaveTimer) clearTimeout(advertSaveTimer);
     advertSaveTimer = setTimeout(() => {
       advertSaveTimer = null;
-      flushAdvertCache(client);
+      flushAdvertCache();
     }, SAVE_DEBOUNCE_MS);
   });
 
@@ -406,13 +374,13 @@ export function wirePersistence(client: MeshCoreClient): void {
     if (prev.automationEnabled && !state.automationEnabled) {
       if (prefsSaveTimer) clearTimeout(prefsSaveTimer);
       prefsSaveTimer = null;
-      flushPreferences(client);
+      flushPreferences();
       return;
     }
     if (prefsSaveTimer) clearTimeout(prefsSaveTimer);
     prefsSaveTimer = setTimeout(() => {
       prefsSaveTimer = null;
-      flushPreferences(client);
+      flushPreferences();
     }, SAVE_DEBOUNCE_MS);
   });
 }
@@ -434,6 +402,5 @@ export function resetPersistence(): void {
   prefsSaveTimer = null;
   prefsSaveUnsub?.();
   prefsSaveUnsub = null;
-  storageKey = null;
-  handover = null;
+  binding = null;
 }

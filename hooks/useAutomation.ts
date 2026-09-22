@@ -166,6 +166,6 @@ export function useAutomation(): void {
   // this fires is the restored set being saved back harmlessly.
   useEffect(() => {
     if (!prefsHydrated) return;
-    flushAutomationRules(useMeshStore.getState().client);
+    flushAutomationRules();
   }, [rules, prefsHydrated]);
 }

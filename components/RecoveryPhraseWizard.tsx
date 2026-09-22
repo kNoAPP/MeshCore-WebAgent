@@ -16,7 +16,6 @@ import {
   PrivateKeyError,
   type PrivateKeyErrorCode,
 } from '@/lib/meshcore/errors';
-import { persistenceNamespace } from '@/lib/session/persistence';
 import { toHex } from '@/lib/utils';
 import { ModalShell } from './ModalShell';
 import { BackupExportModal } from './BackupExportModal';
@@ -185,11 +184,6 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
         setError(t('settings.backup.sessionChanged'));
         return;
       }
-      // What the radio reports if the key does not land. Not `pubkey`: an
-      // earlier run this session may already have changed the radio's key,
-      // and `selfInfo` is not refreshed by an import. Read before the run,
-      // whose handover moves the namespace onto the incoming identity.
-      const outgoing = persistenceNamespace(client) ?? pubkey;
       let result: RegenerateResult;
       try {
         result = await regenerateIdentity(
@@ -208,7 +202,7 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
       setIdentityCheck({
         kind: 'regenerate',
         expected: draft.publicKey,
-        outgoing,
+        outgoing: pubkey,
         confirmed: result.confirmed,
         fingerprint: result.fingerprint,
         client,
