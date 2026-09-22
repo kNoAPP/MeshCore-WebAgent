@@ -668,7 +668,7 @@
         "importing": "Neuer Schlüssel wird auf das Funkgerät geschrieben…",
         "syncing": "Kontakte des Funkgeräts werden gelesen…",
         "applying": "Persona wird angewendet: {{done}} von {{total}} Änderungen…",
-        "announcing": "Persona wird angekündigt…"
+        "restarting": "Funkgerät wird neu gestartet, um die Persona zu speichern…"
       },
       "progressHint": "Lass das Funkgerät verbunden. Bricht die Verbindung ab, lässt sich der Wechsel nach dem Wiederverbinden abschließen.",
       "unknown": "Die Verbindung brach ab, bevor das Funkgerät den neuen Schlüssel bestätigte. Das wird beim Wiederverbinden geprüft.",
@@ -1571,7 +1571,8 @@
     "repeaterNameTooLongForLocation": "Kürzen Sie den Knotennamen auf höchstens 24 Bytes, bevor Sie einen Standort festlegen.",
     "repeaterLoadBeforeLocationEdit": "Laden Sie Name und Standort des Knotens, bevor Sie eines von beiden ändern.",
     "repeaterActionSent": "Befehl gesendet.",
-    "personaSwitchNotLanded": "Dieses Funkgerät trägt weiter die vorherige Identität, daher wurde der Wechsel zu {{name}} hier nicht wirksam."
+    "personaSwitchNotLanded": "Dieses Funkgerät trägt weiter die vorherige Identität, daher wurde der Wechsel zu {{name}} hier nicht wirksam.",
+    "personaSwitchNotSaved": "Das Funkgerät hat die Kontakte der neuen Persona beim Neustart nicht behalten. Schließe den Wechsel ab, um sie erneut anzuwenden."
   },
   "update": {
     "available": "Eine neue Version ist verfügbar",

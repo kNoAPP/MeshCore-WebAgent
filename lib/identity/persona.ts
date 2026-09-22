@@ -200,6 +200,33 @@ export async function applyPersona(
 }
 
 /**
+ * Whether the radio's contact table, as the client mirrors it, already holds
+ * the contacts `state` would apply — the same test {@link applyPersona} uses
+ * to decide what to send.
+ *
+ * @remarks For checking a switch after the radio restarted: the firmware
+ * saves contact writes lazily, so a restart can undo an apply that every
+ * command acknowledged.
+ * @returns true as well when `state` leaves contacts alone, or when the
+ * mirror cannot vouch for the table because its enumeration never completed:
+ * only a difference the mirror shows counts.
+ */
+export function personaContactsApplied(
+  client: MeshCoreClient,
+  state: PersonaState,
+): boolean {
+  if (state.contacts === null || !client.contactsSynced) return true;
+  const contactsOnly: PersonaState = {
+    name: null,
+    location: null,
+    locationPolicy: null,
+    channels: null,
+    contacts: state.contacts,
+  };
+  return planApply(client, contactsOnly).length === 0;
+}
+
+/**
  * Validates a stored persona record section by section, so a record from
  * another build or a damaged one keeps whatever still reads correctly.
  *

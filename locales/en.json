@@ -667,7 +667,7 @@
         "importing": "Writing the new key to the radio…",
         "syncing": "Reading the radio’s contacts…",
         "applying": "Applying the persona: {{done}} of {{total}} changes…",
-        "announcing": "Announcing the persona…"
+        "restarting": "Restarting the radio to save the persona…"
       },
       "progressHint": "Keep the radio connected. If the link drops, the switch can be finished when it reconnects.",
       "unknown": "The link failed before the radio confirmed the new key. It will be checked when the radio reconnects.",
@@ -1570,7 +1570,8 @@
     "repeaterNameTooLongForLocation": "Shorten the node name to 24 bytes or fewer before setting a location.",
     "repeaterLoadBeforeLocationEdit": "Load the node name and location before changing either.",
     "repeaterActionSent": "Command sent.",
-    "personaSwitchNotLanded": "This radio is still on the previous identity, so the switch to {{name}} did not take effect here."
+    "personaSwitchNotLanded": "This radio is still on the previous identity, so the switch to {{name}} did not take effect here.",
+    "personaSwitchNotSaved": "The radio did not keep the new persona’s contacts through its restart. Finish the switch to apply them again."
   },
   "update": {
     "available": "A new version is available",

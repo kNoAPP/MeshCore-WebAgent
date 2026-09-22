@@ -213,12 +213,18 @@ export interface PersonaSwitch {
    * rebuilt after a reload, until the vault is unlocked to read it.
    */
   state: PersonaState | null;
-  /** Whether to flood a self-advert once the state is applied. */
+  /**
+   * Whether to flood a self-advert once the restarted session has confirmed
+   * the state.
+   */
   announce: boolean;
   /**
-   * `'switching'` until the state is applied, then `'done'` for the restart
-   * that hydrates the incoming identity, so its first connect is not
-   * mistaken for a replacement radio's.
+   * `'switching'` until the state is applied and the radio rebooted, then
+   * `'done'` for the restart that hydrates the incoming identity, so its
+   * first connect is not mistaken for a replacement radio's. That connect
+   * checks the radio kept the contacts, which it saves lazily, and puts the
+   * record back to `'switching'` if it did not; the switch's pending record
+   * is deleted only once it did.
    */
   stage: 'switching' | 'done';
   /**

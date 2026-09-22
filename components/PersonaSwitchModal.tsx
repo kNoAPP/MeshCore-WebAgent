@@ -38,7 +38,7 @@ const STAGE_KEY = {
   importing: 'settings.persona.stage.importing',
   syncing: 'settings.persona.stage.syncing',
   applying: 'settings.persona.stage.applying',
-  announcing: 'settings.persona.stage.announcing',
+  restarting: 'settings.persona.stage.restarting',
 } as const satisfies Record<SwitchProgress['stage'], string>;
 
 const INPUT_CLASS =

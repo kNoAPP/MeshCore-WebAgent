@@ -22,6 +22,7 @@ import {
   selectPreferences,
 } from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
+import { personaContactsApplied } from '@/lib/identity/persona';
 import {
   loadRadioData,
   loadAutomationRules,
@@ -581,9 +582,29 @@ export function useMeshCore() {
         let unfinishedSwitch =
           pending?.stage === 'switching' && reported === pending.target;
         if (pending?.stage === 'done' && reported === pending.target) {
-          // The finished switch's own restart: a pending record still here is
-          // one whose delete failed, not a switch in progress.
-          void deletePendingPersona(reported);
+          // The finished switch's own restart, which is where it is checked:
+          // every write was acknowledged, but the radio saves contacts lazily
+          // and may have come back with its table from before them.
+          if (pending.state && !personaContactsApplied(c, pending.state)) {
+            unfinishedSwitch = true;
+            store0.setPersonaSwitch({
+              ...pending,
+              stage: 'switching',
+              running: false,
+              dismissed: false,
+            });
+            notify({
+              level: 'warning',
+              text: i18n.t('toast.personaSwitchNotSaved'),
+              key: 'personaSwitchNotSaved',
+            });
+          } else {
+            void deletePendingPersona(reported);
+            // Only now that the radio is known to hold the persona. The
+            // switch is complete either way; a failed advert only means peers
+            // learn it at the next one.
+            if (pending.announce) void c.sendSelfAdvert(true).catch(() => {});
+          }
         } else if (
           reported &&
           !unfinishedSwitch &&

@@ -33,10 +33,12 @@ import {
  * {@link verifyPersonaKey} and {@link preparePersonaSwitch}, which touch
  * nothing on the radio; then `beginIdentitySwitch`, which takes the session
  * off the outgoing identity; then {@link installPersonaKey}; then
- * `applyPersona` with the state the preparation returned, and a delete of the
- * pending record it wrote. `CMD_IMPORT_PRIVATE_KEY` takes effect at once, with
- * no reboot, so the session then only has to restart onto the incoming
- * identity to hydrate its browser data.
+ * `applyPersona` with the state the preparation returned.
+ * `CMD_IMPORT_PRIVATE_KEY` takes effect at once, but the apply's contact
+ * writes sit in the radio's RAM until a lazy save, so the radio is rebooted,
+ * which saves them first, before the session restarts onto the incoming
+ * identity to hydrate its browser data. That session checks the contacts
+ * took, and only then deletes the pending record the preparation wrote.
  *
  * @remarks The incoming identity's browser records are keyed from the radio's
  * channel secrets, and applying the persona is what gives them back. So the
