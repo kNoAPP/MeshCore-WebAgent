@@ -352,6 +352,9 @@ export class MeshCoreClient {
   private draining = false;
   private backlogDraining = false;
   private collectingContacts = false;
+  // The enumeration in flight, so a caller that needs a fresh one can wait
+  // for it rather than start a second over the same frames.
+  private contactSync: Promise<void> | null = null;
   private contactsStarted = false;
   private contactsResolve: (() => void) | null = null;
   private rearmContactsIdle: (() => void) | null = null;
@@ -1002,7 +1005,15 @@ export class MeshCoreClient {
     }
   }
 
-  private async syncContacts(): Promise<void> {
+  private syncContacts(): Promise<void> {
+    const run = this.collectContacts().finally(() => {
+      if (this.contactSync === run) this.contactSync = null;
+    });
+    this.contactSync = run;
+    return run;
+  }
+
+  private async collectContacts(): Promise<void> {
     this.collectingContacts = true;
     this.contactsStarted = false;
     await new Promise<void>((resolve) => {
@@ -1391,6 +1402,25 @@ export class MeshCoreClient {
     await this.cmd(buildAddOrUpdateContact(updated), [RESP.OK], 5000);
     this.contacts[contact.pubkeyPrefix] = updated;
     this.callbacks.onContactsUpdated?.(this.contacts);
+  }
+
+  /**
+   * Re-reads the radio's contact table into the mirror, replacing it once the
+   * enumeration completes (`GET_CONTACTS`, as at connect).
+   *
+   * @remarks For after a command that reloads the table from flash, which
+   * `IMPORT_PRIVATE_KEY` does: the firmware writes contact changes to flash
+   * lazily, so contacts added or updated shortly before are gone from the
+   * reloaded table while the mirror still lists them. Waits out an
+   * enumeration already in flight, which may predate that command, and then
+   * runs its own. A stalled enumeration keeps the previous mirror, as at
+   * connect.
+   * @see `CMD_IMPORT_PRIVATE_KEY` and `LAZY_CONTACTS_WRITE_DELAY` in
+   * `examples/companion_radio/MyMesh.cpp`.
+   */
+  async resyncContacts(): Promise<void> {
+    while (this.contactSync) await this.contactSync;
+    await this.syncContacts();
   }
 
   /**

@@ -37,6 +37,7 @@ import { NotificationSettingsBody } from './NotificationSettings';
 import { AutomationSettingsBody } from './AutomationPanel';
 import { BackupSettingsBody } from './BackupSettings';
 import { RecoveryPhraseRow } from './RecoveryPhraseSettings';
+import { PersonaRow } from './PersonaSettings';
 import { SUPPORTED_UNIT_SYSTEMS } from '@/lib/units/config';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 
@@ -205,6 +206,7 @@ export function SettingsPage() {
                 copy={selfInfo?.pubkey || undefined}
               />
               <RecoveryPhraseRow />
+              <PersonaRow />
             </Card>
 
             <LocationCard />

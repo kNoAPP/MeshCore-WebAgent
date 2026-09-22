@@ -27,6 +27,8 @@ import {
   loadAutomationRules,
   loadAdvertCache,
   loadPreferences,
+  deletePendingPersona,
+  hasPendingPersona,
 } from '@/lib/storage';
 import {
   expectSecretContext,
@@ -552,7 +554,54 @@ export function useMeshCore() {
         // radio reported no pubkey to derive one from, which leaves the session
         // running with persistence off rather than under a shared key.
         let key: CryptoKey | null = null;
-        if (pubkey && sessionAlive()) {
+        // A persona switch onto this identity that never finished leaves the
+        // radio's channels, which the key derives from, possibly half-written:
+        // a key derived now may be neither persona's, and the hydrate would
+        // find nothing and the saves overwrite the real records. The session
+        // runs with persistence off until the switch is finished, which
+        // restarts it. The switch's pending record says so after a page reload
+        // too, when the store's record is gone. A radio on the outgoing
+        // identity never took the key (or is another radio running it, which
+        // the switch dialog warns against), so the switch is over, and its
+        // pending record would only gate that identity's next arrival.
+        const store0 = useMeshStore.getState();
+        const pending = store0.personaSwitch;
+        const reported = pubkey?.toLowerCase();
+        if (pending?.stage === 'switching' && reported === pending.outgoing) {
+          store0.setPersonaSwitch(null);
+          void deletePendingPersona(pending.target);
+          notify({
+            level: 'warning',
+            text: i18n.t('toast.personaSwitchNotLanded', {
+              name: pending.label,
+            }),
+            key: 'personaSwitchNotLanded',
+          });
+        }
+        let unfinishedSwitch =
+          pending?.stage === 'switching' && reported === pending.target;
+        if (pending?.stage === 'done' && reported === pending.target) {
+          // The finished switch's own restart: a pending record still here is
+          // one whose delete failed, not a switch in progress.
+          void deletePendingPersona(reported);
+        } else if (
+          reported &&
+          !unfinishedSwitch &&
+          (await hasPendingPersona(reported))
+        ) {
+          unfinishedSwitch = true;
+          store0.setPersonaSwitch({
+            target: reported,
+            outgoing: '',
+            label: '',
+            state: null,
+            announce: true,
+            stage: 'switching',
+            running: false,
+            dismissed: false,
+          });
+        }
+        if (pubkey && sessionAlive() && !unfinishedSwitch) {
           // Declared before the await, so a read that still beats the binding
           // waits for it rather than concluding nothing is stored; the finally
           // answers those reads on every path that never binds one.
@@ -656,9 +705,18 @@ export function useMeshCore() {
             !advertCache &&
             !prefs &&
             !unsaved &&
-            !store.identityCheck
+            !store.identityCheck &&
+            store.personaSwitch?.target !== pubkey.toLowerCase()
           ) {
             store.setRestoreOffer(true);
+          }
+          // A persona new to this device arrives with nothing stored too, by
+          // design; its switch is complete once its session is hydrated.
+          if (
+            store.personaSwitch?.stage === 'done' &&
+            store.personaSwitch.target === pubkey.toLowerCase()
+          ) {
+            store.setPersonaSwitch(null);
           }
 
           wirePersistence();

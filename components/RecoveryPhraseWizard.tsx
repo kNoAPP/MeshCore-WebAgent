@@ -41,7 +41,8 @@ type Step = (typeof STEPS)[number];
 const PHRASE_WORDS = 12;
 const CONFIRM_WORDS = 3;
 
-const PRIVATE_KEY_ERROR_KEY = {
+/** Localized copy for the ways a radio can refuse a private-key import. */
+export const PRIVATE_KEY_ERROR_KEY = {
   unsupported: 'settings.recovery.error.unsupported',
   rejected: 'settings.recovery.error.rejected',
   writeFailed: 'settings.recovery.error.writeFailed',

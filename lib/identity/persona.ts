@@ -3,7 +3,12 @@
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { ADVERT_LOC_POLICY, MAX_CHANNEL_SLOTS } from '@/lib/meshcore/constants';
-import { loadPersonaState, savePersonaState } from '@/lib/storage';
+import {
+  loadPendingPersona,
+  loadPersonaState,
+  savePendingPersona,
+  savePersonaState,
+} from '@/lib/storage';
 import { fromHex, toHex } from '@/lib/utils';
 import type { Contact } from '@/types/meshcore';
 import { deriveIdentityStorageKey } from './storageRoot';
@@ -249,6 +254,39 @@ export async function loadPersona(
 ): Promise<PersonaState | null> {
   const key = await personaKey(vault, publicKey);
   const raw = await loadPersonaState(publicKey, key);
+  return raw === null ? null : normalizePersona(raw);
+}
+
+/**
+ * Seals the state a persona switch onto `publicKey` is about to apply, so a
+ * switch cut off by a page reload can still be recognized and finished.
+ *
+ * @returns whether the write landed.
+ * @throws as {@link savePersona} does.
+ */
+export async function savePendingSwitch(
+  vault: Vault,
+  publicKey: string,
+  state: PersonaState,
+): Promise<boolean> {
+  const key = await personaKey(vault, publicKey);
+  return savePendingPersona(publicKey, key, state);
+}
+
+/**
+ * Loads the state of an unfinished switch onto `publicKey`, stored by
+ * {@link savePendingSwitch}.
+ *
+ * @returns the normalized state, or null when there is none or it does not
+ * decrypt under the vault's root — the switch was made from another vault.
+ * @throws as {@link loadPersona} does.
+ */
+export async function loadPendingSwitch(
+  vault: Vault,
+  publicKey: string,
+): Promise<PersonaState | null> {
+  const key = await personaKey(vault, publicKey);
+  const raw = await loadPendingPersona(publicKey, key);
   return raw === null ? null : normalizePersona(raw);
 }
 

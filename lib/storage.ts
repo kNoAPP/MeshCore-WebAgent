@@ -263,7 +263,7 @@ export async function loadRadioData(
 
 // Namespaced IndexedDB key for a per-radio record: the pubkey plus a fixed
 // suffix (a secret's name, `automation-rules`, `advert-cache`, `preferences`,
-// `persona`).
+// `persona`, `persona-pending`).
 // Namespacing by pubkey keeps one radio's records from colliding with
 // another's in a shared store. The bare pubkey (no suffix) is the message
 // history record.
@@ -611,6 +611,82 @@ export async function loadPersonaState(
     key,
   );
   return plaintext === null ? null : (JSON.parse(plaintext) as unknown);
+}
+
+// A persona switch in progress: the incoming persona's state, sealed like the
+// `persona` record, at `${pubkey}:persona-pending` under the incoming key. Its
+// existence alone is what the connect flow reads, before any key is at hand;
+// the record key is a public key like every other one here, so it says no
+// more than they do about which personas belong together.
+
+/**
+ * Encrypts and stores the state a persona switch onto `pubkey` is applying.
+ * Best-effort, like {@link savePersonaState}.
+ *
+ * @param key - the identity's key from `deriveIdentityStorageKey`.
+ * @returns whether the write landed.
+ */
+export async function savePendingPersona(
+  pubkey: string,
+  key: CryptoKey,
+  state: unknown,
+): Promise<boolean> {
+  return putEncrypted(
+    STORE_NAME,
+    recordKey(pubkey, 'persona-pending'),
+    key,
+    JSON.stringify(state),
+  );
+}
+
+/**
+ * Loads and decrypts the state of a persona switch onto `pubkey`.
+ *
+ * @returns the parsed record, not yet validated, or null if there is none or
+ * it does not decrypt under `key`.
+ */
+export async function loadPendingPersona(
+  pubkey: string,
+  key: CryptoKey,
+): Promise<unknown> {
+  const plaintext = await getDecrypted(
+    STORE_NAME,
+    recordKey(pubkey, 'persona-pending'),
+    key,
+  );
+  return plaintext === null ? null : (JSON.parse(plaintext) as unknown);
+}
+
+/**
+ * Whether a persona switch onto `pubkey` was started and never finished.
+ * Needs no key.
+ *
+ * @returns false when IndexedDB cannot be read.
+ */
+export async function hasPendingPersona(pubkey: string): Promise<boolean> {
+  try {
+    return (
+      (await idbGet(STORE_NAME, recordKey(pubkey, 'persona-pending'))) !==
+      undefined
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Deletes the record of a persona switch onto `pubkey`, once it is finished
+ * or known not to have happened.
+ *
+ * @returns whether the delete landed.
+ */
+export async function deletePendingPersona(pubkey: string): Promise<boolean> {
+  try {
+    await idbDelete(STORE_NAME, recordKey(pubkey, 'persona-pending'));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** How a {@link replaceVaultRecord} call ended. */
