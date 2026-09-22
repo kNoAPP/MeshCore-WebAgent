@@ -35,7 +35,10 @@ export function Card({
         <h3 className='text-[11px] font-bold tracking-widest text-accent uppercase'>
           {title}
         </h3>
-        {action}
+        {/* The negative margin lets a button-sized action (up to ~2rem tall)
+            overhang the padding rather than grow the row, so every card's
+            heading sits at the same height. */}
+        {action && <div className='-my-2'>{action}</div>}
       </div>
       {children}
     </section>
