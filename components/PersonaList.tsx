@@ -7,7 +7,7 @@ import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import { isBurnerSession, useBackupReady } from './BackupCommon';
-import { mintPersona } from '@/lib/identity/personaSwitch';
+import { forgetPhrase, mintPersona } from '@/lib/identity/personaSwitch';
 import {
   VaultError,
   type Vault,
@@ -28,7 +28,8 @@ const enc = new TextEncoder();
 
 /**
  * The personas an unlocked vault lists, which one is live on the radio, and
- * the way to switch to another, mint a new one, or start a burner.
+ * the way to switch to another, mint a new one, or start a burner — and, when
+ * the vault remembers the recovery phrase, to forget it.
  *
  * @param onLock - locks the vault and returns to the unlock prompt.
  * @param onStale - the stored vault changed in another tab since it was
@@ -66,6 +67,9 @@ export function PersonaList({
   const [target, setTarget] = useState<VaultIdentity | null>(null);
   const [minting, setMinting] = useState(false);
   const [burning, setBurning] = useState(false);
+  const [remembered, setRemembered] = useState(vault.phrase !== null);
+  const [forgetting, setForgetting] = useState(false);
+  const [forgot, setForgot] = useState(false);
   // A burner is never listed, but it has nothing to keep, so switching away
   // from it needs nowhere to keep it.
   const liveKnown = burnerLive || identities.some((i) => i.publicKey === live);
@@ -139,6 +143,18 @@ export function PersonaList({
           }}
           onStale={onStale}
         />
+      ) : forgetting ? (
+        <ForgetPhraseForm
+          vault={vault}
+          onDone={(forgotten) => {
+            setForgetting(false);
+            if (forgotten) {
+              setRemembered(false);
+              setForgot(true);
+            }
+          }}
+          onStale={onStale}
+        />
       ) : (
         <div className='mt-3 flex flex-wrap gap-2'>
           <button onClick={() => setMinting(true)} className={BUTTON_CLASS}>
@@ -151,10 +167,23 @@ export function PersonaList({
           >
             {t('settings.persona.burner.new')}
           </button>
+          {remembered && (
+            <button
+              onClick={() => setForgetting(true)}
+              className={BUTTON_CLASS}
+            >
+              {t('settings.persona.forgetPhrase.action')}
+            </button>
+          )}
           <button onClick={onLock} className={BUTTON_CLASS}>
             {t('settings.persona.lock')}
           </button>
         </div>
+      )}
+      {forgot && (
+        <p role='status' className='mt-2 text-xs leading-relaxed text-text2'>
+          {t('settings.persona.forgetPhrase.done')}
+        </p>
       )}
       {target && (
         <PersonaSwitchModal
@@ -277,5 +306,75 @@ function MintForm({
         </button>
       </div>
     </form>
+  );
+}
+
+// Drops the remembered phrase from the vault, after saying what it costs:
+// from then on minting and switching ask for it, as for a vault that never
+// kept it.
+function ForgetPhraseForm({
+  vault,
+  onDone,
+  onStale,
+}: {
+  vault: Vault;
+  onDone: (forgotten: boolean) => void;
+  onStale: () => void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const forget = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (await forgetPhrase(vault)) {
+        onDone(true);
+        return;
+      }
+      setError(t('settings.persona.forgetPhrase.failed'));
+    } catch (err) {
+      if (err instanceof VaultError && err.code === 'stale') {
+        onStale();
+        return;
+      }
+      setError(t('settings.persona.forgetPhrase.failed'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className='mt-3 rounded-md border border-border p-3'>
+      <p className='text-xs leading-relaxed text-text2'>
+        {t('settings.persona.forgetPhrase.body')}
+      </p>
+      {error && (
+        <p role='alert' className='mt-2 text-xs leading-relaxed text-red'>
+          {error}
+        </p>
+      )}
+      <div className='mt-3 flex justify-end gap-2'>
+        <button
+          type='button'
+          onClick={() => onDone(false)}
+          disabled={busy}
+          className='rounded-md px-3 py-1.5 text-xs text-text hover:bg-surface2 disabled:opacity-50'
+        >
+          {t('common.cancel')}
+        </button>
+        <button
+          type='button'
+          onClick={() => void forget()}
+          disabled={busy}
+          className={BUTTON_CLASS}
+        >
+          {busy
+            ? t('settings.persona.forgetPhrase.forgetting')
+            : t('settings.persona.forgetPhrase.confirm')}
+        </button>
+      </div>
+    </div>
   );
 }

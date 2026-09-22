@@ -662,6 +662,14 @@
       "phraseLabel": "Phrase de récupération",
       "mint": "Créer la persona",
       "minting": "Création…",
+      "forgetPhrase": {
+        "action": "Oublier la phrase de récupération sur cet appareil",
+        "body": "Ce coffre conserve la phrase de récupération, ce qui permet de créer des personas et d’en changer sans la saisir. L’oublier la retire du coffre sur cet appareil, et créer une persona ou en changer la demandera de nouveau. Vérifiez d’abord que vous l’avez notée.",
+        "confirm": "Oublier la phrase",
+        "forgetting": "Oubli en cours…",
+        "failed": "Impossible d’enregistrer le coffre : la phrase reste mémorisée sur cet appareil.",
+        "done": "La phrase de récupération n’est plus conservée sur cet appareil. Créer une persona ou en changer la demande désormais."
+      },
       "switchTitle": "Basculer vers {{name}}",
       "switchIntro": "La clé de la persona est écrite sur la radio, avec l’état qu’elle avait la dernière fois qu’elle était active. Avec une liste de contacts pleine, cela peut prendre jusqu’à une minute.",
       "switchRadio": "Le nom, la position, les canaux et les contacts de la radio sont remplacés par ceux de cette persona. Ceux de la persona actuelle sont conservés sur cet appareil pour votre retour.",
