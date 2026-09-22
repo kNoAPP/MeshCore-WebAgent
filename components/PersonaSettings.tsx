@@ -9,6 +9,7 @@ import { useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { releaseAssumedBurner } from '@/lib/identity/burner';
 import {
+  deleteVault,
   listVaults,
   lockVault,
   unlockVault,
@@ -38,7 +39,9 @@ const BUTTON_CLASS =
  * @remarks Renders nothing on a device with no vault. Which personas belong
  * to which phrase is sealed in the vault, so nothing is listed until one is
  * unlocked. An unlocked vault holds the phrase's storage root in memory, and
- * is locked again when the user asks or the card goes away.
+ * is locked again when the user asks or the card goes away. A locked vault
+ * can be deleted without its passphrase, since a forgotten one is the usual
+ * reason to delete it.
  */
 export function PersonaRow() {
   const { t } = useTranslation();
@@ -83,6 +86,9 @@ export function PersonaRow() {
                 key={fingerprint}
                 fingerprint={fingerprint}
                 onUnlock={setVault}
+                onDelete={() =>
+                  setVaults((list) => list.filter((f) => f !== fingerprint))
+                }
               />
             ))}
           </ul>
@@ -189,16 +195,32 @@ function AssumedBurner() {
 function UnlockRow({
   fingerprint,
   onUnlock,
+  onDelete,
 }: {
   fingerprint: string;
   onUnlock: (vault: Vault) => void;
+  onDelete: () => void;
 }) {
   const { t } = useTranslation();
   const id = useId();
   const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  // Set by Cancel, so the Delete button it brings back takes focus again.
+  const [cancelled, setCancelled] = useState(false);
   const [passphrase, setPassphrase] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const remove = async () => {
+    setBusy(true);
+    setError(null);
+    if (await deleteVault(fingerprint)) {
+      onDelete();
+      return;
+    }
+    setError(t('settings.persona.delete.failed'));
+    setBusy(false);
+  };
 
   const unlock = async () => {
     setBusy(true);
@@ -224,12 +246,37 @@ function UnlockRow({
         <span className='font-mono text-xs text-text'>
           {t('settings.persona.vaultName', { id: fingerprint.slice(0, 8) })}
         </span>
-        {!open && (
+        {!open && !confirming && (
           <button onClick={() => setOpen(true)} className={BUTTON_CLASS}>
             {t('settings.persona.unlock')}
           </button>
         )}
+        {!confirming && (
+          <button
+            autoFocus={cancelled}
+            onClick={() => {
+              setOpen(false);
+              setError(null);
+              setConfirming(true);
+            }}
+            disabled={busy}
+            className={BUTTON_CLASS}
+          >
+            {t('common.delete')}
+          </button>
+        )}
       </div>
+      {confirming && (
+        <DeleteConfirm
+          busy={busy}
+          onCancel={() => {
+            setConfirming(false);
+            setCancelled(true);
+            setError(null);
+          }}
+          onConfirm={() => void remove()}
+        />
+      )}
       {open && (
         <form
           className='mt-2 flex flex-wrap items-end gap-2'
@@ -269,5 +316,55 @@ function UnlockRow({
         </p>
       )}
     </li>
+  );
+}
+
+// What deleting a vault keeps and loses, before it is gone for good.
+function DeleteConfirm({
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  // A switch cut off by a reload is finished from its pending record. Only the
+  // vault that started it can open that, and which vault it was is sealed.
+  const sealedSwitch = useMeshStore(
+    (s) =>
+      s.personaSwitch?.stage === 'switching' &&
+      s.personaSwitch.state === null &&
+      !s.personaSwitch.burner,
+  );
+  return (
+    <div className='mt-2 rounded-md border border-red bg-red/10 p-3 text-xs leading-relaxed text-text'>
+      <p className='font-semibold'>{t('settings.persona.delete.question')}</p>
+      <ul className='mt-1 list-disc space-y-1 pl-4'>
+        <li>{t('settings.persona.delete.keeps')}</li>
+        <li>{t('settings.persona.delete.loses')}</li>
+        <li>{t('settings.persona.delete.keys')}</li>
+        {sealedSwitch && <li>{t('settings.persona.delete.unfinished')}</li>}
+      </ul>
+      <div className='mt-3 flex justify-end gap-2'>
+        {/* Delete, which had focus, is gone: land on the safe choice. */}
+        <button
+          autoFocus
+          onClick={onCancel}
+          disabled={busy}
+          className='rounded-md px-3 py-1.5 text-xs text-text hover:bg-surface2 disabled:opacity-50'
+        >
+          {t('common.cancel')}
+        </button>
+        <button
+          onClick={onConfirm}
+          disabled={busy}
+          className='rounded-md bg-red-solid px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-hover disabled:cursor-not-allowed disabled:opacity-50'
+        >
+          {t('settings.persona.delete.action')}
+        </button>
+      </div>
+    </div>
   );
 }
