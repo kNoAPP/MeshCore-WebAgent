@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.33.1](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.33.0...v1.33.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* **identity:** clear the new-radio restore offer on every connect ([#392](https://github.com/kNoAPP/MeshCore-WebAgent/issues/392)) ([b0bccbc](https://github.com/kNoAPP/MeshCore-WebAgent/commit/b0bccbc25c27093877d3d26628f12d84d0944903))
+* **sync:** nudge a stalled contact enumeration instead of dropping it ([#395](https://github.com/kNoAPP/MeshCore-WebAgent/issues/395)) ([f638a38](https://github.com/kNoAPP/MeshCore-WebAgent/commit/f638a3818929889ec152bf996812ea0c594805cb))
+* **sync:** retract the incomplete-contacts warning once a sync completes ([#397](https://github.com/kNoAPP/MeshCore-WebAgent/issues/397)) ([3e7e21d](https://github.com/kNoAPP/MeshCore-WebAgent/commit/3e7e21d5e573bbcc1c1283fc143a8401bd11352c))
+
 ## [1.33.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.32.0...v1.33.0) (2026-09-22)
 
 
