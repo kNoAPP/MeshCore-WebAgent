@@ -765,6 +765,13 @@
       "resumeWrongPassphrase": "Ninguna bóveda de este dispositivo se abre con esa contraseña y contiene este cambio.",
       "resumeAction": "Terminar el cambio",
       "resumeLater": "Ahora no",
+      "seedLock": {
+        "title": "Desbloquear los datos guardados de esta identidad",
+        "body": "Esta identidad se creó a partir de una frase de recuperación, así que lo que este navegador guarda de ella —mensajes, nodos descubiertos, preferencias, reglas y secretos— está sellado bajo el almacén de identidades de esa frase. Introduce la contraseña del almacén para abrirlo. Hasta entonces, nada de lo que reciba esta sesión se guarda en este navegador.",
+        "wrongPassphrase": "Ningún almacén de este dispositivo se abre con esa contraseña y contiene esta identidad.",
+        "failed": "El almacén se abrió, pero esta sesión no se pudo guardar. Inténtalo de nuevo.",
+        "pending": "El almacén de esta identidad sigue bloqueado, así que nada de lo que recibe se guarda todavía en este navegador."
+      },
       "error": {
         "notInVault": "La identidad actual de la radio no es una de las personas de esta frase.",
         "phraseMismatch": "Esa no es la frase de recuperación de esta bóveda.",

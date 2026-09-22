@@ -29,8 +29,8 @@ const noop = () => {};
  *
  * @remarks Shown while the radio reports the incoming identity, which means it
  * holds the new key but only part of the persona that goes with it. Nothing
- * this session receives is saved until the switch is finished, since the
- * storage key depends on the channels still being written. Finishing re-applies
+ * this session receives is saved until the switch is finished, so none of it
+ * is filed under a persona the radio holds only part of. Finishing re-applies
  * the recorded state. After a reload only the sealed pending record is left,
  * so the vault's passphrase is asked for to read it. A burner has no pending
  * record, so one cut off by a reload is finished from a fresh burner persona

@@ -11,6 +11,7 @@ import {
   wipeApiKey,
 } from '@/lib/ai/secret';
 import { reencryptRepeaterCreds } from '@/lib/meshcore/adminCreds';
+import { registeredIdentityKey } from '@/lib/identity/storageRoot';
 import { toHex } from '@/lib/utils';
 import {
   deleteRadioRecords,
@@ -78,8 +79,36 @@ export interface ChannelKey {
    * it identifies the session the key belongs to.
    */
   channels: Record<number, Channel>;
-  /** The derivation's secret material as hex, in slot order. */
-  material: string;
+  /**
+   * The derivation's secret material as hex, in slot order; null for a
+   * seed-born identity's key, which comes from its vault's storage root and
+   * so does not follow the channels (see {@link deriveSessionKey}).
+   */
+  material: string | null;
+}
+
+/**
+ * The storage key an identity's records are sealed under: its vault-derived
+ * key when it is seed-born and this tab holds one (`registeredIdentityKey`),
+ * otherwise the key derived from the radio's channel secrets.
+ *
+ * @remarks A seed-born identity whose key is not held here must not fall
+ * through to the channel-secret key, which would seal its records under
+ * public material and hide the ones already written. The connect flow checks
+ * for that case first (`hasSeedMarker`) and binds nothing until the vault is
+ * unlocked; the flows that write under an incoming identity (a regenerate, a
+ * restore, a persona switch) all run with its vault open, which registers the
+ * key before they get here.
+ * @param channels - the client's channel mirror, keyed by slot.
+ * @param pubkey - as for {@link deriveChannelKey}.
+ */
+export async function deriveSessionKey(
+  channels: Record<number, Channel>,
+  pubkey: string,
+): Promise<ChannelKey> {
+  const key = registeredIdentityKey(pubkey);
+  if (key) return { key, channels, material: null };
+  return deriveChannelKey(channels, pubkey);
 }
 
 /**
@@ -113,7 +142,7 @@ export async function deriveChannelKey(
  *
  * @param pubkey - the identity's public key hex, lowercase, as `SELF_INFO`
  * reports it; `key` must have been derived with it by
- * {@link deriveChannelKey}.
+ * {@link deriveSessionKey}.
  */
 export function setStorageKey(pubkey: string, key: ChannelKey): void {
   binding = lastBound = { pubkey, ...key };
@@ -144,6 +173,9 @@ type Binding = { pubkey: string } & ChannelKey;
  * has not been hydrated yet, and writing it would put an empty session over
  * the records the hydrate is still reading under the outgoing key.
  *
+ * A seed-born identity's key does not come from the channels, so a binding
+ * made with one (`material` null) never re-keys.
+ *
  * Fire-and-forget, and best-effort like the writes it makes. The records the
  * outgoing key encrypted are overwritten in place rather than deleted.
  */
@@ -168,7 +200,9 @@ async function rekey(channels: Record<number, Channel>): Promise<void> {
       : lastBound?.channels === channels && !binding && !switchPending
         ? lastBound
         : null;
-  if (!from || (from === binding && !saveUnsub)) return;
+  if (!from || from.material === null || (from === binding && !saveUnsub)) {
+    return;
+  }
   const next = await deriveChannelKey(channels, from.pubkey);
   if (next.material === from.material) return;
   // Another binding for this mirror (an identity handover) owns the session
@@ -340,7 +374,7 @@ export async function beginIdentityHandover(
   pubkey: string,
 ): Promise<boolean> {
   const outgoing = binding?.pubkey;
-  const key = await deriveChannelKey(client.channels, pubkey);
+  const key = await deriveSessionKey(client.channels, pubkey);
   // Bound before the re-read, which hands the refreshed `selfInfo` to the
   // store: whatever reacts to the new identity finds its namespace and its
   // secrets already in place.
@@ -400,7 +434,7 @@ export async function beginIdentitySwitch(
   } else {
     setSecretContext(
       pubkey,
-      (await deriveChannelKey(client.channels, pubkey)).key,
+      (await deriveSessionKey(client.channels, pubkey)).key,
     );
   }
   await client.refreshSelfInfo().catch(() => {});
@@ -446,7 +480,7 @@ export async function seedIdentityNamespace(
   client: MeshCoreClient,
   pubkey: string,
 ): Promise<boolean> {
-  const { key } = await deriveChannelKey(client.channels, pubkey);
+  const { key } = await deriveSessionKey(client.channels, pubkey);
   return saveSessionNamespace(pubkey, key);
 }
 

@@ -26,11 +26,13 @@ import {
   hydrateBurnerSession,
   settleIdentityOnConnect,
 } from '@/lib/identity/connect';
+import { registeredIdentityKey } from '@/lib/identity/storageRoot';
 import {
   loadRadioData,
   loadAutomationRules,
   loadAdvertCache,
   loadPreferences,
+  hasSeedMarker,
 } from '@/lib/storage';
 import {
   expectSecretContext,
@@ -48,8 +50,9 @@ import {
 } from '@/lib/session/lifecycle';
 import {
   claimUnsavedRestore,
-  deriveChannelKey,
+  deriveSessionKey,
   flushAdvertCache,
+  flushSessionAsync,
   followChannelSecrets,
   retryUnsavedRestore,
   setStorageKey,
@@ -505,6 +508,106 @@ export function useMeshCore() {
     ],
   );
 
+  // Loads a bound session's records into the store and subscribes them to be
+  // saved: the saved history merged under whatever arrived first, the
+  // preferences, automation rules and advert cache, and a remembered API key.
+  // Shared by the connect flow and a seed-born identity's late unlock.
+  // Resolves false, having changed nothing, when the session ended during the
+  // reads.
+  const hydrateSession = useCallback(
+    async (
+      pubkey: string,
+      key: CryptoKey,
+      alive: () => boolean,
+    ): Promise<boolean> => {
+      // Restore a "remembered" LLM API key, the saved history, any
+      // per-radio automation rules, the advert cache, and the preferences
+      // blob in parallel — independent IndexedDB reads with no ordering
+      // dependency.
+      const [, saved, rules, advertCache, prefs] = await Promise.all([
+        loadPersistedApiKey(),
+        loadRadioData(pubkey, key),
+        loadAutomationRules<AutomationRule[]>(pubkey, key),
+        loadAdvertCache(pubkey, key),
+        loadPreferences(pubkey, key),
+      ]);
+      // Those reads outlive their own session when the link drops or the
+      // user disconnects during them: the store has already been reset,
+      // and folding this radio's history and preferences back in would
+      // repopulate it — and mark it hydrated — for a radio that is gone,
+      // leaving the next session to frame from the previous one's saved
+      // viewport. Wiring persistence to it would be just as wrong, so the
+      // whole hydrate stops here and the teardown keeps the empty store.
+      if (!alive()) return false;
+      if (saved?.msgHistory) restoreHistory(saved.msgHistory);
+      // A backup restored into this identity whose write failed is only in
+      // the store, and the blobs just read predate it (or are absent), so
+      // loading them would wipe it. Its own values are re-applied instead,
+      // which still marks the preferences hydrated.
+      const unsaved = claimUnsavedRestore(pubkey);
+      if (unsaved) {
+        restorePreferences(selectPreferences(useMeshStore.getState()), true);
+      } else {
+        restoreAutomationRules(rules ?? []);
+        // Fold this radio's saved preferences in before the auto-add
+        // hydrate below, so the radio-sourced fields it merges over sit on
+        // top of the persisted app-only ones (e.g. showFullPublicKeys). A
+        // null/absent blob normalizes to defaults inside the action.
+        restorePreferences(prefs);
+      }
+      // Merge the persisted cache under any adverts already heard during
+      // this sync (the live entries are fresher).
+      if (advertCache) {
+        restoreAdvertCache(
+          mergeAdvertCache(advertCache, useMeshStore.getState().advertCache),
+        );
+      }
+      // Persist the current cache now — even on a first connect with no
+      // stored record — so adverts already heard during this sync (before
+      // the subscriptions below are wired) aren't lost until the next one.
+      flushAdvertCache();
+      // Nothing at all stored for this identity means this browser has
+      // never connected it — how a replacement radio arrives, when its
+      // owner most wants their old identity back. The write just above
+      // means the offer is made once per identity, not once per connect.
+      // A pending identity check is a restore or regenerate still being
+      // verified, whose incoming identity is new here by design.
+      // Assigned rather than only raised: the store survives a reconnect,
+      // so an offer left open by a restore run from Settings would
+      // otherwise resurface once that restore's identity check closes.
+      const store = useMeshStore.getState();
+      store.setRestoreOffer(
+        !saved &&
+          !rules &&
+          !advertCache &&
+          !prefs &&
+          !unsaved &&
+          !store.identityCheck &&
+          store.personaSwitch?.target !== pubkey.toLowerCase(),
+      );
+      // A persona new to this device arrives with nothing stored too, by
+      // design; its switch is complete once its session is hydrated.
+      if (
+        store.personaSwitch?.stage === 'done' &&
+        store.personaSwitch.target === pubkey.toLowerCase()
+      ) {
+        store.setPersonaSwitch(null);
+      }
+
+      wirePersistence();
+      // Now that this session has a key, give the restore another chance
+      // to reach disk.
+      if (unsaved) void retryUnsavedRestore();
+      return true;
+    },
+    [
+      restoreHistory,
+      restoreAdvertCache,
+      restoreAutomationRules,
+      restorePreferences,
+    ],
+  );
+
   // Shared connect path for all transports: build + wire the client, run the
   // initial sync, hydrate settings/history, then subscribe history to be saved.
   const connect = useCallback(
@@ -573,13 +676,29 @@ export function useMeshCore() {
           reported,
           sessionAlive,
         );
-        if (pubkey && sessionAlive() && !unfinishedSwitch && !burner) {
+        // A seed-born identity whose vault has not been opened in this tab has
+        // no key to bind: the channel-secret one would seal its records under
+        // public material and hide the ones already written. The session runs
+        // unsaved until the vault is unlocked (see unlockSeedSession).
+        const seedLocked =
+          !!reported &&
+          !unfinishedSwitch &&
+          !burner &&
+          !registeredIdentityKey(reported) &&
+          (await hasSeedMarker(reported));
+        if (
+          pubkey &&
+          sessionAlive() &&
+          !unfinishedSwitch &&
+          !burner &&
+          !seedLocked
+        ) {
           // Declared before the await, so a read that still beats the binding
           // waits for it rather than concluding nothing is stored; the finally
           // answers those reads on every path that never binds one.
           expectSecretContext();
           try {
-            const derived = await deriveChannelKey(c.channels, pubkey);
+            const derived = await deriveSessionKey(c.channels, pubkey);
             key = derived.key;
             // This is now the last await before the UI goes live, and a drop or
             // a Disconnect during it is nobody else's to catch: `onDisconnect`
@@ -608,6 +727,11 @@ export function useMeshCore() {
         if (burner && reported && sessionAlive()) {
           hydrateBurnerSession(c, reported, burner);
         }
+        if (seedLocked && reported && sessionAlive()) {
+          useMeshStore
+            .getState()
+            .setSeedLock({ pubkey: reported, dismissed: false });
+        }
 
         // Wire history persistence FIRST — before the best-effort hydrate
         // round-trips below — so the now-'connected' link can't accept a send
@@ -616,90 +740,7 @@ export function useMeshCore() {
         // derivation or the post-sync hydrate, so we don't bind a save
         // subscription to a torn-down session.
         if (pubkey && key && sessionAlive()) {
-          // Restore a "remembered" LLM API key, the saved history, any
-          // per-radio automation rules, the advert cache, and the preferences
-          // blob in parallel — independent IndexedDB reads with no ordering
-          // dependency.
-          const [, saved, rules, advertCache, prefs] = await Promise.all([
-            loadPersistedApiKey(),
-            loadRadioData(pubkey, key),
-            loadAutomationRules<AutomationRule[]>(pubkey, key),
-            loadAdvertCache(pubkey, key),
-            loadPreferences(pubkey, key),
-          ]);
-          // Those reads outlive their own session when the link drops or the
-          // user disconnects during them: the store has already been reset,
-          // and folding this radio's history and preferences back in would
-          // repopulate it — and mark it hydrated — for a radio that is gone,
-          // leaving the next session to frame from the previous one's saved
-          // viewport. Wiring persistence to it would be just as wrong, so the
-          // whole hydrate stops here and the teardown keeps the empty store.
-          if (!sessionAlive()) return false;
-          if (saved?.msgHistory) restoreHistory(saved.msgHistory);
-          // A backup restored into this identity whose write failed is only in
-          // the store, and the blobs just read predate it (or are absent), so
-          // loading them would wipe it. Its own values are re-applied instead,
-          // which still marks the preferences hydrated.
-          const unsaved = claimUnsavedRestore(pubkey);
-          if (unsaved) {
-            restorePreferences(
-              selectPreferences(useMeshStore.getState()),
-              true,
-            );
-          } else {
-            restoreAutomationRules(rules ?? []);
-            // Fold this radio's saved preferences in before the auto-add
-            // hydrate below, so the radio-sourced fields it merges over sit on
-            // top of the persisted app-only ones (e.g. showFullPublicKeys). A
-            // null/absent blob normalizes to defaults inside the action.
-            restorePreferences(prefs);
-          }
-          // Merge the persisted cache under any adverts already heard during
-          // this sync (the live entries are fresher).
-          if (advertCache) {
-            restoreAdvertCache(
-              mergeAdvertCache(
-                advertCache,
-                useMeshStore.getState().advertCache,
-              ),
-            );
-          }
-          // Persist the current cache now — even on a first connect with no
-          // stored record — so adverts already heard during this sync (before
-          // the subscriptions below are wired) aren't lost until the next one.
-          flushAdvertCache();
-          // Nothing at all stored for this identity means this browser has
-          // never connected it — how a replacement radio arrives, when its
-          // owner most wants their old identity back. The write just above
-          // means the offer is made once per identity, not once per connect.
-          // A pending identity check is a restore or regenerate still being
-          // verified, whose incoming identity is new here by design.
-          // Assigned rather than only raised: the store survives a reconnect,
-          // so an offer left open by a restore run from Settings would
-          // otherwise resurface once that restore's identity check closes.
-          const store = useMeshStore.getState();
-          store.setRestoreOffer(
-            !saved &&
-              !rules &&
-              !advertCache &&
-              !prefs &&
-              !unsaved &&
-              !store.identityCheck &&
-              store.personaSwitch?.target !== pubkey.toLowerCase(),
-          );
-          // A persona new to this device arrives with nothing stored too, by
-          // design; its switch is complete once its session is hydrated.
-          if (
-            store.personaSwitch?.stage === 'done' &&
-            store.personaSwitch.target === pubkey.toLowerCase()
-          ) {
-            store.setPersonaSwitch(null);
-          }
-
-          wirePersistence();
-          // Now that this session has a key, give the restore another chance
-          // to reach disk.
-          if (unsaved) void retryUnsavedRestore();
+          if (!(await hydrateSession(pubkey, key, sessionAlive))) return false;
         }
 
         const batt = await c.getBattery();
@@ -780,10 +821,7 @@ export function useMeshCore() {
       setConnectError,
       setLastConnectFailure,
       wireClient,
-      restoreHistory,
-      restoreAdvertCache,
-      restoreAutomationRules,
-      restorePreferences,
+      hydrateSession,
       setAutoAddConfig,
     ],
   );
@@ -861,6 +899,33 @@ export function useMeshCore() {
     beginReconnect(reconnectDeps(connect));
     c.destroy();
   }, [connect]);
+
+  /**
+   * Binds a seed-born identity's session once its vault has been opened,
+   * which registers the identity's storage key (`registerIdentityKey`), and
+   * hydrates it exactly as a connect would.
+   *
+   * @remarks The session ran unsaved until now, so what arrived meanwhile is
+   * in the store only: the saved history is merged under it, and the whole
+   * session is then written under the vault-derived key.
+   * @returns whether the session is now saved; false when there is no live
+   * session, its identity's key is not held, or the session ended during the
+   * hydrate.
+   */
+  const unlockSeedSession = useCallback(async (): Promise<boolean> => {
+    const c = useMeshStore.getState().client;
+    const pubkey = c?.selfInfo?.pubkey?.toLowerCase();
+    if (!c || c.closed || !pubkey) return false;
+    const key = registeredIdentityKey(pubkey);
+    if (!key) return false;
+    const alive = () =>
+      !c.closed && !isUserDisconnect() && useMeshStore.getState().client === c;
+    setStorageKey(pubkey, { key, channels: c.channels, material: null });
+    setSecretContext(pubkey, key);
+    if (!(await hydrateSession(pubkey, key, alive))) return false;
+    useMeshStore.getState().setSeedLock(null);
+    return flushSessionAsync();
+  }, [hydrateSession]);
 
   /**
    * Persists history, tears down the client and session state, and resets the
@@ -1979,6 +2044,7 @@ export function useMeshCore() {
     disconnect,
     retryReconnectNow,
     restartSession,
+    unlockSeedSession,
     sendMessage,
     retryMessage,
     resetContactPath,

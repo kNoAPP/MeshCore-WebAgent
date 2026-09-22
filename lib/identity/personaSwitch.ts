@@ -41,10 +41,11 @@ import {
  * identity to hydrate its browser data. That session checks the contacts
  * took, and only then deletes the pending record the preparation wrote.
  *
- * @remarks The incoming identity's browser records are keyed from the radio's
- * channel secrets, and applying the persona is what gives them back. So the
- * session must not bind persistence until the apply is complete: until then
- * the key it would derive may be neither persona's.
+ * @remarks A persona is seed-born, so its browser records are sealed under
+ * the key its vault's storage root derives, which the vault being open for
+ * the switch has registered for this tab. The session still binds no
+ * persistence until the apply is complete, so nothing is written for a
+ * persona the radio holds only part of.
  */
 
 /**
@@ -257,11 +258,9 @@ async function writeLive(
  * never finished — its state is then part one persona, part another, and
  * would overwrite the good record — or a burner, which is never kept.
  *
- * Both personas must be whole in their channels and contacts. The storage
- * key follows the channels, so a persona that goes live without its own
- * would hydrate under a key its records were never written with, and then
- * overwrite them; and contacts left as they are would be the other
- * persona's.
+ * Both personas must be whole in their channels and contacts: a persona
+ * that goes live without its own would carry the other persona's channels
+ * and contacts, and announce the link between them.
  *
  * The incoming state is also sealed as the switch's pending record, whose
  * existence tells the next connect — after a page reload too — that the

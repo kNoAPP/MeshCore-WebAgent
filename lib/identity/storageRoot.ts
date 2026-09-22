@@ -26,6 +26,34 @@ import { deriveNode, MESH_PURPOSE, wipeNode } from './slip10';
  * persist under this root.
  */
 
+// Seed-born identities' storage keys, registered whenever a vault is opened or
+// saved (`./vault`). Held in memory for the life of the tab and never
+// persisted, so a reconnect in the same tab does not ask for the vault's
+// passphrase again, and a reload does.
+const identityKeys = new Map<string, CryptoKey>();
+
+/**
+ * Holds a seed-born identity's storage key for this tab, so the session seals
+ * its records under it rather than the channel-secret key
+ * (`deriveSessionKey` in `lib/session/persistence.ts`).
+ *
+ * @param publicKey - the identity's public key, hex.
+ * @param key - its key from {@link deriveIdentityStorageKey}.
+ */
+export function registerIdentityKey(publicKey: string, key: CryptoKey): void {
+  identityKeys.set(publicKey.toLowerCase(), key);
+}
+
+/**
+ * The storage key {@link registerIdentityKey} holds for `publicKey` in this
+ * tab, or undefined when its vault has not been opened since the page loaded.
+ */
+export function registeredIdentityKey(
+  publicKey: string,
+): CryptoKey | undefined {
+  return identityKeys.get(publicKey.toLowerCase());
+}
+
 /**
  * Second path level for the storage root, applied hardened. Branch `0'` is
  * radio identities; this one never yields a signing key.

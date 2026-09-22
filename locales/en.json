@@ -764,6 +764,13 @@
       "resumeWrongPassphrase": "No vault on this device opens with that passphrase and holds this switch.",
       "resumeAction": "Finish switch",
       "resumeLater": "Not now",
+      "seedLock": {
+        "title": "Unlock this identity's saved data",
+        "body": "This identity was made from a recovery phrase, so what this browser keeps for it — messages, discovered nodes, preferences, rules and secrets — is sealed under that phrase's identity vault. Enter the vault's passphrase to open it. Until then, nothing this session receives is saved in this browser.",
+        "wrongPassphrase": "No vault on this device opens with that passphrase and lists this identity.",
+        "failed": "The vault opened, but this session could not be saved. Try again.",
+        "pending": "This identity's vault is still locked, so nothing it receives is saved in this browser yet."
+      },
       "error": {
         "notInVault": "The radio's current identity is not one of this phrase's personas.",
         "phraseMismatch": "That is not the recovery phrase for this vault.",

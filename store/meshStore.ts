@@ -729,6 +729,13 @@ interface MeshState {
   personaSwitch: PersonaSwitch | null;
   /** The burner live on the radio, or null; see {@link BurnerSession}. */
   burner: BurnerSession | null;
+  /**
+   * A seed-born identity connected before its vault was opened in this tab,
+   * or null. Its records are sealed under the vault's storage root, so the
+   * session binds no persistence until the vault's passphrase is entered;
+   * `dismissed` is the user putting that off. Per session: a reset clears it.
+   */
+  seedLock: { pubkey: string; dismissed: boolean } | null;
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
 
@@ -1034,6 +1041,7 @@ interface MeshActions {
   setRestoreOffer: (offer: boolean) => void;
   setPersonaSwitch: (next: PersonaSwitch | null) => void;
   setBurner: (burner: BurnerSession | null) => void;
+  setSeedLock: (lock: { pubkey: string; dismissed: boolean } | null) => void;
   /**
    * Resets everything that belongs to one identity rather than to the radio
    * or the link: history, conversations and drafts, the advert cache, the
@@ -1337,6 +1345,7 @@ const initialState: MeshState = {
   restoreOffer: false,
   personaSwitch: null,
   burner: null,
+  seedLock: null,
   battery: null,
   syncProgress: null,
   deviceStats: null,
@@ -1474,6 +1483,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setRestoreOffer: (restoreOffer) => set({ restoreOffer }),
   setPersonaSwitch: (personaSwitch) => set({ personaSwitch }),
   setBurner: (burner) => set({ burner }),
+  setSeedLock: (seedLock) => set({ seedLock }),
   resetIdentityData: () => {
     mapPrefsTouched = false;
     mapFiltersTouched.clear();

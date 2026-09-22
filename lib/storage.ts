@@ -272,7 +272,7 @@ export async function loadRadioData(
 
 // Namespaced IndexedDB key for a per-radio record: the pubkey plus a fixed
 // suffix (a secret's name, `automation-rules`, `advert-cache`, `preferences`,
-// `persona`, `persona-pending`).
+// `persona`, `persona-pending`, `seed-born`).
 // Namespacing by pubkey keeps one radio's records from colliding with
 // another's in a shared store. The bare pubkey (no suffix) is the message
 // history record.
@@ -765,6 +765,41 @@ export async function deleteBurnerGuard(): Promise<boolean> {
   try {
     await idbDelete(STORE_NAME, BURNER_GUARD_KEY);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+// An identity minted from a recovery phrase: its records are sealed under the
+// key its vault's storage root derives, not the channel-secret key. The record
+// is empty and names no vault or sibling persona; its key is a public key like
+// every other one here, so it says only that this identity is seed-born.
+
+/**
+ * Records that `pubkey` is seed-born, so a connect before its vault is
+ * unlocked knows not to derive the channel-secret key for it.
+ *
+ * @returns whether the write landed.
+ */
+export async function saveSeedMarker(pubkey: string): Promise<boolean> {
+  try {
+    await idbWrite(STORE_NAME, recordKey(pubkey, 'seed-born'), {}, 'put');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether {@link saveSeedMarker} was called for `pubkey`. Needs no key.
+ *
+ * @returns false when IndexedDB cannot be read.
+ */
+export async function hasSeedMarker(pubkey: string): Promise<boolean> {
+  try {
+    return (
+      (await idbGet(STORE_NAME, recordKey(pubkey, 'seed-born'))) !== undefined
+    );
   } catch {
     return false;
   }
