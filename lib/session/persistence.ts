@@ -495,7 +495,9 @@ export async function beginIdentitySwitch(
   await client.refreshSelfInfo().catch(() => {});
   // After the last await: a persona switch installs the key only once this
   // returns, so the radio is still the outgoing identity until then, and
-  // anything it received meanwhile has to be cleared along with the rest.
+  // anything it received meanwhile has to be cleared along with the rest. A
+  // restore has installed it already, so what this clears is the incoming
+  // identity's own traffic, a few seconds of it at most.
   useMeshStore.getState().resetIdentityData();
 }
 
