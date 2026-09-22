@@ -267,6 +267,12 @@ export interface MeshCoreCallbacks {
    * empty. Not fired when the link closes mid-enumeration.
    */
   onContactsIncomplete?: () => void;
+  /**
+   * A contact enumeration reached `END_OF_CONTACTS` and replaced the table, so
+   * any earlier {@link MeshCoreCallbacks.onContactsIncomplete} no longer
+   * holds. Not fired by an add, remove or favorite update.
+   */
+  onContactsSynced?: () => void;
   /** The channel list changed. */
   onChannelsUpdated?: (channels: Record<number, Channel>) => void;
   /** The heard-adverts log changed (a node advertised or re-advertised). */
@@ -820,12 +826,14 @@ export class MeshCoreClient {
         // A complete enumeration is authoritative, so it replaces the table —
         // contacts deleted on the radio (evicted, or removed from another
         // client) disappear instead of lingering for the session.
-        if (this.pendingContacts) {
-          this.contacts = this.pendingContacts;
+        const table = this.pendingContacts;
+        if (table) {
+          this.contacts = table;
           this._contactsSynced = true;
         }
         this.foldAdvertObservations();
         this.contactsResolve?.();
+        if (table) this.callbacks.onContactsSynced?.();
         return;
       }
     }
