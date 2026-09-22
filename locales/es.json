@@ -622,6 +622,58 @@
       "offerLater": "También puedes hacerlo más tarde desde Ajustes, en Identidad.",
       "offerDismiss": "Ahora no",
       "offerAction": "Restaurar desde frase"
+    },
+    "persona": {
+      "title": "Personas",
+      "lockedHint": "Desbloquea la bóveda de una frase de recuperación para ver las personas que ha creado y cambiar entre ellas.",
+      "vaultName": "Frase de recuperación {{id}}",
+      "unlock": "Desbloquear",
+      "unlocking": "Desbloqueando…",
+      "lock": "Bloquear",
+      "live": "Activa",
+      "switch": "Cambiar",
+      "primary": "Principal",
+      "index": "Persona {{index}}",
+      "unnamed": "Persona sin nombre",
+      "liveNotListed": "La identidad actual de la radio no es una de las personas de esta frase, así que no hay dónde guardar su nombre, canales y contactos. Cambia a una de estas desde una radio que tenga una de ellas, o restaura antes una desde la frase.",
+      "new": "Nueva persona",
+      "newIntro": "Una persona nueva es una identidad aparte creada a partir de la misma frase. Empieza con su propio nombre, sin ubicación, solo con el canal Public y sin contactos, para que nada la vincule con las demás.",
+      "labelField": "Nombre (también su nombre de anuncio)",
+      "phraseLabel": "Frase de recuperación",
+      "mint": "Crear persona",
+      "minting": "Creando…",
+      "switchTitle": "Cambiar a {{name}}",
+      "switchIntro": "Esto pone la clave de la persona en la radio y le devuelve el estado que tenía la última vez que estuvo activa. Con una lista de contactos llena puede tardar hasta un minuto.",
+      "switchRadio": "El nombre, la ubicación, los canales y los contactos de la radio se sustituyen por los de esta persona. Los de la persona actual se guardan en este dispositivo para cuando vuelvas a ella.",
+      "switchBrowser": "El historial de mensajes, los nodos descubiertos, las preferencias y las reglas de automatización de este navegador pasan a ser los de esta persona.",
+      "switchContacts": "Los demás conocen cada persona por su propia clave. Los contactos solo llegan a esta persona si la añadieron.",
+      "heardElsewhere": "Se ha oído a {{name}} en la malla durante esta sesión, así que otra radio la está usando. Dos radios con una misma identidad rompen la entrega de mensajes y las confirmaciones para ambas. Cambia solo si esa radio ha dejado de usarla.",
+      "heardElsewhereAck": "La otra radio ya no usa esta identidad",
+      "announce": "Anunciar la persona a toda la malla al terminar",
+      "switchAction": "Cambiar de persona",
+      "stage": {
+        "saving": "Guardando la persona actual…",
+        "importing": "Escribiendo la nueva clave en la radio…",
+        "applying": "Aplicando la persona: {{done}} de {{total}} cambios…",
+        "announcing": "Anunciando la persona…"
+      },
+      "progressHint": "Mantén la radio conectada. Si se cae el enlace, el cambio se puede terminar cuando vuelva a conectar.",
+      "unknown": "El enlace falló antes de que la radio confirmara la nueva clave. Se comprobará cuando la radio vuelva a conectar.",
+      "unfinished": "La radio tiene la clave de {{name}} pero solo parte de su persona, y no se guarda nada hasta terminar el cambio.",
+      "resumeTitle": "Terminar el cambio a {{name}}",
+      "resumeBody": "El cambio a {{name}} se detuvo a medias. La radio ya tiene su clave, pero solo parte de su nombre, ubicación, canales y contactos.",
+      "resumeUnsaved": "Nada de lo que reciba esta sesión se guarda en este navegador hasta terminar el cambio.",
+      "resumeAction": "Terminar el cambio",
+      "resumeLater": "Ahora no",
+      "resumeFailed": "El cambio se detuvo de nuevo: {{error}}",
+      "error": {
+        "notInVault": "La identidad actual de la radio no es una de las personas de esta frase.",
+        "phraseMismatch": "Esa no es la frase de recuperación de esta bóveda.",
+        "keyMismatch": "La frase no deriva la clave que esta bóveda indica para la persona.",
+        "saveFailed": "No se pudo guardar en el almacenamiento de este dispositivo. No se envió nada a la radio.",
+        "kept": "La radio no aceptó la nueva clave y sigue con la persona actual. No cambió nada.",
+        "phrase": "Esa frase de recuperación no es válida. Compárala con tu copia escrita."
+      }
     }
   },
   "automation": {
@@ -1501,7 +1553,8 @@
     "repeaterReadParseFailed": "Respuesta no reconocida al leer {{field}}",
     "repeaterNameTooLongForLocation": "Acorta el nombre del nodo a 24 bytes o menos antes de establecer una ubicación.",
     "repeaterLoadBeforeLocationEdit": "Carga el nombre y la ubicación del nodo antes de cambiar cualquiera de los dos.",
-    "repeaterActionSent": "Comando enviado."
+    "repeaterActionSent": "Comando enviado.",
+    "personaSwitchNotLanded": "El cambio a {{name}} no tuvo efecto: la radio sigue con la identidad anterior."
   },
   "update": {
     "available": "Hay una nueva versión disponible",

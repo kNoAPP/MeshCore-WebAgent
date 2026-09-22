@@ -621,6 +621,58 @@
       "offerLater": "You can also do this later from Settings, under Identity.",
       "offerDismiss": "Not now",
       "offerAction": "Restore from phrase"
+    },
+    "persona": {
+      "title": "Personas",
+      "lockedHint": "Unlock a recovery phrase's vault to see the personas it has made and switch between them.",
+      "vaultName": "Recovery phrase {{id}}",
+      "unlock": "Unlock",
+      "unlocking": "Unlocking…",
+      "lock": "Lock",
+      "live": "Live",
+      "switch": "Switch",
+      "primary": "Primary",
+      "index": "Persona {{index}}",
+      "unnamed": "Unnamed persona",
+      "liveNotListed": "The radio's current identity is not one of this phrase's personas, so there is nowhere to keep its name, channels and contacts. Switch to one of these from a radio that holds one of them, or restore one from the phrase first.",
+      "new": "New persona",
+      "newIntro": "A new persona is a separate identity made from the same phrase. It starts with its own name, no location, only the Public channel and no contacts, so nothing ties it to the others.",
+      "labelField": "Name (also its advert name)",
+      "phraseLabel": "Recovery phrase",
+      "mint": "Create persona",
+      "minting": "Creating…",
+      "switchTitle": "Switch to {{name}}",
+      "switchIntro": "This puts the persona's key on the radio and gives it back the radio-side state it had when it was last live. It can take up to a minute with a full contact list.",
+      "switchRadio": "The radio's name, location, channels and contacts are replaced with this persona's. The current persona's are kept on this device for when you switch back.",
+      "switchBrowser": "Message history, discovered nodes, preferences and automation rules in this browser switch to this persona's own.",
+      "switchContacts": "Peers know each persona by its own key. Contacts reach this persona only if they added it.",
+      "heardElsewhere": "{{name}} has been heard on the mesh during this session, so another radio is running it. Two radios with one identity break message delivery and acknowledgements for both. Switch only if that radio has stopped using it.",
+      "heardElsewhereAck": "The other radio no longer uses this identity",
+      "announce": "Announce the persona to the whole mesh when done",
+      "switchAction": "Switch persona",
+      "stage": {
+        "saving": "Saving the current persona…",
+        "importing": "Writing the new key to the radio…",
+        "applying": "Applying the persona: {{done}} of {{total}} changes…",
+        "announcing": "Announcing the persona…"
+      },
+      "progressHint": "Keep the radio connected. If the link drops, the switch can be finished when it reconnects.",
+      "unknown": "The link failed before the radio confirmed the new key. It will be checked when the radio reconnects.",
+      "unfinished": "The radio holds {{name}}'s key but only part of its persona, and nothing is being saved until the switch is finished.",
+      "resumeTitle": "Finish switching to {{name}}",
+      "resumeBody": "The switch to {{name}} stopped part way. The radio already holds its key, but only some of its name, location, channels and contacts.",
+      "resumeUnsaved": "Nothing this session receives is saved in this browser until the switch is finished.",
+      "resumeAction": "Finish switch",
+      "resumeLater": "Not now",
+      "resumeFailed": "The switch stopped again: {{error}}",
+      "error": {
+        "notInVault": "The radio's current identity is not one of this phrase's personas.",
+        "phraseMismatch": "That is not the recovery phrase for this vault.",
+        "keyMismatch": "The phrase does not derive the key this vault lists for the persona.",
+        "saveFailed": "Could not save to this device's storage. Nothing was sent to the radio.",
+        "kept": "The radio did not take the new key and still holds the current persona. Nothing changed.",
+        "phrase": "That recovery phrase is not valid. Check it against your written copy."
+      }
     }
   },
   "automation": {
@@ -1500,7 +1552,8 @@
     "repeaterReadParseFailed": "Unrecognized response while reading {{field}}",
     "repeaterNameTooLongForLocation": "Shorten the node name to 24 bytes or fewer before setting a location.",
     "repeaterLoadBeforeLocationEdit": "Load the node name and location before changing either.",
-    "repeaterActionSent": "Command sent."
+    "repeaterActionSent": "Command sent.",
+    "personaSwitchNotLanded": "The switch to {{name}} did not take effect: the radio still holds the previous identity."
   },
   "update": {
     "available": "A new version is available",

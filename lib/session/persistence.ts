@@ -156,10 +156,14 @@ export function followChannelSecrets(channels: Record<number, Channel>): void {
 }
 
 async function rekey(channels: Record<number, Channel>): Promise<void> {
+  // Not the last binding while an identity switch is pending: its records
+  // were flushed under the outgoing identity's channels, which are the ones
+  // that identity gets back when it next goes live. A channel change now is
+  // the incoming identity's, and following it would lock them away.
   const from =
     binding?.channels === channels
       ? binding
-      : lastBound?.channels === channels && !binding
+      : lastBound?.channels === channels && !binding && !switchPending
         ? lastBound
         : null;
   if (!from || (from === binding && !saveUnsub)) return;
@@ -373,12 +377,19 @@ export async function beginIdentityHandover(
  * context has no such conflict, so a secret saved before that restart is
  * filed where the next session looks for it.
  *
+ * A channel change after this is the incoming identity's, and does not re-key
+ * the outgoing identity's records: they stay under the channel set that
+ * identity had, which is the one a persona switch gives back to it.
+ *
  * @param pubkey - as for {@link beginIdentityHandover}.
  */
 export async function beginIdentitySwitch(
   client: MeshCoreClient,
   pubkey: string,
 ): Promise<void> {
+  // A re-key still queued is the outgoing identity's, and has to land before
+  // the flush below writes under whichever key is bound.
+  await rekeyChain;
   await flushSessionAsync();
   binding = null;
   switchPending = true;

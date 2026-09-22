@@ -552,7 +552,28 @@ export function useMeshCore() {
         // radio reported no pubkey to derive one from, which leaves the session
         // running with persistence off rather than under a shared key.
         let key: CryptoKey | null = null;
-        if (pubkey && sessionAlive()) {
+        // A persona switch onto this identity that never finished leaves the
+        // radio's channels, which the key derives from, possibly half-written:
+        // a key derived now may be neither persona's, and the hydrate would
+        // find nothing and the saves overwrite the real records. The session
+        // runs with persistence off until the switch is finished, which
+        // restarts it. A radio still on the outgoing identity never took the
+        // key, so the switch is over.
+        const pending = useMeshStore.getState().personaSwitch;
+        const reported = pubkey?.toLowerCase();
+        const unfinishedSwitch =
+          pending?.stage === 'switching' && reported === pending.target;
+        if (pending?.stage === 'switching' && reported === pending.outgoing) {
+          useMeshStore.getState().setPersonaSwitch(null);
+          notify({
+            level: 'warning',
+            text: i18n.t('toast.personaSwitchNotLanded', {
+              name: pending.label,
+            }),
+            key: 'personaSwitchNotLanded',
+          });
+        }
+        if (pubkey && sessionAlive() && !unfinishedSwitch) {
           // Declared before the await, so a read that still beats the binding
           // waits for it rather than concluding nothing is stored; the finally
           // answers those reads on every path that never binds one.
@@ -656,9 +677,18 @@ export function useMeshCore() {
             !advertCache &&
             !prefs &&
             !unsaved &&
-            !store.identityCheck
+            !store.identityCheck &&
+            !store.personaSwitch
           ) {
             store.setRestoreOffer(true);
+          }
+          // A persona new to this device arrives with nothing stored too, by
+          // design; its switch is complete once its session is hydrated.
+          if (
+            store.personaSwitch?.stage === 'done' &&
+            store.personaSwitch.target === pubkey.toLowerCase()
+          ) {
+            store.setPersonaSwitch(null);
           }
 
           wirePersistence();
