@@ -49,6 +49,7 @@ import {
 } from '@/lib/session/lifecycle';
 import {
   boundPubkey,
+  claimStore,
   claimUnsavedRestore,
   deriveSessionKey,
   flushAdvertCache,
@@ -258,6 +259,21 @@ export function useMeshCore() {
     (c: MeshCoreClient, connect: ConnectFn) => {
       c.callbacks = {
         onSelfInfo: (info) => {
+          // Only while a session is being built: the handshake's SELF_INFO is
+          // the first word of who the radio now is, and the backlog drain that
+          // fills the store with that identity's messages comes after it. A
+          // re-read on a live session is an identity handover or switch,
+          // which moves the store's identity itself.
+          if (
+            useMeshStore.getState().status !== 'connected' &&
+            claimStore(info.pubkey.toLowerCase())
+          ) {
+            notify({
+              level: 'warning',
+              text: i18n.t('notify.identityChangedUnsaved'),
+              key: 'identityChangedUnsaved',
+            });
+          }
           setDeviceName(info.name);
           setSelfInfo(info);
         },

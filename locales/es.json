@@ -177,7 +177,8 @@
     "personaSwitchNotLanded": "Esta radio sigue con la identidad anterior, así que el cambio a {{name}} no tuvo efecto aquí.",
     "personaSwitchNotSaved": "No se pudieron confirmar los contactos de la radio tras reiniciarse, así que el cambio a la nueva persona no está terminado. Termínalo para aplicarlos de nuevo.",
     "burnerLive": "Identidad desechable activa. Nada de lo que recibe se guarda en este navegador.",
-    "burnerAssumed": "Una identidad desechable puede seguir activa, así que no se guarda nada de esta identidad. Si es una radio nueva, ve a Ajustes, en Identidad."
+    "burnerAssumed": "Una identidad desechable puede seguir activa, así que no se guarda nada de esta identidad. Si es una radio nueva, ve a Ajustes, en Identidad.",
+    "identityChangedUnsaved": "La radio se ha reconectado con otra identidad. Lo que la identidad anterior tenía solo en esta sesión nunca se guardó y se ha borrado."
   },
   "command": {
     "title": "Buscar cualquier cosa",

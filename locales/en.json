@@ -176,7 +176,8 @@
     "personaSwitchNotLanded": "This radio is still on the previous identity, so the switch to {{name}} did not take effect here.",
     "personaSwitchNotSaved": "The radio’s contacts could not be confirmed after its restart, so the switch to the new persona is not finished. Finish it to apply them again.",
     "burnerLive": "Burner live. Nothing it receives is saved in this browser.",
-    "burnerAssumed": "A burner may still be live, so nothing is saved for this identity. If this is a new radio, see Settings, under Identity."
+    "burnerAssumed": "A burner may still be live, so nothing is saved for this identity. If this is a new radio, see Settings, under Identity.",
+    "identityChangedUnsaved": "The radio reconnected as a different identity. What the previous identity held only in this session was never saved, and has been cleared."
   },
   "command": {
     "title": "Find anything",

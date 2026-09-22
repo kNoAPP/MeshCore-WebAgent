@@ -110,6 +110,10 @@ export async function regenerateIdentity(
       // have landed after the write, and then the vault and the seeded
       // records are what the radio's new identity will need.
       if (!(err instanceof PrivateKeyError)) {
+        // If the key did land, the store's data moves with it as a handover's
+        // would: it is newer than the seeded records, and the next session as
+        // this identity must keep it rather than start from them.
+        markUnsavedRestore(pubkey);
         return {
           publicKey: pubkey,
           fingerprint,
