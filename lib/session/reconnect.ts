@@ -181,7 +181,7 @@ function scheduleReconnect(deps: ReconnectDeps): void {
     // from the `lastConnectFailure` set just below.
     store.notify({
       level: 'error',
-      text: i18n.t('toast.reconnectFailed', { device }),
+      text: i18n.t('notify.reconnectFailed', { device }),
       key: 'reconnectFailed',
       surface: 'silent',
     });
@@ -231,7 +231,7 @@ export function beginReconnect(deps: ReconnectDeps): void {
   // for the drawer and announces the drop, and nothing more.
   store.notify({
     level: 'info',
-    text: i18n.t('toast.connectionLost'),
+    text: i18n.t('notify.connectionLost'),
     key: 'connectionLost',
     surface: 'silent',
   });

@@ -242,7 +242,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                   errored = true;
                   notify({
                     level: 'error',
-                    text: t('toast.repeaterConfigError', {
+                    text: t('notify.repeaterConfigError', {
                       error: reply.trim(),
                     }),
                     key: `repeaterConfigError:read:${contactRef.current.pubkeyPrefix}:${setting.id}`,
@@ -263,7 +263,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                   );
                   notify({
                     level: 'error',
-                    text: t('toast.repeaterReadParseFailed', {
+                    text: t('notify.repeaterReadParseFailed', {
                       field: t(
                         `repeaterAdmin.config.fields.${setting.id}.label`,
                       ),
@@ -388,7 +388,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         if (!loaded('name') || !loaded('lat') || !loaded('lon')) {
           notify({
             level: 'error',
-            text: t('toast.repeaterLoadBeforeLocationEdit'),
+            text: t('notify.repeaterLoadBeforeLocationEdit'),
             key: 'repeaterLoadBeforeLocationEdit',
           });
           setDrafts((prev) => ({ ...prev, [id]: valuesRef.current[id] ?? '' }));
@@ -401,7 +401,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         if (utf8ByteLength(name) > nameMaxBytes(lat, lon)) {
           notify({
             level: 'error',
-            text: t('toast.repeaterNameTooLongForLocation'),
+            text: t('notify.repeaterNameTooLongForLocation'),
             key: 'repeaterNameTooLongForLocation',
           });
           setDrafts((prev) => ({ ...prev, [id]: valuesRef.current[id] ?? '' }));
@@ -454,7 +454,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         });
         if (!aliveRef.current) return;
         if (outcome.kind === 'rejected') {
-          const message = t('toast.repeaterConfigError', {
+          const message = t('notify.repeaterConfigError', {
             error: outcome.reply,
           });
           notify({
@@ -500,7 +500,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         }, 2000);
       } catch (err) {
         if (!aliveRef.current) return;
-        const message = t('toast.repeaterCliFailed', {
+        const message = t('notify.repeaterCliFailed', {
           error: (err as Error).message,
         });
         notify({
@@ -555,14 +555,14 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
         // own to hold a tick: transient, and no drawer row.
         notify({
           level: 'success',
-          text: t('toast.repeaterActionSent'),
+          text: t('notify.repeaterActionSent'),
           key: 'repeaterActionSent',
           surface: 'none',
         });
       } else if (outcome === 'timeout') {
         notify({
           level: 'warning',
-          text: t('toast.repeaterCliNoReply'),
+          text: t('notify.repeaterCliNoReply'),
           // Node-scoped like the rest of this tab's keys: the copy names no
           // node, so two silent repeaters would merge into one row that says
           // which of them went quiet.
@@ -634,7 +634,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
               if (isErrorReply(reply, radioSetting)) {
                 return {
                   applied,
-                  error: t('toast.repeaterConfigError', {
+                  error: t('notify.repeaterConfigError', {
                     error: reply.trim(),
                   }),
                 };
@@ -649,7 +649,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
               if (isErrorReply(reply, txSetting)) {
                 return {
                   applied,
-                  error: t('toast.repeaterConfigError', {
+                  error: t('notify.repeaterConfigError', {
                     error: reply.trim(),
                   }),
                 };
@@ -663,7 +663,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
             // still caches it before reporting the error.
             return {
               applied,
-              error: t('toast.repeaterCliFailed', {
+              error: t('notify.repeaterCliFailed', {
                 error: (err as Error).message,
               }),
             };
@@ -686,7 +686,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       // The editor closes on success — same receipt shape as the local radio's.
       notify({
         level: 'success',
-        text: t('toast.radioParamsSaved'),
+        text: t('notify.radioParamsSaved'),
         key: 'repeaterRadioSaved',
         surface: 'none',
       });
