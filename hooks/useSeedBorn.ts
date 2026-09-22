@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer } from 'react';
 import { useMeshStore } from '@/store/meshStore';
 import { hasSeedMarker } from '@/lib/storage';
 import {
@@ -11,31 +11,37 @@ import {
   registeredIdentityKey,
 } from '@/lib/identity/storageRoot';
 
+// Identities already found to be seed-born in this tab. A marker is never
+// deleted, so a hook mounted later (the wizard's first step, say) starts from
+// the answer instead of showing the flash-only copy until its own read lands.
+const knownSeedBorn = new Set<string>();
+
 /**
  * Whether the radio's live identity was made from a recovery phrase, so its
  * phrase already restores it.
  *
  * @remarks True once the identity's seed-born marker is read back
  * (`hasSeedMarker`), or while this tab holds its vault-derived key. False
- * until the marker read resolves, and for an identity minted before the
- * marker existed until its vault is next opened, which writes it.
+ * until the tab's first marker read for it resolves, and for an identity
+ * minted before the marker existed until its vault is next opened, which
+ * writes it.
  */
 export function useSeedBorn(): boolean {
   const pubkey = useMeshStore((s) => s.selfInfo?.pubkey);
-  // The identity last found to be seed-born, so a verdict for the previous
-  // identity cannot answer for the next.
-  const [marked, setMarked] = useState<string | null>(null);
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
 
   useEffect(() => {
     if (!pubkey) return;
     let live = true;
-    void hasSeedMarker(pubkey).then(
-      (seedBorn) => live && seedBorn && setMarked(pubkey),
-    );
+    const mark = () => {
+      knownSeedBorn.add(pubkey);
+      if (live) rerender();
+    };
+    void hasSeedMarker(pubkey).then((seedBorn) => seedBorn && mark());
     // A vault opened while this identity is live registers its key, and
     // marks it if it was minted before the marker existed.
     const off = onIdentityKeyRegistered((registered) => {
-      if (registered === pubkey.toLowerCase()) setMarked(pubkey);
+      if (registered === pubkey.toLowerCase()) mark();
     });
     return () => {
       live = false;
@@ -43,5 +49,7 @@ export function useSeedBorn(): boolean {
     };
   }, [pubkey]);
 
-  return !!pubkey && (marked === pubkey || !!registeredIdentityKey(pubkey));
+  return (
+    !!pubkey && (knownSeedBorn.has(pubkey) || !!registeredIdentityKey(pubkey))
+  );
 }
