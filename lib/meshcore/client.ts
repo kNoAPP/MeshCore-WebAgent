@@ -993,8 +993,8 @@ export class MeshCoreClient {
   // Pairs each pending live-push observation with the contact row the resync
   // just delivered, which carries that advert's sender timestamp. Both clocks
   // for one advert are known only here, so this is where skew is measured.
-  // Entries that no contact row answered, or that have aged past the window,
-  // are dropped rather than left to measure a later advert.
+  // Entries still unproven once they age past the window are dropped rather
+  // than left to measure a later advert.
   private foldAdvertObservations(): void {
     const nowSecs = Math.floor(Date.now() / 1000);
     for (const [prefix, seen] of Object.entries(this.advertObservations)) {
@@ -1011,8 +1011,8 @@ export class MeshCoreClient {
       // Past the window the pairing is refused however the claim looks: the
       // row may by then carry a later advert whose push never reached us, and
       // pairing our stale clock with it would invent a skew the size of that
-      // gap. A wrong skew is persisted and ages the node; a missed one costs a
-      // single sighting.
+      // gap. A wrong skew is persisted and ages the node; a missed one costs
+      // only that sighting's measurement.
       const measure =
         !expired &&
         contact?.lastAdvert !== undefined &&
@@ -1190,8 +1190,8 @@ export class MeshCoreClient {
   //
   // The flag arms only once a pass comes back full: arriving traffic is not a
   // backlog until one pass can't carry it, and arming on entry would silence
-  // every ordinary message. `init` arms up front, because a connect-time pass
-  // that came back full has already established the backlog.
+  // every ordinary message. `init` arms up front whenever its connect-time
+  // pass did not drain the queue.
   private async drainMessages(): Promise<void> {
     if (this.draining) return;
     this.draining = true;

@@ -313,10 +313,11 @@ export async function flushSessionAsync(): Promise<boolean> {
  * could write it.
  *
  * `APP_START` reports the incoming key from the import on, so the re-read
- * shows it in Settings and pairs a backup exported before that reboot with the
- * private key the radio exports. Moving the secrets context files a secret
- * saved in the meantime where the next session looks for it, and unloads the
- * outgoing identity's in-memory API key: secrets never cross identities.
+ * shows it in Settings and pairs a backup exported before the radio next
+ * restarts with the private key the radio exports. Moving the secrets context
+ * files a secret saved before the next session where that session looks for
+ * it, and unloads the outgoing identity's in-memory API key: secrets never
+ * cross identities.
  *
  * The re-read is best-effort; the next reconnect reads `SELF_INFO` afresh.
  * Persistence is bound to `pubkey` either way, so nothing in between is filed
