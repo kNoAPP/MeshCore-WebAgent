@@ -644,6 +644,7 @@
         "keeps": "The personas it lists are untouched, on the radio and in the records this browser keeps for each one.",
         "loses": "Their names, and the record of which identities this phrase made, are lost.",
         "keys": "Their storage keys can then only be re-derived from the recovery phrase.",
+        "unfinished": "A persona switch is unfinished, and only the vault that started it can finish it. If that is this vault, finish the switch before deleting it.",
         "action": "Delete vault",
         "failed": "Could not delete the vault from this device’s storage."
       },

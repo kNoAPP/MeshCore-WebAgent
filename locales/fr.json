@@ -645,6 +645,7 @@
         "keeps": "Les personas qu’il répertorie restent intactes, sur la radio et dans les enregistrements que ce navigateur conserve pour chacune.",
         "loses": "Leurs noms, et la trace des identités que cette phrase a créées, sont perdus.",
         "keys": "Leurs clés de stockage ne pourront alors être redérivées qu’à partir de la phrase de récupération.",
+        "unfinished": "Un changement de persona est inachevé, et seul le coffre qui l’a lancé peut le terminer. Si c’est ce coffre, terminez le changement avant de le supprimer.",
         "action": "Supprimer le coffre",
         "failed": "Impossible de supprimer le coffre du stockage de cet appareil."
       },

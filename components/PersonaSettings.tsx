@@ -205,6 +205,8 @@ function UnlockRow({
   const id = useId();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Set by Cancel, so the Delete button it brings back takes focus again.
+  const [cancelled, setCancelled] = useState(false);
   const [passphrase, setPassphrase] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -251,6 +253,7 @@ function UnlockRow({
         )}
         {!confirming && (
           <button
+            autoFocus={cancelled}
             onClick={() => {
               setOpen(false);
               setError(null);
@@ -268,6 +271,7 @@ function UnlockRow({
           busy={busy}
           onCancel={() => {
             setConfirming(false);
+            setCancelled(true);
             setError(null);
           }}
           onConfirm={() => void remove()}
@@ -326,6 +330,14 @@ function DeleteConfirm({
   onConfirm: () => void;
 }) {
   const { t } = useTranslation();
+  // A switch cut off by a reload is finished from its pending record. Only the
+  // vault that started it can open that, and which vault it was is sealed.
+  const sealedSwitch = useMeshStore(
+    (s) =>
+      s.personaSwitch?.stage === 'switching' &&
+      s.personaSwitch.state === null &&
+      !s.personaSwitch.burner,
+  );
   return (
     <div className='mt-2 rounded-md border border-red bg-red/10 p-3 text-xs leading-relaxed text-text'>
       <p className='font-semibold'>{t('settings.persona.delete.question')}</p>
@@ -333,6 +345,7 @@ function DeleteConfirm({
         <li>{t('settings.persona.delete.keeps')}</li>
         <li>{t('settings.persona.delete.loses')}</li>
         <li>{t('settings.persona.delete.keys')}</li>
+        {sealedSwitch && <li>{t('settings.persona.delete.unfinished')}</li>}
       </ul>
       <div className='mt-3 flex justify-end gap-2'>
         {/* Delete, which had focus, is gone: land on the safe choice. */}

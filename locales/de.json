@@ -645,6 +645,7 @@
         "keeps": "Die darin aufgeführten Personas bleiben unverändert, auf dem Funkgerät und in den Datensätzen, die dieser Browser für jede von ihnen speichert.",
         "loses": "Ihre Namen und die Aufzeichnung, welche Identitäten diese Phrase erstellt hat, gehen verloren.",
         "keys": "Ihre Speicherschlüssel lassen sich danach nur noch aus der Wiederherstellungsphrase ableiten.",
+        "unfinished": "Ein Persona-Wechsel ist nicht abgeschlossen, und nur der Tresor, der ihn gestartet hat, kann ihn abschließen. Ist es dieser Tresor, schließe den Wechsel ab, bevor du ihn löschst.",
         "action": "Tresor löschen",
         "failed": "Der Tresor konnte nicht aus dem Speicher dieses Geräts gelöscht werden."
       },
