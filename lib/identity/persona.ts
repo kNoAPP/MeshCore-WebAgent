@@ -335,6 +335,8 @@ function planApply(
         const contact = toContact(want);
         steps.push(() => client.addContact(contact));
       } else if (have.flags !== want.flags) {
+        // Re-sending the contact re-sends its route, so a multi-byte-hash
+        // route the mirror holds without its hops goes out as flood.
         const contact = withKnownRoute({ ...have, flags: want.flags });
         steps.push(() => client.addContact(contact));
       }

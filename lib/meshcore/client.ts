@@ -1036,8 +1036,14 @@ export class MeshCoreClient {
       try {
         await this.cmd(buildGetChannelInfo(i), [RESP.CHANNEL_INFO], 2000);
         this._unreadChannelSlots.delete(i);
-      } catch {
-        this._unreadChannelSlots.add(i);
+      } catch (err) {
+        // A device ERR is an answer — firmware without that slot says
+        // NOT_FOUND — so only a timeout or a dropped link leaves it unknown.
+        if (typeof (err as { code?: unknown }).code === 'number') {
+          this._unreadChannelSlots.delete(i);
+        } else {
+          this._unreadChannelSlots.add(i);
+        }
       }
     }
     this.callbacks.onChannelsUpdated?.(this.channels);
@@ -1942,8 +1948,9 @@ export class MeshCoreClient {
   }
 
   /**
-   * Channel slots the last channel sync could not read (`GET_CHANNEL_INFO`
-   * timed out). A slot here is missing from {@link channels} because its
+   * Channel slots the last channel sync got no answer for (`GET_CHANNEL_INFO`
+   * timed out or the link failed). A slot the radio refused with `ERR` is not
+   * here: that is an answer. A slot here is missing from {@link channels} because its
    * content is unknown, not because it is free.
    */
   get unreadChannelSlots(): ReadonlySet<number> {
