@@ -1047,10 +1047,11 @@ interface MeshActions {
    * or the link: history, conversations and drafts, the advert cache, the
    * per-radio preferences, automation, repeater sessions and telemetry.
    *
-   * @remarks For a persona switch, whose incoming identity must not inherit
-   * any of the outgoing one's data — the next hydrate merges into whatever the
-   * store holds, and would file it under the incoming identity. The link, the
-   * radio mirror, notifications and the open view are kept.
+   * @remarks For an identity switch (`beginIdentitySwitch`), whose incoming
+   * identity must not inherit any of the outgoing one's data — the next
+   * hydrate merges into whatever the store holds, and would file it under the
+   * incoming identity. The link, the radio mirror, notifications and the open
+   * view are kept.
    */
   resetIdentityData: () => void;
   setBattery: (b: BatteryInfo | null) => void;
