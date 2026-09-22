@@ -384,6 +384,17 @@
     "units_metric": "Métrico (km)",
     "units_imperial": "Imperial (mi)",
     "showFullPublicKeys": "Mostrar claves públicas completas",
+    "identityAccent": {
+      "label": "Color de identidad",
+      "hint": "Enmarca la cabecera y la barra de estado en este color mientras esta identidad está activa, para que sepas de un vistazo con cuál estás enviando.",
+      "none": "Sin color",
+      "teal": "Verde azulado",
+      "lime": "Lima",
+      "amber": "Ámbar",
+      "orange": "Naranja",
+      "pink": "Rosa",
+      "violet": "Violeta"
+    },
     "edit": "Editar",
     "editRadio": "Editar configuración de radio",
     "radioEdit": {

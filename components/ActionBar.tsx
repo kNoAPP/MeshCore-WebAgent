@@ -42,6 +42,7 @@ import {
   formatStorage,
   formatVoltage,
 } from '@/lib/i18n/format';
+import { IDENTITY_BOTTOM_FRAME_CLASS } from '@/lib/identity/accent';
 import { ApprovalInboxList } from './AutomationPanel';
 import { ModalShell } from './ModalShell';
 
@@ -73,12 +74,13 @@ const LEVEL_COLOR = {
 export function ActionBar() {
   const { t } = useTranslation();
   const connected = useMeshStore((s) => s.status === 'connected');
+  const accent = useMeshStore((s) => s.identityAccent);
   if (!connected) return null;
   return (
     <footer
       role='contentinfo'
       aria-label={t('actionBar.label')}
-      className='flex h-6 shrink-0 items-center gap-2 border-t border-border bg-surface px-2 text-xs text-text2'
+      className={`flex h-6 shrink-0 items-center gap-2 border-t border-border bg-surface px-2 text-xs text-text2 ${IDENTITY_BOTTOM_FRAME_CLASS[accent]}`}
     >
       <TransientNotice />
       <CatchUp />

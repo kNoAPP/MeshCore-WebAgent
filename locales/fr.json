@@ -384,6 +384,17 @@
     "units_metric": "Métrique (km)",
     "units_imperial": "Impérial (mi)",
     "showFullPublicKeys": "Afficher les clés publiques complètes",
+    "identityAccent": {
+      "label": "Couleur d’identité",
+      "hint": "Encadre l’en-tête et la barre d’état de cette couleur tant que cette identité est active, pour savoir d’un coup d’œil sous laquelle vous émettez.",
+      "none": "Aucune couleur",
+      "teal": "Sarcelle",
+      "lime": "Citron vert",
+      "amber": "Ambre",
+      "orange": "Orange",
+      "pink": "Rose",
+      "violet": "Violet"
+    },
     "edit": "Modifier",
     "editRadio": "Modifier les paramètres radio",
     "radioEdit": {

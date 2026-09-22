@@ -59,6 +59,11 @@ import {
 } from '@/lib/map/filters';
 import { DEFAULT_AI_PREF, normalizeAiPref, type AiPref } from '@/lib/ai/pref';
 import {
+  DEFAULT_IDENTITY_ACCENT,
+  normalizeIdentityAccent,
+  type IdentityAccent,
+} from '@/lib/identity/accent';
+import {
   DEFAULT_NOTIFY_PREF,
   normalizeNotifyPref,
   type NotifyPref,
@@ -326,6 +331,7 @@ export interface RadioPreferences {
   aiPref: AiPref;
   notifyPref: NotifyPref;
   showFullPublicKeys: boolean;
+  identityAccent: IdentityAccent;
 }
 
 /**
@@ -809,6 +815,11 @@ interface MeshState {
    * (otherwise truncated to a 4 + … + 4 hex preview).
    */
   showFullPublicKeys: boolean;
+  /**
+   * The color the app's chrome is framed in while this identity is live, so
+   * the one about to transmit is recognizable at a glance.
+   */
+  identityAccent: IdentityAccent;
   /** Provider/model the AI settings picker last selected (never the key). */
   aiPref: AiPref;
   /** Desktop notification scope and sound choice for this radio. */
@@ -1013,6 +1024,7 @@ interface MeshActions {
   setTheme: (theme: Theme) => void;
   setUnitSystem: (unitSystem: UnitSystem) => void;
   setShowFullPublicKeys: (showFullPublicKeys: boolean) => void;
+  setIdentityAccent: (identityAccent: IdentityAccent) => void;
   setAiPref: (aiPref: AiPref) => void;
   setNotifyPref: (pref: NotifyPref) => void;
   setMapPrefs: (prefs: MapPrefs) => void;
@@ -1303,6 +1315,7 @@ const initialState: MeshState = {
   theme: resolveInitialTheme(),
   unitSystem: DEFAULT_UNIT_SYSTEM,
   showFullPublicKeys: false,
+  identityAccent: DEFAULT_IDENTITY_ACCENT,
   aiPref: DEFAULT_AI_PREF,
   notifyPref: DEFAULT_NOTIFY_PREF,
   mapPrefs: null,
@@ -1429,6 +1442,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       contactView: initialState.contactView,
       unitSystem: initialState.unitSystem,
       showFullPublicKeys: initialState.showFullPublicKeys,
+      identityAccent: initialState.identityAccent,
       aiPref: initialState.aiPref,
       notifyPref: initialState.notifyPref,
       mapPrefs: null,
@@ -1509,6 +1523,8 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setShowFullPublicKeys: (showFullPublicKeys) => set({ showFullPublicKeys }),
 
+  setIdentityAccent: (identityAccent) => set({ identityAccent }),
+
   setAiPref: (aiPref) => set({ aiPref }),
 
   setNotifyPref: (notifyPref) => set({ notifyPref }),
@@ -1561,6 +1577,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         typeof p.showFullPublicKeys === 'boolean'
           ? p.showFullPublicKeys
           : false,
+      identityAccent: normalizeIdentityAccent(p.identityAccent),
       prefsHydrated: true,
     }));
   },
@@ -2210,6 +2227,7 @@ export function selectPreferences(
     aiPref: state.aiPref,
     notifyPref: state.notifyPref,
     showFullPublicKeys: state.showFullPublicKeys,
+    identityAccent: state.identityAccent,
   };
 }
 
