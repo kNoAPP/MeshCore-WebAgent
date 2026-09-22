@@ -150,15 +150,19 @@ export async function applyBackup(
   state.restoreAutomationRules(
     mergeAutomationRules(state.automationRules, payload.automationRules),
   );
+  // The accent names an identity, so it only comes along when the data it
+  // lands in is that identity's: this one's own backup, or a restore that is
+  // about to become it. A restore the radio then refuses puts it back.
+  const ownBackup = payload.pubkey === liveNamespace(client);
+  const liveAccent = state.identityAccent;
+  const keepLiveAccent = () => {
+    if (!ownBackup) state.setIdentityAccent(liveAccent);
+  };
   if (payload.preferences) {
     // `explicit`: the preview promised the file's preferences replace the
     // current ones, so this must override the hydrate-race guards too.
-    // The accent names an identity, so it only comes along when the data it
-    // lands in is that identity's — this one's own backup, or a restore that
-    // is about to become it.
     const sameIdentity =
-      (!!client && opts.restoreIdentity && !!payload.identityHex) ||
-      payload.pubkey === liveNamespace(client);
+      ownBackup || (!!client && opts.restoreIdentity && !!payload.identityHex);
     state.restorePreferences(
       importablePreferences(payload.preferences, sameIdentity),
       true,
@@ -191,6 +195,7 @@ export async function applyBackup(
     // firmware's `validatePrivateKey` refuses too, so it fails as that refusal
     // would, without sending the key.
     identity.fill(0);
+    keepLiveAccent();
     unsavedUnless(await flushSessionAsync(), liveNamespace(client));
     throw new PrivateKeyError('rejected');
   }
@@ -221,6 +226,7 @@ export async function applyBackup(
     // The radio kept its identity, so this session's own namespace is still
     // the one the user reads from — persist there before surfacing the
     // failure, or a refused key would also cost them the restored data.
+    keepLiveAccent();
     unsavedUnless(await flushSessionAsync(), liveNamespace(client));
     throw err;
   }
