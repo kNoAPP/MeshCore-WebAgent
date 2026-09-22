@@ -140,8 +140,8 @@ export async function recordInVault(
  * outgoing one's data ({@link beginIdentitySwitch}), and must then be
  * restarted to hydrate whichever identity the radio reports, which is the
  * caller's to do. An unacknowledged import is moved too: it may have landed,
- * and a restart as the outgoing identity only reloads that identity's
- * records.
+ * and a restart as the outgoing identity reloads that identity's records,
+ * losing only what was never saved, such as drafts and unread markers.
  *
  * The vault is written first and kept whatever the radio does: it records only
  * that the phrase derives this identity, which a refusal does not change.

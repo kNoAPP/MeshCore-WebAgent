@@ -450,9 +450,9 @@ export async function beginIdentityHandover(
 /**
  * Moves this session onto an identity the radio has just been given whose
  * data this store does not hold: persists the outgoing identity's records
- * where they are, then stops writing them, clears that identity's data from
- * the store (`resetIdentityData`), binds the secrets context to the incoming
- * identity, and re-reads `SELF_INFO`.
+ * where they are, then stops writing them, binds the secrets context to the
+ * incoming identity, re-reads `SELF_INFO`, and clears the outgoing identity's
+ * data from the store (`resetIdentityData`).
  *
  * @remarks For a restore from a recovery phrase or a persona switch, where
  * the incoming identity keeps whatever records it already has here. Nothing
@@ -483,7 +483,6 @@ export async function beginIdentitySwitch(
   await flushSessionAsync();
   binding = null;
   switchPending = true;
-  useMeshStore.getState().resetIdentityData();
   const incoming =
     pubkey === null ? null : await deriveSessionKey(client.channels, pubkey);
   // A burner stores nothing, and a seed-born identity whose vault is not open
@@ -494,6 +493,10 @@ export async function beginIdentitySwitch(
     setSecretContext(pubkey, incoming.key);
   }
   await client.refreshSelfInfo().catch(() => {});
+  // After the last await: a persona switch installs the key only once this
+  // returns, so the radio is still the outgoing identity until then, and
+  // anything it received meanwhile has to be cleared along with the rest.
+  useMeshStore.getState().resetIdentityData();
 }
 
 /**
