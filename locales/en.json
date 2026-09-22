@@ -647,6 +647,7 @@
       "switchBrowser": "Message history, discovered nodes, preferences and automation rules in this browser switch to this persona's own.",
       "switchContacts": "Peers know each persona by its own key. Contacts reach this persona only if they added it.",
       "heardElsewhere": "{{name}} has been heard on the mesh during this session, so another radio is running it. Two radios with one identity break message delivery and acknowledgements for both. Switch only if that radio has stopped using it.",
+      "liveElsewhere": "The last switch from this device made {{name}} live on a radio, and it has not been switched away from there. If that radio still runs it, two radios with one identity break message delivery and acknowledgements for both. Switch only if that radio has stopped using it.",
       "heardElsewhereAck": "The other radio no longer uses this identity",
       "announce": "Announce the persona to the whole mesh when done",
       "switchAction": "Switch persona",
@@ -667,7 +668,6 @@
       "resumeWrongPassphrase": "No vault on this device opens with that passphrase and holds this switch.",
       "resumeAction": "Finish switch",
       "resumeLater": "Not now",
-      "resumeFailed": "The switch stopped again: {{error}}",
       "error": {
         "notInVault": "The radio's current identity is not one of this phrase's personas.",
         "phraseMismatch": "That is not the recovery phrase for this vault.",

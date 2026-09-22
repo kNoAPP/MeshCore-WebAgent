@@ -648,6 +648,7 @@
       "switchBrowser": "Nachrichtenverlauf, entdeckte Knoten, Einstellungen und Automatisierungsregeln in diesem Browser wechseln zu denen dieser Persona.",
       "switchContacts": "Andere kennen jede Persona an ihrem eigenen Schlüssel. Kontakte erreichen diese Persona nur, wenn sie sie hinzugefügt haben.",
       "heardElsewhere": "{{name}} wurde in dieser Sitzung im Mesh gehört, also nutzt ein anderes Funkgerät diese Identität. Zwei Funkgeräte mit derselben Identität stören Zustellung und Bestätigungen für beide. Wechsle nur, wenn jenes Gerät sie nicht mehr nutzt.",
+      "liveElsewhere": "Der letzte Wechsel von diesem Gerät hat {{name}} auf einem Funkgerät aktiviert, und dort wurde seitdem nicht gewechselt. Nutzt jenes Gerät sie noch, stören zwei Funkgeräte mit derselben Identität Zustellung und Bestätigungen für beide. Wechsle nur, wenn jenes Gerät sie nicht mehr nutzt.",
       "heardElsewhereAck": "Das andere Funkgerät nutzt diese Identität nicht mehr",
       "announce": "Persona danach im ganzen Mesh ankündigen",
       "switchAction": "Persona wechseln",
@@ -668,7 +669,6 @@
       "resumeWrongPassphrase": "Kein Tresor auf diesem Gerät öffnet sich mit dieser Passphrase und enthält diesen Wechsel.",
       "resumeAction": "Wechsel abschließen",
       "resumeLater": "Später",
-      "resumeFailed": "Der Wechsel wurde erneut unterbrochen: {{error}}",
       "error": {
         "notInVault": "Die aktuelle Identität des Funkgeräts gehört zu keiner Persona dieser Phrase.",
         "phraseMismatch": "Das ist nicht die Wiederherstellungsphrase dieses Tresors.",

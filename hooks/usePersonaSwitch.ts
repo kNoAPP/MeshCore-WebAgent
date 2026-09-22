@@ -9,6 +9,7 @@ import { applyPersona, type PersonaState } from '@/lib/identity/persona';
 import {
   installPersonaKey,
   preparePersonaSwitch,
+  recordLive,
   verifyPersonaKey,
 } from '@/lib/identity/personaSwitch';
 import type { Vault, VaultIdentity } from '@/lib/identity/vault';
@@ -170,6 +171,7 @@ export function usePersonaSwitch(): {
       // The identity the radio was mid-switch onto is gone from it again, and
       // its good persona record was never overwritten.
       if (untouched) await deletePendingPersona(untouched.target);
+      await recordLive(vault, target.publicKey, outgoing);
       setProgress({ stage: 'syncing' });
       await client.resyncContacts();
       await apply(record, state, signal);

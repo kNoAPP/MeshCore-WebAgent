@@ -648,6 +648,7 @@
       "switchBrowser": "El historial de mensajes, los nodos descubiertos, las preferencias y las reglas de automatización de este navegador pasan a ser los de esta persona.",
       "switchContacts": "Los demás conocen cada persona por su propia clave. Los contactos solo llegan a esta persona si la añadieron.",
       "heardElsewhere": "Se ha oído a {{name}} en la malla durante esta sesión, así que otra radio la está usando. Dos radios con una misma identidad rompen la entrega de mensajes y las confirmaciones para ambas. Cambia solo si esa radio ha dejado de usarla.",
+      "liveElsewhere": "El último cambio desde este dispositivo activó {{name}} en una radio, y allí no se ha cambiado a otra. Si esa radio aún la usa, dos radios con una misma identidad rompen la entrega de mensajes y las confirmaciones para ambas. Cambia solo si esa radio ha dejado de usarla.",
       "heardElsewhereAck": "La otra radio ya no usa esta identidad",
       "announce": "Anunciar la persona a toda la malla al terminar",
       "switchAction": "Cambiar de persona",
@@ -668,7 +669,6 @@
       "resumeWrongPassphrase": "Ninguna bóveda de este dispositivo se abre con esa contraseña y contiene este cambio.",
       "resumeAction": "Terminar el cambio",
       "resumeLater": "Ahora no",
-      "resumeFailed": "El cambio se detuvo de nuevo: {{error}}",
       "error": {
         "notInVault": "La identidad actual de la radio no es una de las personas de esta frase.",
         "phraseMismatch": "Esa no es la frase de recuperación de esta bóveda.",

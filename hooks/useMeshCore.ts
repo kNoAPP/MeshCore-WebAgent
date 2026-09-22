@@ -27,6 +27,7 @@ import {
   loadAutomationRules,
   loadAdvertCache,
   loadPreferences,
+  deletePendingPersona,
   hasPendingPersona,
 } from '@/lib/storage';
 import {
@@ -560,21 +561,36 @@ export function useMeshCore() {
         // runs with persistence off until the switch is finished, which
         // restarts it. The switch's pending record says so after a page reload
         // too, when the store's record is gone. A radio on the outgoing
-        // identity is either one that never took the key or another radio
-        // running it; either way this session's record is done, while the
-        // pending record, filed under the incoming key, still guards a radio
-        // that did take it.
-        const pending = useMeshStore.getState().personaSwitch;
+        // identity never took the key (or is another radio running it, which
+        // the switch dialog warns against), so the switch is over, and its
+        // pending record would only gate that identity's next arrival.
+        const store0 = useMeshStore.getState();
+        const pending = store0.personaSwitch;
         const reported = pubkey?.toLowerCase();
+        if (pending?.stage === 'switching' && reported === pending.outgoing) {
+          store0.setPersonaSwitch(null);
+          void deletePendingPersona(pending.target);
+          notify({
+            level: 'warning',
+            text: i18n.t('toast.personaSwitchNotLanded', {
+              name: pending.label,
+            }),
+            key: 'personaSwitchNotLanded',
+          });
+        }
         let unfinishedSwitch =
           pending?.stage === 'switching' && reported === pending.target;
-        if (
+        if (pending?.stage === 'done' && reported === pending.target) {
+          // The finished switch's own restart: a pending record still here is
+          // one whose delete failed, not a switch in progress.
+          void deletePendingPersona(reported);
+        } else if (
           reported &&
           !unfinishedSwitch &&
           (await hasPendingPersona(reported))
         ) {
           unfinishedSwitch = true;
-          useMeshStore.getState().setPersonaSwitch({
+          store0.setPersonaSwitch({
             target: reported,
             outgoing: '',
             label: '',
@@ -583,16 +599,6 @@ export function useMeshCore() {
             stage: 'switching',
             running: false,
             dismissed: false,
-          });
-        }
-        if (pending?.stage === 'switching' && reported === pending.outgoing) {
-          useMeshStore.getState().setPersonaSwitch(null);
-          notify({
-            level: 'warning',
-            text: i18n.t('toast.personaSwitchNotLanded', {
-              name: pending.label,
-            }),
-            key: 'personaSwitchNotLanded',
           });
         }
         if (pubkey && sessionAlive() && !unfinishedSwitch) {

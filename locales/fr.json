@@ -648,6 +648,7 @@
       "switchBrowser": "L’historique des messages, les nœuds découverts, les préférences et les règles d’automatisation de ce navigateur passent à ceux de cette persona.",
       "switchContacts": "Les pairs connaissent chaque persona par sa propre clé. Les contacts n’atteignent cette persona que s’ils l’ont ajoutée.",
       "heardElsewhere": "{{name}} a été entendue sur le maillage pendant cette session : une autre radio l’utilise. Deux radios avec la même identité perturbent la livraison des messages et les accusés de réception pour les deux. Ne basculez que si cette radio ne l’utilise plus.",
+      "liveElsewhere": "Le dernier basculement depuis cet appareil a activé {{name}} sur une radio, et celle-ci n’a pas basculé depuis. Si cette radio l’utilise encore, deux radios avec la même identité perturbent la livraison des messages et les accusés de réception pour les deux. Ne basculez que si cette radio ne l’utilise plus.",
       "heardElsewhereAck": "L’autre radio n’utilise plus cette identité",
       "announce": "Annoncer la persona à tout le maillage à la fin",
       "switchAction": "Basculer de persona",
@@ -668,7 +669,6 @@
       "resumeWrongPassphrase": "Aucun coffre de cet appareil ne s’ouvre avec cette phrase secrète en contenant ce basculement.",
       "resumeAction": "Terminer le basculement",
       "resumeLater": "Plus tard",
-      "resumeFailed": "Le basculement s’est de nouveau arrêté : {{error}}",
       "error": {
         "notInVault": "L’identité actuelle de la radio n’est pas une persona de cette phrase.",
         "phraseMismatch": "Ce n’est pas la phrase de récupération de ce coffre.",

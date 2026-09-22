@@ -82,6 +82,15 @@ export interface VaultIdentity {
   publicKey: string;
   /** The user's name for this persona. Free text; may be empty. */
   label: string;
+  /**
+   * Whether a persona switch from this device last made this identity live
+   * on a radio, and no switch has taken it off since. Absent means false.
+   *
+   * @remarks Only switches through the vault set or clear it, so it can be
+   * stale — a radio reset or re-flashed out of band still counts as live. It
+   * is a reason to warn, never to refuse.
+   */
+  live?: boolean;
 }
 
 /**
@@ -540,7 +549,8 @@ function isVaultIdentity(v: unknown): v is VaultIdentity {
         (v.index as number) <= MAX_SUB_IDENTITY_INDEX)) &&
     typeof v.publicKey === 'string' &&
     /^[0-9a-f]{64}$/.test(v.publicKey) &&
-    typeof v.label === 'string'
+    typeof v.label === 'string' &&
+    (v.live === undefined || typeof v.live === 'boolean')
   );
 }
 

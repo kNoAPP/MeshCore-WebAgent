@@ -165,6 +165,35 @@ export async function verifyPersonaKey(
 }
 
 /**
+ * Records in the vault that `incoming` is now live on a radio and `outgoing`
+ * no longer is, so a later switch onto `incoming` from another radio can be
+ * warned about.
+ *
+ * @remarks Best-effort: a vault that cannot be saved (another tab changed
+ * it, or IndexedDB failed) is left as it was, since the switch itself has
+ * already happened and a stale flag only costs a warning.
+ */
+export async function recordLive(
+  vault: Vault,
+  incoming: string,
+  outgoing: string,
+): Promise<void> {
+  const before = vault.identities;
+  vault.identities = before.map((i) =>
+    i.publicKey === incoming
+      ? { ...i, live: true }
+      : i.publicKey === outgoing
+        ? { ...i, live: false }
+        : i,
+  );
+  try {
+    if (!(await saveVault(vault))) vault.identities = before;
+  } catch {
+    vault.identities = before;
+  }
+}
+
+/**
  * Keeps the outgoing persona and works out what the incoming one needs,
  * without sending anything to the radio.
  *

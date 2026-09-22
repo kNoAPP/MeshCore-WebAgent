@@ -51,9 +51,10 @@ const noop = () => {};
  * Makes one of an unlocked vault's personas live on the radio.
  *
  * @remarks Asks for the recovery phrase unless the vault remembers it, since
- * the vault holds no private keys. Warns hard when the incoming identity has
- * been heard on the mesh this session: another radio is running it, and two
- * radios on one key break message dedup and acknowledgements for both.
+ * the vault holds no private keys. Warns hard when another radio seems to be
+ * running the incoming identity — it has been heard on the mesh this
+ * session, or the vault last saw a switch make it live — since two radios on
+ * one key break message dedup and acknowledgements for both.
  *
  * Cancelling while the persona is being applied stops before the next radio
  * command. The radio then holds the new key and part of its persona, which
@@ -80,6 +81,10 @@ export function PersonaSwitchModal({
       Object.values(s.adverts).some((a) => a.pubkey === target.publicKey) ||
       Object.values(s.contacts).some((c) => c.pubkey === target.publicKey),
   );
+  // The vault last saw it go live, and the radio in hand is not it: another
+  // radio is running it, whether or not it has been heard.
+  const liveElsewhere = !heardElsewhere && !!target.live;
+  const warned = heardElsewhere || liveElsewhere;
   const { start, progress } = usePersonaSwitch();
   const [phrase, setPhrase] = useState('');
   const [announce, setAnnounce] = useState(true);
@@ -95,7 +100,7 @@ export function PersonaSwitchModal({
   const needsPhrase = vault.phrase === null;
   const canSwitch =
     !busy &&
-    (!heardElsewhere || acknowledged) &&
+    (!warned || acknowledged) &&
     (!needsPhrase || (!!phrase.trim() && unknownWords(phrase).length === 0));
 
   const run = async () => {
@@ -175,13 +180,18 @@ export function PersonaSwitchModal({
             <li>{t('settings.persona.switchBrowser')}</li>
             <li>{t('settings.persona.switchContacts')}</li>
           </ul>
-          {heardElsewhere && (
+          {warned && (
             <div
               role='alert'
               className='mb-4 rounded-md border border-red bg-red/10 p-3'
             >
               <p className='mb-2 text-xs leading-relaxed text-text'>
-                {t('settings.persona.heardElsewhere', { name: target.label })}
+                {t(
+                  heardElsewhere
+                    ? 'settings.persona.heardElsewhere'
+                    : 'settings.persona.liveElsewhere',
+                  { name: target.label },
+                )}
               </p>
               <Switch
                 label={t('settings.persona.heardElsewhereAck')}

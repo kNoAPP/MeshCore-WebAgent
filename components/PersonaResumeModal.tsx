@@ -77,11 +77,7 @@ export function PersonaResumeModal() {
       await finish(controller.signal, state ?? undefined);
     } catch (err) {
       if (!controller.signal.aborted) {
-        setError(
-          t('settings.persona.resumeFailed', {
-            error: switchErrorMessage(err),
-          }),
-        );
+        setError(switchErrorMessage(err));
       }
     } finally {
       abort.current = null;

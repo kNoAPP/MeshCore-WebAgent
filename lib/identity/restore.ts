@@ -4,6 +4,7 @@
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { PrivateKeyError } from '@/lib/meshcore/errors';
 import { beginIdentitySwitch } from '@/lib/session/persistence';
+import { deletePendingPersona } from '@/lib/storage';
 import { toHex } from '@/lib/utils';
 import { identityFromMnemonic } from './seed';
 import {
@@ -168,6 +169,9 @@ export async function restoreIdentity(
   } finally {
     privateKey.fill(0);
   }
+  // A persona switch onto this identity that never finished is superseded:
+  // the restore puts the identity back as it is, not as that switch left it.
+  await deletePendingPersona(toHex(publicKey));
   await beginIdentitySwitch(client, toHex(publicKey));
   return true;
 }
