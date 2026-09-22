@@ -374,7 +374,13 @@ function planApply(
   ) {
     steps.push(() => client.setLocation(location.lat, location.lon));
   }
-  if (locationPolicy !== null && info?.advLocPolicy !== locationPolicy) {
+  // A radio whose SELF_INFO predates the policy byte cannot report its other
+  // prefs either, so setLocationPolicy would throw mid-apply, after the key.
+  if (
+    locationPolicy !== null &&
+    info?.advLocPolicy !== undefined &&
+    info.advLocPolicy !== locationPolicy
+  ) {
     steps.push(() => client.setLocationPolicy(locationPolicy));
   }
 
