@@ -11,9 +11,6 @@ import type { MnemonicLength } from '@/lib/identity/seed';
 const LENGTHS: MnemonicLength[] = [12, 15, 18, 21, 24];
 const WORDS = new Set(BIP39_ENGLISH);
 
-// The phrase travels as its boxes joined by single spaces, so an empty box
-// between filled ones survives as an empty word. Trailing empty boxes are
-// dropped, so a phrase nothing was typed into is ''.
 function boxesOf(phrase: string, length: number): string[] {
   const words = phrase ? phrase.split(' ') : [];
   return Array.from({ length }, (_, i) => words[i] ?? '');
@@ -44,8 +41,9 @@ export function unknownWords(
  * the create wizard shows, so each word on paper has an obvious place.
  *
  * @remarks Space or Enter moves to the next box and Backspace in an empty box
- * to the previous one. Pasting several words spreads them across the boxes; a
- * whole phrase pasted anywhere fills them from the first and sets the length.
+ * to the previous one. Pasting several words spreads them from the box pasted
+ * into; a whole phrase too long to fit there fills from the first box and
+ * sets the length.
  *
  * @param value - the words joined by single spaces, as {@link unknownWords}
  * and the seed functions read it.
@@ -69,7 +67,7 @@ export function PhraseInput({
   });
   const [focused, setFocused] = useState<number | null>(null);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
-  // A box to focus once a spread has rendered, which may have added boxes.
+  // A box to focus once a spread that changed the box count has rendered.
   const pendingFocus = useRef<number | null>(null);
   const boxes = boxesOf(value, length);
 
@@ -79,6 +77,9 @@ export function PhraseInput({
     pendingFocus.current = null;
   });
 
+  // The phrase travels as its boxes joined by single spaces, so an empty box
+  // between filled ones survives as an empty word. Trailing empty boxes are
+  // dropped, so a phrase nothing was typed into is ''.
   const emit = (next: string[]) => onChange(next.join(' ').trimEnd());
 
   const focusBox = (i: number) => {
@@ -89,7 +90,10 @@ export function PhraseInput({
 
   const spread = (at: number, text: string) => {
     const words = text.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    const whole = LENGTHS.find((n) => n === words.length);
+    // Words that fit from this box land here, so a long phrase can go in
+    // piece by piece; a whole phrase that does not fit refills from box 1.
+    const fits = at + words.length <= length;
+    const whole = fits ? undefined : LENGTHS.find((n) => n === words.length);
     const start = whole ? 0 : at;
     const nextLength =
       whole ??
@@ -99,9 +103,16 @@ export function PhraseInput({
     words.forEach((word, i) => {
       if (start + i < nextLength) next[start + i] = word;
     });
-    setLength(nextLength);
+    const target = Math.min(start + words.length, nextLength - 1);
     emit(next);
-    pendingFocus.current = Math.min(start + words.length, nextLength - 1);
+    // An unchanged spread, such as a space typed after a word, renders
+    // nothing, so a deferred focus would wait for some later render.
+    if (nextLength === length) {
+      focusBox(target);
+    } else {
+      setLength(nextLength);
+      pendingFocus.current = target;
+    }
   };
 
   const flagged = boxes.flatMap((word, index) => {
