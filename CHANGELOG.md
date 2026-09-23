@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.35.0...v2.0.0) (2026-09-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **identity:** remove personas and the identity vault ([#436](https://github.com/kNoAPP/MeshCore-WebAgent/issues/436))
+
+### Features
+
+* **identity:** remove personas and the identity vault ([#436](https://github.com/kNoAPP/MeshCore-WebAgent/issues/436)) ([7ec22ba](https://github.com/kNoAPP/MeshCore-WebAgent/commit/7ec22baecd302ca13f51ed10becec49bc5d0effc))
+
 ## [1.35.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.34.0...v1.35.0) (2026-09-23)
 
 
