@@ -42,8 +42,8 @@ export function unknownWords(
  *
  * @remarks Space or Enter moves to the next box and Backspace in an empty box
  * to the previous one. Pasting several words spreads them from the box pasted
- * into; a whole phrase too long to fit there fills from the first box and
- * sets the length.
+ * into. A whole phrase replaces the entry and sets the length when it is too
+ * long to fit there, or when pasted into box 1 ahead of words already typed.
  *
  * @param value - the words joined by single spaces, as {@link unknownWords}
  * and the seed functions read it.
@@ -91,9 +91,14 @@ export function PhraseInput({
   const spread = (at: number, text: string) => {
     const words = text.toLowerCase().trim().split(/\s+/).filter(Boolean);
     // Words that fit from this box land here, so a long phrase can go in
-    // piece by piece; a whole phrase that does not fit refills from box 1.
+    // piece by piece. A whole phrase that does not fit, or that goes into box
+    // 1 ahead of leftover words, replaces the entry instead of mixing in.
     const fits = at + words.length <= length;
-    const whole = fits ? undefined : LENGTHS.find((n) => n === words.length);
+    const replaces =
+      !fits || (at === 0 && boxes.slice(words.length).some(Boolean));
+    const whole = replaces
+      ? LENGTHS.find((n) => n === words.length)
+      : undefined;
     const start = whole ? 0 : at;
     const nextLength =
       whole ??
