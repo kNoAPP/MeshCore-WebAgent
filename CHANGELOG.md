@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.35.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.34.0...v1.35.0) (2026-09-23)
+
+
+### Features
+
+* **ui:** brighten light-mode identity frames and add passphrase reveal ([#435](https://github.com/kNoAPP/MeshCore-WebAgent/issues/435)) ([9bb9ba7](https://github.com/kNoAPP/MeshCore-WebAgent/commit/9bb9ba720de220706c42bb3049824429e08cfbeb))
+* **ui:** enter a recovery phrase one word per numbered box ([#434](https://github.com/kNoAPP/MeshCore-WebAgent/issues/434)) ([69fe5c2](https://github.com/kNoAPP/MeshCore-WebAgent/commit/69fe5c2338399f269f252174658901361577d22b))
+
 ## [1.34.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.33.1...v1.34.0) (2026-09-22)
 
 
