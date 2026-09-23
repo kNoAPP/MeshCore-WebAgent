@@ -11,34 +11,11 @@ import {
 import { deleteRadioRecords } from '@/lib/storage';
 import { toHex } from '@/lib/utils';
 import { identityFromMnemonic } from './seed';
-import {
-  createVault,
-  deleteVault,
-  fingerprintPhrase,
-  lockVault,
-  saveVault,
-  VaultError,
-  type Vault,
-  type VaultIdentity,
-} from './vault';
-
-/**
- * The vault for a {@link regenerateIdentity} run could not be written. Nothing
- * reached the radio. The message is the underlying failure's.
- */
-export class RegenerateError extends Error {
-  constructor(cause: unknown) {
-    super((cause as Error).message, { cause });
-    this.name = 'RegenerateError';
-  }
-}
 
 /** What {@link regenerateIdentity} left behind once the key was sent. */
 export interface RegenerateResult {
   /** The public key the phrase derives, lowercase hex. */
   publicKey: string;
-  /** The vault's fingerprint, for {@link settleUnconfirmed}. */
-  fingerprint: string;
   /**
    * Whether the radio acknowledged the import. False when the exchange timed
    * out, the link dropped, or the device answered with an error this app does
@@ -56,14 +33,12 @@ export interface RegenerateResult {
 
 /**
  * Replaces the radio's identity with the one a freshly generated recovery
- * phrase derives, recording it in a new vault first.
+ * phrase derives.
  *
  * @remarks
- * The vault is written before the radio is touched, so a device that cannot
- * store it stops the run while the outgoing identity is still intact. This
- * browser's data is then written under the incoming identity too
+ * This browser's data is written under the incoming identity first
  * ({@link seedIdentityNamespace}), so it is there whichever identity the radio
- * comes back as. A radio that refuses the key takes both with it.
+ * comes back as. A radio that refuses the key takes it with it.
  *
  * An acknowledged import hands the session over to the incoming identity
  * exactly as a backup restore does ({@link beginIdentityHandover}), because
@@ -74,31 +49,17 @@ export interface RegenerateResult {
  * Does not reboot the radio, and proves nothing about what it will report:
  * that needs a restart and a fresh `SELF_INFO`, which is the caller's to do.
  *
- * @param phrase - a phrase this flow generated. Only for one: a vault that
- * already exists for it is taken to be an earlier, failed attempt of the same
- * run and replaced.
- * @param label - the identity's name in the vault.
  * @throws `SeedPhraseError` for a malformed phrase.
  * @throws `PrivateKeyError` when the radio refuses the key; nothing has
- * changed on the radio, in the vault, or in storage.
- * @throws {@link RegenerateError} when the vault could not be written.
+ * changed on the radio or in storage.
  */
 export async function regenerateIdentity(
   client: MeshCoreClient,
   phrase: string,
-  passphrase: string,
-  rememberPhrase: boolean,
-  label: string,
 ): Promise<RegenerateResult> {
   const { privateKey, publicKey } = await identityFromMnemonic(phrase);
   const pubkey = toHex(publicKey);
-  let fingerprint: string;
   try {
-    fingerprint = await writeVault(phrase, passphrase, rememberPhrase, {
-      index: null,
-      publicKey: pubkey,
-      label,
-    });
     const seeded = await seedIdentityNamespace(client, pubkey);
     // The next connect as this identity must keep the store's data rather
     // than normalize it away against an absent blob, as for a backup restore.
@@ -107,22 +68,16 @@ export async function regenerateIdentity(
       await client.importPrivateKey(privateKey);
     } catch (err) {
       // Only a refusal proves the radio kept its identity. Anything else may
-      // have landed after the write, and then the vault and the seeded
-      // records are what the radio's new identity will need.
+      // have landed after the write, and then the seeded records are what the
+      // radio's new identity will need.
       if (!(err instanceof PrivateKeyError)) {
         // If the key did land, the store's data moves with it as a handover's
         // would: it is newer than the seeded records, and the next session as
         // this identity must keep it rather than start from them.
         markUnsavedRestore(pubkey);
-        return {
-          publicKey: pubkey,
-          fingerprint,
-          confirmed: false,
-          persisted: seeded,
-        };
+        return { publicKey: pubkey, confirmed: false, persisted: seeded };
       }
       // Unconditionally: a partial seed still left records behind.
-      await deleteVault(fingerprint);
       await deleteRadioRecords(pubkey);
       throw err;
     }
@@ -132,7 +87,7 @@ export async function regenerateIdentity(
 
   const persisted = await beginIdentityHandover(client, pubkey);
   if (!persisted) markUnsavedRestore(pubkey);
-  return { publicKey: pubkey, fingerprint, confirmed: true, persisted };
+  return { publicKey: pubkey, confirmed: true, persisted };
 }
 
 /**
@@ -140,66 +95,18 @@ export async function regenerateIdentity(
  * restarted radio has shown which identity it holds.
  *
  * @remarks An acknowledged import is tidied by the handover itself. An
- * unacknowledged one leaves both namespaces written and the vault in place,
- * since either identity could come back: once one has, the other's records
- * describe a node that does not exist.
+ * unacknowledged one leaves both namespaces written, since either identity
+ * could come back: once one has, the other's records describe a node that
+ * does not exist.
  *
  * @param landed - whether the radio came back as the incoming identity. If it
- * did, the outgoing identity's records go; if not, the vault and the incoming
- * identity's records do, since that identity was never installed.
+ * did, the outgoing identity's records go; if not, the incoming identity's
+ * do, since that identity was never installed.
  */
 export async function settleUnconfirmed(
-  result: Pick<RegenerateResult, 'publicKey' | 'fingerprint'>,
+  incoming: string,
   outgoing: string,
   landed: boolean,
 ): Promise<void> {
-  if (landed) {
-    await deleteRadioRecords(outgoing);
-    return;
-  }
-  await deleteVault(result.fingerprint);
-  await deleteRadioRecords(result.publicKey);
-}
-
-// Creates the vault listing `identity`, and returns its fingerprint.
-async function writeVault(
-  phrase: string,
-  passphrase: string,
-  rememberPhrase: boolean,
-  identity: VaultIdentity,
-): Promise<string> {
-  let vault: Vault;
-  try {
-    vault = await createFreshVault(phrase, passphrase, rememberPhrase);
-  } catch (err) {
-    throw new RegenerateError(err);
-  }
-  try {
-    vault.identities.push(identity);
-    if (!(await saveVault(vault))) throw new Error('IndexedDB write failed');
-    return vault.fingerprint;
-  } catch (err) {
-    // Nothing reached the radio, so a vault listing no identity would only
-    // meet the next attempt as a leftover.
-    await deleteVault(vault.fingerprint);
-    throw new RegenerateError(err);
-  } finally {
-    lockVault(vault);
-  }
-}
-
-async function createFreshVault(
-  phrase: string,
-  passphrase: string,
-  rememberPhrase: boolean,
-) {
-  try {
-    return await createVault(phrase, passphrase, rememberPhrase);
-  } catch (err) {
-    if (!(err instanceof VaultError && err.code === 'exists')) throw err;
-    // A generated phrase is new to every device, so the only vault that can
-    // already hold it is one an earlier attempt of this run left behind.
-    await deleteVault(await fingerprintPhrase(phrase));
-    return createVault(phrase, passphrase, rememberPhrase);
-  }
+  await deleteRadioRecords(landed ? outgoing : incoming);
 }

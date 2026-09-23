@@ -224,7 +224,7 @@ export async function channelHashHex(secret: Uint8Array): Promise<string> {
  * @remarks Every byte is compared, rather than stopping at the first
  * difference, so the loop's running time does not depend on where the arrays
  * first differ and cannot say how much of them matched. That matters where
- * one side is secret, such as the identity vault's passphrase check value;
+ * one side is secret, such as a channel secret;
  * elsewhere it costs a few extra iterations. Arrays of different lengths
  * return at once: the length is never hidden, only the contents.
  */

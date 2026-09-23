@@ -7,19 +7,17 @@
 > [#353](https://github.com/kNoAPP/MeshCore-WebAgent/issues/353)
 >
 > This document is a contract. It says how a BIP-39 recovery phrase becomes
-> MeshCore radio identities, and how it keys their browser storage. Another
-> client that follows it should derive the same identities byte for byte,
-> working from this page alone. **Nothing here may change.** A different path,
-> skip rule or expansion would derive different keys, and every identity already
-> minted from a phrase would be lost for good. A new scheme would need its own
-> path, and this one would still have to be supported.
+> MeshCore radio identities. Another client that follows it should derive the
+> same identities byte for byte, working from this page alone. **Nothing here
+> may change.** A different path, skip rule or expansion would derive different
+> keys, and every identity already minted from a phrase would be lost for good.
+> A new scheme would need its own path, and this one would still have to be
+> supported.
 
 Reference implementation: [`lib/identity/seed.ts`](../lib/identity/seed.ts)
-(primary identity, expansion, validity check) and
-[`lib/identity/subIdentity.ts`](../lib/identity/subIdentity.ts)
-(sub-identities), over the SLIP-0010 walk in
-[`lib/identity/slip10.ts`](../lib/identity/slip10.ts), and
-[`lib/identity/storageRoot.ts`](../lib/identity/storageRoot.ts) (storage keys).
+(primary identity, expansion, validity check). Sub-identities (§5) are not
+currently implemented in this app; their last implementation is
+`lib/identity/subIdentity.ts` and `lib/identity/slip10.ts` in the git history.
 
 ## 1. Phrase to BIP-39 seed
 
@@ -88,6 +86,10 @@ derived with
 [SLIP-0010](https://github.com/satoshilabs/slips/blob/master/slip-0010.md) over
 the `ed25519` curve.
 
+> This app does not mint sub-identities today. The scheme stays frozen so that
+> any identity already minted from a phrase can be derived again when the
+> feature returns.
+
 ### Path
 
 ```
@@ -97,7 +99,7 @@ m / 77698372' / 0' / index'
 | Level    | Value      | Meaning                                                                                                  |
 | -------- | ---------- | -------------------------------------------------------------------------------------------------------- |
 | purpose  | `77698372` | `"MESH"` as the decimal ASCII codes 77 69 83 72, the same convention BIP-85 uses for its purpose number. |
-| branch   | `0`        | Radio identities. Every other value is reserved and must never produce a radio identity (see §7).        |
+| branch   | `0`        | Radio identities. Every other value is reserved and must never produce a radio identity.                 |
 | identity | `index`    | `0` to `2^31 - 1`, subject to the skip rule below.                                                       |
 
 Every level is hardened. The 32-byte SLIP-0010 private key at the leaf is
@@ -175,56 +177,3 @@ The expanded private key for index `0'` is:
 88c602c811fa282945bda7fb39a75174ed6656412bcc5428c782ce0a639cc764
 34eb722390425ae6b494348f9e3a06ccc27e0db804b90982afe23b7b8f1e7a74
 ```
-
-## 7. Storage keys
-
-A seed-born identity's browser records are encrypted under a key that comes from
-the phrase, not from the radio. The radio-side alternative is channel secrets
-salted with the public key, and on a fresh radio both of those are public.
-
-### Branch
-
-Second-level branches other than `0'` are domain-separated uses of the seed.
-None of them ever produces a radio identity.
-
-| Branch | Use                         |
-| ------ | --------------------------- |
-| `0'`   | Radio identities (§5)       |
-| `1'`   | Storage root (this section) |
-| `2'`+  | Reserved                    |
-
-### Root
-
-```
-root = key of m / 77698372' / 1'       // 32 bytes; chain code discarded
-```
-
-The root is the SLIP-0010 private key at that node (§5). Its chain code is
-discarded, so nothing below the node can be derived from the root. The radio's
-private key is never KDF input.
-
-### Per-identity key
-
-```
-key = HKDF-SHA256(ikm = root, salt = "", info = pub, length = 32)
-```
-
-`pub` is the identity's raw 32-byte public key: the bytes, not their hex. An
-empty salt means `HashLen` zero bytes, per
-[RFC 5869](https://www.rfc-editor.org/rfc/rfc5869#section-2.2). The 32 output
-bytes are an AES-256-GCM key. Each identity of a phrase, its primary identity
-and every sub-identity alike, gets an independent key. Records keep their
-existing `${pubkey}:` namespace.
-
-An identity that was not born from a phrase has no root, so its records keep the
-channel-secret key.
-
-### Worked example
-
-The phrase from §6:
-
-| Value                       | Hex                                                                |
-| --------------------------- | ------------------------------------------------------------------ |
-| `root`                      | `41d7b16ef017c8950d62540043bc4c2ed94bab4202d8e4fdc6ffc82a0d7b9282` |
-| `key` for sub-identity `0'` | `ed9735ea4ca72242a52c5a2695f21ca7f68864a78c85c4ad8dd95e01eb40df37` |
-| `key` for sub-identity `1'` | `502879efb2ae00ba4d47d5d8874ef77e7cd16e2e099290688f01d4860f4a14ba` |

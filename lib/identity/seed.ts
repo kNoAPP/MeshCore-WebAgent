@@ -56,7 +56,7 @@ export class SeedPhraseError extends Error {
   }
 }
 
-/** A seed-born identity, in the shapes the radio speaks. */
+/** A recovery-phrase identity, in the shapes the radio speaks. */
 export interface SeedIdentity {
   /**
    * The 64-byte expanded Ed25519 private key, exactly as
@@ -70,9 +70,7 @@ export interface SeedIdentity {
 
 const WORD_INDEX = new Map(BIP39_ENGLISH.map((w, i) => [w, i]));
 const PBKDF2_ITERATIONS = 2048;
-
-/** Length of an Ed25519 seed, the input {@link expandSeed} expands. */
-export const ED25519_SEED_BYTES = 32;
+const ED25519_SEED_BYTES = 32;
 
 // BIP-39 requires NFKD on both the phrase and the salt. The English list is
 // plain ASCII, so this only matters for pasted input carrying compatibility

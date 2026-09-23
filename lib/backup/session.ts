@@ -268,7 +268,7 @@ function unsavedUnless(persisted: boolean, pubkey: string | undefined) {
 //
 // `identityAccent` is what tells identities apart at a glance, so another
 // identity's backup keeps the live one's rather than dressing it in the
-// wrong persona's color.
+// wrong identity's color.
 function importablePreferences(
   prefs: RadioPreferences,
   sameIdentity: boolean,

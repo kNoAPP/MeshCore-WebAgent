@@ -5,10 +5,7 @@
 
 import { useId } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useSeedBorn } from '@/hooks/useSeedBorn';
 import { Switch } from './Switch';
-import { SecretInput } from './SecretInput';
-import { MIN_PASSPHRASE_LENGTH } from './BackupCommon';
 
 /**
  * The step bodies of {@link RecoveryPhraseWizard}. Each is controlled: the
@@ -27,15 +24,10 @@ const INPUT_CLASS =
  */
 export function ExplainStep({ onBackup }: { onBackup: () => void }) {
   const { t } = useTranslation();
-  const seedBorn = useSeedBorn();
   return (
     <>
       <p className='mb-4 text-xs leading-relaxed text-text2'>
-        {t(
-          seedBorn
-            ? 'settings.recovery.seedBorn.explainIntro'
-            : 'settings.recovery.explainIntro',
-        )}
+        {t('settings.recovery.explainIntro')}
       </p>
       <div className='rounded-md border border-red bg-red/10 p-3'>
         <p className='mb-2 text-xs font-semibold text-text'>
@@ -43,13 +35,7 @@ export function ExplainStep({ onBackup }: { onBackup: () => void }) {
         </p>
         <ul className='list-disc space-y-1.5 pl-4 text-xs leading-relaxed text-text'>
           <li>{t('settings.recovery.costPubkey')}</li>
-          <li>
-            {t(
-              seedBorn
-                ? 'settings.recovery.seedBorn.costOld'
-                : 'settings.recovery.costOld',
-            )}
-          </li>
+          <li>{t('settings.recovery.costOld')}</li>
           <li>{t('settings.recovery.costSecrets')}</li>
         </ul>
       </div>
@@ -172,90 +158,7 @@ export function ConfirmStep({
 }
 
 /**
- * Step 4: the vault passphrase, and whether the vault keeps the phrase.
- *
- * @param intro - replaces the step's opening sentence, for a flow the default
- * does not describe.
- */
-export function PassphraseStep({
-  intro,
-  passphrase,
-  confirm,
-  remember,
-  onPassphrase,
-  onConfirm,
-  onRemember,
-}: {
-  intro?: string;
-  passphrase: string;
-  confirm: string;
-  remember: boolean;
-  onPassphrase: (value: string) => void;
-  onConfirm: (value: string) => void;
-  onRemember: (value: boolean) => void;
-}) {
-  const { t } = useTranslation();
-  const passId = useId();
-  const confirmId = useId();
-  const tooShort =
-    passphrase.length > 0 &&
-    [...passphrase.normalize('NFKC')].length < MIN_PASSPHRASE_LENGTH;
-  const mismatch =
-    confirm.length > 0 &&
-    confirm.normalize('NFKC') !== passphrase.normalize('NFKC');
-  return (
-    <>
-      <p className='mb-4 text-xs leading-relaxed text-text2'>
-        {intro ?? t('settings.recovery.passphraseIntro')}
-      </p>
-      <label htmlFor={passId} className='mb-1 block text-xs text-text2'>
-        {t('settings.backup.passphrase')}
-      </label>
-      <SecretInput
-        id={passId}
-        autoComplete='new-password'
-        value={passphrase}
-        onChange={(e) => onPassphrase(e.target.value)}
-        className={INPUT_CLASS}
-      />
-      <p className='mt-1 text-xs text-text2'>
-        {tooShort
-          ? t('settings.backup.passphraseTooShort', {
-              count: MIN_PASSPHRASE_LENGTH,
-            })
-          : t('settings.recovery.passphraseHint')}
-      </p>
-      <label htmlFor={confirmId} className='mb-1 mt-4 block text-xs text-text2'>
-        {t('settings.backup.passphraseConfirm')}
-      </label>
-      <SecretInput
-        id={confirmId}
-        autoComplete='new-password'
-        value={confirm}
-        onChange={(e) => onConfirm(e.target.value)}
-        className={INPUT_CLASS}
-      />
-      {mismatch && (
-        <p className='mt-1 text-xs text-red'>
-          {t('settings.backup.passphraseMismatch')}
-        </p>
-      )}
-      <div className='mt-5 rounded-md border border-red bg-red/10 p-3'>
-        <Switch
-          label={t('settings.recovery.remember')}
-          checked={remember}
-          onChange={onRemember}
-        />
-        <p className='mt-2 text-xs leading-relaxed text-text2'>
-          {t('settings.recovery.rememberWarning')}
-        </p>
-      </div>
-    </>
-  );
-}
-
-/**
- * Step 5: the public key about to be installed, and the typed confirmation
+ * Step 4: the public key about to be installed, and the typed confirmation
  * that authorizes destroying the current identity.
  *
  * @param publicKey - the key the phrase derives, lowercase hex.
