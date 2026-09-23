@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import type { PhrasePreview } from '@/lib/identity/restore';
 import { PhraseInput } from './PhraseInput';
 import { Switch } from './Switch';
+import { SecretInput } from './SecretInput';
 
 /**
  * The step bodies of {@link RestorePhraseWizard} that the regenerate wizard
@@ -158,9 +159,8 @@ export function UnlockStep({
           <label htmlFor={id} className='mb-1 block text-xs text-text2'>
             {t('settings.backup.passphrase')}
           </label>
-          <input
+          <SecretInput
             id={id}
-            type='password'
             autoComplete='current-password'
             value={passphrase}
             disabled={busy}

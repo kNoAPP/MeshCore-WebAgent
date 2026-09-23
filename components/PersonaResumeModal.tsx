@@ -19,6 +19,7 @@ import {
 } from '@/lib/identity/vault';
 import { ModalShell } from './ModalShell';
 import { SwitchProgressView, switchErrorMessage } from './PersonaSwitchModal';
+import { SecretInput } from './SecretInput';
 
 // Stable identity for the suppressed-close handler, as in the backup dialogs.
 const noop = () => {};
@@ -156,9 +157,8 @@ export function PersonaResumeModal() {
               >
                 {t('settings.backup.passphrase')}
               </label>
-              <input
+              <SecretInput
                 id={passphraseId}
-                type='password'
                 autoComplete='current-password'
                 value={passphrase}
                 disabled={busy}

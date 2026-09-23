@@ -23,7 +23,8 @@
     "channelName": "Canal {{index}}",
     "unknown": "Desconocido",
     "device": "Dispositivo MeshCore",
-    "skipToContent": "Saltar al contenido principal"
+    "skipToContent": "Saltar al contenido principal",
+    "showPassphrase": "Mostrar contraseña"
   },
   "units": {
     "dbm": "{{value}} dBm",
@@ -517,6 +518,7 @@
       "model": "Modelo",
       "apiKey": "Clave de API",
       "apiKeyPlaceholder": "Pega tu clave de API",
+      "showApiKey": "Mostrar clave de API",
       "apiKeyLink": "Consigue una clave de API en {{provider}}",
       "remember": "Recordar en este dispositivo",
       "rememberHint": "Cifra la clave para esta radio para restaurarla en la próxima conexión. Requiere una radio conectada.",
@@ -622,7 +624,7 @@
       "costSecrets": "Una clave de IA recordada y las contraseñas de repetidores guardadas pertenecen a la identidad antigua y habrá que introducirlas de nuevo.",
       "costKept": "El historial de mensajes, los nodos descubiertos, las reglas de automatización y las preferencias de este navegador pasan a la nueva identidad.",
       "backupFirst": "Hacer antes una copia de la identidad actual",
-      "phraseIntro": "Escribe estas {{count}} palabras en papel, en orden. Son la única forma de restaurar la nueva identidad.",
+      "phraseIntro": "Escribe estas {{count}} palabras <strong>en papel</strong>, en orden. Son la única forma de restaurar la nueva identidad.",
       "phraseWarning": "Quien vea esta frase puede poner tu identidad en su propia radio y suplantarte en la malla. Nunca la escribas en un sitio web, no le hagas fotos ni la guardes en una nota en la nube.",
       "phraseWritten": "He escrito la frase",
       "confirmIntro": "Introduce las palabras de estas posiciones a partir de tu copia escrita. Una frase que nunca se escribió es peor que ninguna, porque parece una copia de seguridad.",

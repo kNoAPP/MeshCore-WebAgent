@@ -23,7 +23,8 @@
     "channelName": "Canal {{index}}",
     "unknown": "Inconnu",
     "device": "Appareil MeshCore",
-    "skipToContent": "Aller au contenu principal"
+    "skipToContent": "Aller au contenu principal",
+    "showPassphrase": "Afficher la phrase secrète"
   },
   "units": {
     "dbm": "{{value}} dBm",
@@ -517,6 +518,7 @@
       "model": "Modèle",
       "apiKey": "Clé API",
       "apiKeyPlaceholder": "Collez votre clé API",
+      "showApiKey": "Afficher la clé API",
       "apiKeyLink": "Obtenez une clé API sur {{provider}}",
       "remember": "Mémoriser sur cet appareil",
       "rememberHint": "Chiffre la clé pour cette radio afin de la restaurer à la prochaine connexion. Nécessite une radio connectée.",
@@ -622,7 +624,7 @@
       "costSecrets": "Une clé d’IA mémorisée et les mots de passe de répéteurs enregistrés appartiennent à l’ancienne identité et devront être saisis de nouveau.",
       "costKept": "L’historique des messages, les nœuds découverts, les règles d’automatisation et les préférences de ce navigateur sont transférés à la nouvelle identité.",
       "backupFirst": "Sauvegarder d’abord l’identité actuelle",
-      "phraseIntro": "Notez ces {{count}} mots sur papier, dans l’ordre. Ils sont le seul moyen de restaurer la nouvelle identité.",
+      "phraseIntro": "Notez ces {{count}} mots <strong>sur papier</strong>, dans l’ordre. Ils sont le seul moyen de restaurer la nouvelle identité.",
       "phraseWarning": "Quiconque voit cette phrase peut mettre votre identité sur sa propre radio et se faire passer pour vous sur le maillage. Ne la saisissez jamais sur un site web, ne la photographiez pas et ne la gardez pas dans une note en ligne.",
       "phraseWritten": "J’ai noté la phrase",
       "confirmIntro": "Saisissez les mots à ces positions à partir de votre copie écrite. Une phrase jamais notée est pire que pas de phrase, car elle donne l’impression d’une sauvegarde.",

@@ -11,6 +11,7 @@ import { type AiPref } from '@/lib/ai/pref';
 import { Select } from './Select';
 import { SaveStatusChip, useSaveStatus } from './SaveStatus';
 import { Switch } from './Switch';
+import { SecretInput } from './SecretInput';
 import {
   getProvider,
   isProviderId,
@@ -152,13 +153,13 @@ export function AiSettingsBody() {
 
       <label className='flex flex-col gap-1 text-xs'>
         <span className='text-text2'>{t('settings.ai.apiKey')}</span>
-        <input
-          type='password'
+        <SecretInput
           autoComplete='off'
           value={keyInput}
           onChange={(e) => setKeyInput(e.target.value)}
           placeholder={t('settings.ai.apiKeyPlaceholder')}
           aria-label={t('settings.ai.apiKey')}
+          revealLabel={t('settings.ai.showApiKey')}
           className='min-w-0 rounded-md border border-border-control bg-surface px-2 py-1 font-mono text-xs text-text outline-none focus:border-accent'
         />
       </label>
