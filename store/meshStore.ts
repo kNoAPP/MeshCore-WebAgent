@@ -30,7 +30,6 @@ import type {
   AuditEntry,
 } from '@/types/automation';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
-import type { PersonaState } from '@/lib/identity/persona';
 import type { AclEntry, Neighbor } from '@/types/meshcore';
 import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import { convoId } from '@/lib/utils';
@@ -173,102 +172,8 @@ export interface IdentityCheck {
    * not the derivation failure the same outcome means after an acknowledgement.
    */
   confirmed: boolean;
-  /**
-   * The run's vault fingerprint, for tidying up an unacknowledged regenerate.
-   */
-  fingerprint: string;
   /** The client the identity was imported over. */
   client: MeshCoreClient;
-}
-
-/**
- * A persona switch that has put, or may have put, a new key on the radio.
- *
- * @remarks Set just before the key is imported and cleared once the incoming
- * persona's state is applied and the session has restarted onto it. While it
- * is `'switching'`, a session reporting {@link PersonaSwitch.target} holds that
- * identity's key but only part of its persona: the connect flow leaves its
- * persistence unbound, since the channel set its storage key is derived from
- * may be half-written, and the switch is offered for finishing instead. A
- * session reporting {@link PersonaSwitch.outgoing} never took the key, and
- * drops the record.
- *
- * Kept through a teardown as well as a reconnect, like {@link IdentityCheck}.
- * A page reload loses it, but not the switch's pending record in IndexedDB:
- * the connect flow rebuilds this from that, without the state or the label,
- * which only the vault can unseal.
- */
-export interface PersonaSwitch {
-  /** The incoming identity's public key, lowercase hex. */
-  target: string;
-  /**
-   * The identity the radio held before, lowercase hex; empty when rebuilt
-   * after a reload, which does not record it.
-   */
-  outgoing: string;
-  /** The incoming persona's name in the vault; empty until it is unsealed. */
-  label: string;
-  /**
-   * What the radio is being given; applying it again is harmless. Null when
-   * rebuilt after a reload, until the vault is unlocked to read it.
-   */
-  state: PersonaState | null;
-  /**
-   * The contacts the apply took off the radio, as lowercase hex public keys,
-   * for the restarted session to check they stayed off. Empty until the
-   * apply runs.
-   */
-  removed: string[];
-  /**
-   * Whether to flood a self-advert once the restarted session has confirmed
-   * the state.
-   */
-  announce: boolean;
-  /**
-   * `'switching'` until the state is applied and the radio rebooted, then
-   * `'done'` for the restart that hydrates the incoming identity, so its
-   * first connect is not mistaken for a replacement radio's. That connect
-   * checks the radio kept the contacts, which it saves lazily, and puts the
-   * record back to `'switching'` if it did not; the switch's pending record
-   * is deleted only once it did.
-   */
-  stage: 'switching' | 'done';
-  /**
-   * Whether a run is applying the state right now. False once it stopped
-   * short — cancelled, failed, or cut off by a drop — which is when the switch
-   * is offered for finishing.
-   */
-  running: boolean;
-  /**
-   * Whether the user put off finishing it. The Identity settings still say
-   * it is unfinished, and offer it again.
-   */
-  dismissed: boolean;
-  /**
-   * Whether the incoming identity is a burner, whose key exists only in this
-   * session's memory. Such a switch writes no pending record, and the session
-   * it lands on binds no persistence; see `lib/identity/burner.ts`.
-   */
-  burner: boolean;
-}
-
-/**
- * A burner live on the connected radio: an identity nothing is saved for.
- *
- * @remarks Kept through a teardown as well as a reconnect, like
- * {@link PersonaSwitch}, so a hand reconnect still saves nothing. A page
- * reload loses it; the burner guard in IndexedDB then has the connect flow
- * rebuild it, marked {@link BurnerSession.assumed}.
- */
-export interface BurnerSession {
-  /** The burner's public key, lowercase hex. */
-  pubkey: string;
-  /**
-   * True when it was rebuilt after a reload from the guard alone: an identity
-   * this browser has no records of arrived while a burner may be live, and
-   * may be a new radio instead. The user can then choose to keep its data.
-   */
-  assumed: boolean;
 }
 
 /**
@@ -725,17 +630,6 @@ interface MeshState {
    * user answers.
    */
   restoreOffer: boolean;
-  /** A persona switch not yet finished, or null; see {@link PersonaSwitch}. */
-  personaSwitch: PersonaSwitch | null;
-  /** The burner live on the radio, or null; see {@link BurnerSession}. */
-  burner: BurnerSession | null;
-  /**
-   * A seed-born identity connected before its vault was opened in this tab,
-   * or null. Its records are sealed under the vault's storage root, so the
-   * session binds no persistence until the vault's passphrase is entered;
-   * `dismissed` is the user putting that off. Per session: a reset clears it.
-   */
-  seedLock: { pubkey: string; dismissed: boolean } | null;
   battery: BatteryInfo | null;
   syncProgress: SyncProgress | null;
 
@@ -1039,9 +933,6 @@ interface MeshActions {
   setPrivateKeyAccess: (access: PrivateKeyAccess | null) => void;
   setIdentityCheck: (check: IdentityCheck | null) => void;
   setRestoreOffer: (offer: boolean) => void;
-  setPersonaSwitch: (next: PersonaSwitch | null) => void;
-  setBurner: (burner: BurnerSession | null) => void;
-  setSeedLock: (lock: { pubkey: string; dismissed: boolean } | null) => void;
   /**
    * Resets everything that belongs to one identity rather than to the radio
    * or the link: history, conversations and drafts, the advert cache, the
@@ -1344,9 +1235,6 @@ const initialState: MeshState = {
   privateKeyAccess: null,
   identityCheck: null,
   restoreOffer: false,
-  personaSwitch: null,
-  burner: null,
-  seedLock: null,
   battery: null,
   syncProgress: null,
   deviceStats: null,
@@ -1482,9 +1370,6 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   setPrivateKeyAccess: (privateKeyAccess) => set({ privateKeyAccess }),
   setIdentityCheck: (identityCheck) => set({ identityCheck }),
   setRestoreOffer: (restoreOffer) => set({ restoreOffer }),
-  setPersonaSwitch: (personaSwitch) => set({ personaSwitch }),
-  setBurner: (burner) => set({ burner }),
-  setSeedLock: (seedLock) => set({ seedLock }),
   resetIdentityData: () => {
     mapPrefsTouched = false;
     mapFiltersTouched.clear();
@@ -2237,11 +2122,6 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       // A pending identity check names the radio it is waiting for, and the
       // user may well reboot and reconnect that radio by hand.
       identityCheck: get().identityCheck,
-      // The same for a persona switch, which a hand reconnect must be able to
-      // finish.
-      personaSwitch: get().personaSwitch,
-      // And a live burner, so a hand reconnect still saves nothing for it.
-      burner: get().burner,
       // Every other preference is per-radio (encrypted in IndexedDB) and
       // reloaded on the next connect, so it resets to defaults here.
     }),

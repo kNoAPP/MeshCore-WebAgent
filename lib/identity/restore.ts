@@ -4,133 +4,24 @@
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { PrivateKeyError } from '@/lib/meshcore/errors';
 import { beginIdentitySwitch } from '@/lib/session/persistence';
-import { deletePendingPersona } from '@/lib/storage';
-import { useMeshStore } from '@/store/meshStore';
 import { toHex } from '@/lib/utils';
 import { identityFromMnemonic } from './seed';
-import {
-  createVault,
-  deleteVault,
-  fingerprintPhrase,
-  listVaults,
-  lockVault,
-  saveVault,
-  type Vault,
-  type VaultIdentity,
-} from './vault';
 
 /**
- * What a typed recovery phrase stands for, worked out before anything is
- * written: the identity it derives and whether this device already has a
- * vault for it.
- */
-export interface PhrasePreview {
-  /** The public key the phrase derives, lowercase hex. */
-  publicKey: string;
-  /** The phrase's vault fingerprint; see `fingerprintPhrase`. */
-  fingerprint: string;
-  /** Whether this device has a vault for {@link PhrasePreview.fingerprint}. */
-  vaultExists: boolean;
-}
-
-/**
- * Derives what a phrase would restore, entirely client-side.
+ * The public key a typed recovery phrase derives, lowercase hex, worked out
+ * entirely client-side before anything is written.
  *
  * @throws `SeedPhraseError` for a malformed phrase, or one that derives a key
  * the firmware refuses. Such a phrase must never reach the radio.
  */
-export async function previewPhrase(phrase: string): Promise<PhrasePreview> {
+export async function previewPhrase(phrase: string): Promise<string> {
   const { privateKey, publicKey } = await identityFromMnemonic(phrase);
   privateKey.fill(0);
-  const fingerprint = await fingerprintPhrase(phrase);
-  return {
-    publicKey: toHex(publicKey),
-    fingerprint,
-    vaultExists: (await listVaults()).includes(fingerprint),
-  };
+  return toHex(publicKey);
 }
 
 /**
- * How a restore records its identity in this device's vault: unlocked
- * already, or a vault created for it under a new passphrase.
- *
- * @remarks `replace` deletes the phrase's existing vault first — for a user
- * who no longer knows the passphrase it was sealed under. The phrase restores
- * its storage root, so only the other identities' labels and indices are lost.
- */
-export type VaultPlan =
-  | { mode: 'unlocked'; vault: Vault }
-  | {
-      mode: 'create';
-      passphrase: string;
-      remember: boolean;
-      replace: boolean;
-    };
-
-/**
- * The vault could not be written for a restore. Nothing reached the radio.
- * The cause is the underlying failure, often a `VaultError`.
- */
-export class RestoreVaultError extends Error {
-  constructor(cause: unknown) {
-    super((cause as Error).message, { cause });
-    this.name = 'RestoreVaultError';
-  }
-}
-
-/**
- * Lists the phrase's primary identity in its vault, so the restored persona is
- * manageable on this device rather than orphaned.
- *
- * @remarks Does nothing to an unlocked vault that already lists it. Leaves an
- * unlocked vault unlocked, and unchanged when the save fails, so a retry
- * starts from what is stored; a vault this creates is locked before returning.
- * @param label - the identity's name in the vault, when it is added.
- * @throws {@link RestoreVaultError} when the vault could not be written.
- */
-export async function recordInVault(
-  phrase: string,
-  publicKey: string,
-  label: string,
-  plan: VaultPlan,
-): Promise<void> {
-  const entry: VaultIdentity = { index: null, publicKey, label };
-  try {
-    if (plan.mode === 'unlocked') {
-      const { vault } = plan;
-      if (vault.identities.some((i) => i.publicKey === publicKey)) return;
-      const before = vault.identities;
-      vault.identities = [...before, entry];
-      try {
-        if (!(await saveVault(vault)))
-          throw new Error('IndexedDB write failed');
-      } catch (err) {
-        vault.identities = before;
-        throw err;
-      }
-      return;
-    }
-    if (plan.replace) await deleteVault(await fingerprintPhrase(phrase));
-    const vault = await createVault(phrase, plan.passphrase, plan.remember);
-    try {
-      vault.identities.push(entry);
-      if (!(await saveVault(vault))) throw new Error('IndexedDB write failed');
-    } catch (err) {
-      // An empty vault would only meet the retry as `exists`, sealed under a
-      // passphrase the user may not have settled on.
-      await deleteVault(vault.fingerprint);
-      throw err;
-    } finally {
-      lockVault(vault);
-    }
-  } catch (err) {
-    throw new RestoreVaultError(err);
-  }
-}
-
-/**
- * Writes the identity a recovery phrase derives onto the radio, after
- * recording it in the vault.
+ * Writes the identity a recovery phrase derives onto the radio.
  *
  * @remarks
  * Unlike a regenerate, nothing in this browser moves: the incoming identity's
@@ -143,48 +34,28 @@ export async function recordInVault(
  * and a restart as the outgoing identity reloads that identity's records,
  * losing only what was never saved, such as drafts and unread markers.
  *
- * The vault is written first and kept whatever the radio does: it records only
- * that the phrase derives this identity, which a refusal does not change.
- *
  * @returns whether the radio acknowledged the import. False when the exchange
  * timed out, the link dropped, or the device answered with an error this app
  * does not map to a refusal: only the public key it reports after a restart
  * can tell whether the key landed.
  * @throws `SeedPhraseError` for a malformed phrase.
- * @throws {@link RestoreVaultError} when the vault could not be written;
- * nothing reached the radio.
  * @throws `PrivateKeyError` when the radio refuses the key and keeps its
  * identity.
  */
 export async function restoreIdentity(
   client: MeshCoreClient,
   phrase: string,
-  label: string,
-  plan: VaultPlan,
 ): Promise<boolean> {
   const { privateKey, publicKey } = await identityFromMnemonic(phrase);
-  const incoming = toHex(publicKey);
   let acknowledged = true;
   try {
-    await recordInVault(phrase, incoming, label, plan);
-    try {
-      await client.importPrivateKey(privateKey);
-    } catch (err) {
-      if (err instanceof PrivateKeyError) throw err;
-      acknowledged = false;
-    }
+    await client.importPrivateKey(privateKey);
+  } catch (err) {
+    if (err instanceof PrivateKeyError) throw err;
+    acknowledged = false;
   } finally {
     privateKey.fill(0);
   }
-  if (acknowledged) {
-    // A persona switch onto this identity that never finished is superseded:
-    // the restore puts the identity back as it is, not as that switch left it.
-    await deletePendingPersona(incoming);
-    const store = useMeshStore.getState();
-    if (store.personaSwitch?.target === incoming) {
-      store.setPersonaSwitch(null);
-    }
-  }
-  await beginIdentitySwitch(client, incoming);
+  await beginIdentitySwitch(client, toHex(publicKey));
   return acknowledged;
 }

@@ -78,13 +78,8 @@ first paint. **Every other preference is per-radio and encrypted in IndexedDB**,
 carried in one `${pubkey}:preferences` blob decrypted on connect and saved on
 change. Message history, the advert cache, automation rules, and secrets follow
 the same per-radio encrypted pattern (`lib/storage.ts`, key from
-`deriveSessionKey`: the channel secrets, or a seed-born identity's vault root).
-See _Persisting Preferences_ in `AGENTS.md` for the exact steps to add a new
-preference.
-
-The one exception is the identity vault (`lib/identity/vault.ts`, `vault`
-store): per recovery phrase, not per radio, and sealed under a user passphrase.
-`AGENTS.md` documents why, and that nothing else may follow that pattern.
+`deriveChannelKey`, from the radio's channel secrets). See _Persisting
+Preferences_ in `AGENTS.md` for the exact steps to add a new preference.
 
 ## Internationalization
 

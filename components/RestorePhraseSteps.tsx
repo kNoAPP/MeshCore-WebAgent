@@ -3,20 +3,13 @@
 
 'use client';
 
-import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { PhrasePreview } from '@/lib/identity/restore';
 import { PhraseInput } from './PhraseInput';
-import { Switch } from './Switch';
-import { SecretInput } from './SecretInput';
 
 /**
  * The step bodies of {@link RestorePhraseWizard} that the regenerate wizard
  * has no counterpart for. Each is controlled: the wizard owns every value.
  */
-
-const INPUT_CLASS =
-  'w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent-solid disabled:cursor-not-allowed disabled:opacity-50';
 
 /**
  * Step 1: the phrase, one word per numbered box.
@@ -56,13 +49,14 @@ export function EnterStep({
 /**
  * Step 2: what the phrase would restore, shown before anything is written.
  *
+ * @param publicKey - the key the phrase derives, lowercase hex.
  * @param current - true when the connected radio already holds this identity.
  */
 export function PreviewStep({
-  preview,
+  publicKey,
   current,
 }: {
-  preview: PhrasePreview;
+  publicKey: string;
   current: boolean;
 }) {
   const { t } = useTranslation();
@@ -72,17 +66,10 @@ export function PreviewStep({
         {t('settings.restore.previewIntro')}
       </p>
       <p className='rounded-md border border-border bg-surface2 p-3 font-mono text-xs break-all text-text'>
-        {preview.publicKey}
+        {publicKey}
       </p>
       <p className='mt-3 text-xs leading-relaxed text-text2'>
         {t('settings.restore.previewCheck')}
-      </p>
-      <p className='mt-3 text-xs leading-relaxed text-text'>
-        {t(
-          preview.vaultExists
-            ? 'settings.restore.vaultKnown'
-            : 'settings.restore.vaultUnknown',
-        )}
       </p>
       {current && (
         <p className='mt-3 rounded-md border border-border bg-surface2 p-3 text-xs leading-relaxed text-text'>
@@ -121,69 +108,6 @@ export function ReplaceStep({ onBackup }: { onBackup: () => void }) {
       >
         {t('settings.recovery.backupFirst')}
       </button>
-    </>
-  );
-}
-
-/**
- * Step 4, when this device already has a vault for the phrase: its
- * passphrase, or the choice to replace a vault whose passphrase is lost. The
- * wizard renders the new vault's passphrase fields below once `replace` is on.
- *
- * @param error - why the last unlock failed, already localized, or null.
- */
-export function UnlockStep({
-  passphrase,
-  replace,
-  error,
-  busy,
-  onPassphrase,
-  onReplace,
-}: {
-  passphrase: string;
-  replace: boolean;
-  error: string | null;
-  busy: boolean;
-  onPassphrase: (value: string) => void;
-  onReplace: (value: boolean) => void;
-}) {
-  const { t } = useTranslation();
-  const id = useId();
-  return (
-    <>
-      <p className='mb-4 text-xs leading-relaxed text-text2'>
-        {t('settings.restore.unlockIntro')}
-      </p>
-      {!replace && (
-        <>
-          <label htmlFor={id} className='mb-1 block text-xs text-text2'>
-            {t('settings.backup.passphrase')}
-          </label>
-          <SecretInput
-            id={id}
-            autoComplete='current-password'
-            value={passphrase}
-            disabled={busy}
-            onChange={(e) => onPassphrase(e.target.value)}
-            className={INPUT_CLASS}
-          />
-          {error && (
-            <p role='alert' className='mt-2 text-xs leading-relaxed text-red'>
-              {error}
-            </p>
-          )}
-        </>
-      )}
-      <div className='mt-5 mb-4 rounded-md border border-border p-3'>
-        <Switch
-          label={t('settings.restore.replaceVault')}
-          checked={replace}
-          onChange={onReplace}
-        />
-        <p className='mt-2 text-xs leading-relaxed text-text2'>
-          {t('settings.restore.replaceVaultHint')}
-        </p>
-      </div>
     </>
   );
 }

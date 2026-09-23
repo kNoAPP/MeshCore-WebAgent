@@ -23,11 +23,6 @@ import {
 } from '@/store/meshStore';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
 import {
-  hydrateBurnerSession,
-  settleIdentityOnConnect,
-} from '@/lib/identity/connect';
-import { registeredIdentityKey } from '@/lib/identity/storageRoot';
-import {
   loadRadioData,
   loadAutomationRules,
   loadAdvertCache,
@@ -48,12 +43,10 @@ import {
   teardownSession,
 } from '@/lib/session/lifecycle';
 import {
-  boundPubkey,
   claimStore,
   claimUnsavedRestore,
-  deriveSessionKey,
+  deriveChannelKey,
   flushAdvertCache,
-  flushSessionAsync,
   followChannelSecrets,
   retryUnsavedRestore,
   setStorageKey,
@@ -527,7 +520,6 @@ export function useMeshCore() {
   // Loads a bound session's records into the store and subscribes them to be
   // saved: the saved history merged under whatever arrived first, the
   // preferences, automation rules and advert cache, and a remembered API key.
-  // Shared by the connect flow and a seed-born identity's late unlock.
   // Resolves false, having changed nothing, when the session ended during the
   // reads.
   const hydrateSession = useCallback(
@@ -598,17 +590,8 @@ export function useMeshCore() {
           !advertCache &&
           !prefs &&
           !unsaved &&
-          !store.identityCheck &&
-          store.personaSwitch?.target !== pubkey.toLowerCase(),
+          !store.identityCheck,
       );
-      // A persona new to this device arrives with nothing stored too, by
-      // design; its switch is complete once its session is hydrated.
-      if (
-        store.personaSwitch?.stage === 'done' &&
-        store.personaSwitch.target === pubkey.toLowerCase()
-      ) {
-        store.setPersonaSwitch(null);
-      }
 
       wirePersistence();
       // Now that this session has a key, give the restore another chance
@@ -706,25 +689,13 @@ export function useMeshCore() {
         // radio reported no pubkey to derive one from, which leaves the session
         // running with persistence off rather than under a shared key.
         let key: CryptoKey | null = null;
-        // Settles any persona switch this session lands in, and decides
-        // whether it may bind persistence at all; see settleIdentityOnConnect.
-        const reported = pubkey?.toLowerCase();
-        const { unfinishedSwitch, burner } = await settleIdentityOnConnect(
-          c,
-          reported,
-          sessionAlive,
-        );
-        // A seed-born identity whose vault has not been opened in this tab has
-        // no key to bind (deriveSessionKey gives null): the session runs
-        // unsaved until the vault is unlocked (see unlockSeedSession).
-        let seedLocked = false;
-        if (pubkey && sessionAlive() && !unfinishedSwitch && !burner) {
+        if (pubkey && sessionAlive()) {
           // Declared before the await, so a read that still beats the binding
           // waits for it rather than concluding nothing is stored; the finally
           // answers those reads on every path that never binds one.
           expectSecretContext();
           try {
-            const derived = await deriveSessionKey(c.channels, pubkey);
+            const derived = await deriveChannelKey(c.channels, pubkey);
             // This is now the last await before the UI goes live, and a drop or
             // a Disconnect during it is nobody else's to catch: `onDisconnect`
             // stands down while the status is still 'connecting'. Bail exactly
@@ -734,18 +705,11 @@ export function useMeshCore() {
             if (!sessionAlive()) {
               throw new Error('Closed during sync');
             }
-            if (derived) {
-              key = derived.key;
-              setStorageKey(pubkey, derived);
-              // Reuse the same per-radio key for secret storage — there is no
-              // second key-derivation path.
-              setSecretContext(pubkey, key);
-            } else {
-              seedLocked = true;
-              // A reconnect keeps the previous session's secrets context, which
-              // may be another identity's; nothing of it may carry over.
-              wipeApiKey();
-            }
+            key = derived.key;
+            setStorageKey(pubkey, derived);
+            // Reuse the same per-radio key for secret storage — there is no
+            // second key-derivation path.
+            setSecretContext(pubkey, key);
           } finally {
             releaseSecretContext();
           }
@@ -756,21 +720,6 @@ export function useMeshCore() {
         const deviceName =
           c.selfInfo?.name ?? c.deviceInfo?.model ?? i18n.t('common.device');
         setDeviceName(deviceName);
-
-        if (burner && reported && sessionAlive()) {
-          hydrateBurnerSession(c, reported, burner);
-        }
-        // Assigned rather than only raised: the store survives a reconnect, and
-        // a lock left from before would outlive a session that has bound.
-        if (sessionAlive()) {
-          useMeshStore
-            .getState()
-            .setSeedLock(
-              seedLocked && reported
-                ? { pubkey: reported, dismissed: false }
-                : null,
-            );
-        }
 
         // Wire history persistence FIRST — before the best-effort hydrate
         // round-trips below — so the now-'connected' link can't accept a send
@@ -924,43 +873,6 @@ export function useMeshCore() {
     beginReconnect(reconnectDeps(connect));
     c.destroy();
   }, [connect]);
-
-  /**
-   * Binds a seed-born identity's session once its vault has been opened,
-   * which registers the identity's storage key (`registerIdentityKey`), and
-   * hydrates it exactly as a connect would.
-   *
-   * @remarks The session ran unsaved until now, so what arrived meanwhile is
-   * in the store only: the saved history is merged under it, and the whole
-   * session is then written under the vault-derived key.
-   * @returns whether the session is now saved; false when there is no live
-   * session, its identity's key is not held, or the session ended during the
-   * hydrate.
-   */
-  const unlockSeedSession = useCallback(async (): Promise<boolean> => {
-    const c = useMeshStore.getState().client;
-    const pubkey = c?.selfInfo?.pubkey?.toLowerCase();
-    if (!c || c.closed || !pubkey) return false;
-    const key = registeredIdentityKey(pubkey);
-    if (!key) return false;
-    const alive = () =>
-      !c.closed && !isUserDisconnect() && useMeshStore.getState().client === c;
-    // A session already bound to this identity — an earlier unlock whose
-    // final write failed — only needs that write again: hydrating and wiring
-    // it twice would put the stored preferences back over the live ones.
-    if (boundPubkey() !== pubkey) {
-      setStorageKey(pubkey, { key, channels: c.channels, material: null });
-      setSecretContext(pubkey, key);
-      if (!(await hydrateSession(pubkey, key, alive))) return false;
-      await hydrateRadioAutoAdd(c);
-      if (!alive()) return false;
-    }
-    // The lock clears only once the session is on disk, so a failed write
-    // leaves the dialog up to say so and to try again.
-    const saved = await flushSessionAsync();
-    if (saved) useMeshStore.getState().setSeedLock(null);
-    return saved;
-  }, [hydrateSession, hydrateRadioAutoAdd]);
 
   /**
    * Persists history, tears down the client and session state, and resets the
@@ -2079,7 +1991,6 @@ export function useMeshCore() {
     disconnect,
     retryReconnectNow,
     restartSession,
-    unlockSeedSession,
     sendMessage,
     retryMessage,
     resetContactPath,

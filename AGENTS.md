@@ -82,10 +82,9 @@ paint (theme has a pre-paint script in `app/layout.tsx`).
 
 Every other preference is **scoped to the connected radio** and stored
 **encrypted** in IndexedDB, under the AES-256-GCM key derived from that radio's
-own secrets — or, for a seed-born identity, from its identity vault's storage
-root. Two radios never share a key, and the data is unreadable without the radio
-(or that vault). All such preferences travel together in one per-radio
-**preferences blob** (`${pubkey}:preferences` record in the `radios` store).
+own secrets. Two radios never share a key, and the data is unreadable without
+the radio. All such preferences travel together in one per-radio **preferences
+blob** (`${pubkey}:preferences` record in the `radios` store).
 
 To add a new per-radio preference:
 
@@ -111,40 +110,13 @@ To add a new per-radio preference:
 
 The encryption/IO primitives live in `lib/storage.ts`
 (`savePreferences`/`loadPreferences`, mirroring `saveAdvertCache`/etc.); the
-per-radio key comes from `deriveSessionKey` in `lib/session/persistence.ts`. For
-most identities it is derived from the radio's channel secrets at connect
-(`deriveChannelKey`), and re-derived whenever they change:
-`followChannelSecrets` rebinds it and rewrites every per-radio record under it.
-A seed-born identity (one a recovery phrase minted, marked by a `seed-born`
-record) is keyed from its vault's storage root instead
-(`deriveIdentityStorageKey`), registered for the tab whenever the vault is
-opened; until then its session binds nothing and asks for the vault's passphrase
-(`SeedUnlockModal`). A new record is added to `RADIO_RECORDS` in
-`lib/storage.ts`: `saveSessionNamespace` and `deleteRadioRecords` both derive
-from that one list. Sensitive values (e.g. an LLM API key) never go in the blob
-or the store — they use the separate encrypted `secrets` store
-(`lib/ai/secret.ts`).
-
-### The identity vault — the one exception
-
-There is exactly one sanctioned third category, besides the two pre-connect
-`localStorage` preferences and the per-radio encrypted records: the **identity
-vault** (`lib/identity/vault.ts`), in its own `vault` object store.
-
-- **What it holds.** For each recovery phrase this device knows, the phrase's
-  storage root (`lib/identity/storageRoot.ts`), the identities the phrase has
-  minted (label, derivation index, public key), and — only on an explicit opt-in
-  — the phrase itself. All of it is sealed under a key stretched from a
-  passphrase the user chooses (PBKDF2-SHA256, 600k iterations, the backup file's
-  KDF). In the clear are only the seed fingerprint (the record key) and the
-  unsealing parameters: version, salt, IV and a passphrase check value.
-- **Why it cannot be per-radio.** The vault spans identities whose storage keys
-  differ by construction, so no single radio's namespace can hold it. And the
-  storage root is what must survive losing the radio: sealed under a key derived
-  from that radio's own secrets, it would be lost along with them.
-
-Nothing else may use the vault store or a passphrase-derived key as a way around
-the per-radio rule. A new preference is per-radio, full stop.
+per-radio key is derived from the radio's channel secrets at connect
+(`deriveChannelKey` in `lib/session/persistence.ts`), and re-derived whenever
+they change: `followChannelSecrets` rebinds it and rewrites every per-radio
+record under it. A new record is added to `RADIO_RECORDS` in `lib/storage.ts`:
+`saveSessionNamespace` and `deleteRadioRecords` both derive from that one list.
+Sensitive values (e.g. an LLM API key) never go in the blob or the store — they
+use the separate encrypted `secrets` store (`lib/ai/secret.ts`).
 
 ## What to Avoid
 

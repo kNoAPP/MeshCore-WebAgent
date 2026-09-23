@@ -32,7 +32,7 @@ const SWATCH_CLASS =
 /**
  * The Identity card's color choice: the accent the header and action bar
  * are framed in while this identity is live. Stored with the identity's
- * other preferences, so each persona keeps its own.
+ * other preferences, so each identity keeps its own.
  */
 export function IdentityAccentRow() {
   const { t } = useTranslation();

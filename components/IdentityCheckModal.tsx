@@ -58,11 +58,7 @@ export function IdentityCheckModal() {
   const copy = COPY[check.kind];
   const dismiss = () => {
     if (check.kind === 'regenerate' && !check.confirmed) {
-      void settleUnconfirmed(
-        { publicKey: check.expected, fingerprint: check.fingerprint },
-        check.outgoing,
-        verified,
-      );
+      void settleUnconfirmed(check.expected, check.outgoing, verified);
     }
     setIdentityCheck(null);
   };

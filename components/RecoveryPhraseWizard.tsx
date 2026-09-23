@@ -20,20 +20,15 @@ import {
 import { toHex } from '@/lib/utils';
 import { ModalShell } from './ModalShell';
 import { BackupExportModal } from './BackupExportModal';
-import {
-  MIN_PASSPHRASE_LENGTH,
-  backupSessionPubkey,
-  useBackupReady,
-} from './BackupCommon';
+import { backupSessionPubkey, useBackupReady } from './BackupCommon';
 import {
   ConfirmStep,
   ExplainStep,
-  PassphraseStep,
   PhraseStep,
   WriteStep,
 } from './RecoveryPhraseSteps';
 
-const STEPS = ['explain', 'phrase', 'confirm', 'passphrase', 'write'] as const;
+const STEPS = ['explain', 'phrase', 'confirm', 'write'] as const;
 type Step = (typeof STEPS)[number];
 
 // 128 bits, Ed25519's own security level, and the shortest phrase to copy by
@@ -83,8 +78,7 @@ async function newDraft(): Promise<Draft> {
  *
  * @remarks
  * The phrase lives in this component's state and nowhere else — not the
- * store, not a log, not the vault unless the user opts in — and goes with the
- * component when it unmounts.
+ * store, not a log — and goes with the component when it unmounts.
  *
  * The dialog cannot see the verification through. After the reboot the
  * session is restarted through the reconnect loop (the reboot alone does not
@@ -116,9 +110,6 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
   // Whether Next was pressed on the current answers. The mismatch is only
   // reported then, not while the last word is still being typed.
   const [checked, setChecked] = useState(false);
-  const [passphrase, setPassphrase] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [remember, setRemember] = useState(false);
   const [typed, setTyped] = useState('');
   const [backingUp, setBackingUp] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -134,16 +125,10 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
     draft.positions.every(
       (pos, slot) => answers[slot].trim().toLowerCase() === draft.words[pos],
     );
-  const normalized = passphrase.normalize('NFKC');
-  const passphraseOk =
-    [...normalized].length >= MIN_PASSPHRASE_LENGTH &&
-    confirm.normalize('NFKC') === normalized;
-
   const canAdvance = {
     explain: sessionReady && !busy,
     phrase: written,
     confirm: filled,
-    passphrase: passphraseOk,
     write: sessionReady && !busy && typed.trim() === node,
   }[step];
 
@@ -191,13 +176,7 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
       const outgoing = boundPubkey() ?? pubkey;
       let result: RegenerateResult;
       try {
-        result = await regenerateIdentity(
-          client,
-          draft.words.join(' '),
-          passphrase,
-          remember,
-          node,
-        );
+        result = await regenerateIdentity(client, draft.words.join(' '));
       } catch (err) {
         setError(<WriteErrorText err={err} />);
         return;
@@ -208,7 +187,6 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
           expected: draft.publicKey,
           outgoing,
           confirmed: result.confirmed,
-          fingerprint: result.fingerprint,
           client,
         },
         result.persisted,
@@ -249,16 +227,6 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
             setChecked(false);
             setAnswers((a) => a.map((v, i) => (i === slot ? value : v)));
           }}
-        />
-      )}
-      {step === 'passphrase' && (
-        <PassphraseStep
-          passphrase={passphrase}
-          confirm={confirm}
-          remember={remember}
-          onPassphrase={setPassphrase}
-          onConfirm={setConfirm}
-          onRemember={setRemember}
         />
       )}
       {step === 'write' && draft && (
@@ -323,9 +291,10 @@ export function RecoveryPhraseWizard({ onClose }: { onClose: () => void }) {
 }
 
 /**
- * Explains why a recovery-phrase write failed. Each failure means something
- * different to the user: a refusal left the old identity in place, and a vault
- * failure never reached the radio.
+ * Explains why a recovery-phrase write failed. A refusal left the old identity
+ * in place. Any other failure almost always comes from deriving the key,
+ * before it reached the radio; the session handover after an acknowledged
+ * import can in principle throw too, which this copy does not tell apart.
  */
 export function WriteErrorText({ err }: { err: unknown }) {
   const { t } = useTranslation();
@@ -341,6 +310,6 @@ export function WriteErrorText({ err }: { err: unknown }) {
     );
   }
   return (
-    <>{t('settings.recovery.error.vault', { error: (err as Error).message })}</>
+    <>{t('settings.recovery.error.other', { error: (err as Error).message })}</>
   );
 }

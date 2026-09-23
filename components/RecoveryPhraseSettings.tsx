@@ -6,7 +6,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
-import { useSeedBorn } from '@/hooks/useSeedBorn';
 import { ensurePrivateKeyAccess } from '@/lib/session/privateKeyAccess';
 import { useBackupReady } from './BackupCommon';
 import { RecoveryPhraseWizard } from './RecoveryPhraseWizard';
@@ -78,7 +77,6 @@ export function KeyAccessError() {
 export function RecoveryPhraseRow() {
   const { t } = useTranslation();
   const ready = useBackupReady();
-  const seedBorn = useSeedBorn();
   const { open, probing, start, close } = useRecoveryWizard();
 
   const button =
@@ -86,11 +84,7 @@ export function RecoveryPhraseRow() {
   return (
     <div className='mt-3'>
       <p className='mb-3 text-xs leading-relaxed text-text2'>
-        {t(
-          seedBorn
-            ? 'settings.recovery.seedBorn.hint'
-            : 'settings.recovery.hint',
-        )}
+        {t('settings.recovery.hint')}
       </p>
       <div className='flex flex-wrap gap-2'>
         <button
@@ -100,11 +94,7 @@ export function RecoveryPhraseRow() {
         >
           {probing === 'create'
             ? t('settings.recovery.checking')
-            : t(
-                seedBorn
-                  ? 'settings.recovery.seedBorn.action'
-                  : 'settings.recovery.action',
-              )}
+            : t('settings.recovery.action')}
         </button>
         <button
           onClick={() => void start('restore')}

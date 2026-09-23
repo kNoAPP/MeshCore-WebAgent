@@ -5,9 +5,7 @@ import type { Advert, Message } from '@/types/meshcore';
 
 // Per-radio message history persisted in IndexedDB, encrypted at rest with
 // AES-256-GCM under a key derived from the radio's channel secrets (see
-// deriveStorageKey) — or, for a seed-born identity, from its identity vault's
-// storage root — so the data is unreadable without those channels, or that
-// vault.
+// deriveStorageKey) — so the data is unreadable without those channels.
 const DB_NAME = 'meshcore';
 const DB_VERSION = 3;
 const STORE_NAME = 'radios';
@@ -15,10 +13,6 @@ const STORE_NAME = 'radios';
 // never entangled with message history, keyed by `${pubkey}:${name}` and
 // encrypted under the same per-radio key as everything else.
 const SECRETS_STORE = 'secrets';
-// Passphrase-sealed identity vaults (`lib/identity/vault.ts`), keyed by seed
-// fingerprint rather than by radio public key. The one store not encrypted
-// under a per-radio key: a vault spans identities and must outlive the radio.
-const VAULT_STORE = 'vault';
 
 /**
  * The decrypted payload stored per radio: its conversation history keyed by
@@ -97,9 +91,6 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(SECRETS_STORE)) {
         db.createObjectStore(SECRETS_STORE);
       }
-      if (!db.objectStoreNames.contains(VAULT_STORE)) {
-        db.createObjectStore(VAULT_STORE);
-      }
     };
     req.onsuccess = () => {
       const db = req.result;
@@ -133,14 +124,14 @@ function openDB(): Promise<IDBDatabase> {
   return promise;
 }
 
-async function idbGet<T = EncryptedRecord>(
+async function idbGet(
   store: string,
   key: string,
-): Promise<T | undefined> {
+): Promise<EncryptedRecord | undefined> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const req = db.transaction(store, 'readonly').objectStore(store).get(key);
-    req.onsuccess = () => resolve(req.result as T | undefined);
+    req.onsuccess = () => resolve(req.result as EncryptedRecord | undefined);
     req.onerror = () => reject(req.error);
   });
 }
@@ -150,22 +141,10 @@ async function idbPut(
   key: string,
   record: EncryptedRecord,
 ): Promise<void> {
-  return idbWrite(store, key, record, 'put');
-}
-
-// `add` fails with a `ConstraintError` when the key is already taken, inside
-// the transaction, so a create cannot race another writer the way a read
-// followed by a `put` can.
-async function idbWrite(
-  store: string,
-  key: string,
-  record: object,
-  mode: 'put' | 'add',
-): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
-    const req = tx.objectStore(store)[mode](record, key);
+    const req = tx.objectStore(store).put(record, key);
     tx.oncomplete = () => resolve();
     // The request's own error: a failed request bubbles to the transaction
     // before `tx.error` is set, so that would reject with null here.
@@ -273,8 +252,8 @@ export async function loadRadioData(
 }
 
 // Namespaced IndexedDB key for a per-radio record: the pubkey plus a fixed
-// suffix (a secret's name, `automation-rules`, `advert-cache`, `preferences`,
-// `persona`, `persona-pending`, `seed-born`).
+// suffix (a secret's name, `automation-rules`, `advert-cache`,
+// `preferences`).
 // Namespacing by pubkey keeps one radio's records from colliding with
 // another's in a shared store. The bare pubkey (no suffix) is the message
 // history record.
@@ -283,12 +262,9 @@ function recordKey(pubkey: string, suffix: string): string {
 }
 
 // The one list of the records each identity keeps in the radios store under
-// its session key (`deriveSessionKey`). The session save
-// (`saveSessionNamespace`) must write every member of it to type-check, and
-// `deleteRadioRecords` deletes exactly its members, so no record can be saved
-// there and never deleted. `persona`
-// and `persona-pending` stay out: a handover must not delete them, since a
-// persona switched back to later still needs them.
+// its channel-secret key. The session save (`saveSessionNamespace`) must write
+// every member of it to type-check, and `deleteRadioRecords` deletes exactly
+// its members, so no record can be saved there and never deleted.
 const RADIO_RECORDS = [
   'history',
   'advert-cache',
@@ -324,10 +300,6 @@ function radioRecordKey(pubkey: string, record: RadioRecord): string {
  * so a remembered API key or saved repeater password simply stops resolving
  * after the reboot — but they are not this function's to destroy, and an
  * identity change has always left them that way.
- *
- * The `persona` record is left too, deliberately: an outgoing persona that
- * is switched back to later still needs it. So is `persona-pending`,
- * which {@link deletePendingPersona} collects once its switch is settled.
  * @returns whether every delete landed; best-effort, like the `save*` helpers.
  */
 export async function deleteRadioRecords(pubkey: string): Promise<boolean> {
@@ -408,9 +380,8 @@ export async function reencryptSecrets(
  *
  * @remarks For a session torn down while its storage key was moving: its
  * last writes landed under `from`, and the next connect derives `to`. Records
- * that do not decrypt under `from` are left alone, which covers the `persona`
- * record (sealed under the vault's storage root) and anything already under
- * `to`.
+ * that do not decrypt under `from` are left alone, which covers anything
+ * already under `to`.
  * @returns whether every record that decrypted under `from` was rewritten.
  */
 export async function reencryptRadioRecords(
@@ -603,320 +574,4 @@ export async function loadPreferences<T>(
     key,
   );
   return plaintext === null ? null : (JSON.parse(plaintext) as T);
-}
-
-// A persona's radio-side state (`lib/identity/persona.ts`): what gets written
-// back onto the radio when that persona goes live. Keyed by
-// `${pubkey}:persona` in the radios store, like every other per-identity
-// record, but sealed under the key its phrase's storage root derives for it
-// rather than the channel-secret key, so it can be read before the persona is
-// live — and after the channels it restores have changed.
-//
-// A persona switch in progress: the incoming persona's state, sealed like the
-// `persona` record, at `${pubkey}:persona-pending` under the incoming key. Its
-// existence alone is what the connect flow reads, before any key is at hand;
-// the record key is a public key like every other one here, so it says no
-// more than they do about which personas belong together.
-
-/**
- * The two records holding a persona's state, by record-key suffix: `persona`
- * for the state kept for when the identity goes live, `persona-pending` for
- * the state a switch onto it is applying.
- */
-export type PersonaRecordKind = 'persona' | 'persona-pending';
-
-/**
- * Encrypts and stores persona state at `${pubkey}:${kind}`. Best-effort —
- * any failure is swallowed, exactly like {@link saveRadioData}.
- *
- * @param key - the identity's key from `deriveIdentityStorageKey`.
- * @param state - the JSON-serializable persona state to persist.
- * @returns whether the write landed, for callers that report persistence state.
- */
-export async function savePersonaRecord(
-  pubkey: string,
-  kind: PersonaRecordKind,
-  key: CryptoKey,
-  state: unknown,
-): Promise<boolean> {
-  return putEncrypted(
-    STORE_NAME,
-    recordKey(pubkey, kind),
-    key,
-    JSON.stringify(state),
-  );
-}
-
-/**
- * Loads and decrypts the persona state at `${pubkey}:${kind}`.
- *
- * @param key - the identity's key from `deriveIdentityStorageKey`.
- * @returns the parsed record, not yet validated, or null if nothing is stored
- * or decryption fails (wrong key / corrupt record).
- */
-export async function loadPersonaRecord(
-  pubkey: string,
-  kind: PersonaRecordKind,
-  key: CryptoKey,
-): Promise<unknown> {
-  const plaintext = await getDecrypted(
-    STORE_NAME,
-    recordKey(pubkey, kind),
-    key,
-  );
-  return plaintext === null ? null : (JSON.parse(plaintext) as unknown);
-}
-
-/**
- * Whether a persona switch onto `pubkey` was started and never finished.
- * Needs no key.
- *
- * @returns false when IndexedDB cannot be read.
- */
-export async function hasPendingPersona(pubkey: string): Promise<boolean> {
-  try {
-    return (
-      (await idbGet(STORE_NAME, recordKey(pubkey, 'persona-pending'))) !==
-      undefined
-    );
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Deletes the record of a persona switch onto `pubkey`, once it is finished
- * or known not to have happened.
- *
- * @returns whether the delete landed.
- */
-export async function deletePendingPersona(pubkey: string): Promise<boolean> {
-  try {
-    await idbDelete(STORE_NAME, recordKey(pubkey, 'persona-pending'));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Whether anything at all is stored in the `radios` store for `pubkey`: its
- * history, advert cache, automation rules, preferences, persona or pending
- * switch. Needs no key.
- *
- * @returns false when IndexedDB cannot be read, which is also what an
- * identity new to this browser reports.
- */
-export async function hasRadioRecords(pubkey: string): Promise<boolean> {
-  try {
-    const db = await openDB();
-    const count = await new Promise<number>((resolve, reject) => {
-      const req = db
-        .transaction(STORE_NAME, 'readonly')
-        .objectStore(STORE_NAME)
-        .count(IDBKeyRange.bound(pubkey, `${pubkey}\uffff`));
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-    return count > 0;
-  } catch {
-    return false;
-  }
-}
-
-// A burner may be live on a radio: see `lib/identity/burner.ts`. The record
-// is empty and its key names no identity — every other key in the store is
-// a public key, so it cannot collide with one — so it says only that a
-// burner was started from this browser and not yet known to have ended.
-const BURNER_GUARD_KEY = 'burner-live';
-
-/**
- * Records that a burner may be live on a radio, so a connect after a page
- * reload saves nothing for an identity this browser has no records of.
- *
- * @returns whether the write landed.
- */
-export async function saveBurnerGuard(): Promise<boolean> {
-  try {
-    await idbWrite(STORE_NAME, BURNER_GUARD_KEY, {}, 'put');
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Whether {@link saveBurnerGuard} was called and the guard not deleted since.
- *
- * @returns false when IndexedDB cannot be read.
- */
-export async function hasBurnerGuard(): Promise<boolean> {
-  try {
-    return (await idbGet(STORE_NAME, BURNER_GUARD_KEY)) !== undefined;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Deletes the burner guard, once no burner is known to be live.
- *
- * @returns whether the delete landed.
- */
-export async function deleteBurnerGuard(): Promise<boolean> {
-  try {
-    await idbDelete(STORE_NAME, BURNER_GUARD_KEY);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// An identity minted from a recovery phrase: its records are sealed under the
-// key its vault's storage root derives, not the channel-secret key. The record
-// is empty and names no vault or sibling persona; its key is a public key like
-// every other one here, so it says only that this identity is seed-born.
-
-/**
- * Records that `pubkey` is seed-born, so a connect before its vault is
- * unlocked knows not to derive the channel-secret key for it.
- *
- * @returns whether the write landed.
- */
-export async function saveSeedMarker(pubkey: string): Promise<boolean> {
-  try {
-    await idbWrite(STORE_NAME, recordKey(pubkey, 'seed-born'), {}, 'put');
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Whether {@link saveSeedMarker} was called for `pubkey`. Needs no key.
- *
- * @returns false when IndexedDB cannot be read.
- */
-export async function hasSeedMarker(pubkey: string): Promise<boolean> {
-  try {
-    return (
-      (await idbGet(STORE_NAME, recordKey(pubkey, 'seed-born'))) !== undefined
-    );
-  } catch {
-    return false;
-  }
-}
-
-/** How a {@link replaceVaultRecord} call ended. */
-export type VaultWriteResult = 'saved' | 'stale' | 'failed';
-
-/**
- * Replaces a sealed identity vault, but only if the stored record is still the
- * one the caller last saw. The read and the write share one transaction, so
- * another tab's save cannot land between them.
- *
- * @param isCurrent - tests the record as stored now (undefined once deleted);
- * the write goes ahead only when it returns true.
- * @returns `stale` when `isCurrent` refused, `failed` when IndexedDB did.
- */
-export async function replaceVaultRecord(
-  fingerprint: string,
-  record: object,
-  isCurrent: (stored: unknown) => boolean,
-): Promise<VaultWriteResult> {
-  try {
-    const db = await openDB();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(VAULT_STORE, 'readwrite');
-      const store = tx.objectStore(VAULT_STORE);
-      let result: VaultWriteResult = 'saved';
-      const read = store.get(fingerprint);
-      read.onsuccess = () => {
-        if (isCurrent(read.result)) {
-          store.put(record, fingerprint);
-        } else {
-          result = 'stale';
-        }
-      };
-      tx.oncomplete = () => resolve(result);
-      // The failing request's error: `tx.error` is still null while a request
-      // error bubbles, as in `idbWrite`.
-      tx.onerror = (e) => reject((e.target as IDBRequest).error ?? tx.error);
-      tx.onabort = () => reject(tx.error);
-    });
-  } catch {
-    return 'failed';
-  }
-}
-
-/**
- * Stores a sealed identity vault under a fingerprint that must not be taken
- * yet. The existence check and the write are one transaction, so two tabs
- * creating a vault for the same phrase cannot both succeed.
- *
- * @returns false when a vault with this fingerprint already exists.
- * @throws when the write fails for any other reason.
- */
-export async function addVaultRecord(
-  fingerprint: string,
-  record: object,
-): Promise<boolean> {
-  try {
-    await idbWrite(VAULT_STORE, fingerprint, record, 'add');
-    return true;
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'ConstraintError') {
-      return false;
-    }
-    throw err;
-  }
-}
-
-/**
- * Reads the sealed vault record for one seed fingerprint.
- *
- * @returns the record as stored, not yet validated; undefined when there is
- * none.
- * @throws when IndexedDB cannot be read. Unlike the per-radio `load*` helpers,
- * a failed read is not folded into "nothing stored", so an unlock can tell a
- * missing vault from one it could not read.
- */
-export async function loadVaultRecord(fingerprint: string): Promise<unknown> {
-  return idbGet<unknown>(VAULT_STORE, fingerprint);
-}
-
-/**
- * The seed fingerprints of every vault on this device.
- *
- * @returns an empty list when IndexedDB cannot be read.
- */
-export async function listVaultFingerprints(): Promise<string[]> {
-  try {
-    const db = await openDB();
-    return await new Promise((resolve, reject) => {
-      const req = db
-        .transaction(VAULT_STORE, 'readonly')
-        .objectStore(VAULT_STORE)
-        .getAllKeys();
-      req.onsuccess = () =>
-        resolve(req.result.filter((k): k is string => typeof k === 'string'));
-      req.onerror = () => reject(req.error);
-    });
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Deletes one vault record.
- *
- * @returns whether the delete landed.
- */
-export async function deleteVaultRecord(fingerprint: string): Promise<boolean> {
-  try {
-    await idbDelete(VAULT_STORE, fingerprint);
-    return true;
-  } catch {
-    return false;
-  }
 }

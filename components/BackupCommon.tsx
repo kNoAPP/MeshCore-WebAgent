@@ -29,30 +29,12 @@ export const MIN_PASSPHRASE_LENGTH = 12;
  * Both dialogs sit above the reconnect overlay and stay mounted while the
  * auto-reconnect loop swaps the client — and what comes back may be a different
  * radio — so each rechecks this rather than trusting the check that opened it.
- *
- * Never true in a burner's session: every path this gates — a backup, a
- * restore, a regenerate — either writes the store to IndexedDB under some
- * identity or pairs it with a key, and nothing of a burner may be kept.
  */
 export function useBackupReady(): boolean {
   const status = useMeshStore((s) => s.status);
   const client = useMeshStore((s) => s.client);
   const prefsHydrated = useMeshStore((s) => s.prefsHydrated);
-  const burner = useMeshStore(isBurnerSession);
-  return (
-    status === 'connected' &&
-    !!client &&
-    !client.closed &&
-    prefsHydrated &&
-    !burner
-  );
-}
-
-/** Whether the radio's live identity is the store's burner. */
-export function isBurnerSession(
-  s: ReturnType<typeof useMeshStore.getState>,
-): boolean {
-  return !!s.burner && s.burner.pubkey === s.selfInfo?.pubkey?.toLowerCase();
+  return status === 'connected' && !!client && !client.closed && prefsHydrated;
 }
 
 /**
@@ -67,8 +49,7 @@ export function isBurnerSession(
  * Also null while an identity switch awaits its restart: the store then holds
  * the data of an identity the radio no longer is, so a backup would pair that
  * data with the wrong key, and a restore would merge into it with nowhere to
- * persist the result. And null in a burner's session, as for
- * {@link useBackupReady}.
+ * persist the result.
  */
 export function backupSessionPubkey(): string | null {
   const s = useMeshStore.getState();
@@ -77,8 +58,7 @@ export function backupSessionPubkey(): string | null {
     !!s.client &&
     !s.client.closed &&
     s.prefsHydrated &&
-    !identitySwitchPending() &&
-    !isBurnerSession(s);
+    !identitySwitchPending();
   return ready ? (s.selfInfo?.pubkey ?? null) : null;
 }
 

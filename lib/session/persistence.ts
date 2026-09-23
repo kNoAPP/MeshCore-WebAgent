@@ -11,14 +11,9 @@ import {
   wipeApiKey,
 } from '@/lib/ai/secret';
 import { reencryptRepeaterCreds } from '@/lib/meshcore/adminCreds';
-import {
-  onIdentityKeyRegistered,
-  registeredIdentityKey,
-} from '@/lib/identity/storageRoot';
 import { toHex } from '@/lib/utils';
 import {
   deleteRadioRecords,
-  hasSeedMarker,
   deriveStorageKey,
   reencryptRadioRecords,
   saveRadioData,
@@ -60,8 +55,8 @@ let switchPending = false;
 // it protects runs that reset first. See {@link claimUnsavedRestore}.
 let unsavedRestore: string | null = null;
 // The identity whose data the store holds; see {@link claimStore}. Not the
-// binding: that is null in several states where the store still holds an
-// identity's data (a seed-locked session, a burner, an unsaved restore), and
+// binding: that is null in states where the store still holds an identity's
+// data (an unsaved restore, an identity switch awaiting its restart), and
 // every connect resets it before the radio has said who it is. So this
 // outlives {@link resetPersistence}, as `unsavedRestore` does. Null while the
 // store is nobody's: after a teardown, and during an identity switch.
@@ -93,73 +88,8 @@ export interface ChannelKey {
    * it identifies the session the key belongs to.
    */
   channels: Record<number, Channel>;
-  /**
-   * The derivation's secret material as hex, in slot order; null for a
-   * seed-born identity's key, which comes from its vault's storage root and
-   * so does not follow the channels (see {@link deriveSessionKey}).
-   */
-  material: string | null;
-}
-
-/**
- * The storage key an identity's records are sealed under: its vault-derived
- * key when it is seed-born and this tab holds one (`registeredIdentityKey`),
- * otherwise the key derived from the radio's channel secrets.
- *
- * @remarks A seed-born identity (`hasSeedMarker`) whose key is not held here
- * has no key to give: the channel-secret one would seal its records under
- * public material and hide the ones already written. Every caller binds
- * nothing for it then, until its vault is opened.
- * @param channels - the client's channel mirror, keyed by slot.
- * @param pubkey - as for {@link deriveChannelKey}.
- * @returns null for a seed-born identity whose vault has not been opened in
- * this tab.
- */
-export async function deriveSessionKey(
-  channels: Record<number, Channel>,
-  pubkey: string,
-): Promise<ChannelKey | null> {
-  const key = registeredIdentityKey(pubkey);
-  if (key) return { key, channels, material: null };
-  if (await hasSeedMarker(pubkey)) return null;
-  return deriveChannelKey(channels, pubkey);
-}
-
-// A seed-born identity's key registered while the session is bound to that
-// identity under its channel-secret key — its vault opened only now, as for an
-// identity minted before its records were keyed from the root. Everything the
-// session keeps for it moves onto the vault-derived key, as a re-key does,
-// so nothing more is written under public material.
-onIdentityKeyRegistered((pubkey, key) => {
-  if (binding?.pubkey === pubkey && binding.material !== null) {
-    rebindToIdentityKey(pubkey, key);
-  }
-});
-
-// Queued like a re-key. Like one, it waits while the session is bound but not
-// yet wired: the connect flow's hydrate is still reading under the channel
-// key, and writing under it would race those reads. wirePersistence catches
-// up then.
-function rebindToIdentityKey(pubkey: string, key: CryptoKey): void {
-  rekeysPending++;
-  rekeyChain = rekeyChain
-    .then(async () => {
-      const from = binding;
-      if (from?.pubkey !== pubkey || from.material === null || !saveUnsub) {
-        return;
-      }
-      setStorageKey(pubkey, { key, channels: from.channels, material: null });
-      if (getStorageContext()?.pubkey === pubkey) setSecretContext(pubkey, key);
-      await Promise.all([
-        saveSessionNamespace(pubkey, key),
-        reencryptApiKey(pubkey, from.key, key),
-        reencryptRepeaterCreds(pubkey, from.key, key),
-      ]);
-    })
-    .catch(() => {})
-    .finally(() => {
-      if (--rekeysPending === 0 && !binding) lastBound = null;
-    });
+  /** The derivation's secret material as hex, in slot order. */
+  material: string;
 }
 
 /**
@@ -193,7 +123,7 @@ export async function deriveChannelKey(
  *
  * @param pubkey - the identity's public key hex, lowercase, as `SELF_INFO`
  * reports it; `key` must have been derived with it by
- * {@link deriveSessionKey}.
+ * {@link deriveChannelKey}.
  */
 export function setStorageKey(pubkey: string, key: ChannelKey): void {
   binding = lastBound = { pubkey, ...key };
@@ -224,9 +154,6 @@ type Binding = { pubkey: string } & ChannelKey;
  * has not been hydrated yet, and writing it would put an empty session over
  * the records the hydrate is still reading under the outgoing key.
  *
- * A seed-born identity's key does not come from the channels, so a binding
- * made with one (`material` null) never re-keys.
- *
  * Fire-and-forget, and best-effort like the writes it makes. The records the
  * outgoing key encrypted are overwritten in place rather than deleted.
  */
@@ -251,9 +178,7 @@ async function rekey(channels: Record<number, Channel>): Promise<void> {
       : lastBound?.channels === channels && !binding && !switchPending
         ? lastBound
         : null;
-  if (!from || from.material === null || (from === binding && !saveUnsub)) {
-    return;
-  }
+  if (!from || (from === binding && !saveUnsub)) return;
   const next = await deriveChannelKey(channels, from.pubkey);
   if (next.material === from.material) return;
   // Another binding for this mirror (an identity handover) owns the session
@@ -419,29 +344,16 @@ export async function flushSessionAsync(): Promise<boolean> {
  * from the private key that was imported; it is both the record namespace and
  * the key-derivation salt, so its case must match.
  * @returns whether all four writes landed, for callers that report persistence
- * state; false, with nothing written or bound, for a seed-born identity whose
- * vault is not open in this tab.
+ * state.
  */
 export async function beginIdentityHandover(
   client: MeshCoreClient,
   pubkey: string,
 ): Promise<boolean> {
   const outgoing = binding?.pubkey;
-  const key = await deriveSessionKey(client.channels, pubkey);
-  // The data moves with the key, whether or not it can be written yet.
+  const key = await deriveChannelKey(client.channels, pubkey);
+  // The data moves with the key.
   storeIdentity = pubkey;
-  if (!key) {
-    // A seed-born identity whose vault is not open here: nothing may be
-    // written for it yet, and the store already holds its data, so nothing
-    // may be written for the outgoing identity either. The session runs
-    // unbound until the restart asks for the vault; the caller marks the
-    // store's data an unsaved restore, which that unlock then writes.
-    binding = null;
-    switchPending = true;
-    wipeApiKey();
-    await client.refreshSelfInfo().catch(() => {});
-    return false;
-  }
   // Bound before the re-read, which hands the refreshed `selfInfo` to the
   // store: whatever reacts to the new identity finds its namespace and its
   // secrets already in place.
@@ -467,8 +379,8 @@ export async function beginIdentityHandover(
  * incoming identity, re-reads `SELF_INFO`, and clears the outgoing identity's
  * data from the store (`resetIdentityData`).
  *
- * @remarks For a restore from a recovery phrase or a persona switch, where
- * the incoming identity keeps whatever records it already has here. Nothing
+ * @remarks For a restore from a recovery phrase, where the incoming identity
+ * keeps whatever records it already has here. Nothing
  * persists until the session restarts and binds the incoming identity, which
  * is the caller's to do. That restart merges the identity's saved history into
  * the store rather than replacing it, as every reconnect does, so the store is
@@ -480,15 +392,13 @@ export async function beginIdentityHandover(
  *
  * A channel change after this is the incoming identity's, and does not re-key
  * the outgoing identity's records: they stay under the channel set that
- * identity had, which is the one a persona switch gives back to it.
+ * identity had.
  *
- * @param pubkey - as for {@link beginIdentityHandover}; null for a burner,
- * for which nothing may be stored at all: the secrets context is dropped
- * instead, along with any API key held in memory for the outgoing identity.
+ * @param pubkey - as for {@link beginIdentityHandover}.
  */
 export async function beginIdentitySwitch(
   client: MeshCoreClient,
-  pubkey: string | null,
+  pubkey: string,
 ): Promise<void> {
   // A re-key still queued is the outgoing identity's, and has to land before
   // the flush below writes under whichever key is bound.
@@ -496,21 +406,12 @@ export async function beginIdentitySwitch(
   await flushSessionAsync();
   binding = null;
   switchPending = true;
-  const incoming =
-    pubkey === null ? null : await deriveSessionKey(client.channels, pubkey);
-  // A burner stores nothing, and a seed-born identity whose vault is not open
-  // has no key yet: either way no secrets context carries over.
-  if (pubkey === null || !incoming) {
-    wipeApiKey();
-  } else {
-    setSecretContext(pubkey, incoming.key);
-  }
+  const { key } = await deriveChannelKey(client.channels, pubkey);
+  setSecretContext(pubkey, key);
   await client.refreshSelfInfo().catch(() => {});
-  // After the last await: a persona switch installs the key only once this
-  // returns, so the radio is still the outgoing identity until then, and
-  // anything it received meanwhile has to be cleared along with the rest. A
-  // restore has installed it already, so what this clears is the incoming
-  // identity's own traffic, a few seconds of it at most.
+  // After the last await, so whatever arrived meanwhile is cleared along with
+  // the rest. The restore has installed the key already, so that is the
+  // incoming identity's own traffic, a few seconds of it at most.
   useMeshStore.getState().resetIdentityData();
   // Whatever arrives from here on is the traffic of the identity the radio
   // actually holds, which only the restart can tell: a switch the radio
@@ -553,15 +454,14 @@ export function boundPubkey(): string | undefined {
  * {@link beginIdentityHandover}, and a refused one with `deleteRadioRecords`.
  *
  * @param pubkey - as for {@link beginIdentityHandover}.
- * @returns whether all four writes landed; false, with nothing written, for a
- * seed-born identity whose vault is not open in this tab.
+ * @returns whether all four writes landed.
  */
 export async function seedIdentityNamespace(
   client: MeshCoreClient,
   pubkey: string,
 ): Promise<boolean> {
-  const derived = await deriveSessionKey(client.channels, pubkey);
-  return derived ? saveSessionNamespace(pubkey, derived.key) : false;
+  const { key } = await deriveChannelKey(client.channels, pubkey);
+  return saveSessionNamespace(pubkey, key);
 }
 
 /**
@@ -639,13 +539,11 @@ export function releaseStore(): void {
  * A bound session was flushed when its link dropped (`beginReconnect`), so
  * what is cleared is usually on disk already. Not always: a restore whose
  * write failed ({@link markUnsavedRestore}), a session that never bound (a
- * seed-born identity whose vault was not opened, a burner, an unfinished
- * persona switch), or messages drained from the radio by an attempt that
- * dropped before it bound. Each is the outgoing identity's alone, so it is
- * dropped rather than kept under the incoming one, and the return value says
- * so. The in-memory API key goes too: a session that binds no secrets context
- * (a burner, an unfinished persona switch) would otherwise keep the outgoing
- * identity's.
+ * radio that reported no public key), or messages drained from the radio by
+ * an attempt that dropped before it bound. Each is the outgoing identity's
+ * alone, so it is dropped rather than kept under the incoming one, and the
+ * return value says so. The in-memory API key goes too: a session that binds
+ * no secrets context would otherwise keep the outgoing identity's.
  *
  * A session that reports the identity the store already holds keeps it, as
  * does the first one after a teardown or an identity switch, which leave the
@@ -725,8 +623,7 @@ async function saveSessionNamespace(
  * exist and so goes unpersisted. {@link resetPersistence} undoes all of it.
  *
  * Also catches the storage key up with a channel change that arrived before
- * the store was hydrated (see {@link followChannelSecrets}), and with a
- * seed-born identity's key registered meanwhile.
+ * the store was hydrated (see {@link followChannelSecrets}).
  */
 export function wirePersistence(): void {
   saveUnsub = useMeshStore.subscribe((state, prev) => {
@@ -785,15 +682,7 @@ export function wirePersistence(): void {
     }, SAVE_DEBOUNCE_MS);
   });
 
-  if (binding) {
-    followChannelSecrets(binding.channels);
-    // A seed-born identity's key registered while the hydrate ran: the rebind
-    // waited for this.
-    const key = registeredIdentityKey(binding.pubkey);
-    if (key && binding.material !== null) {
-      rebindToIdentityKey(binding.pubkey, key);
-    }
-  }
+  if (binding) followChannelSecrets(binding.channels);
 }
 
 /**
