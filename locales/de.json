@@ -657,8 +657,9 @@
     "restore": {
       "action": "Aus Wiederherstellungsphrase wiederherstellen",
       "title": "Aus einer Wiederherstellungsphrase wiederherstellen",
-      "enterIntro": "Gib die notierte Wiederherstellungsphrase in der richtigen Reihenfolge ein, mit einem Leerzeichen zwischen den Wörtern. Sie wird auf diesem Gerät geprüft und verlässt es nie.",
+      "enterIntro": "Gib die notierte Wiederherstellungsphrase ein, ein Wort pro nummeriertem Feld, oder füge die ganze Phrase ein. Sie wird auf diesem Gerät geprüft und verlässt es nie.",
       "phraseLabel": "Wiederherstellungsphrase",
+      "phraseLength": "Länge der Phrase",
       "wordCount_one": "{{count}} Wort",
       "wordCount_other": "{{count}} Wörter",
       "unknownWord": "Wort {{n}}, „{{word}}“, steht nicht in der Wortliste für Wiederherstellungsphrasen.",

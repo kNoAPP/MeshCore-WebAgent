@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshStore } from '@/store/meshStore';
 import {
@@ -22,7 +22,7 @@ import i18n from '@/lib/i18n';
 import { ModalShell } from './ModalShell';
 import { PRIVATE_KEY_ERROR_KEY } from './RecoveryPhraseWizard';
 import { Switch } from './Switch';
-import { unknownWords } from './RestorePhraseSteps';
+import { PhraseInput, unknownWords } from './PhraseInput';
 
 const SWITCH_ERROR_KEY = {
   notInVault: 'settings.persona.error.notInVault',
@@ -40,9 +40,6 @@ const STAGE_KEY = {
   applying: 'settings.persona.stage.applying',
   restarting: 'settings.persona.stage.restarting',
 } as const satisfies Record<SwitchProgress['stage'], string>;
-
-const INPUT_CLASS =
-  'w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent-solid disabled:cursor-not-allowed disabled:opacity-50';
 
 // Stable identity for the suppressed-close handler, as in the backup dialogs.
 const noop = () => {};
@@ -74,7 +71,6 @@ export function PersonaSwitchModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const phraseId = useId();
   const notify = useMeshStore((s) => s.notify);
   const fromBurner = useMeshStore(
     (s) => !!s.burner && s.burner.pubkey === s.selfInfo?.pubkey?.toLowerCase(),
@@ -210,26 +206,14 @@ export function PersonaSwitchModal({
             </div>
           )}
           {needsPhrase && (
-            <>
-              <label
-                htmlFor={phraseId}
-                className='mb-1 block text-xs text-text2'
-              >
-                {t('settings.persona.phraseLabel')}
-              </label>
-              {/* No spellcheck or autocomplete, as in the restore wizard. */}
-              <textarea
-                id={phraseId}
+            <div className='mb-4'>
+              <PhraseInput
+                label={t('settings.persona.phraseLabel')}
                 value={phrase}
-                onChange={(e) => setPhrase(e.target.value)}
-                rows={3}
-                autoComplete='off'
-                autoCapitalize='off'
-                spellCheck={false}
                 disabled={busy}
-                className={`${INPUT_CLASS} mb-4 resize-none font-mono`}
+                onChange={setPhrase}
               />
-            </>
+            </div>
           )}
           <Switch
             label={t('settings.persona.announce')}

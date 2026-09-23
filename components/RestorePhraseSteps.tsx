@@ -5,8 +5,8 @@
 
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BIP39_ENGLISH } from '@/lib/identity/wordlist';
 import type { PhrasePreview } from '@/lib/identity/restore';
+import { PhraseInput } from './PhraseInput';
 import { Switch } from './Switch';
 
 /**
@@ -17,24 +17,8 @@ import { Switch } from './Switch';
 const INPUT_CLASS =
   'w-full rounded-md border border-border-control bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent-solid disabled:cursor-not-allowed disabled:opacity-50';
 
-const WORDS = new Set(BIP39_ENGLISH);
-
 /**
- * The words of `phrase` that are not in the BIP-39 English list, with their
- * zero-based positions. A last word still being typed is not judged yet.
- */
-export function unknownWords(
-  phrase: string,
-): { index: number; word: string }[] {
-  const words = phrase.normalize('NFKD').toLowerCase().trim().split(/\s+/);
-  const settled = /\s$/.test(phrase) ? words : words.slice(0, -1);
-  return settled.flatMap((word, index) =>
-    word && !WORDS.has(word) ? [{ index, word }] : [],
-  );
-}
-
-/**
- * Step 1: the phrase, checked word by word as it is typed.
+ * Step 1: the phrase, one word per numbered box.
  *
  * @param error - why the last submitted phrase was refused, already
  * localized, or null.
@@ -49,43 +33,17 @@ export function EnterStep({
   onPhrase: (value: string) => void;
 }) {
   const { t } = useTranslation();
-  const id = useId();
-  const unknown = unknownWords(phrase);
-  const count = phrase.trim() ? phrase.trim().split(/\s+/).length : 0;
   return (
     <>
       <p className='mb-3 text-xs leading-relaxed text-text2'>
         {t('settings.restore.enterIntro')}
       </p>
-      <label htmlFor={id} className='mb-1 block text-xs text-text2'>
-        {t('settings.restore.phraseLabel')}
-      </label>
-      {/* No spellcheck or autocomplete: either would hand the words to a
-          browser service, or keep them in its suggestion history. */}
-      <textarea
-        id={id}
+      <PhraseInput
+        label={t('settings.restore.phraseLabel')}
         value={phrase}
-        onChange={(e) => onPhrase(e.target.value)}
-        rows={3}
-        autoComplete='off'
-        autoCapitalize='off'
-        spellCheck={false}
-        aria-invalid={unknown.length > 0 || !!error}
-        className={`${INPUT_CLASS} resize-none font-mono`}
+        onChange={onPhrase}
       />
-      <p className='mt-1 text-xs text-text2 tabular-nums'>
-        {t('settings.restore.wordCount', { count })}
-      </p>
-      {unknown.length > 0 && (
-        <ul role='alert' className='mt-2 space-y-1 text-xs text-red'>
-          {unknown.map(({ index, word }) => (
-            <li key={index} className='break-all'>
-              {t('settings.restore.unknownWord', { n: index + 1, word })}
-            </li>
-          ))}
-        </ul>
-      )}
-      {error && unknown.length === 0 && (
+      {error && (
         <p role='alert' className='mt-2 text-xs leading-relaxed text-red'>
           {error}
         </p>

@@ -14,7 +14,7 @@ import {
   type VaultIdentity,
 } from '@/lib/identity/vault';
 import { MAX_ADVERT_NAME_BYTES } from '@/lib/meshcore/constants';
-import { unknownWords } from './RestorePhraseSteps';
+import { PhraseInput, unknownWords } from './PhraseInput';
 import { PersonaSwitchModal, switchErrorMessage } from './PersonaSwitchModal';
 import { BurnerModal } from './BurnerModal';
 import { KeyAvatar } from './KeyAvatar';
@@ -212,7 +212,6 @@ function MintForm({
 }) {
   const { t } = useTranslation();
   const labelId = useId();
-  const phraseId = useId();
   const [label, setLabel] = useState('');
   const [phrase, setPhrase] = useState('');
   const [busy, setBusy] = useState(false);
@@ -269,23 +268,12 @@ function MintForm({
         {bytes}/{MAX_ADVERT_NAME_BYTES}
       </p>
       {needsPhrase && (
-        <>
-          <label htmlFor={phraseId} className='mb-1 block text-xs text-text2'>
-            {t('settings.persona.phraseLabel')}
-          </label>
-          {/* No spellcheck or autocomplete, as in the restore wizard. */}
-          <textarea
-            id={phraseId}
-            value={phrase}
-            onChange={(e) => setPhrase(e.target.value)}
-            rows={3}
-            autoComplete='off'
-            autoCapitalize='off'
-            spellCheck={false}
-            disabled={busy}
-            className={`${INPUT_CLASS} resize-none font-mono`}
-          />
-        </>
+        <PhraseInput
+          label={t('settings.persona.phraseLabel')}
+          value={phrase}
+          disabled={busy}
+          onChange={setPhrase}
+        />
       )}
       {error && (
         <p role='alert' className='mt-2 text-xs leading-relaxed text-red'>

@@ -656,8 +656,9 @@
     "restore": {
       "action": "Restore from recovery phrase",
       "title": "Restore from a recovery phrase",
-      "enterIntro": "Type the recovery phrase you wrote down, in order, with a space between words. It is checked on this device and never leaves it.",
+      "enterIntro": "Enter the recovery phrase you wrote down, one word per numbered box, or paste the whole phrase. It is checked on this device and never leaves it.",
       "phraseLabel": "Recovery phrase",
+      "phraseLength": "Phrase length",
       "wordCount_one": "{{count}} word",
       "wordCount_other": "{{count}} words",
       "unknownWord": "Word {{n}}, “{{word}}”, is not in the recovery word list.",

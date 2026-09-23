@@ -657,8 +657,9 @@
     "restore": {
       "action": "Restaurer depuis une phrase de récupération",
       "title": "Restaurer depuis une phrase de récupération",
-      "enterIntro": "Saisissez la phrase de récupération que vous avez notée, dans l’ordre, avec une espace entre les mots. Elle est vérifiée sur cet appareil et ne le quitte jamais.",
+      "enterIntro": "Saisissez la phrase de récupération que vous avez notée, un mot par case numérotée, ou collez la phrase entière. Elle est vérifiée sur cet appareil et ne le quitte jamais.",
       "phraseLabel": "Phrase de récupération",
+      "phraseLength": "Longueur de la phrase",
       "wordCount_one": "{{count}} mot",
       "wordCount_other": "{{count}} mots",
       "unknownWord": "Le mot {{n}}, « {{word}} », n’est pas dans la liste de mots de récupération.",
