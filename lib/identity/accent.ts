@@ -2,9 +2,10 @@
 // (https://github.com/kNoAPP/MeshCore-WebAgent)
 
 /**
- * The colors an identity can wear, each a `--identity-<name>` token in
- * `app/globals.css` with a light and a dark value. Deliberately no green or
- * red: a frame in either would read as link health, or as an error.
+ * The colors an identity can wear. Each is a `--identity-<name>` token in
+ * `app/globals.css` for text and marks, and a `--identity-frame-<name>` one
+ * for the frame stripe, both with a light and a dark value. Deliberately no
+ * green or red: a frame in either would read as link health, or as an error.
  */
 export const IDENTITY_COLORS = [
   'teal',
@@ -37,26 +38,29 @@ export const IDENTITY_TEXT_CLASS = {
   violet: 'text-identity-violet',
 } as const satisfies Record<IdentityColor, string>;
 
-/** The header's frame: a stripe along its top edge. */
+/**
+ * The header's frame: a stripe along its top edge, thicker than the action
+ * bar's so the live identity reads at a glance.
+ */
 export const IDENTITY_TOP_FRAME_CLASS = {
   none: '',
-  teal: 'border-t-3 border-t-identity-teal',
-  lime: 'border-t-3 border-t-identity-lime',
-  amber: 'border-t-3 border-t-identity-amber',
-  orange: 'border-t-3 border-t-identity-orange',
-  pink: 'border-t-3 border-t-identity-pink',
-  violet: 'border-t-3 border-t-identity-violet',
+  teal: 'border-t-5 border-t-identity-frame-teal',
+  lime: 'border-t-5 border-t-identity-frame-lime',
+  amber: 'border-t-5 border-t-identity-frame-amber',
+  orange: 'border-t-5 border-t-identity-frame-orange',
+  pink: 'border-t-5 border-t-identity-frame-pink',
+  violet: 'border-t-5 border-t-identity-frame-violet',
 } as const satisfies Record<IdentityAccent, string>;
 
 /** The action bar's frame: a stripe along its bottom edge. */
 export const IDENTITY_BOTTOM_FRAME_CLASS = {
   none: '',
-  teal: 'border-b-3 border-b-identity-teal',
-  lime: 'border-b-3 border-b-identity-lime',
-  amber: 'border-b-3 border-b-identity-amber',
-  orange: 'border-b-3 border-b-identity-orange',
-  pink: 'border-b-3 border-b-identity-pink',
-  violet: 'border-b-3 border-b-identity-violet',
+  teal: 'border-b-3 border-b-identity-frame-teal',
+  lime: 'border-b-3 border-b-identity-frame-lime',
+  amber: 'border-b-3 border-b-identity-frame-amber',
+  orange: 'border-b-3 border-b-identity-frame-orange',
+  pink: 'border-b-3 border-b-identity-frame-pink',
+  violet: 'border-b-3 border-b-identity-frame-violet',
 } as const satisfies Record<IdentityAccent, string>;
 
 /** The accent before the user chooses one. */

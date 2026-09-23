@@ -23,7 +23,8 @@
     "channelName": "Kanal {{index}}",
     "unknown": "Unbekannt",
     "device": "MeshCore-Gerät",
-    "skipToContent": "Zum Hauptinhalt springen"
+    "skipToContent": "Zum Hauptinhalt springen",
+    "showPassphrase": "Passphrase anzeigen"
   },
   "units": {
     "dbm": "{{value}} dBm",
@@ -517,6 +518,7 @@
       "model": "Modell",
       "apiKey": "API-Schlüssel",
       "apiKeyPlaceholder": "Füge deinen API-Schlüssel ein",
+      "showApiKey": "API-Schlüssel anzeigen",
       "apiKeyLink": "API-Schlüssel bei {{provider}} erstellen",
       "remember": "Auf diesem Gerät merken",
       "rememberHint": "Verschlüsselt den Schlüssel für dieses Funkgerät, damit er bei der nächsten Verbindung wiederhergestellt wird. Erfordert ein verbundenes Funkgerät.",
@@ -622,7 +624,7 @@
       "costSecrets": "Ein gespeicherter KI-Schlüssel und gespeicherte Repeater-Passwörter gehören zur alten Identität und müssen neu eingegeben werden.",
       "costKept": "Nachrichtenverlauf, entdeckte Knoten, Automatisierungsregeln und Einstellungen in diesem Browser gehen auf die neue Identität über.",
       "backupFirst": "Zuerst die aktuelle Identität sichern",
-      "phraseIntro": "Schreibe diese {{count}} Wörter der Reihe nach auf Papier. Nur mit ihnen lässt sich die neue Identität wiederherstellen.",
+      "phraseIntro": "Schreibe diese {{count}} Wörter der Reihe nach <strong>auf Papier</strong>. Nur mit ihnen lässt sich die neue Identität wiederherstellen.",
       "phraseWarning": "Wer diese Phrase sieht, kann deine Identität auf sein eigenes Funkgerät übertragen und sich im Mesh als du ausgeben. Gib sie nie auf einer Website ein, fotografiere sie nicht und speichere sie nicht in einer Cloud-Notiz.",
       "phraseWritten": "Ich habe die Phrase aufgeschrieben",
       "confirmIntro": "Gib die Wörter an diesen Positionen aus deiner Abschrift ein. Eine nie aufgeschriebene Phrase ist schlimmer als keine, weil sie sich wie eine Sicherung anfühlt.",

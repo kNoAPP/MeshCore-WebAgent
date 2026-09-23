@@ -4,9 +4,10 @@
 'use client';
 
 import { useId } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useSeedBorn } from '@/hooks/useSeedBorn';
 import { Switch } from './Switch';
+import { SecretInput } from './SecretInput';
 import { MIN_PASSPHRASE_LENGTH } from './BackupCommon';
 
 /**
@@ -79,7 +80,16 @@ export function PhraseStep({
   return (
     <>
       <p className='mb-3 text-xs leading-relaxed text-text2'>
-        {t('settings.recovery.phraseIntro', { count: words.length })}
+        {/* Bold steers the phrase off screenshots, notes apps and synced
+            password managers. */}
+        <Trans
+          t={t}
+          i18nKey='settings.recovery.phraseIntro'
+          values={{ count: words.length }}
+          components={{
+            strong: <strong className='font-semibold text-text' />,
+          }}
+        />
       </p>
       <ol className='grid grid-cols-3 gap-2 rounded-md border border-border bg-surface2 p-3 font-mono text-sm'>
         {words.map((word, i) => (
@@ -201,9 +211,8 @@ export function PassphraseStep({
       <label htmlFor={passId} className='mb-1 block text-xs text-text2'>
         {t('settings.backup.passphrase')}
       </label>
-      <input
+      <SecretInput
         id={passId}
-        type='password'
         autoComplete='new-password'
         value={passphrase}
         onChange={(e) => onPassphrase(e.target.value)}
@@ -219,9 +228,8 @@ export function PassphraseStep({
       <label htmlFor={confirmId} className='mb-1 mt-4 block text-xs text-text2'>
         {t('settings.backup.passphraseConfirm')}
       </label>
-      <input
+      <SecretInput
         id={confirmId}
-        type='password'
         autoComplete='new-password'
         value={confirm}
         onChange={(e) => onConfirm(e.target.value)}

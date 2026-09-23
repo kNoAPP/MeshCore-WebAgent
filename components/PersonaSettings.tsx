@@ -18,6 +18,7 @@ import {
   type VaultErrorCode,
 } from '@/lib/identity/vault';
 import { PersonaList } from './PersonaList';
+import { SecretInput } from './SecretInput';
 
 const VAULT_ERROR_KEY = {
   notFound: 'settings.restore.vaultError.notFound',
@@ -318,9 +319,8 @@ function UnlockRow({
             <label htmlFor={id} className='mb-1 block text-xs text-text2'>
               {t('settings.backup.passphrase')}
             </label>
-            <input
+            <SecretInput
               id={id}
-              type='password'
               autoComplete='current-password'
               value={passphrase}
               disabled={busy}

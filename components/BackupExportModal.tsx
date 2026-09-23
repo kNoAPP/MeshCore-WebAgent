@@ -19,6 +19,7 @@ import {
   backupSessionPubkey,
   useBackupReady,
 } from './BackupCommon';
+import { SecretInput } from './SecretInput';
 
 // Stable identity for the suppressed-close handler, so ModalShell's props
 // don't change on every render while an export runs.
@@ -182,9 +183,8 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
           captured this value before the 600k-iteration KDF started, so an edit
           made during it would leave the field showing a passphrase that does
           not open the file being written. */}
-      <input
+      <SecretInput
         id={passId}
-        type='password'
         autoComplete='new-password'
         value={passphrase}
         disabled={busy}
@@ -202,9 +202,8 @@ export function BackupExportModal({ onClose }: { onClose: () => void }) {
       <label htmlFor={confirmId} className='mb-1 mt-4 block text-xs text-text2'>
         {t('settings.backup.passphraseConfirm')}
       </label>
-      <input
+      <SecretInput
         id={confirmId}
-        type='password'
         autoComplete='new-password'
         value={confirm}
         disabled={busy}

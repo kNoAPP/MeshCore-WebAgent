@@ -25,6 +25,7 @@ import {
   backupSessionPubkey,
   useBackupReady,
 } from './BackupCommon';
+import { SecretInput } from './SecretInput';
 
 // Stable identity for the suppressed-close handler, so ModalShell's props
 // don't change on every render while a restore runs.
@@ -213,9 +214,8 @@ export function BackupImportModal({ onClose }: { onClose: () => void }) {
           >
             {t('settings.backup.passphrase')}
           </label>
-          <input
+          <SecretInput
             id={passId}
-            type='password'
             autoComplete='current-password'
             value={passphrase}
             disabled={busy}

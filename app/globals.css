@@ -43,6 +43,12 @@
   --color-identity-orange: var(--identity-orange);
   --color-identity-pink: var(--identity-pink);
   --color-identity-violet: var(--identity-violet);
+  --color-identity-frame-teal: var(--identity-frame-teal);
+  --color-identity-frame-lime: var(--identity-frame-lime);
+  --color-identity-frame-amber: var(--identity-frame-amber);
+  --color-identity-frame-orange: var(--identity-frame-orange);
+  --color-identity-frame-pink: var(--identity-frame-pink);
+  --color-identity-frame-violet: var(--identity-frame-violet);
 
   /* The one non-pill radius the UI actually uses for raised surfaces: cards,
      popovers, dialogs. `rounded-md` stays the small-control radius. Declared
@@ -177,16 +183,26 @@ label[for] {
   /* Dialog scrim and raised-surface shadow, both theme-dependent. */
   --scrim: rgb(0 0 0 / 0.6);
   --pop-shadow: 0 8px 24px rgb(0 0 0 / 0.55);
-  /* Identity colors (`lib/identity/accent.ts`): the frame and header name a
-     live identity's chosen accent draws, and the fingerprint avatars. The
-     name is text on `--surface`, so each clears 4.5:1 there in both themes;
-     the avatars are marks on `--surface2`, where each clears 4:1. */
+  /* Identity colors (`lib/identity/accent.ts`): the header name a live
+     identity's chosen accent draws, and the fingerprint avatars. The name is
+     text on `--surface`, so each clears 4.5:1 there in both themes; the
+     avatars are marks on `--surface2`, where each clears 4:1. */
   --identity-teal: #2dd4bf;
   --identity-lime: #a3e635;
   --identity-amber: #fbbf24;
   --identity-orange: #fb923c;
   --identity-pink: #f472b6;
   --identity-violet: #a78bfa;
+  /* The frame stripe on the header and action bar. It is decoration, not
+     text, so it owes no contrast floor. Dark mode's name colors are already
+     vivid, so the frame reuses them; light mode's have to darken to pass as
+     text, and there the frame takes brighter shades of its own. */
+  --identity-frame-teal: var(--identity-teal);
+  --identity-frame-lime: var(--identity-lime);
+  --identity-frame-amber: var(--identity-amber);
+  --identity-frame-orange: var(--identity-orange);
+  --identity-frame-pink: var(--identity-pink);
+  --identity-frame-violet: var(--identity-violet);
   /* Map markers. The four categories are the app's own tokens rather than a
      second palette, so the legend key matches the colors used everywhere
      else. Only the two rings and the drop-shadow need a per-theme value: they
@@ -238,12 +254,20 @@ label[for] {
   --mention-own: #fde68a;
   --scrim: rgb(15 17 23 / 0.45);
   --pop-shadow: 0 8px 24px rgb(15 17 23 / 0.18);
+  /* Amber leans toward yellow here, so it stays apart from orange at the
+     depth the name's 4.5:1 forces on both. */
   --identity-teal: #0f766e;
   --identity-lime: #4d7c0f;
-  --identity-amber: #b45309;
+  --identity-amber: #a16207;
   --identity-orange: #c2410c;
-  --identity-pink: #be185d;
-  --identity-violet: #6d28d9;
+  --identity-pink: #d42371;
+  --identity-violet: #7c3aed;
+  --identity-frame-teal: #14b8a6;
+  --identity-frame-lime: #84cc16;
+  --identity-frame-amber: #f59e0b;
+  --identity-frame-orange: #f97316;
+  --identity-frame-pink: #ec4899;
+  --identity-frame-violet: #8b5cf6;
   /* Positron is near-white, so the contrast ring and the favorite ring both
      have to darken or they vanish into the tiles. */
   --map-outline: #1a1d27;

@@ -23,7 +23,8 @@
     "channelName": "Channel {{index}}",
     "unknown": "Unknown",
     "device": "MeshCore Device",
-    "skipToContent": "Skip to main content"
+    "skipToContent": "Skip to main content",
+    "showPassphrase": "Show passphrase"
   },
   "units": {
     "dbm": "{{value}} dBm",
@@ -516,6 +517,7 @@
       "model": "Model",
       "apiKey": "API key",
       "apiKeyPlaceholder": "Paste your API key",
+      "showApiKey": "Show API key",
       "apiKeyLink": "Get an API key from {{provider}}",
       "remember": "Remember on this device",
       "rememberHint": "Encrypts the key for this radio so it restores on the next connect. Requires a connected radio.",
@@ -621,7 +623,7 @@
       "costSecrets": "A remembered AI key and saved repeater passwords belong to the old identity and will need entering again.",
       "costKept": "Message history, discovered nodes, automation rules and preferences in this browser carry over to the new identity.",
       "backupFirst": "Back up the current identity first",
-      "phraseIntro": "Write these {{count}} words down on paper, in order. They are the only way to restore the new identity.",
+      "phraseIntro": "Write these {{count}} words down <strong>on paper</strong>, in order. They are the only way to restore the new identity.",
       "phraseWarning": "Anyone who sees this phrase can put your identity on their own radio and impersonate you on the mesh. Never type it into a website, photograph it, or keep it in a cloud note.",
       "phraseWritten": "I have written the phrase down",
       "confirmIntro": "Enter the words at these positions from your written copy. A phrase that was never written down is worse than none, because it feels like a backup.",
