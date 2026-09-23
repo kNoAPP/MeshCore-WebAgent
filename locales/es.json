@@ -657,8 +657,9 @@
     "restore": {
       "action": "Restaurar desde frase de recuperación",
       "title": "Restaurar desde una frase de recuperación",
-      "enterIntro": "Escribe la frase de recuperación que anotaste, en orden, con un espacio entre palabras. Se comprueba en este dispositivo y nunca sale de él.",
+      "enterIntro": "Escribe la frase de recuperación que anotaste, una palabra en cada casilla numerada, o pega la frase completa. Se comprueba en este dispositivo y nunca sale de él.",
       "phraseLabel": "Frase de recuperación",
+      "phraseLength": "Longitud de la frase",
       "wordCount_one": "{{count}} palabra",
       "wordCount_other": "{{count}} palabras",
       "unknownWord": "La palabra {{n}}, «{{word}}», no está en la lista de palabras de recuperación.",

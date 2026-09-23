@@ -38,8 +38,8 @@ import {
   PreviewStep,
   ReplaceStep,
   UnlockStep,
-  unknownWords,
 } from './RestorePhraseSteps';
+import { unknownWords } from './PhraseInput';
 
 // The radio already holding the phrase's identity skips everything that
 // replaces it, and ends by saving the vault instead.
