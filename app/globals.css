@@ -203,9 +203,6 @@ label[for] {
   --identity-frame-orange: var(--identity-orange);
   --identity-frame-pink: var(--identity-pink);
   --identity-frame-violet: var(--identity-violet);
-  /* The header's stripe. Light mode thickens it: even vivid, a thin line of
-     color on a pale page is easy to miss. */
-  --identity-frame-top-width: 3px;
   /* Map markers. The four categories are the app's own tokens rather than a
      second palette, so the legend key matches the colors used everywhere
      else. Only the two rings and the drop-shadow need a per-theme value: they
@@ -271,7 +268,6 @@ label[for] {
   --identity-frame-orange: #f97316;
   --identity-frame-pink: #ec4899;
   --identity-frame-violet: #8b5cf6;
-  --identity-frame-top-width: 6px;
   /* Positron is near-white, so the contrast ring and the favorite ring both
      have to darken or they vanish into the tiles. */
   --map-outline: #1a1d27;

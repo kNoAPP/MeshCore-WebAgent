@@ -38,18 +38,18 @@ export const IDENTITY_TEXT_CLASS = {
   violet: 'text-identity-violet',
 } as const satisfies Record<IdentityColor, string>;
 
-/** The header's frame: a stripe along its top edge. */
+/**
+ * The header's frame: a stripe along its top edge, thicker than the action
+ * bar's so the live identity reads at a glance.
+ */
 export const IDENTITY_TOP_FRAME_CLASS = {
   none: '',
-  teal: 'border-t-(length:--identity-frame-top-width) border-t-identity-frame-teal',
-  lime: 'border-t-(length:--identity-frame-top-width) border-t-identity-frame-lime',
-  amber:
-    'border-t-(length:--identity-frame-top-width) border-t-identity-frame-amber',
-  orange:
-    'border-t-(length:--identity-frame-top-width) border-t-identity-frame-orange',
-  pink: 'border-t-(length:--identity-frame-top-width) border-t-identity-frame-pink',
-  violet:
-    'border-t-(length:--identity-frame-top-width) border-t-identity-frame-violet',
+  teal: 'border-t-5 border-t-identity-frame-teal',
+  lime: 'border-t-5 border-t-identity-frame-lime',
+  amber: 'border-t-5 border-t-identity-frame-amber',
+  orange: 'border-t-5 border-t-identity-frame-orange',
+  pink: 'border-t-5 border-t-identity-frame-pink',
+  violet: 'border-t-5 border-t-identity-frame-violet',
 } as const satisfies Record<IdentityAccent, string>;
 
 /** The action bar's frame: a stripe along its bottom edge. */
