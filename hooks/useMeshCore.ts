@@ -954,9 +954,6 @@ export function useMeshCore() {
       // Check before the optimistic bubble so a blocked send leaves no orphan
       // 'sending' message; transmit() re-checks too as the authoritative gate.
       if (!canTransmit(client) || !activeConvo || !text.trim()) return;
-      // Repeater admin views have no composer, so a repeater convo never sends
-      // a chat message; guard both to be safe and to narrow the message kind.
-      if (activeConvo.kind === 'repeater') return;
       const trimmed = text.trim();
       const msgId = crypto.randomUUID();
       addMessage(activeConvo.id, {

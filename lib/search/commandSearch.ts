@@ -55,12 +55,15 @@ export function opensDialog(action: PaletteAction): boolean {
 
 /**
  * What selecting a result does: open a conversation (optionally scrolled to a
- * message), open a cached advert's detail popup, navigate to a page/settings
+ * message), open a repeater's or room server's management view, open a
+ * contact's or cached advert's detail panel, navigate to a page/settings
  * section, or run a {@link PaletteAction}.
  */
 export type CommandAction =
   | { type: 'message'; convo: ActiveConvo; msgId: string }
   | { type: 'convo'; convo: ActiveConvo }
+  | { type: 'node'; prefix: string }
+  | { type: 'contact'; prefix: string }
   | { type: 'advert'; prefix: string }
   | { type: 'page'; view: AppView; section?: SettingsSection }
   | { type: 'run'; run: PaletteAction };
@@ -92,7 +95,7 @@ export interface MessageRecord {
 
 /** A contact, indexed by display name and public-key prefix. */
 export interface ContactRecord {
-  convo: ActiveConvo;
+  action: CommandAction;
   name: string;
   prefix: string;
 }
@@ -335,19 +338,20 @@ export function buildMessageRecords(
   return records.slice(0, limit);
 }
 
-/** Builds searchable contact records from the store's contact table. */
+/**
+ * Builds searchable contact records from the store's contact table.
+ * `resolveAction` decides where each one leads — a conversation, a management
+ * view, or the contact's details.
+ */
 export function buildContactRecords(
   contacts: Record<string, Contact>,
-  resolveConvo: (prefix: string, name: string) => ActiveConvo,
+  resolveAction: (contact: Contact) => CommandAction,
 ): ContactRecord[] {
-  return Object.values(contacts).map((c) => {
-    const name = c.name || c.pubkeyPrefix.slice(0, 8);
-    return {
-      convo: resolveConvo(c.pubkeyPrefix, name),
-      name,
-      prefix: c.pubkeyPrefix,
-    };
-  });
+  return Object.values(contacts).map((c) => ({
+    action: resolveAction(c),
+    name: c.name || c.pubkeyPrefix.slice(0, 8),
+    prefix: c.pubkeyPrefix,
+  }));
 }
 
 /**

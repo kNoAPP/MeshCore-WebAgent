@@ -31,8 +31,8 @@ import type {
 } from '@/types/automation';
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import type { AclEntry, Neighbor } from '@/types/meshcore';
-import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
-import { convoId } from '@/lib/utils';
+import { ADV_TYPE_ROOM, ADV_TYPE_SENSOR } from '@/lib/meshcore/constants';
+import { convoId, isChatContact, isManagedNode } from '@/lib/utils';
 import i18n from '@/lib/i18n';
 import {
   LOCALE_STORAGE_KEY,
@@ -98,19 +98,6 @@ function normalizeAutoAddConfig(raw: unknown): AutoAddConfig {
   }
   return DEFAULT_AUTOADD_CONFIG;
 }
-
-/** All filter values, in menu order; also the allowlist for persisted state. */
-export const CONTACT_FILTERS = [
-  'all',
-  'favorites',
-  'users',
-  'repeaters',
-  'rooms',
-  'sensors',
-] as const;
-
-/** Which subset of contacts the sidebar shows. */
-export type ContactFilter = (typeof CONTACT_FILTERS)[number];
 
 /** All sort values, in menu order; also the allowlist for persisted state. */
 export const CONTACT_SORTS = ['az', 'heard', 'latest'] as const;
@@ -185,13 +172,12 @@ export interface IdentityCheck {
 export type AiKeyStatus = 'none' | 'memory' | 'persisted';
 
 /**
- * Persisted sidebar state: the contacts list's filter, order and favorite
- * pinning, plus the layout the user dragged it to. `channelsHeight` is `null`
+ * Persisted sidebar state: the contacts list's order and favorite pinning,
+ * plus the layout the user dragged it to. `channelsHeight` is `null`
  * until the divider is dragged, which is what keeps the Channels section
  * auto-sizing to its content.
  */
 export interface ContactView {
-  filter: ContactFilter;
   sort: ContactSort;
   pinFavorites: boolean;
   /** Sidebar width in CSS pixels. */
@@ -208,25 +194,22 @@ export const SIDEBAR_MAX_WIDTH = 480;
 export const SIDEBAR_DEFAULT_WIDTH = 240;
 
 const DEFAULT_CONTACT_VIEW: ContactView = {
-  filter: 'all',
   sort: 'az',
   pinFavorites: true,
   width: SIDEBAR_DEFAULT_WIDTH,
   channelsHeight: null,
 };
 
-// A persisted filter/sort value must never reach the sidebar's exhaustive
-// switches unrecognized, and a persisted size must never render the sidebar
-// unusable.
+// A persisted sort value must never reach the sidebar's exhaustive switches
+// unrecognized, and a persisted size must never render the sidebar unusable.
+// Only the known fields are copied out, so a field a previous version saved
+// (such as the retired contacts filter) drops away on the next save.
 function normalizeContactView(raw: unknown): ContactView {
   const parsed = {
     ...DEFAULT_CONTACT_VIEW,
     ...(typeof raw === 'object' && raw !== null ? raw : {}),
   } as ContactView;
   return {
-    filter: CONTACT_FILTERS.includes(parsed.filter)
-      ? parsed.filter
-      : DEFAULT_CONTACT_VIEW.filter,
     sort: CONTACT_SORTS.includes(parsed.sort)
       ? parsed.sort
       : DEFAULT_CONTACT_VIEW.sort,
@@ -718,12 +701,13 @@ interface MeshState {
   lastAppends: Record<string, MessageAppend>;
   activeConvo: ActiveConvo | null;
   /**
-   * Bumped on every selection, including re-selecting the conversation already
-   * open. The repeater/room view is keyed by node and so does not remount on a
-   * repeat selection; this is how it notices one and returns to its default
-   * tab.
+   * Public-key prefix of the repeater or room server whose management view the
+   * Nodes page is showing in place of its directory, or `null` for the
+   * directory itself. Kept apart from {@link activeConvo}: managing a node is
+   * not a conversation, and a room can be open in Chat while it is managed
+   * here.
    */
-  convoOpenSeq: number;
+  managedNode: string | null;
   /**
    * Id of a message the open conversation should scroll to and briefly
    * highlight, set when navigating from the command palette. One-shot: cleared
@@ -840,9 +824,9 @@ interface MeshState {
   windowFocused: boolean;
   /**
    * Conversation id of the room post feed currently rendered, or `null`. A
-   * room shares its pane with the admin tabs and sits behind a login gate, so
-   * unlike a chat it can be the open conversation while its feed is off
-   * screen. Set by the view that renders the feed.
+   * room's feed sits behind a login gate, so unlike a chat it can be the open
+   * conversation while its feed is off screen. Set by the view that renders
+   * the feed.
    */
   visibleRoomFeed: string | null;
   /**
@@ -865,10 +849,18 @@ interface MeshState {
   pendingLocation: { lat: number; lon: number } | null;
   /**
    * The view the map picker returns to once a coordinate is confirmed or the
-   * pick is started — `settings` for the Settings location card, `chat` for a
+   * pick is started — `settings` for the Settings location card, `nodes` for a
    * repeater's config tab. Both reuse the one-shot {@link pendingLocation}.
    */
   locationPickReturn: AppView;
+  /**
+   * Public-key prefix of the repeater or room server a pick was started for,
+   * or `null` for the Settings card's own. Only that node's Config tab may
+   * consume the {@link pendingLocation}, so a pick left unconsumed (its node
+   * evicted, its admin session ended while on the map) can never be written
+   * to a different node — or, via Settings, to this radio.
+   */
+  locationPickNode: string | null;
   managePanel: {
     kind: 'contact' | 'channel' | 'advert';
     id: string;
@@ -993,6 +985,11 @@ interface MeshActions {
   setBacklogDraining: (draining: boolean) => void;
   updateMessage: (id: string, msgId: string, patch: Partial<Message>) => void;
   setActiveConvo: (convo: ActiveConvo | null) => void;
+  /**
+   * Shows (or, with `null`, leaves) a node's management view on the Nodes
+   * page. Does not switch pages; {@link manageNode} does both.
+   */
+  setManagedNode: (pubkeyPrefix: string | null) => void;
   setScrollToMsgId: (msgId: string | null) => void;
   /**
    * Freezes (or clears, with `null`) the "last unread" divider position for a
@@ -1093,8 +1090,11 @@ interface MeshActions {
   /** Records whether this browser tab has focus. */
   setWindowFocused: (focused: boolean) => void;
   setVisibleRoomFeed: (convoId: string | null) => void;
-  /** Opens the map to pick a location, returning to `returnTo` on confirm. */
-  startLocationPick: (returnTo?: AppView) => void;
+  /**
+   * Opens the map to pick a location, returning to `returnTo` on confirm. A
+   * pick for a repeater or room server names it as `node`.
+   */
+  startLocationPick: (returnTo?: AppView, node?: string) => void;
   /** Confirms the picked coordinate (degrees) and returns to the caller. */
   confirmLocationPick: (lat: number, lon: number) => void;
   /** Aborts location picking without a result, staying on the map. */
@@ -1253,7 +1253,7 @@ const initialState: MeshState = {
   backlogDraining: false,
   lastAppends: {},
   activeConvo: null,
-  convoOpenSeq: 0,
+  managedNode: null,
   scrollToMsgId: null,
   unreadMarkers: {},
   drafts: {},
@@ -1283,6 +1283,7 @@ const initialState: MeshState = {
   mapFocus: null,
   pendingLocation: null,
   locationPickReturn: 'settings',
+  locationPickNode: null,
   managePanel: null,
   autoAddOpen: false,
   addChannelOpen: false,
@@ -1382,6 +1383,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       latestInbound: null,
       lastAppends: initialState.lastAppends,
       activeConvo: null,
+      managedNode: null,
       scrollToMsgId: null,
       unreadMarkers: initialState.unreadMarkers,
       drafts: initialState.drafts,
@@ -1584,8 +1586,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       };
     }),
 
-  setActiveConvo: (activeConvo) =>
-    set((s) => ({ activeConvo, convoOpenSeq: s.convoOpenSeq + 1 })),
+  setActiveConvo: (activeConvo) => set({ activeConvo }),
+
+  setManagedNode: (managedNode) => set({ managedNode }),
 
   setScrollToMsgId: (scrollToMsgId) => set({ scrollToMsgId }),
 
@@ -1789,9 +1792,17 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
 
   setReconnectProgress: (reconnectProgress) => set({ reconnectProgress }),
   // Any manual tab switch also aborts an in-progress location pick, and drops
-  // a node handover that never reached the map.
+  // a node handover that never reached the map. Going to the Nodes page lands
+  // on its directory — including from a node's own management view — so a
+  // caller that means a node sets it after (see `manageNode`).
   setView: (view) => {
-    set({ view, mapPicking: false, mapFocus: null, settingsSection: null });
+    set({
+      view,
+      mapPicking: false,
+      mapFocus: null,
+      settingsSection: null,
+      ...(view === 'nodes' ? { managedNode: null } : {}),
+    });
     catchUpVisibleConvo();
   },
   setWindowFocused: (windowFocused) => {
@@ -1805,8 +1816,16 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     // refocusing the tab is for a chat.
     if (visibleRoomFeed) catchUpVisibleConvo();
   },
-  startLocationPick: (returnTo = 'settings') =>
-    set({ mapPicking: true, view: 'map', locationPickReturn: returnTo }),
+  // A new pick drops any coordinate an earlier one left unconsumed, or
+  // cancelling this one would hand that stale point to the new target.
+  startLocationPick: (returnTo = 'settings', node) =>
+    set({
+      mapPicking: true,
+      view: 'map',
+      pendingLocation: null,
+      locationPickReturn: returnTo,
+      locationPickNode: node ?? null,
+    }),
   confirmLocationPick: (lat, lon) => {
     set((s) => ({
       mapPicking: false,
@@ -1857,6 +1876,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       mapFocus: null,
       pendingLocation: null,
       locationPickReturn: 'settings',
+      locationPickNode: null,
       managePanel: null,
       autoAddOpen: false,
       addChannelOpen: false,
@@ -2226,8 +2246,8 @@ export function isConvoVisible(state: MeshState, id: string): boolean {
     state.activeConvo?.id === id &&
     state.view === 'chat' &&
     state.windowFocused &&
-    // Selecting a room is not enough: its feed is one tab of a pane that also
-    // holds the admin surfaces, and is hidden entirely until the login lands.
+    // Selecting a room is not enough: its feed is hidden until the login
+    // lands.
     (state.activeConvo.kind !== 'room' || state.visibleRoomFeed === id)
   );
 }
@@ -2260,43 +2280,52 @@ export function directConvoId(prefix: string): string {
 }
 
 /**
- * Builds the conversation id for a repeater/room admin view (by pubkey prefix).
- * A distinct namespace from {@link directConvoId} keeps admin selections from
- * colliding with a chat's `msgHistory` keys.
- */
-export function repeaterConvoId(prefix: string): string {
-  return convoId('repeater', prefix);
-}
-
-/**
  * Builds the conversation id for a room server's post feed (by pubkey prefix).
- * Separate from {@link repeaterConvoId} so the posts never share a transcript
- * with the room's remote-admin CLI.
+ * Separate from {@link directConvoId} so the posts never share a transcript
+ * with a direct chat.
  */
 export function roomConvoId(prefix: string): string {
   return convoId('room', prefix);
 }
 
 /**
- * The conversation a contact opens into. Its advert type — not the surface the
- * user clicked from — decides which one, so the sidebar, the map popup and the
- * Nodes directory can never land a node on different surfaces. The label
- * follows the sidebar's fallback so an unnamed contact reads the same
- * everywhere.
+ * The conversation a contact opens into, or `null` for a node that has none —
+ * repeaters are managed from the Nodes page, not chatted with, and a sensor
+ * only becomes a conversation once it has sent a message (its alerts arrive
+ * as direct texts, which must stay readable). Its advert type — not the
+ * surface the user clicked from — decides which one, so the sidebar, the map
+ * popup and the Nodes directory can never land a node on different surfaces.
+ * The label follows the sidebar's fallback so an unnamed contact reads the
+ * same everywhere.
+ *
+ * @param msgHistory - the history to check a sensor's messages against; the
+ * store's current one by default. Pass it from a render that subscribes to it,
+ * so a sensor's first message re-renders the caller.
  */
-export function contactConvo(contact: Contact): ActiveConvo {
+export function contactConvo(
+  contact: Contact,
+  msgHistory: Record<string, Message[]> = useMeshStore.getState().msgHistory,
+): ActiveConvo | null {
   const prefix = contact.pubkeyPrefix;
   const label = contact.name || prefix.slice(0, 8);
-  if (contact.advType === ADV_TYPE_REPEATER) {
-    return {
-      kind: 'repeater',
-      id: repeaterConvoId(prefix),
-      rawId: prefix,
-      label,
-    };
-  }
   if (contact.advType === ADV_TYPE_ROOM) {
     return { kind: 'room', id: roomConvoId(prefix), rawId: prefix, label };
   }
-  return { kind: 'direct', id: directConvoId(prefix), rawId: prefix, label };
+  const id = directConvoId(prefix);
+  const messaged =
+    contact.advType === ADV_TYPE_SENSOR && (msgHistory[id]?.length ?? 0) > 0;
+  if (!isChatContact(contact.advType) && !messaged) return null;
+  return { kind: 'direct', id, rawId: prefix, label };
+}
+
+/**
+ * Opens a repeater's or room server's management view on the Nodes page.
+ * Other node types have no management view, so they are ignored.
+ */
+export function manageNode(contact: Contact): void {
+  if (!isManagedNode(contact.advType)) return;
+  const { setManagedNode, setView } = useMeshStore.getState();
+  // In this order: switching to the Nodes page resets it to the directory.
+  setView('nodes');
+  setManagedNode(contact.pubkeyPrefix);
 }

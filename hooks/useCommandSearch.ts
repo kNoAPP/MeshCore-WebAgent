@@ -9,17 +9,15 @@ import { useTranslation } from 'react-i18next';
 import {
   useMeshStore,
   channelConvoId,
-  directConvoId,
-  repeaterConvoId,
-  roomConvoId,
+  contactConvo,
   isAuthedLogin,
 } from '@/store/meshStore';
 import {
   ADV_TYPE_REPEATER,
-  ADV_TYPE_ROOM,
   FAVORITE_FLAG,
   NO_PATH,
 } from '@/lib/meshcore/constants';
+import { isManagedNode } from '@/lib/utils';
 import { SUPPORTED_LOCALES, LOCALE_NAMES } from '@/lib/i18n/config';
 import { SUPPORTED_UNIT_SYSTEMS } from '@/lib/units/config';
 import type { ActiveConvo, Contact } from '@/types/meshcore';
@@ -157,7 +155,7 @@ export function useCommandSearch(query: string): CommandGroup[] {
   const advertCache = useMeshStore((s) => s.advertCache);
   const locale = useMeshStore((s) => s.locale);
   const unitSystem = useMeshStore((s) => s.unitSystem);
-  const activeConvo = useMeshStore((s) => s.activeConvo);
+  const managedNode = useMeshStore((s) => s.managedNode);
   const adminSessions = useMeshStore((s) => s.adminSessions);
   const advertising = useMeshStore((s) => s.advertising);
 
@@ -194,30 +192,19 @@ export function useCommandSearch(query: string): CommandGroup[] {
   }, [msgHistory, channels, contacts, language]);
 
   const contactFuse = useMemo(() => {
-    const records = buildContactRecords(contacts, (prefix, label) => {
-      // Repeaters open the main-window admin view and rooms their post feed,
-      // not a chat.
-      const advType = contacts[prefix]?.advType;
-      if (advType === ADV_TYPE_REPEATER) {
-        return {
-          kind: 'repeater',
-          id: repeaterConvoId(prefix),
-          rawId: prefix,
-          label,
-        };
+    const records = buildContactRecords(contacts, (contact) => {
+      // Companions, rooms and sensors that have messaged open their
+      // conversation; repeaters have none and open their management view, and
+      // a sensor with neither opens its details.
+      const convo = contactConvo(contact, msgHistory);
+      if (convo) return { type: 'convo', convo };
+      if (isManagedNode(contact.advType)) {
+        return { type: 'node', prefix: contact.pubkeyPrefix };
       }
-      if (advType === ADV_TYPE_ROOM) {
-        return { kind: 'room', id: roomConvoId(prefix), rawId: prefix, label };
-      }
-      return {
-        kind: 'direct',
-        id: directConvoId(prefix),
-        rawId: prefix,
-        label,
-      };
+      return { type: 'contact', prefix: contact.pubkeyPrefix };
     });
     return new Fuse<ContactRecord>(records, CONTACT_FUSE_OPTIONS);
-  }, [contacts]);
+  }, [contacts, msgHistory]);
 
   // The advert cache gets a fresh reference on every heard batch (many per
   // second on a busy mesh), but a batch that only bumps `lastHeard` changes
@@ -348,35 +335,37 @@ export function useCommandSearch(query: string): CommandGroup[] {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts, language]);
 
-  // Scoped to the repeater admin session that is actually open — these verbs
-  // have no meaning without one, and the target UI hides them too. Rooms are
-  // excluded: they share the admin view but not this vocabulary, and a room
-  // administrator should not be offered "Refresh repeater status". The open
-  // conversation can outlive its contact (an eviction the repeater view
-  // handles), and both verbs need the contact itself, so require it here.
+  // Scoped to the repeater whose management view is open, and to an admin
+  // session on it — these verbs have no meaning without one, and the target UI
+  // hides them too. Rooms are excluded: they share the management view but not
+  // this vocabulary, and a room administrator should not be offered "Refresh
+  // repeater status". The managed node can outlive its contact (an eviction
+  // the management view handles), and both verbs need the contact itself, so
+  // require it here.
   const repeaterActionRecords = useMemo<ActionRecord[]>(() => {
-    if (activeConvo?.kind !== 'repeater') return [];
-    const prefix = String(activeConvo.rawId);
-    if (!contacts[prefix]) return [];
+    const managed = managedNode ? contacts[managedNode] : undefined;
+    if (managed?.advType !== ADV_TYPE_REPEATER) return [];
+    const prefix = managed.pubkeyPrefix;
+    const label = managed.name || prefix.slice(0, 8);
     if (!isAuthedLogin(adminSessions[prefix]?.login)) return [];
     return [
       {
         id: `action:repeater:status:${prefix}`,
         label: t('command.action.repeaterStatus'),
         keywords: t('command.actionKeywords.repeaterStatus'),
-        hint: activeConvo.label,
+        hint: label,
         action: { type: 'run', run: { kind: 'repeaterStatus', prefix } },
       },
       {
         id: `action:repeater:logout:${prefix}`,
         label: t('command.action.repeaterLogOut'),
         keywords: t('command.actionKeywords.repeaterLogOut'),
-        hint: activeConvo.label,
+        hint: label,
         action: { type: 'run', run: { kind: 'repeaterLogOut', prefix } },
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConvo, adminSessions, contacts, language]);
+  }, [managedNode, adminSessions, contacts, language]);
 
   const actionRecords = useMemo(
     () => [
@@ -499,7 +488,7 @@ export function useCommandSearch(query: string): CommandGroup[] {
         id: `contact:${r.item.prefix}`,
         primary: r.item.name,
         secondary: r.item.prefix.slice(0, 12),
-        action: { type: 'convo', convo: r.item.convo },
+        action: r.item.action,
       }));
     if (contactResults.length) {
       groups.push({

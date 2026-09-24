@@ -170,7 +170,7 @@ export function ChatArea() {
   const unreadMarker = useMeshStore((s) =>
     activeConvo ? (s.unreadMarkers[activeConvo.id] ?? null) : null,
   );
-  // A room server's post feed is rendered by this pane inside `RepeaterView`,
+  // A room server's post feed is rendered by this pane inside `RoomView`,
   // which draws the header and owns the login gate, so the only extra this
   // needs is the room's own identity and the role it granted us.
   const roomPrefix =
@@ -178,7 +178,7 @@ export function ChatArea() {
   const roomAccess = useMeshStore((s) =>
     roomPrefix ? (s.adminSessions[roomPrefix]?.login ?? 'loggedOut') : null,
   );
-  // A room reports its feed visible from `RepeaterView`, a parent of this
+  // A room reports its feed visible from `RoomView`, a parent of this
   // transcript, and React runs child effects first — so the unread boundary
   // that effect freezes does not exist yet when the landing scroll below first
   // runs. Gate it on the report, as a boolean that is constant for everything
@@ -774,7 +774,7 @@ export function ChatArea() {
 
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
-      {/* Chat header. A room's feed is embedded in RepeaterView, which already
+      {/* Chat header. A room's feed is embedded in RoomView, which already
           heads the pane with the room's name, route and access. */}
       {!roomPrefix && (
         <div className='flex shrink-0 items-center gap-2.5 border-b px-4 py-3 bg-surface border-border'>
@@ -896,7 +896,8 @@ export function ChatArea() {
         )}
       </div>
 
-      {/* Input bar */}
+      {/* Input bar. A repeater is never listed as a conversation, but a
+          notification for a direct text one sent still opens its thread. */}
       {directContact?.advType === ADV_TYPE_REPEATER ? (
         <div className='shrink-0 border-t px-4 py-3 text-center text-xs text-text2 bg-surface border-border'>
           {t('chat.repeaterCantMessage')}

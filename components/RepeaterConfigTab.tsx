@@ -524,11 +524,20 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
   // A coordinate handed back by the map picker (the "Set on map" button below)
   // is committed straight to the repeater on mount — picking the point is the
   // write, mirroring the Settings location card. One-shot: the store's
-  // pendingLocation is cleared as soon as it's consumed here.
+  // pendingLocation is cleared as soon as it's consumed here. Only a pick
+  // started for this very node: one left over from another is its position,
+  // not this one's.
+  const prefix = contact.pubkeyPrefix;
   useEffect(() => {
     const store = useMeshStore.getState();
     const pending = store.pendingLocation;
-    if (!pending || store.locationPickReturn !== 'chat') return;
+    if (
+      !pending ||
+      store.locationPickReturn !== 'nodes' ||
+      store.locationPickNode !== prefix
+    ) {
+      return;
+    }
     store.clearPendingLocation();
     const latSetting = ALL_REPEATER_SETTINGS.find((s) => s.id === 'lat');
     const lonSetting = ALL_REPEATER_SETTINGS.find((s) => s.id === 'lon');
@@ -538,7 +547,7 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
       if (latSetting) void commit(latSetting, String(pending.lat));
       if (lonSetting) void commit(lonSetting, String(pending.lon));
     });
-  }, [commit]);
+  }, [commit, prefix]);
 
   const runAction = useCallback(
     async (action: RepeaterAction) => {
@@ -922,6 +931,11 @@ export function RepeaterConfigTab({ contact }: { contact: Contact }) {
                               lon
                                 ? { ...rowProps(lon), disabled: coordDisabled }
                                 : undefined
+                            }
+                            onPickOnMap={() =>
+                              useMeshStore
+                                .getState()
+                                .startLocationPick('nodes', prefix)
                             }
                           />
                         </Fragment>
@@ -1524,9 +1538,11 @@ function LocationSourceRow({
 function LocationRow({
   latProps,
   lonProps,
+  onPickOnMap,
 }: {
   latProps: RowProps;
   lonProps?: RowProps;
+  onPickOnMap: () => void;
 }) {
   const { t } = useTranslation();
   const disabled = latProps.disabled ?? false;
@@ -1553,7 +1569,7 @@ function LocationRow({
         {!disabled && (
           <button
             type='button'
-            onClick={() => useMeshStore.getState().startLocationPick('chat')}
+            onClick={onPickOnMap}
             className='shrink-0 rounded-md border border-border-control px-3 py-1 text-xs text-text2 hover:text-text'
           >
             {t('settings.setOnMap')}

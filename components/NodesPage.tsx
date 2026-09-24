@@ -3,10 +3,15 @@
 
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
-import { contactConvo, openConvo, useMeshStore } from '@/store/meshStore';
+import {
+  contactConvo,
+  manageNode,
+  openConvo,
+  useMeshStore,
+} from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useClockTick } from '@/hooks/useClockTick';
 import { formatDistanceBearing } from '@/lib/i18n/format';
@@ -28,6 +33,7 @@ import {
 import { NodeBulkBar } from './NodeBulkBar';
 import { NodeFilterBar } from './NodeFilterBar';
 import { NodeTable } from './NodeTable';
+import { RepeaterView } from './RepeaterView';
 import type { NodeRowContext } from './NodeTableRow';
 
 /**
@@ -39,6 +45,9 @@ import type { NodeRowContext } from './NodeTableRow';
  * Search, filters, ordering and the selection are view state: they describe
  * this visit to the page, not a preference of the radio, so none of them are
  * persisted and all of them reset when the page is left.
+ *
+ * While {@link useMeshStore} `managedNode` is set, a repeater's or room
+ * server's management view ({@link RepeaterView}) replaces the directory.
  */
 export function NodesPage() {
   const { t, i18n } = useTranslation();
@@ -51,6 +60,16 @@ export function NodesPage() {
   const showNodeOnMap = useMeshStore((s) => s.showNodeOnMap);
   const setView = useMeshStore((s) => s.setView);
   const setAddNodeOpen = useMeshStore((s) => s.setAddNodeOpen);
+  const managedNode = useMeshStore((s) => s.managedNode);
+  // Entering or leaving a node's management view unmounts whatever held focus
+  // (a row's Manage button, or the view's back arrow), so land it on the main
+  // landmark rather than let it fall to <body>.
+  const shownNode = useRef(managedNode);
+  useEffect(() => {
+    if (shownNode.current === managedNode) return;
+    shownNode.current = managedNode;
+    document.getElementById('main')?.focus();
+  }, [managedNode]);
   // Favoriting and saving both write to the radio, so those verbs need a live
   // link; the directory itself stays readable while one is being restored.
   const connected = useMeshStore((s) => s.status === 'connected');
@@ -199,13 +218,20 @@ export function NodesPage() {
           kind: node.contact ? 'contact' : 'advert',
           id: node.pubkeyPrefix,
         }),
+      hasConvo: (node) =>
+        node.contact !== null &&
+        contactConvo(node.contact, msgHistory) !== null,
       onOpenConvo: (node) => {
-        if (!node.contact) return;
+        const convo = node.contact && contactConvo(node.contact, msgHistory);
+        if (!convo) return;
         // Selected before the view switch, as every other entry point does it:
         // `setView` catches up whichever conversation is open at that moment,
         // so switching first would mark the *previous* one read.
-        openConvo(contactConvo(node.contact));
+        openConvo(convo);
         setView('chat');
+      },
+      onManage: (node) => {
+        if (node.contact) manageNode(node.contact);
       },
       onToggleFavorite: (node) => {
         if (node.contact) void toggleFavorite(node.contact);
@@ -219,6 +245,7 @@ export function NodesPage() {
       connected,
       selfInfo,
       unitSystem,
+      msgHistory,
       onToggleRow,
       setManagePanel,
       setView,
@@ -229,6 +256,10 @@ export function NodesPage() {
   );
 
   const filtering = nodeFiltersActive(filters) || query.trim() !== '';
+
+  // Swapped in rather than routed to, so the search, filters and ordering
+  // above survive a trip into a node and back while this page stays mounted.
+  if (managedNode) return <RepeaterView />;
 
   return (
     <div className='flex min-w-0 flex-1 flex-col overflow-hidden'>
