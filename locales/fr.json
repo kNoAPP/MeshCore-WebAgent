@@ -201,7 +201,7 @@
       "advertiseFlood": "Annoncer (inondation)",
       "advertiseZeroHop": "Annoncer aux voisins (zéro saut)",
       "markAllRead": "Marquer toutes les conversations comme lues",
-      "addContact": "Ajouter un contact…",
+      "addNode": "Ajouter un nœud…",
       "addChannel": "Ajouter un canal…",
       "toggleTheme": "Changer de thème",
       "reboot": "Redémarrer l'appareil",
@@ -219,7 +219,7 @@
       "advertiseFlood": "annoncer advert inondation diffuser",
       "advertiseZeroHop": "annoncer advert zéro saut voisins",
       "markAllRead": "marquer tout lu non lu effacer",
-      "addContact": "ajouter nouveau contact nœud importer",
+      "addNode": "ajouter nouveau contact nœud importer",
       "addChannel": "ajouter nouveau canal groupe",
       "toggleTheme": "thème sombre clair apparence",
       "reboot": "redémarrer appareil radio",
@@ -1250,15 +1250,6 @@
     "resetting": "Réinitialisation…",
     "resetExplain": "Abandonne cette route. Les messages inonderont le maillage jusqu'à ce qu'une nouvelle route soit trouvée."
   },
-  "discover": {
-    "empty": "Aucune annonce entendue pour l'instant. Les nœuds découverts apparaissent ici à mesure que leurs annonces arrivent.",
-    "node": "Nœud",
-    "added": "✓ Ajouté",
-    "add": "Ajouter",
-    "searchPlaceholder": "Rechercher des nœuds découverts",
-    "noMatches": "Aucun nœud ne correspond à votre recherche",
-    "showing": "Affichage de {{shown}} sur {{total}}"
-  },
   "map": {
     "self": "Ce nœud",
     "markerCap": "Affichage de {{shown}} sur {{total}} nœuds",
@@ -1316,6 +1307,7 @@
   },
   "nodes": {
     "title": "Nœuds",
+    "addNode": "Ajouter un nœud",
     "search": "Rechercher",
     "searchPlaceholder": "Nom ou clé publique",
     "count_one": "{{count}} nœud",
@@ -1375,7 +1367,7 @@
     "contacts": "Contacts",
     "addChannel": "Ajouter un canal",
     "autoAddSettings": "Paramètres d'ajout automatique",
-    "addContact": "Ajouter un contact",
+    "browseNodes": "Parcourir les nœuds",
     "manage": "Gérer",
     "favorite": "Favori",
     "dragResize": "Glisser pour redimensionner",
@@ -1431,9 +1423,9 @@
       "invalidLink": "Ce n'est pas un lien de canal valide."
     }
   },
-  "addContact": {
-    "title": "➕ Ajouter un contact",
-    "modeLabel": "Comment ajouter un contact",
+  "addNode": {
+    "title": "➕ Ajouter un nœud",
+    "modeLabel": "Comment ajouter un nœud",
     "link": "Lien du contact",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Nom",
@@ -1443,16 +1435,14 @@
     "review": "Vérifier",
     "add": "Ajouter",
     "mode": {
-      "discoverLabel": "Découvrir à proximité",
-      "discoverHint": "Nœuds entendus par radio. Ajoute-en un directement comme contact.",
       "pasteLabel": "Coller le lien",
       "pasteHint": "Colle un lien meshcore://contact/add. Ses informations préremplissent les champs pour que tu puisses les vérifier avant d'ajouter.",
       "manualLabel": "Saisir manuellement",
-      "manualHint": "Saisis le nom du contact, sa clé publique de 64 caractères et le type de nœud."
+      "manualHint": "Saisis le nom du nœud, sa clé publique de 64 caractères et son type."
     },
     "error": {
       "invalidLink": "Ce n'est pas un lien de contact valide.",
-      "enterName": "Saisis un nom de contact.",
+      "enterName": "Saisis un nom de nœud.",
       "invalidKey": "La clé publique doit comporter 64 caractères hex (32 octets)."
     }
   },

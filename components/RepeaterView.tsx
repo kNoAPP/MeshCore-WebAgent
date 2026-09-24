@@ -948,7 +948,7 @@ function NeighborsList({ rows }: { rows: NeighborRow[] }) {
                     })}
                     className='rounded-md px-2 py-0.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 bg-accent-solid'
                   >
-                    {t('discover.add')}
+                    {t('common.add')}
                   </button>
                 )}
               </td>

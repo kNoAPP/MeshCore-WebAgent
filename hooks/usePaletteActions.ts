@@ -64,8 +64,8 @@ export function usePaletteActions(): (action: PaletteAction) => void {
         case 'markAllRead':
           state.markAllRead();
           return;
-        case 'addContact':
-          state.setAddContactOpen(true);
+        case 'addNode':
+          state.setAddNodeOpen(true);
           return;
         case 'addChannel':
           state.setAddChannelOpen(true);

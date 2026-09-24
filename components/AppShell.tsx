@@ -20,7 +20,7 @@ import { SettingsPage } from './SettingsPage';
 import { ManagePanel } from './ManagePanel';
 import { AutoAddSettings } from './AutoAddSettings';
 import { AddChannelModal } from './AddChannelModal';
-import { AddContactModal } from './AddContactModal';
+import { AddNodeModal } from './AddNodeModal';
 import { IdentityCheckModal } from './IdentityCheckModal';
 import { RestoreOfferModal } from './RestoreOfferModal';
 import { CommandPalette } from './CommandPalette';
@@ -126,7 +126,7 @@ export function AppShell() {
           <ManagePanel />
           <AutoAddSettings />
           <AddChannelModal />
-          <AddContactModal />
+          <AddNodeModal />
           <IdentityCheckModal />
           <RestoreOfferModal />
           {commandPaletteOpen && <CommandPalette />}

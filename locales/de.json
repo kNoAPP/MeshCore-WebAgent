@@ -201,7 +201,7 @@
       "advertiseFlood": "Ankündigen (Flood)",
       "advertiseZeroHop": "Nachbarn ankündigen (Zero-Hop)",
       "markAllRead": "Alle Unterhaltungen als gelesen markieren",
-      "addContact": "Kontakt hinzufügen…",
+      "addNode": "Knoten hinzufügen…",
       "addChannel": "Kanal hinzufügen…",
       "toggleTheme": "Design umschalten",
       "reboot": "Gerät neu starten",
@@ -219,7 +219,7 @@
       "advertiseFlood": "ankündigen advert flood senden",
       "advertiseZeroHop": "ankündigen advert zero hop nachbarn",
       "markAllRead": "alle gelesen ungelesen markieren leeren",
-      "addContact": "neuen kontakt knoten hinzufügen importieren",
+      "addNode": "neuen kontakt knoten hinzufügen importieren",
       "addChannel": "neuen kanal gruppe hinzufügen",
       "toggleTheme": "design dunkel hell darstellung",
       "reboot": "neustart gerät funkgerät",
@@ -1250,15 +1250,6 @@
     "resetting": "Setze zurück…",
     "resetExplain": "Verwirft diese Route. Nachrichten fluten das Mesh, bis eine neue Route gefunden wird."
   },
-  "discover": {
-    "empty": "Noch keine Ankündigungen gehört. Entdeckte Knoten erscheinen hier, sobald ihre Ankündigungen eintreffen.",
-    "node": "Knoten",
-    "added": "✓ Hinzugefügt",
-    "add": "Hinzufügen",
-    "searchPlaceholder": "Entdeckte Knoten suchen",
-    "noMatches": "Keine Knoten passen zu deiner Suche",
-    "showing": "{{shown}} von {{total}} werden angezeigt"
-  },
   "map": {
     "self": "Dieser Knoten",
     "markerCap": "{{shown}} von {{total}} Knoten werden angezeigt",
@@ -1316,6 +1307,7 @@
   },
   "nodes": {
     "title": "Knoten",
+    "addNode": "Knoten hinzufügen",
     "search": "Suchen",
     "searchPlaceholder": "Name oder öffentlicher Schlüssel",
     "count_one": "{{count}} Knoten",
@@ -1375,7 +1367,7 @@
     "contacts": "Kontakte",
     "addChannel": "Kanal hinzufügen",
     "autoAddSettings": "Auto-Hinzufügen-Einstellungen",
-    "addContact": "Kontakt hinzufügen",
+    "browseNodes": "Knoten durchsuchen",
     "manage": "Verwalten",
     "favorite": "Favorit",
     "dragResize": "Zum Ändern der Größe ziehen",
@@ -1431,9 +1423,9 @@
       "invalidLink": "Das ist kein gültiger Kanal-Link."
     }
   },
-  "addContact": {
-    "title": "➕ Kontakt hinzufügen",
-    "modeLabel": "Wie ein Kontakt hinzugefügt wird",
+  "addNode": {
+    "title": "➕ Knoten hinzufügen",
+    "modeLabel": "Wie ein Knoten hinzugefügt wird",
     "link": "Kontakt-Link",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Name",
@@ -1443,16 +1435,14 @@
     "review": "Prüfen",
     "add": "Hinzufügen",
     "mode": {
-      "discoverLabel": "In der Nähe entdecken",
-      "discoverHint": "Über Funk gehörte Knoten. Füge einen direkt als Kontakt hinzu.",
       "pasteLabel": "Link einfügen",
       "pasteHint": "Füge einen meshcore://contact/add-Link ein. Seine Details füllen die Felder vor, damit du sie vor dem Hinzufügen prüfen kannst.",
       "manualLabel": "Manuell eingeben",
-      "manualHint": "Gib den Namen des Kontakts, seinen 64-stelligen öffentlichen Schlüssel und den Knotentyp ein."
+      "manualHint": "Gib den Namen des Knotens, seinen 64-stelligen öffentlichen Schlüssel und den Typ ein."
     },
     "error": {
       "invalidLink": "Das ist kein gültiger Kontakt-Link.",
-      "enterName": "Gib einen Kontaktnamen ein.",
+      "enterName": "Gib einen Knotennamen ein.",
       "invalidKey": "Der öffentliche Schlüssel muss 64 Hex-Zeichen (32 Bytes) haben."
     }
   },

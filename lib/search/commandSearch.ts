@@ -30,7 +30,7 @@ export type PaletteAction =
   | { kind: 'setLocale'; locale: SupportedLocale }
   | { kind: 'setUnitSystem'; unitSystem: UnitSystem }
   | { kind: 'markAllRead' }
-  | { kind: 'addContact' }
+  | { kind: 'addNode' }
   | { kind: 'addChannel' }
   | { kind: 'repeaterStatus'; prefix: string }
   | { kind: 'repeaterLogOut'; prefix: string }
@@ -47,7 +47,7 @@ export type PaletteAction =
  */
 export function opensDialog(action: PaletteAction): boolean {
   return (
-    action.kind === 'addContact' ||
+    action.kind === 'addNode' ||
     action.kind === 'addChannel' ||
     action.kind === 'contactShare'
   );
@@ -170,7 +170,7 @@ export const ACTION_TARGETS = [
   { id: 'advertiseFlood', run: { kind: 'advertise', flood: true } },
   { id: 'advertiseZeroHop', run: { kind: 'advertise', flood: false } },
   { id: 'markAllRead', run: { kind: 'markAllRead' } },
-  { id: 'addContact', run: { kind: 'addContact' } },
+  { id: 'addNode', run: { kind: 'addNode' } },
   { id: 'addChannel', run: { kind: 'addChannel' } },
   { id: 'toggleTheme', run: { kind: 'toggleTheme' } },
   { id: 'reboot', run: { kind: 'reboot' }, destructive: true },

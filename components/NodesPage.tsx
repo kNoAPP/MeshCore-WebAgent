@@ -5,6 +5,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Plus } from 'lucide-react';
 import { contactConvo, openConvo, useMeshStore } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useClockTick } from '@/hooks/useClockTick';
@@ -49,6 +50,7 @@ export function NodesPage() {
   const setManagePanel = useMeshStore((s) => s.setManagePanel);
   const showNodeOnMap = useMeshStore((s) => s.showNodeOnMap);
   const setView = useMeshStore((s) => s.setView);
+  const setAddNodeOpen = useMeshStore((s) => s.setAddNodeOpen);
   // Favoriting and saving both write to the radio, so those verbs need a live
   // link; the directory itself stays readable while one is being restored.
   const connected = useMeshStore((s) => s.status === 'connected');
@@ -230,16 +232,27 @@ export function NodesPage() {
 
   return (
     <div className='flex min-w-0 flex-1 flex-col overflow-hidden'>
-      <div className='flex items-baseline justify-between gap-3 px-4 pt-3'>
+      <div className='flex items-center justify-between gap-3 px-4 pt-3'>
         <h2 className='text-sm font-semibold text-text'>{t('nodes.title')}</h2>
-        <p aria-live='polite' className='text-[11px] text-text2'>
-          {rows.length === all.length
-            ? t('nodes.count', { count: rows.length })
-            : t('nodes.countFiltered', {
-                shown: rows.length,
-                total: all.length,
-              })}
-        </p>
+        <div className='flex items-center gap-3'>
+          <p aria-live='polite' className='text-[11px] text-text2'>
+            {rows.length === all.length
+              ? t('nodes.count', { count: rows.length })
+              : t('nodes.countFiltered', {
+                  shown: rows.length,
+                  total: all.length,
+                })}
+          </p>
+          <button
+            type='button'
+            onClick={() => setAddNodeOpen(true)}
+            disabled={!connected}
+            className='flex items-center gap-1 rounded-md bg-accent-solid px-2.5 py-1 text-xs font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50'
+          >
+            <Plus size={14} aria-hidden='true' />
+            {t('nodes.addNode')}
+          </button>
+        </div>
       </div>
       <NodeFilterBar
         query={query}

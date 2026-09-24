@@ -200,7 +200,7 @@
       "advertiseFlood": "Advertise (flood)",
       "advertiseZeroHop": "Advertise to neighbors (zero-hop)",
       "markAllRead": "Mark all conversations read",
-      "addContact": "Add contact…",
+      "addNode": "Add node…",
       "addChannel": "Add channel…",
       "toggleTheme": "Toggle theme",
       "reboot": "Reboot device",
@@ -218,7 +218,7 @@
       "advertiseFlood": "advertise advert flood announce broadcast",
       "advertiseZeroHop": "advertise advert zero hop neighbors announce",
       "markAllRead": "mark all read unread clear badge",
-      "addContact": "add new contact node peer import",
+      "addNode": "add new contact node peer import",
       "addChannel": "add new channel group",
       "toggleTheme": "theme dark light appearance toggle",
       "reboot": "reboot restart device radio",
@@ -1249,15 +1249,6 @@
     "resetting": "Resetting…",
     "resetExplain": "Discards this route. Messages will flood the mesh until a new route is found."
   },
-  "discover": {
-    "empty": "No adverts heard yet. Discovered nodes appear here as their adverts arrive.",
-    "node": "Node",
-    "added": "✓ Added",
-    "add": "Add",
-    "searchPlaceholder": "Search discovered nodes",
-    "noMatches": "No nodes match your search",
-    "showing": "Showing {{shown}} of {{total}}"
-  },
   "map": {
     "self": "This node",
     "markerCap": "Showing {{shown}} of {{total}} nodes",
@@ -1315,6 +1306,7 @@
   },
   "nodes": {
     "title": "Nodes",
+    "addNode": "Add node",
     "search": "Search",
     "searchPlaceholder": "Name or public key",
     "count_one": "{{count}} node",
@@ -1374,7 +1366,7 @@
     "contacts": "Contacts",
     "addChannel": "Add channel",
     "autoAddSettings": "Auto-add settings",
-    "addContact": "Add contact",
+    "browseNodes": "Browse nodes",
     "manage": "Manage",
     "favorite": "Favorite",
     "dragResize": "Drag to resize",
@@ -1430,9 +1422,9 @@
       "invalidLink": "That isn't a valid channel link."
     }
   },
-  "addContact": {
-    "title": "➕ Add contact",
-    "modeLabel": "How to add a contact",
+  "addNode": {
+    "title": "➕ Add node",
+    "modeLabel": "How to add a node",
     "link": "Contact link",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Name",
@@ -1442,16 +1434,14 @@
     "review": "Review",
     "add": "Add",
     "mode": {
-      "discoverLabel": "Discover nearby",
-      "discoverHint": "Nodes heard over the air. Add one directly as a contact.",
       "pasteLabel": "Paste link",
       "pasteHint": "Paste a meshcore://contact/add link. Its details prefill the fields so you can review before adding.",
       "manualLabel": "Enter manually",
-      "manualHint": "Enter the contact's name, 64-character public key, and node type."
+      "manualHint": "Enter the node's name, 64-character public key, and type."
     },
     "error": {
       "invalidLink": "That isn't a valid contact link.",
-      "enterName": "Enter a contact name.",
+      "enterName": "Enter a node name.",
       "invalidKey": "Public key must be 64 hex characters (32 bytes)."
     }
   },
