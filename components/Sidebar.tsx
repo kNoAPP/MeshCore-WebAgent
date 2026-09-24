@@ -18,7 +18,6 @@ import {
   Plus,
   Settings2,
   MoreHorizontal,
-  Star,
   Check,
 } from 'lucide-react';
 import {
@@ -460,9 +459,11 @@ export function Sidebar() {
         key={id}
         innerRef={active ? activeItemRef : undefined}
         icon={
+          // The same star the chat header shows for a favorite, so the row
+          // and the open conversation read as one.
           isFav ? (
             <>
-              <Star size={16} className='fill-current' aria-hidden='true' />
+              <span aria-hidden='true'>⭐</span>
               <span className='sr-only'>{t('sidebar.favorite')}</span>
             </>
           ) : (
