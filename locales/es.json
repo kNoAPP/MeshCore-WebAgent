@@ -201,7 +201,7 @@
       "advertiseFlood": "Anunciar (inundación)",
       "advertiseZeroHop": "Anunciar a los vecinos (cero saltos)",
       "markAllRead": "Marcar todas las conversaciones como leídas",
-      "addContact": "Añadir contacto…",
+      "addNode": "Añadir nodo…",
       "addChannel": "Añadir canal…",
       "toggleTheme": "Cambiar tema",
       "reboot": "Reiniciar dispositivo",
@@ -219,7 +219,7 @@
       "advertiseFlood": "anunciar advert inundación difundir",
       "advertiseZeroHop": "anunciar advert cero saltos vecinos",
       "markAllRead": "marcar todo leído no leído limpiar",
-      "addContact": "añadir nuevo contacto nodo importar",
+      "addNode": "añadir nuevo contacto nodo importar",
       "addChannel": "añadir nuevo canal grupo",
       "toggleTheme": "tema oscuro claro apariencia",
       "reboot": "reiniciar dispositivo radio",
@@ -1250,15 +1250,6 @@
     "resetting": "Restableciendo…",
     "resetExplain": "Descarta esta ruta. Los mensajes inundarán la malla hasta que se encuentre una nueva ruta."
   },
-  "discover": {
-    "empty": "Aún no se han escuchado anuncios. Los nodos descubiertos aparecen aquí a medida que llegan sus anuncios.",
-    "node": "Nodo",
-    "added": "✓ Añadido",
-    "add": "Añadir",
-    "searchPlaceholder": "Buscar nodos descubiertos",
-    "noMatches": "Ningún nodo coincide con tu búsqueda",
-    "showing": "Mostrando {{shown}} de {{total}}"
-  },
   "map": {
     "self": "Este nodo",
     "markerCap": "Mostrando {{shown}} de {{total}} nodos",
@@ -1316,6 +1307,7 @@
   },
   "nodes": {
     "title": "Nodos",
+    "addNode": "Añadir nodo",
     "search": "Buscar",
     "searchPlaceholder": "Nombre o clave pública",
     "count_one": "{{count}} nodo",
@@ -1375,7 +1367,7 @@
     "contacts": "Contactos",
     "addChannel": "Añadir canal",
     "autoAddSettings": "Ajustes de auto-añadir",
-    "addContact": "Añadir contacto",
+    "browseNodes": "Explorar nodos",
     "manage": "Gestionar",
     "favorite": "Favorito",
     "dragResize": "Arrastra para redimensionar",
@@ -1431,9 +1423,9 @@
       "invalidLink": "Eso no es un enlace de canal válido."
     }
   },
-  "addContact": {
-    "title": "➕ Añadir contacto",
-    "modeLabel": "Cómo añadir un contacto",
+  "addNode": {
+    "title": "➕ Añadir nodo",
+    "modeLabel": "Cómo añadir un nodo",
     "link": "Enlace de contacto",
     "linkPlaceholder": "meshcore://contact/add?…",
     "name": "Nombre",
@@ -1443,16 +1435,14 @@
     "review": "Revisar",
     "add": "Añadir",
     "mode": {
-      "discoverLabel": "Descubrir cercanos",
-      "discoverHint": "Nodos escuchados por radio. Añade uno directamente como contacto.",
       "pasteLabel": "Pegar enlace",
       "pasteHint": "Pega un enlace meshcore://contact/add. Sus datos rellenan los campos para que puedas revisarlos antes de añadir.",
       "manualLabel": "Introducir manualmente",
-      "manualHint": "Introduce el nombre del contacto, su clave pública de 64 caracteres y el tipo de nodo."
+      "manualHint": "Introduce el nombre del nodo, su clave pública de 64 caracteres y el tipo."
     },
     "error": {
       "invalidLink": "Eso no es un enlace de contacto válido.",
-      "enterName": "Introduce un nombre de contacto.",
+      "enterName": "Introduce un nombre de nodo.",
       "invalidKey": "La clave pública debe tener 64 caracteres hex (32 bytes)."
     }
   },

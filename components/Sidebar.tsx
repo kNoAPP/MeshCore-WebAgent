@@ -187,7 +187,7 @@ export function Sidebar() {
   const setManagePanel = useMeshStore((s) => s.setManagePanel);
   const setAutoAddOpen = useMeshStore((s) => s.setAutoAddOpen);
   const setAddChannelOpen = useMeshStore((s) => s.setAddChannelOpen);
-  const setAddContactOpen = useMeshStore((s) => s.setAddContactOpen);
+  const setView = useMeshStore((s) => s.setView);
   const {
     filter: contactFilter,
     sort: contactSort,
@@ -600,14 +600,6 @@ export function Sidebar() {
             >
               <Settings2 size={15} aria-hidden='true' />
             </button>
-            <button
-              onClick={() => setAddContactOpen(true)}
-              title={t('sidebar.addContact')}
-              aria-label={t('sidebar.addContact')}
-              className='text-text2 hover:text-accent'
-            >
-              <Plus size={16} aria-hidden='true' />
-            </button>
           </div>
         </div>
         <div ref={contactsSearchRef} className='shrink-0 px-3.5 pt-1 pb-2'>
@@ -686,8 +678,8 @@ export function Sidebar() {
             ) : (
               <EmptyState
                 message={t('sidebar.noContacts')}
-                actionLabel={t('sidebar.addContact')}
-                onAction={() => setAddContactOpen(true)}
+                actionLabel={t('sidebar.browseNodes')}
+                onAction={() => setView('nodes')}
               />
             ))}
         </div>
