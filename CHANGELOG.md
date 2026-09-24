@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v2.0.0...v2.1.0) (2026-09-24)
+
+
+### Features
+
+* **chat:** make the Chat tab conversations only ([#440](https://github.com/kNoAPP/MeshCore-WebAgent/issues/440)) ([31cfff2](https://github.com/kNoAPP/MeshCore-WebAgent/commit/31cfff273f82edb23543849b3fffd7d96b3c988a))
+* **nodes:** move the add-node dialog to the Nodes page ([#438](https://github.com/kNoAPP/MeshCore-WebAgent/issues/438)) ([b0a11b0](https://github.com/kNoAPP/MeshCore-WebAgent/commit/b0a11b0e45f606dff3b15c8f3bcd70829d759400))
+
 ## [2.0.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v1.35.0...v2.0.0) (2026-09-23)
 
 
