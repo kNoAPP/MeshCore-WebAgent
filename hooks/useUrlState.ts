@@ -11,28 +11,31 @@ import {
   channelConvoId,
   directConvoId,
   isActiveStatus,
+  contactConvo,
   openConvo,
-  repeaterConvoId,
   roomConvoId,
   useMeshStore,
   type AppView,
   type SettingsSection,
 } from '@/store/meshStore';
-import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
+import { ADV_TYPE_SENSOR } from '@/lib/meshcore/constants';
+import { isManagedNode } from '@/lib/utils';
 import type { ActiveConvo, Message } from '@/types/meshcore';
 
 /**
  * The slice of app state carried in the URL hash: the top-level page, plus a
- * Settings section or an open conversation for the pages that have one. Only
- * ids the mesh already broadcasts in the clear (a channel slot or a public-key
- * prefix) go in — never a contact name, a channel secret, or any other value
- * that would leak through a shared link or browser history.
+ * Settings section, an open conversation, or a managed node for the pages that
+ * have one. Only ids the mesh already broadcasts in the clear (a channel slot
+ * or a public-key prefix) go in — never a contact name, a channel secret, or
+ * any other value that would leak through a shared link or browser history.
  */
 interface UrlRoute {
   view: AppView;
   section: SettingsSection | null;
   /** Conversation id (`"direct:a1b2…"`), or `null` for no open conversation. */
   convo: string | null;
+  /** Public-key prefix of the node managed on the Nodes page, or `null`. */
+  node: string | null;
 }
 
 /** The hash the app falls back to when there is no route to show. */
@@ -58,7 +61,6 @@ function parseConvoRef(raw: string): string | null {
   }
   if (!PUBKEY_PREFIX_RE.test(rawId)) return null;
   if (kind === 'direct') return directConvoId(rawId);
-  if (kind === 'repeater') return repeaterConvoId(rawId);
   if (kind === 'room') return roomConvoId(rawId);
   return null;
 }
@@ -72,17 +74,22 @@ function parseHash(hash: string): UrlRoute | null {
   const view = APP_VIEWS.find((v) => v === parts[0]);
   if (!view) return null;
   const arg = parts[1] ?? '';
+  const none = { section: null, convo: null, node: null };
   if (view === 'settings') {
     return {
+      ...none,
       view,
       section: SETTINGS_SECTIONS.find((s) => s === arg) ?? null,
-      convo: null,
     };
   }
   if (view === 'chat') {
-    return { view, section: null, convo: arg ? parseConvoRef(arg) : null };
+    return { ...none, view, convo: arg ? parseConvoRef(arg) : null };
   }
-  return { view, section: null, convo: null };
+  if (view === 'nodes') {
+    const node = arg.toLowerCase();
+    return { ...none, view, node: PUBKEY_PREFIX_RE.test(node) ? node : null };
+  }
+  return { ...none, view };
 }
 
 /** Renders a route back into a `location.hash` value. */
@@ -92,6 +99,9 @@ function formatHash(route: UrlRoute): string {
   }
   if (route.view === 'chat') {
     return route.convo ? `#/chat/${route.convo}` : '#/chat';
+  }
+  if (route.view === 'nodes') {
+    return route.node ? `#/nodes/${route.node}` : '#/nodes';
   }
   return `#/${route.view}`;
 }
@@ -118,15 +128,31 @@ function resolveConvo(ref: string): ActiveConvo | null {
   if (!contact) return null;
   // The contact's advert type — not the kind in the hash — decides which
   // surface this opens, mirroring the sidebar, so a hand-edited link can't
-  // open the wrong one for a node.
-  const label = contact.name || rawId.slice(0, 8);
-  if (contact.advType === ADV_TYPE_REPEATER) {
-    return { kind: 'repeater', id: repeaterConvoId(rawId), rawId, label };
+  // open the wrong one for a node, nor a chat with one that has none.
+  const convo = contactConvo(contact);
+  if (convo) return convo;
+  // A sensor counts as a conversation once it has messaged, but a reload
+  // applies the route before the saved history is restored, so an explicit
+  // link to its thread is trusted rather than checked against a history that
+  // isn't there yet.
+  if (contact.advType === ADV_TYPE_SENSOR && ref === directConvoId(rawId)) {
+    return {
+      kind: 'direct',
+      id: ref,
+      rawId,
+      label: contact.name || rawId.slice(0, 8),
+    };
   }
-  if (contact.advType === ADV_TYPE_ROOM) {
-    return { kind: 'room', id: roomConvoId(rawId), rawId, label };
-  }
-  return { kind: 'direct', id: directConvoId(rawId), rawId, label };
+  return null;
+}
+
+/**
+ * Turns a node prefix from the URL into the node to manage, or `null` when
+ * the connected radio has no such contact or it has no management view.
+ */
+function resolveNode(prefix: string): string | null {
+  const contact = useMeshStore.getState().contacts[prefix];
+  return contact && isManagedNode(contact.advType) ? prefix : null;
 }
 
 /** Total unread messages across every conversation. */
@@ -186,6 +212,7 @@ export function useUrlState(): void {
         view: state.view,
         section,
         convo: state.activeConvo?.id ?? null,
+        node: state.managedNode,
       });
     };
 
@@ -238,12 +265,16 @@ export function useUrlState(): void {
         } else {
           store.setView(route.view);
         }
+        // After the view switch, which resets the Nodes page to its directory.
+        if (route.view === 'nodes' && route.node) {
+          store.setManagedNode(resolveNode(route.node));
+        }
         section = route.section;
       } finally {
         applying = false;
       }
       // The applied state may differ from what was asked for (an unknown
-      // contact, or a node that opens the admin view instead of a chat), so
+      // contact, or a node that has no chat or no management view), so
       // normalize the entry we are already on rather than adding another.
       const hash = currentHash();
       if (hash !== window.location.hash) {

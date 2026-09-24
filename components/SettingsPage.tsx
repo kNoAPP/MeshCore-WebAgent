@@ -429,14 +429,16 @@ function LocationCard() {
   const advLat = useMeshStore((s) => s.selfInfo?.advLat);
   const advLon = useMeshStore((s) => s.selfInfo?.advLon);
   const deviceCoords = { lat: fmtDeg(advLat), lon: fmtDeg(advLon) };
-  // Seed from a coordinate the map picker just handed back (the store's
-  // one-shot `pendingLocation`), else this radio's current advertised location.
+  // Seed from a coordinate the map picker just handed back to this card (the
+  // store's one-shot `pendingLocation`), else this radio's current advertised
+  // location. A repeater's leftover pick is never this radio's position.
   const [edit, setEdit] = useState<{
     known: { lat: string; lon: string };
     lat: string;
     lon: string;
   }>(() => {
-    const p = useMeshStore.getState().pendingLocation;
+    const { pendingLocation, locationPickReturn } = useMeshStore.getState();
+    const p = locationPickReturn === 'settings' ? pendingLocation : null;
     const known = {
       lat: fmtDeg(useMeshStore.getState().selfInfo?.advLat),
       lon: fmtDeg(useMeshStore.getState().selfInfo?.advLon),
@@ -484,9 +486,12 @@ function LocationCard() {
   const savingAdvertise = advertiseStatus === 'saving';
   // A coordinate handed back by the map picker is saved immediately on mount —
   // choosing a point on the map is itself the commit, so there's no Save step.
+  // Only a pick this card started: one a repeater's Config tab never got to
+  // consume is that repeater's position, not this radio's.
   useEffect(() => {
-    const pending = useMeshStore.getState().pendingLocation;
-    if (!pending) return;
+    const { pendingLocation: pending, locationPickReturn } =
+      useMeshStore.getState();
+    if (!pending || locationPickReturn !== 'settings') return;
     useMeshStore.getState().clearPendingLocation();
     const st = useMeshStore.getState();
     const connected = st.status === 'connected';

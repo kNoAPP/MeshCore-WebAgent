@@ -410,13 +410,16 @@ export const ADV_LABEL_KEY = {
   4: 'advType.sensor',
 } as const;
 
-/** Coarse category a contact falls into, used to filter the contacts list. */
+/**
+ * Coarse category a node falls into: drives the map and Nodes-page type
+ * filters and which nodes are Chat conversations.
+ */
 export type ContactCategory = 'user' | 'repeater' | 'room' | 'sensor';
 
 /**
  * Maps a {@link Contact.advType} to its category. Unknown/future advert types
- * fall back to "user" so they stay reachable in the contacts list rather than
- * disappearing from every filter.
+ * fall back to "user" so they stay reachable — as a Chat conversation and
+ * under the type filters — rather than disappearing from every surface.
  */
 export function contactCategory(advType: number): ContactCategory {
   switch (advType) {
@@ -429,6 +432,25 @@ export function contactCategory(advType: number): ContactCategory {
     default:
       return 'user';
   }
+}
+
+/**
+ * Whether a node of this advert type is a conversation in the Chat tab: a
+ * companion (including an unknown type, which {@link contactCategory} treats
+ * as one) or a room server's post feed. Repeaters are not, and neither is a
+ * sensor by type alone — `contactConvo` admits one once it has messaged.
+ */
+export function isChatContact(advType: number): boolean {
+  const category = contactCategory(advType);
+  return category === 'user' || category === 'room';
+}
+
+/**
+ * Whether a node of this advert type has a management view on the Nodes page:
+ * repeaters and room servers, the two that accept a remote-admin login.
+ */
+export function isManagedNode(advType: number): boolean {
+  return advType === ADV_TYPE_REPEATER || advType === ADV_TYPE_ROOM;
 }
 
 /**

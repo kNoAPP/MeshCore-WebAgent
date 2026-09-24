@@ -12,7 +12,7 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { ConnectPanel } from './ConnectPanel';
 import { ChatArea } from './ChatArea';
-import { RepeaterView } from './RepeaterView';
+import { RoomView } from './RoomView';
 import { ReconnectingOverlay } from './ReconnectingOverlay';
 import { NodesPage } from './NodesPage';
 import { StatsPage } from './StatsPage';
@@ -105,12 +105,7 @@ export function AppShell() {
               ) : (
                 <>
                   <Sidebar />
-                  {activeConvo?.kind === 'repeater' ||
-                  activeConvo?.kind === 'room' ? (
-                    <RepeaterView />
-                  ) : (
-                    <ChatArea />
-                  )}
+                  {activeConvo?.kind === 'room' ? <RoomView /> : <ChatArea />}
                 </>
               )
             ) : (

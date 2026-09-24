@@ -15,7 +15,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { useMeshStore, openConvo } from '@/store/meshStore';
+import { useMeshStore, manageNode, openConvo } from '@/store/meshStore';
 import { formatRelative } from '@/lib/i18n/format';
 import type { CommandKind, CommandResult } from '@/lib/search/commandSearch';
 import { opensDialog } from '@/lib/search/commandSearch';
@@ -201,6 +201,13 @@ export function CommandPalette(): React.ReactElement {
       // Cached adverts open the same detail popup as the map marker, from which
       // the node can be viewed or added as a contact.
       afterClose(() => setManagePanel({ kind: 'advert', id: action.prefix }));
+    } else if (action.type === 'contact') {
+      afterClose(() => setManagePanel({ kind: 'contact', id: action.prefix }));
+    } else if (action.type === 'node') {
+      // Looked up at activation, not indexing: the contact may have been
+      // removed while the palette sat open.
+      const contact = useMeshStore.getState().contacts[action.prefix];
+      if (contact) manageNode(contact);
     } else {
       // Open first, then switch: `setView('chat')` catches the *then*-open
       // conversation up on its unread backlog, and the one being left behind

@@ -433,7 +433,7 @@ export type RepeaterLoginOutcome = 'ok' | 'timeout' | 'failed' | 'offline';
 
 /** The conversation currently open in the UI. */
 export interface ActiveConvo {
-  kind: 'channel' | 'direct' | 'repeater' | 'room';
+  kind: 'channel' | 'direct' | 'room';
   id: string; // e.g. "channel:0", "direct:b6cf429f4882", or "room:b6cf429f4882"
   rawId: string | number;
   label: string;
