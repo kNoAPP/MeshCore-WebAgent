@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import dynamic from 'next/dynamic';
-import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
+import { useMeshStore, isAuthedLogin } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useRepeaterAutoLogin } from '@/hooks/useRepeaterAutoLogin';
 import { useClockTick } from '@/hooks/useClockTick';
@@ -29,10 +29,9 @@ import {
   formatUptime,
   formatVoltage,
 } from '@/lib/i18n/format';
-import { ADV_ICON, formatPubkey } from '@/lib/utils';
-import { ChatArea } from './ChatArea';
+import { ADV_ICON, isManagedNode } from '@/lib/utils';
 import { HintToken } from './MessageBubble';
-import { RouteChip } from './RouteChip';
+import { NodeHeader } from './NodeHeader';
 import { StatCard } from './StatCard';
 import { RefreshButton } from './RefreshButton';
 import { RepeaterAccessTab } from './RepeaterAccessTab';
@@ -40,12 +39,7 @@ import { RepeaterConfigTab } from './RepeaterConfigTab';
 import { RepeaterConsoleTab } from './RepeaterConsoleTab';
 import { RepeaterLoginGate } from './RepeaterLoginGate';
 import { TelemetryPanel } from './TelemetryPanel';
-import type {
-  Contact,
-  Neighbor,
-  RepeaterAccess,
-  RepeaterStatus,
-} from '@/types/meshcore';
+import type { Contact, Neighbor, RepeaterStatus } from '@/types/meshcore';
 
 // Leaflet and the neighbors map are loaded only when a located repeater opens
 // the tab, keeping the initial bundle lean. `ssr: false` skips it during the
@@ -66,55 +60,63 @@ function approxBatteryPercent(milliVolts: number): number {
 }
 
 type RepeaterTab =
-  | 'posts'
-  | 'status'
-  | 'telemetry'
-  | 'config'
-  | 'neighbors'
-  | 'access'
-  | 'console';
+  'status' | 'telemetry' | 'config' | 'neighbors' | 'access' | 'console';
 
 /**
- * The main-window view for a repeater or room server, shown in place of the
- * chat pane when either is selected in the sidebar (or the command palette). A
- * room opens on its post feed; a repeater on remote-admin status. Resolves the
- * target contact from the active conversation; renders nothing useful if it
- * has been evicted.
+ * The management view for a repeater or room server, shown on the Nodes page
+ * in place of the directory while {@link useMeshStore} `managedNode` is set.
+ * Opens on remote-admin status; a room's post feed is not here but in Chat
+ * ({@link RoomView}). Renders a notice with the way back if the node has been
+ * evicted, or is no longer a type that has a management view.
  */
 export function RepeaterView() {
   const { t } = useTranslation();
-  const activeConvo = useMeshStore((s) => s.activeConvo);
+  const prefix = useMeshStore((s) => s.managedNode);
   const contacts = useMeshStore((s) => s.contacts);
-  const prefix =
-    activeConvo?.kind === 'repeater' || activeConvo?.kind === 'room'
-      ? (activeConvo.rawId as string)
-      : undefined;
+  const setManagedNode = useMeshStore((s) => s.setManagedNode);
   const contact = prefix ? contacts[prefix] : undefined;
+  const back = () => setManagedNode(null);
 
-  if (!contact) {
+  if (!contact || !isManagedNode(contact.advType)) {
     return (
-      <div className='flex flex-1 items-center justify-center text-sm text-text2'>
+      <div className='flex flex-1 flex-col items-center justify-center gap-3 text-sm text-text2'>
         {t('repeaterAdmin.contactUnavailable')}
+        <button
+          type='button'
+          onClick={back}
+          className='rounded-md border border-border px-3 py-1 text-xs text-text hover:bg-surface2'
+        >
+          {t('nodes.back')}
+        </button>
       </div>
     );
   }
 
   // Key by prefix so the auto-login guard and tab state reset when the user
-  // switches to a different repeater.
-  return <RepeaterViewInner key={contact.pubkeyPrefix} contact={contact} />;
+  // switches to a different node.
+  return (
+    <RepeaterViewInner
+      key={contact.pubkeyPrefix}
+      contact={contact}
+      onBack={back}
+    />
+  );
 }
 
-function RepeaterViewInner({ contact }: { contact: Contact }) {
-  const { t } = useTranslation();
+function RepeaterViewInner({
+  contact,
+  onBack,
+}: {
+  contact: Contact;
+  onBack: () => void;
+}) {
   const { repeaterStatus } = useMeshCore();
   const autoLogin = useRepeaterAutoLogin(contact);
   const session = useMeshStore((s) => s.adminSessions[contact.pubkeyPrefix]);
   const resetAdminSession = useMeshStore((s) => s.resetAdminSession);
-  const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
 
   const login = session?.login ?? 'loggedOut';
   const authed = isAuthedLogin(login);
-  const prefix = contact.pubkeyPrefix;
   // The node's own transmit budget, once the Config tab has read it. Only used
   // to flag a TX duty cycle that has already run past it, so anything the
   // firmware hasn't answered with a positive number simply means no flag —
@@ -122,67 +124,42 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
   const configuredDuty = Number(session?.config?.dutycycle ?? NaN);
   const dutyCycleLimit = configuredDuty > 0 ? configuredDuty : undefined;
 
-  // Which tabs this session may see. A room's post feed comes first and is
-  // open to every logged-in role (a read-only member may read, just not post).
-  // Status is available to guests too (the firmware answers a status request
-  // for any authed client), but every other surface is admin-only: current
-  // repeater/room firmware handles remote `TXT_TYPE_CLI_DATA` only for
-  // `client->isAdmin()`, so a guest gets no reply to a config read, neighbors
-  // query, or console command. Neighbors is additionally repeater-only — a
-  // room server's `formatNeighborsReply` returns "not supported".
+  // Which tabs this session may see. Status is available to guests too (the
+  // firmware answers a status request for any authed client), but every other
+  // surface is admin-only: current repeater/room firmware handles remote
+  // `TXT_TYPE_CLI_DATA` only for `client->isAdmin()`, so a guest gets no reply
+  // to a config read, neighbors query, or console command. Neighbors is
+  // additionally repeater-only — a room server's `formatNeighborsReply`
+  // returns "not supported".
   const isAdmin = login === 'admin';
   const isRepeater = contact.advType === ADV_TYPE_REPEATER;
   const isRoom = contact.advType === ADV_TYPE_ROOM;
   const tabs = useMemo<RepeaterTab[]>(() => {
     // Telemetry needs no login at all, so it sits beside Status for every role.
-    const list: RepeaterTab[] = isRoom
-      ? ['posts', 'status', 'telemetry']
-      : ['status', 'telemetry'];
+    const list: RepeaterTab[] = ['status', 'telemetry'];
     if (isAdmin) list.push('config');
     if (isAdmin && isRepeater) list.push('neighbors');
     // The access list is admin-only but not repeater-only: a room server
     // answers the same request, reporting just its admin entries.
     if (isAdmin) list.push('access', 'console');
     return list;
-  }, [isAdmin, isRepeater, isRoom]);
-  // Where a fresh selection of this node lands. Returning from the map picker
-  // (Set on map in the Config tab) reopens on Config so the just-picked
-  // coordinate arrives where the user left off.
-  const defaultTab = (): RepeaterTab => {
+  }, [isAdmin, isRepeater]);
+  // Returning from the map picker (Set on map in the Config tab) reopens on
+  // Config so the just-picked coordinate arrives where the user left off —
+  // only for the node the pick was made for.
+  const [selectedTab, setTab] = useState<RepeaterTab>(() => {
     const s = useMeshStore.getState();
-    return s.pendingLocation && s.locationPickReturn === 'chat'
+    return s.pendingLocation &&
+      s.locationPickReturn === 'nodes' &&
+      s.locationPickNode === contact.pubkeyPrefix
       ? 'config'
-      : isRoom
-        ? 'posts'
-        : 'status';
-  };
-  // Selecting this node again — from a drawer row, its sidebar row or the
-  // command palette — must return to the default tab, or the post pointed at
-  // stays hidden behind Status. The view is keyed by node, so re-opening the
-  // one already on screen does not remount it; `convoOpenSeq` is what makes
-  // that navigation visible here.
-  const convoOpenSeq = useMeshStore((s) => s.convoOpenSeq);
-  const [selection, setSelection] = useState(() => ({
-    seq: convoOpenSeq,
-    tab: defaultTab(),
-  }));
-  if (selection.seq !== convoOpenSeq) {
-    setSelection({ seq: convoOpenSeq, tab: defaultTab() });
-  }
-  const setTab = (tab: RepeaterTab) => setSelection({ seq: convoOpenSeq, tab });
+      : 'status';
+  });
   // The selected tab clamped to what this session may see. It persists a
   // logout/re-login (the view stays mounted), so an admin who was on
   // Neighbors/Console and logs back in as a guest must not keep rendering a
   // now-hidden panel — fall back to the first tab this session may see.
-  const activeTab = tabs.includes(selection.tab) ? selection.tab : tabs[0];
-  // Report whether the post feed is actually rendered, so arrivals behind the
-  // login gate or another tab stay unread and keep their drawer row.
-  const setVisibleRoomFeed = useMeshStore((s) => s.setVisibleRoomFeed);
-  const feedVisible = isRoom && authed && activeTab === 'posts';
-  useEffect(() => {
-    setVisibleRoomFeed(feedVisible ? roomConvoId(prefix) : null);
-    return () => setVisibleRoomFeed(null);
-  }, [feedVisible, prefix, setVisibleRoomFeed]);
+  const activeTab = tabs.includes(selectedTab) ? selectedTab : tabs[0];
 
   // Logging out also forgets any remembered credential, so the next visit
   // re-prompts instead of silently auto-logging back in. The encrypted record
@@ -197,28 +174,12 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
 
   return (
     <div className='flex flex-1 flex-col overflow-hidden'>
-      {/* Header */}
-      <div className='flex shrink-0 items-center gap-2.5 border-b px-4 py-3 bg-surface border-border'>
-        <span className='text-lg'>{ADV_ICON[contact.advType] ?? '📡'}</span>
-        <span className='text-[15px] font-semibold'>
-          {contact.name || contact.pubkeyPrefix.slice(0, 8)}
-        </span>
-        <RouteChip contact={contact} />
-        {authed && <AccessChip access={login} />}
-        <div className='ml-auto flex items-center gap-3'>
-          <span className='text-xs text-text2'>
-            {formatPubkey(contact.pubkey, showFullPublicKeys)}
-          </span>
-          {authed && (
-            <button
-              onClick={logOut}
-              className='rounded-md border border-red px-2.5 py-1 text-xs text-red hover:bg-red-dim hover:text-white'
-            >
-              {t('repeaterAdmin.dashboard.logout')}
-            </button>
-          )}
-        </div>
-      </div>
+      <NodeHeader
+        contact={contact}
+        login={login}
+        onLogOut={logOut}
+        onBack={onBack}
+      />
 
       {authed ? (
         <>
@@ -227,15 +188,8 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
             id='repeater-tabpanel'
             role='tabpanel'
             aria-labelledby={`repeater-tab-${activeTab}`}
-            // The post feed brings its own scroller and composer, so it fills
-            // the panel instead of sitting inside a padded one.
-            className={
-              activeTab === 'posts'
-                ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
-                : 'flex-1 overflow-y-auto p-4'
-            }
+            className='flex-1 overflow-y-auto p-4'
           >
-            {activeTab === 'posts' && <ChatArea />}
             {activeTab === 'status' && (
               <StatusDashboard
                 status={session?.status}
@@ -268,21 +222,6 @@ function RepeaterViewInner({ contact }: { contact: Contact }) {
         </div>
       )}
     </div>
-  );
-}
-
-function AccessChip({ access }: { access: RepeaterAccess }) {
-  const { t } = useTranslation();
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-        access === 'admin'
-          ? 'bg-accent-solid text-white'
-          : 'bg-surface2 text-text2'
-      }`}
-    >
-      {t(`repeaterAdmin.access.${access}`)}
-    </span>
   );
 }
 

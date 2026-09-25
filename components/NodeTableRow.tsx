@@ -4,7 +4,7 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import { MapPin, MessageSquare, Radio, Star, UserPlus } from 'lucide-react';
+import { MapPin, MessageSquare, Settings2, Star, UserPlus } from 'lucide-react';
 import {
   NO_VALUE,
   formatDateTime,
@@ -12,8 +12,8 @@ import {
   formatRoute,
   formatSnr,
 } from '@/lib/i18n/format';
-import { ADV_ICON, ADV_LABEL_KEY } from '@/lib/utils';
-import { ADV_TYPE_REPEATER, ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
+import { ADV_ICON, ADV_LABEL_KEY, isManagedNode } from '@/lib/utils';
+import { ADV_TYPE_ROOM } from '@/lib/meshcore/constants';
 import { isSaved, type DirectoryNode } from '@/lib/nodes/directory';
 
 /**
@@ -39,7 +39,11 @@ export interface NodeRowContext {
   distance: (node: DirectoryNode) => string | null;
   onToggleSelect: (key: string) => void;
   onOpenDetails: (node: DirectoryNode) => void;
+  /** Whether the node is a saved contact with a conversation to open. */
+  hasConvo: (node: DirectoryNode) => boolean;
   onOpenConvo: (node: DirectoryNode) => void;
+  /** Opens a repeater's or room server's management view. */
+  onManage: (node: DirectoryNode) => void;
   onToggleFavorite: (node: DirectoryNode) => void;
   onSaveContact: (node: DirectoryNode) => void;
   onShowOnMap: (node: DirectoryNode) => void;
@@ -79,10 +83,11 @@ function IconAction({
 
 /**
  * One node of the directory: the columns the table's header declares, then the
- * per-row verbs. Opening the conversation, saving a heard node and showing it
- * on the map act immediately; the name opens `ManagePanel`, which already owns
- * the rarer and destructive ones (reset route, share, remove) so this row and
- * that panel can't drift apart on what they do.
+ * per-row verbs. Opening the conversation or the management view, saving a
+ * heard node and showing it on the map act immediately; the name opens
+ * `ManagePanel`, which already owns the rarer and destructive ones (reset
+ * route, share, remove) so this row and that panel can't drift apart on what
+ * they do.
  *
  * @param rowIndex - 1-based position in the whole table (not just the rendered
  * window), counting the header row, for `aria-rowindex`.
@@ -105,15 +110,13 @@ export function NodeTableRow({
   const { t } = useTranslation();
   const contact = node.contact;
   const located = Boolean(node.advLat && node.advLon);
-  // A repeater's conversation is its admin console, not a transcript, so the
-  // verb has to name what actually opens; a room server does have a post feed.
-  const isRepeater = node.advType === ADV_TYPE_REPEATER;
+  // A room server is both: its post feed opens in Chat, its admin surfaces
+  // here. A repeater is only managed, and a sensor has a conversation only
+  // once it has messaged.
+  const hasConvo = ctx.hasConvo(node);
+  const managed = isManagedNode(node.advType);
   const openLabel = t(
-    isRepeater
-      ? 'nodes.row.console'
-      : node.advType === ADV_TYPE_ROOM
-        ? 'nodes.row.room'
-        : 'nodes.row.message',
+    node.advType === ADV_TYPE_ROOM ? 'nodes.row.room' : 'nodes.row.message',
     { name: node.name },
   );
   const favLabel = t(
@@ -195,13 +198,24 @@ export function NodeTableRow({
       <td className='px-2'>
         <div className='flex items-center gap-0.5'>
           {contact ? (
-            <IconAction label={openLabel} onClick={() => ctx.onOpenConvo(node)}>
-              {isRepeater ? (
-                <Radio size={13} aria-hidden='true' />
-              ) : (
-                <MessageSquare size={13} aria-hidden='true' />
+            <>
+              {hasConvo && (
+                <IconAction
+                  label={openLabel}
+                  onClick={() => ctx.onOpenConvo(node)}
+                >
+                  <MessageSquare size={13} aria-hidden='true' />
+                </IconAction>
               )}
-            </IconAction>
+              {managed && (
+                <IconAction
+                  label={t('nodes.row.manage', { name: node.name })}
+                  onClick={() => ctx.onManage(node)}
+                >
+                  <Settings2 size={13} aria-hidden='true' />
+                </IconAction>
+              )}
+            </>
           ) : (
             <IconAction
               label={t('nodes.row.addContact', { name: node.name })}

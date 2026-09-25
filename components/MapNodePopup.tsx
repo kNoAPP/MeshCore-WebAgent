@@ -4,10 +4,20 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import { contactConvo, openConvo, useMeshStore } from '@/store/meshStore';
+import {
+  contactConvo,
+  manageNode,
+  openConvo,
+  useMeshStore,
+} from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useClockTick } from '@/hooks/useClockTick';
-import { ADV_ICON, ADV_LABEL_KEY, normalizedLastHeard } from '@/lib/utils';
+import {
+  ADV_ICON,
+  ADV_LABEL_KEY,
+  isManagedNode,
+  normalizedLastHeard,
+} from '@/lib/utils';
 import {
   formatClockSkew,
   formatDateTime,
@@ -15,7 +25,7 @@ import {
   formatRelative,
   formatRoute,
 } from '@/lib/i18n/format';
-import { ADV_TYPE_REPEATER, FAVORITE_FLAG } from '@/lib/meshcore/constants';
+import { FAVORITE_FLAG } from '@/lib/meshcore/constants';
 import { type MapNode } from '@/lib/map/nodes';
 
 /**
@@ -72,19 +82,31 @@ export function MapNodePopup({
     unitSystem,
   );
   const isFav = contact ? (contact.flags & FAVORITE_FLAG) !== 0 : false;
-  // A repeater has no transcript: selecting it opens the admin view, the same
-  // as from the sidebar or the palette. The action is labeled after where it
-  // goes rather than after the button next to it.
-  const isRepeater = contact?.advType === ADV_TYPE_REPEATER;
+  // The same split as the Nodes directory: a room server offers both its post
+  // feed and its management view, a repeater only the latter, and a sensor
+  // its conversation once it has messaged. Selected as a boolean so a
+  // sensor's first message shows the action without re-rendering on every
+  // other arrival.
+  const hasConvo = useMeshStore((s) =>
+    contact ? contactConvo(contact, s.msgHistory) !== null : false,
+  );
+  const managed = contact ? isManagedNode(contact.advType) : false;
 
   const openContact = () => {
-    if (!contact) return;
+    const convo = contact && contactConvo(contact);
+    if (!convo) return;
     onClose();
     // Selected before the view switch, the way the palette and URL routes do
     // it: `setView` catches up whichever conversation is open at that moment,
     // so switching first would mark the *previous* one read.
-    openConvo(contactConvo(contact));
+    openConvo(convo);
     useMeshStore.getState().setView('chat');
+  };
+
+  const openAdmin = () => {
+    if (!contact) return;
+    onClose();
+    manageNode(contact);
   };
 
   const openManage = () => {
@@ -140,11 +162,11 @@ export function MapNodePopup({
         />
       </dl>
       <div className='flex flex-wrap items-center gap-1 border-t border-border pt-2'>
-        {contact && (
-          <PopupAction
-            onClick={openContact}
-            label={isRepeater ? t('map.popup.manage') : t('map.popup.message')}
-          />
+        {hasConvo && (
+          <PopupAction onClick={openContact} label={t('map.popup.message')} />
+        )}
+        {managed && (
+          <PopupAction onClick={openAdmin} label={t('map.popup.manage')} />
         )}
         {contact && (
           <PopupAction

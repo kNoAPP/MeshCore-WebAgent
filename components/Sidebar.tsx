@@ -14,41 +14,32 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ArrowUpDown,
   Plus,
   Settings2,
   MoreHorizontal,
-  Filter,
-  Star,
   Check,
 } from 'lucide-react';
 import {
   useMeshStore,
   openConvo,
+  contactConvo,
   channelConvoId,
   directConvoId,
-  repeaterConvoId,
   roomConvoId,
   unreadCount,
   clampSidebarWidth,
-  CONTACT_FILTERS,
   CONTACT_SORTS,
   SIDEBAR_MIN_WIDTH,
   SIDEBAR_MAX_WIDTH,
-  type ContactFilter,
   type ContactSort,
 } from '@/store/meshStore';
 import {
   ADV_ICON,
-  contactCategory,
   isPublicChannelSecret,
   normalizedLastHeard,
-  type ContactCategory,
 } from '@/lib/utils';
-import {
-  ADV_TYPE_REPEATER,
-  ADV_TYPE_ROOM,
-  FAVORITE_FLAG,
-} from '@/lib/meshcore/constants';
+import { ADV_TYPE_ROOM, FAVORITE_FLAG } from '@/lib/meshcore/constants';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { useClockTick } from '@/hooks/useClockTick';
 import { Switch } from './Switch';
@@ -68,44 +59,18 @@ function matchesQuery(c: Contact, query: string): boolean {
   );
 }
 
-const FILTER_LABEL_KEYS = {
-  all: 'sidebar.filterAll',
-  favorites: 'sidebar.filterFavorites',
-  users: 'sidebar.filterUsers',
-  repeaters: 'sidebar.filterRepeaters',
-  rooms: 'sidebar.filterRooms',
-  sensors: 'sidebar.filterSensors',
-} as const satisfies Record<ContactFilter, string>;
-
 const SORT_LABEL_KEYS = {
   az: 'sidebar.orderAz',
   heard: 'sidebar.orderHeard',
   latest: 'sidebar.orderLatest',
 } as const satisfies Record<ContactSort, string>;
 
-// Order and membership come from CONTACT_FILTERS/CONTACT_SORTS (also the
-// persistence allowlist), so the menu can't drift from the stored values.
-const FILTER_OPTIONS = CONTACT_FILTERS.map((value) => ({
-  value,
-  labelKey: FILTER_LABEL_KEYS[value],
-}));
+// Order and membership come from CONTACT_SORTS (also the persistence
+// allowlist), so the menu can't drift from the stored values.
 const SORT_OPTIONS = CONTACT_SORTS.map((value) => ({
   value,
   labelKey: SORT_LABEL_KEYS[value],
 }));
-
-const FILTER_CATEGORIES: Partial<Record<ContactFilter, ContactCategory>> = {
-  users: 'user',
-  repeaters: 'repeater',
-  rooms: 'room',
-  sensors: 'sensor',
-};
-
-function matchesFilter(c: Contact, filter: ContactFilter): boolean {
-  if (filter === 'all') return true;
-  if (filter === 'favorites') return (c.flags & FAVORITE_FLAG) !== 0;
-  return contactCategory(c.advType) === FILTER_CATEGORIES[filter];
-}
 
 // Scans all messages rather than trusting append order, since a delayed or
 // retransmitted message can arrive after one with a newer timestamp.
@@ -172,9 +137,11 @@ function compareBySort(
 
 /**
  * Left navigation: a Channels section over a Contacts section, split by a
- * draggable divider. Auto-sizes the channels section to fit (until the user
- * drags it), lets contacts be filtered and ordered, and exposes
- * add/settings/manage affordances. Selecting an item opens that conversation.
+ * draggable divider, with a Room Servers section between them once at least
+ * one room is saved. Auto-sizes the channels section to fit (until the user
+ * drags it), lets contacts be searched and ordered — rooms follow the same
+ * order — and exposes add/settings/manage affordances. Selecting an item opens
+ * that conversation.
  */
 export function Sidebar() {
   const { t } = useTranslation();
@@ -189,7 +156,6 @@ export function Sidebar() {
   const setAddChannelOpen = useMeshStore((s) => s.setAddChannelOpen);
   const setView = useMeshStore((s) => s.setView);
   const {
-    filter: contactFilter,
     sort: contactSort,
     pinFavorites,
     width: sidebarWidth,
@@ -204,6 +170,7 @@ export function Sidebar() {
   const channelsSectionRef = useRef<HTMLDivElement>(null);
   const channelsContentRef = useRef<HTMLDivElement>(null);
   const channelsHeaderRef = useRef<HTMLDivElement>(null);
+  const roomsSectionRef = useRef<HTMLDivElement>(null);
   const contactsSectionRef = useRef<HTMLDivElement>(null);
   const contactsHeaderRef = useRef<HTMLDivElement>(null);
   const contactsSearchRef = useRef<HTMLDivElement>(null);
@@ -212,6 +179,10 @@ export function Sidebar() {
   const filterInputId = useId();
 
   const sortedChannels = Object.values(channels).sort((a, b) => a.idx - b.idx);
+  // The Room Servers section only exists once a room is saved.
+  const hasRooms = useMeshStore((s) =>
+    Object.values(s.contacts).some((c) => c.advType === ADV_TYPE_ROOM),
+  );
 
   // Pixel height the channels section needs to show every row without
   // scrolling.
@@ -245,10 +216,13 @@ export function Sidebar() {
         ? parseFloat(contactsStyle.paddingTop) +
           parseFloat(contactsStyle.paddingBottom)
         : 0;
+      // The Room Servers section sits between the two and sizes to its own
+      // content, so whatever it takes comes out of what Channels may grow to.
       const contactsMinimum =
         contactsPadding +
         (contactsHeaderRef.current?.offsetHeight ?? 0) +
         (contactsSearchRef.current?.offsetHeight ?? 0) +
+        (roomsSectionRef.current?.offsetHeight ?? 0) +
         MIN_SECTION_PX;
       const ceiling = Math.max(MIN_SECTION_PX, available - contactsMinimum);
       const fit = Math.max(
@@ -270,8 +244,11 @@ export function Sidebar() {
     observer.observe(aside);
     if (contactsHeaderRef.current) observer.observe(contactsHeaderRef.current);
     if (contactsSearchRef.current) observer.observe(contactsSearchRef.current);
+    if (roomsSectionRef.current) observer.observe(roomsSectionRef.current);
     return () => observer.disconnect();
-  }, [sortedChannels.length, measureChannelsFitHeight]);
+    // `hasRooms` re-runs this when the Room Servers section mounts or unmounts,
+    // so the new section is observed (and a removed one stops counting).
+  }, [sortedChannels.length, measureChannelsFitHeight, hasRooms]);
 
   // A stored height is clamped on every render, not just on load: the same
   // value that fit a tall window would otherwise clip the Channels header or
@@ -297,39 +274,60 @@ export function Sidebar() {
   const adverts = useMeshStore((s) =>
     heardOrder ? s.advertCache : EMPTY_ADVERTS,
   );
+  // Only the nodes that are conversations: repeaters are managed from the Nodes
+  // page, and a sensor joins only once it has messaged. Selected as a joined
+  // string, so an arrival that doesn't change who is listed doesn't re-sort.
+  const chatPrefixes = useMeshStore((s) =>
+    Object.values(s.contacts)
+      .filter((c) => contactConvo(c, s.msgHistory) !== null)
+      .map((c) => c.pubkeyPrefix)
+      .join(','),
+  );
+  const chatContacts = useMemo(
+    () =>
+      chatPrefixes
+        .split(',')
+        .map((prefix) => contacts[prefix])
+        .filter((c): c is Contact => c !== undefined),
+    [chatPrefixes, contacts],
+  );
   const latestTimes = useMemo(() => {
     if (contactSort !== 'latest') return EMPTY_LATEST_TIMES;
     const times = new Map<string, number>();
-    for (const c of Object.values(contacts)) {
+    for (const c of chatContacts) {
       times.set(c.pubkeyPrefix, lastMessageTime(msgHistory, c));
     }
     return times;
-  }, [contacts, contactSort, msgHistory]);
-  const sortedContacts = useMemo(() => {
-    const filtered = Object.values(contacts).filter(
-      (c) => matchesFilter(c, contactFilter) && matchesQuery(c, query),
-    );
-    return filtered.sort((a, b) => {
-      // When pinning, favorites float above non-favorites but are still
-      // ordered among themselves by the selected order below.
-      if (pinFavorites) {
-        const aFav = (a.flags & FAVORITE_FLAG) !== 0;
-        const bFav = (b.flags & FAVORITE_FLAG) !== 0;
-        if (aFav !== bFav) return aFav ? -1 : 1;
-      }
-      return compareBySort(a, b, contactSort, latestTimes, adverts, nowSecs);
-    });
-  }, [
-    contacts,
-    contactFilter,
-    contactSort,
-    pinFavorites,
-    latestTimes,
-    query,
-    adverts,
-    nowSecs,
-  ]);
-  const hasContacts = Object.keys(contacts).length > 0;
+  }, [chatContacts, contactSort, msgHistory]);
+  const sortedChats = useMemo(
+    () =>
+      [...chatContacts].sort((a, b) => {
+        // When pinning, favorites float above non-favorites but are still
+        // ordered among themselves by the selected order below.
+        if (pinFavorites) {
+          const aFav = (a.flags & FAVORITE_FLAG) !== 0;
+          const bFav = (b.flags & FAVORITE_FLAG) !== 0;
+          if (aFav !== bFav) return aFav ? -1 : 1;
+        }
+        return compareBySort(a, b, contactSort, latestTimes, adverts, nowSecs);
+      }),
+    [chatContacts, contactSort, pinFavorites, latestTimes, adverts, nowSecs],
+  );
+  // Rooms get their own section; the search box sits in, and narrows, only
+  // the Contacts section below it.
+  const sortedRooms = useMemo(
+    () => sortedChats.filter((c) => c.advType === ADV_TYPE_ROOM),
+    [sortedChats],
+  );
+  const people = useMemo(
+    () => sortedChats.filter((c) => c.advType !== ADV_TYPE_ROOM),
+    [sortedChats],
+  );
+  const sortedContacts = useMemo(
+    () => people.filter((c) => matchesQuery(c, query)),
+    [people, query],
+  );
+  const hasContacts = people.length > 0;
 
   // Scroll the active row into view when the open conversation changes, so a
   // selection made elsewhere (e.g. the command palette) reveals its item even
@@ -448,12 +446,37 @@ export function Sidebar() {
     [setSidebarWidth],
   );
 
-  const clearFilters = () => {
-    setQuery('');
-    setContactView({
-      ...useMeshStore.getState().contactView,
-      filter: 'all',
-    });
+  // One row for a contact or room: a room opens its post feed, a contact its
+  // direct chat.
+  const contactItem = (c: Contact) => {
+    const convo = contactConvo(c, msgHistory);
+    if (!convo) return null;
+    const { id, label } = convo;
+    const active = activeConvo?.id === id;
+    const isFav = (c.flags & FAVORITE_FLAG) !== 0;
+    return (
+      <SidebarItem
+        key={id}
+        innerRef={active ? activeItemRef : undefined}
+        icon={
+          // The same star the chat header shows for a favorite, so the row
+          // and the open conversation read as one.
+          isFav ? (
+            <>
+              <span aria-hidden='true'>⭐</span>
+              <span className='sr-only'>{t('sidebar.favorite')}</span>
+            </>
+          ) : (
+            (ADV_ICON[c.advType] ?? '👤')
+          )
+        }
+        label={label}
+        active={active}
+        unread={unreadCount(msgHistory, id)}
+        onManage={() => setManagePanel({ kind: 'contact', id: c.pubkeyPrefix })}
+        onClick={() => openConvo(convo)}
+      />
+    );
   };
 
   return (
@@ -553,6 +576,27 @@ export function Sidebar() {
         <div className='h-0.5 w-8 rounded-full bg-border transition-colors group-hover:bg-accent' />
       </div>
 
+      {/* Room Servers — only once one is saved. Sized to its rows, scrolling
+          past a cap so it can never crowd out Contacts. */}
+      {sortedRooms.length > 0 && (
+        <div
+          ref={roomsSectionRef}
+          className='flex max-h-[35%] shrink-0 flex-col border-b border-border pt-2 pb-1'
+        >
+          <h2
+            id='sidebar-rooms'
+            className='shrink-0 px-3.5 pb-1 text-[11px] font-semibold tracking-widest text-text2 uppercase'
+          >
+            {t('sidebar.rooms')}
+          </h2>
+          <div className='min-h-0 overflow-y-auto'>
+            <ul aria-labelledby='sidebar-rooms'>
+              {sortedRooms.map(contactItem)}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Contacts */}
       <div
         ref={contactsSectionRef}
@@ -569,16 +613,9 @@ export function Sidebar() {
             {t('sidebar.contacts')}
           </h2>
           <div className='flex items-center gap-2'>
-            <ContactsFilterMenu
-              filter={contactFilter}
+            <ContactsOrderMenu
               sort={contactSort}
               pinFavorites={pinFavorites}
-              onFilterChange={(filter) =>
-                setContactView({
-                  ...useMeshStore.getState().contactView,
-                  filter,
-                })
-              }
               onSortChange={(sort) =>
                 setContactView({
                   ...useMeshStore.getState().contactView,
@@ -617,63 +654,14 @@ export function Sidebar() {
         </div>
         <div className='flex-1 overflow-y-auto'>
           <ul aria-labelledby='sidebar-contacts'>
-            {sortedContacts.map((c) => {
-              // Repeaters open their remote-admin view and rooms their post
-              // feed, so selecting either opens something other than a chat.
-              const isRepeater = c.advType === ADV_TYPE_REPEATER;
-              const isRoom = c.advType === ADV_TYPE_ROOM;
-              const kind = isRepeater ? 'repeater' : isRoom ? 'room' : 'direct';
-              const id = isRepeater
-                ? repeaterConvoId(c.pubkeyPrefix)
-                : isRoom
-                  ? roomConvoId(c.pubkeyPrefix)
-                  : directConvoId(c.pubkeyPrefix);
-              const unread = unreadCount(msgHistory, id);
-              const active = activeConvo?.id === id;
-              const isFav = (c.flags & FAVORITE_FLAG) !== 0;
-              const label = c.name || c.pubkeyPrefix.slice(0, 8);
-              return (
-                <SidebarItem
-                  key={id}
-                  innerRef={active ? activeItemRef : undefined}
-                  icon={
-                    isFav ? (
-                      <>
-                        <Star
-                          size={16}
-                          className='fill-current'
-                          aria-hidden='true'
-                        />
-                        <span className='sr-only'>{t('sidebar.favorite')}</span>
-                      </>
-                    ) : (
-                      (ADV_ICON[c.advType] ?? '👤')
-                    )
-                  }
-                  label={label}
-                  active={active}
-                  unread={unread}
-                  onManage={() =>
-                    setManagePanel({ kind: 'contact', id: c.pubkeyPrefix })
-                  }
-                  onClick={() =>
-                    openConvo({
-                      kind,
-                      id,
-                      rawId: c.pubkeyPrefix,
-                      label,
-                    })
-                  }
-                />
-              );
-            })}
+            {sortedContacts.map(contactItem)}
           </ul>
           {sortedContacts.length === 0 &&
             (hasContacts ? (
               <EmptyState
                 message={t('sidebar.noContactsMatch')}
-                actionLabel={t('sidebar.clearFilters')}
-                onAction={clearFilters}
+                actionLabel={t('sidebar.clearSearch')}
+                onAction={() => setQuery('')}
               />
             ) : (
               <EmptyState
@@ -703,22 +691,14 @@ export function Sidebar() {
   );
 }
 
-function FunnelIcon() {
-  return <Filter size={14} aria-hidden='true' />;
-}
-
-function ContactsFilterMenu({
-  filter,
+function ContactsOrderMenu({
   sort,
   pinFavorites,
-  onFilterChange,
   onSortChange,
   onPinFavoritesChange,
 }: {
-  filter: ContactFilter;
   sort: ContactSort;
   pinFavorites: boolean;
-  onFilterChange: (f: ContactFilter) => void;
   onSortChange: (s: ContactSort) => void;
   onPinFavoritesChange: (v: boolean) => void;
 }) {
@@ -728,41 +708,25 @@ function ContactsFilterMenu({
 
   useClickOutside(rootRef, open, () => setOpen(false));
 
-  // Highlight the trigger whenever a non-default filter is narrowing the list.
-  const filtering = filter !== 'all';
-
   return (
     <div ref={rootRef} className='relative flex items-center'>
       <button
         onClick={() => setOpen((o) => !o)}
-        title={t('sidebar.filterContacts')}
-        aria-label={t('sidebar.filterContacts')}
+        title={t('sidebar.orderContacts')}
+        aria-label={t('sidebar.orderContacts')}
         aria-expanded={open}
-        className={`hover:text-accent ${filtering ? 'text-accent' : 'text-text2'}`}
+        className='text-text2 hover:text-accent'
       >
-        <FunnelIcon />
+        <ArrowUpDown size={14} aria-hidden='true' />
       </button>
       {open && (
         <div className='absolute top-full right-0 z-10 mt-1.5 w-44 rounded-card border border-border bg-surface2 py-1.5 text-xs shadow-pop'>
-          <MenuHeading label={t('sidebar.filterHeading')} />
-          {FILTER_OPTIONS.map((opt) => (
-            <MenuRow
-              key={opt.value}
-              label={t(opt.labelKey)}
-              selected={filter === opt.value}
-              onClick={() => onFilterChange(opt.value)}
-            />
-          ))}
-          <div className='my-1 border-t border-border' />
           <MenuHeading label={t('sidebar.orderHeading')} />
-          {/* Pinning does nothing when the list is already only favorites. */}
-          {filter !== 'favorites' && (
-            <MenuToggle
-              label={t('sidebar.pinFavorites')}
-              checked={pinFavorites}
-              onClick={() => onPinFavoritesChange(!pinFavorites)}
-            />
-          )}
+          <MenuToggle
+            label={t('sidebar.pinFavorites')}
+            checked={pinFavorites}
+            onClick={() => onPinFavoritesChange(!pinFavorites)}
+          />
           {SORT_OPTIONS.map((opt) => (
             <MenuRow
               key={opt.value}

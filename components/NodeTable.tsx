@@ -41,7 +41,7 @@ const COLUMNS = [
     labelKey: 'nodes.column.favorite',
     glyph: true,
   },
-  { key: null, width: '4.5rem', labelKey: 'nodes.column.actions' },
+  { key: null, width: '6rem', labelKey: 'nodes.column.actions' },
 ] as const satisfies ReadonlyArray<{
   key: NodeSortKey | null;
   width: string | null;
