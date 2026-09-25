@@ -197,10 +197,12 @@ export const MessageBubble = memo(function MessageBubble({
         {statusActions}
         {tick && (
           <span
-            className={`mr-1 inline-flex items-center gap-1 ${tick.className}`}
+            // Baseline, not center: an inline-flex box takes its baseline from
+            // its first item, and the icon's would lift the label off the row.
+            className={`mr-1 inline-flex items-baseline gap-1 ${tick.className}`}
           >
-            <tick.Icon size={12} aria-hidden='true' />
-            <HintToken label={tick.label} title={tick.hint} />
+            <tick.Icon size={12} aria-hidden='true' className='self-center' />
+            <HintToken label={tick.label} title={tick.hint} align='right' />
           </span>
         )}
         {metaParts(t, msg, time).map((part, i) => (
@@ -253,6 +255,7 @@ function metaParts(
       <HintToken
         label={t('message.heardBy', { count: msg.heardByRepeaters })}
         title={title}
+        align='right'
       />,
     );
   }
@@ -267,8 +270,8 @@ function metaParts(
  * reachable without a mouse; without a `title` it is just the label.
  *
  * @param align - which edge of the token the tooltip is pinned to. Pass
- *   `right` when the token ends a right-aligned row, or the tooltip opens
- *   off-screen.
+ *   `right` when the token sits in a right-aligned row, so the tooltip grows
+ *   inward; pinned left there, it opens off-screen.
  */
 export function HintToken({
   label,
