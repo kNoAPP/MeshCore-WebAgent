@@ -115,6 +115,7 @@ function deliveryDetail(
         <HintToken
           label={t('chat.notDelivered')}
           title={t('chat.notDeliveredTooltip')}
+          align='right'
         />
         {canRetry && (
           <>
