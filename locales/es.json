@@ -335,8 +335,6 @@
     "clock": "Sincronizando reloj",
     "contacts": "Sincronizando contactos",
     "channels": "Sincronizando canales",
-    "messages": "Sincronizando mensajes",
-    "received": "{{count}} recibidos",
     "progress": "{{current}} de {{total}}",
     "label": "Progreso de la sincronización",
     "valueText": "{{stage}} — {{percent}} %",

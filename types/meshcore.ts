@@ -461,7 +461,7 @@ export type ConnectionStatus =
 
 /** Progress of the initial connect sync, for the loading UI. */
 export interface SyncProgress {
-  stage: 'device' | 'clock' | 'contacts' | 'channels' | 'messages';
+  stage: 'device' | 'clock' | 'contacts' | 'channels';
   percent: number;
   current?: number;
   total?: number;

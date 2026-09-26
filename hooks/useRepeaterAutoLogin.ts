@@ -5,25 +5,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMeshCore } from '@/hooks/useMeshCore';
-import { useMeshStore, isAuthedLogin } from '@/store/meshStore';
+import {
+  useMeshStore,
+  isAuthedLogin,
+  type AdminLoginState,
+} from '@/store/meshStore';
 import { loadRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { NO_PATH } from '@/lib/meshcore/constants';
+import {
+  LOGIN_ATTEMPTS,
+  LOGIN_RETRY_BACKOFF_MS,
+} from '@/lib/session/remoteLogin';
 import type { Contact, LoginKind } from '@/types/meshcore';
-
-/**
- * Sign-in attempts a credential gets — a remembered one on entering a node, or
- * one just typed into the form — the initial try plus its retries. Bounded,
- * because a node whose password really did change (or was mistyped) will never
- * answer, and an unbounded cycle would spend a shared LoRa mesh's airtime
- * proving it.
- */
-export const LOGIN_ATTEMPTS = 3;
-
-// Breathing room between automatic attempts. A mesh that is merely busy — a
-// neighbor mid-transmission, a queue backed up behind a flood — settles in
-// about this long, where retrying immediately would mostly collide with
-// whatever swallowed the previous attempt.
-const LOGIN_RETRY_BACKOFF_MS = 3000;
 
 /** Why a sign-in attempt ended, once one has failed. */
 export type LoginFailure = 'timeout' | 'failed';
@@ -75,6 +68,28 @@ export interface RepeaterAutoLogin {
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+// Resolves with the node's login once no attempt holds it `pending`, at once
+// when none does. Another sign-in can be mid-handshake — the connect-time room
+// sync, or a cycle from an earlier mount of this view — and a second login sent
+// over it would race the first for the same success push. Every pending login
+// settles, a teardown included, so the subscription never outlives it.
+function settledLogin(prefix: string): Promise<AdminLoginState> {
+  const read = () =>
+    useMeshStore.getState().adminSessions[prefix]?.login ?? 'loggedOut';
+  return new Promise((resolve) => {
+    if (read() !== 'pending') {
+      resolve(read());
+      return;
+    }
+    const unsub = useMeshStore.subscribe(() => {
+      const login = read();
+      if (login === 'pending') return;
+      unsub();
+      resolve(login);
+    });
+  });
+}
+
 /**
  * Drives sign-in for one repeater or room server: probes the encrypted
  * `secrets` store for a remembered credential on entry and replays it. Either
@@ -120,14 +135,12 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
   const contactRef = useRef(contact);
   const repeaterLoginRef = useRef(repeaterLogin);
   const resetPathRef = useRef(resetContactPath);
-  const loginRef = useRef(login);
 
   // Declared before the probe effect below so a render's values are in place
   // before that effect consults them.
   useEffect(() => {
     repeaterLoginRef.current = repeaterLogin;
     resetPathRef.current = resetContactPath;
-    loginRef.current = login;
   });
 
   useEffect(
@@ -173,10 +186,14 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
       }
 
       for (let i = 1; i <= total; i++) {
-        // A login that resolved while this cycle sat between attempts — a
-        // manual one, or the node answering late — is the outcome already;
-        // don't send over the top of it.
-        if (isAuthedLogin(loginRef.current)) {
+        // Another sign-in may have claimed the node while this cycle sat
+        // between attempts — the connect-time room sync starts one on any
+        // room it finds logged out — so wait it out rather than send over it.
+        // A login that resolved meanwhile, that one or the node answering
+        // late, is the outcome already.
+        const settled = await settledLogin(prefix);
+        if (!live()) return;
+        if (isAuthedLogin(settled)) {
           setFailure(null);
           break;
         }
@@ -223,20 +240,28 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
       }
       setAttempt(0);
     },
-    [liveContact],
+    [liveContact, prefix],
   );
 
   // On entry, when there is no live session yet, probe the encrypted store for
   // a remembered credential and auto-log-in with it. Keyed by the stable
   // `prefix`, so it runs once per node (remounted when the selection changes).
   useEffect(() => {
-    // Only probe from a clean logged-out state. Skipping `admin`/`guest` avoids
-    // clobbering a live session; skipping `pending` avoids queuing a second
-    // login when the view remounts mid-login (e.g. switching away and back
-    // during a multi-hop handshake).
-    if (loginRef.current !== 'loggedOut') return;
     let cancelled = false;
     void (async () => {
+      // Only probe from a clean logged-out state. An `admin`/`guest` session is
+      // left alone rather than clobbered. A `pending` one — the view remounted
+      // mid-login, or the connect-time room sync signing in — is waited out
+      // instead of sent over, and a failure then probes as a clean entry would.
+      const settled = await settledLogin(prefix);
+      if (cancelled) return;
+      if (settled !== 'loggedOut') {
+        setChecking(false);
+        return;
+      }
+      // After a wait, the form showed disabled while the other login ran;
+      // cover the probe with the spinner a clean entry starts with.
+      setChecking(true);
       const cred = await loadRepeaterCred(prefix);
       if (cancelled) return;
       setChecking(false);

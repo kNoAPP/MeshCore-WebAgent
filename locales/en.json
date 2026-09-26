@@ -334,8 +334,6 @@
     "clock": "Syncing clock",
     "contacts": "Syncing contacts",
     "channels": "Syncing channels",
-    "messages": "Syncing messages",
-    "received": "{{count}} received",
     "progress": "{{current}} of {{total}}",
     "label": "Sync progress",
     "valueText": "{{stage}} — {{percent}}%",

@@ -13,7 +13,6 @@ const SYNC_STAGES: SyncProgress['stage'][] = [
   'clock',
   'contacts',
   'channels',
-  'messages',
 ];
 
 const SYNC_STAGE_KEY = {
@@ -21,15 +20,9 @@ const SYNC_STAGE_KEY = {
   clock: 'sync.clock',
   contacts: 'sync.contacts',
   channels: 'sync.channels',
-  messages: 'sync.messages',
 } as const satisfies Record<SyncProgress['stage'], string>;
 
-function syncDetail(
-  t: TFunction,
-  { stage, current, total }: SyncProgress,
-): string {
-  if (stage === 'messages')
-    return current ? ` (${t('sync.received', { count: current })})` : '';
+function syncDetail(t: TFunction, { current, total }: SyncProgress): string {
   if (current != null && total != null)
     return ` (${t('sync.progress', { current, total })})`;
   return '';
