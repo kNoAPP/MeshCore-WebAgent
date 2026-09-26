@@ -8,6 +8,7 @@ import { useMeshStore, isAuthedLogin } from '@/store/meshStore';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
 import { clearRepeaterCred } from '@/lib/meshcore/adminCreds';
+import { installApp } from '@/lib/pwa/install';
 import { FAVORITE_FLAG, NO_PATH } from '@/lib/meshcore/constants';
 import type { PaletteAction } from '@/lib/search/commandSearch';
 
@@ -54,6 +55,10 @@ export function usePaletteActions(): (action: PaletteAction) => void {
           return;
         case 'toggleTheme':
           state.setTheme(state.theme === 'dark' ? 'light' : 'dark');
+          return;
+        case 'installApp':
+          // The install actions are hidden once the app is installed.
+          if (!state.appInstalled) void installApp();
           return;
         case 'setLocale':
           state.setLocale(action.locale);

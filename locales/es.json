@@ -206,6 +206,7 @@
       "addNode": "Añadir nodo…",
       "addChannel": "Añadir canal…",
       "toggleTheme": "Cambiar tema",
+      "installApp": "Instalar como app de escritorio",
       "reboot": "Reiniciar dispositivo",
       "disconnect": "Desconectar",
       "setLanguage": "Cambiar idioma a {{language}}",
@@ -224,6 +225,7 @@
       "addNode": "añadir nuevo contacto nodo importar",
       "addChannel": "añadir nuevo canal grupo",
       "toggleTheme": "tema oscuro claro apariencia",
+      "installApp": "instalar app escritorio ventana pwa barra de tareas dock sin conexión",
       "reboot": "reiniciar dispositivo radio",
       "disconnect": "desconectar cerrar sesión",
       "setLanguage": "idioma lengua traducir",
@@ -1484,5 +1486,30 @@
     "hint": "Al recargar se desconectará tu radio.",
     "reload": "Recargar",
     "dismiss": "Descartar"
+  },
+  "install": {
+    "action": "Instalar como app de escritorio",
+    "learnMore": "Más información",
+    "learnMoreLabel": "Más información sobre la app de escritorio",
+    "settingsLabel": "App de escritorio",
+    "settingsButton": "Instalar",
+    "guide": {
+      "title": "Instalar como app de escritorio",
+      "benefitsHeading": "Qué obtienes",
+      "benefit": {
+        "window": "Su propia ventana, con un icono en la barra de tareas o el Dock",
+        "offline": "Se abre sin conexión a internet",
+        "data": "Las mismas radios e historial que esta pestaña, en el mismo almacenamiento cifrado",
+        "updates": "Se actualiza sola con el aviso de actualización habitual, sin nada extra que descargar"
+      },
+      "stepsHeading": "Cómo instalarla",
+      "chromeStep": "Haz clic en el icono de instalación al final de la barra de direcciones, o abre el menú ⋮, ve a Enviar, guardar y compartir, y elige la opción Instalar.",
+      "edgeStep": "Haz clic en el icono de instalación al final de la barra de direcciones, o abre el menú ⋯, ve a Aplicaciones y elige la opción Instalar.",
+      "confirmStep": "Confirma con Instalar. La app se abre en su propia ventana.",
+      "unsupported": "Para instalarla necesitas Chrome o Edge en Windows, macOS o Linux, los mismos navegadores que conectan por USB y Bluetooth. Abre esta página en uno de ellos para instalarla.",
+      "installNow": "Instalar ahora",
+      "uninstallHeading": "Cómo desinstalarla",
+      "uninstall": "En la app instalada, abre el menú ⋮ o ⋯ y elige Desinstalar, o quítala como cualquier otra app de tu ordenador. Deja sin marcar «Borrar también los datos» para conservar el historial de esta pestaña."
+    }
   }
 }

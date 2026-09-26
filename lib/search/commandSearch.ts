@@ -27,6 +27,7 @@ export type PaletteAction =
   | { kind: 'disconnect' }
   | { kind: 'reboot' }
   | { kind: 'toggleTheme' }
+  | { kind: 'installApp' }
   | { kind: 'setLocale'; locale: SupportedLocale }
   | { kind: 'setUnitSystem'; unitSystem: UnitSystem }
   | { kind: 'markAllRead' }
@@ -49,7 +50,8 @@ export function opensDialog(action: PaletteAction): boolean {
   return (
     action.kind === 'addNode' ||
     action.kind === 'addChannel' ||
-    action.kind === 'contactShare'
+    action.kind === 'contactShare' ||
+    action.kind === 'installApp'
   );
 }
 

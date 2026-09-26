@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
+       (https://github.com/kNoAPP/MeshCore-Desktop) -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c2130"/>
+      <stop offset="1" stop-color="#0f1117"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="url(#ground)"/>
+  <!-- Near full size, so the mark stays legible at 16 px, with enough margin
+       to breathe at 512. -->
+  <g transform="translate(32 32) scale(0.84) translate(-32 -32)">
+    <g fill="#4f8ef7" fill-opacity="0.35">
+      <circle cx="14" cy="14" r="5"/>
+      <circle cx="32" cy="14" r="5"/>
+      <circle cx="14" cy="32" r="5"/>
+      <circle cx="32" cy="50" r="5"/>
+      <circle cx="50" cy="50" r="5"/>
+    </g>
+    <path d="M14 50 L32 32 L50 32 L50 14" fill="none" stroke="#4f8ef7" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#4f8ef7">
+      <circle cx="14" cy="50" r="7"/>
+      <circle cx="32" cy="32" r="7"/>
+      <circle cx="50" cy="32" r="7"/>
+    </g>
+    <circle cx="50" cy="14" r="7.5" fill="#e2e8f0"/>
+  </g>
+</svg>

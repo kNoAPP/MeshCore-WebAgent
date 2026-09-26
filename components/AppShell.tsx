@@ -24,6 +24,7 @@ import { AddNodeModal } from './AddNodeModal';
 import { IdentityCheckModal } from './IdentityCheckModal';
 import { RestoreOfferModal } from './RestoreOfferModal';
 import { CommandPalette } from './CommandPalette';
+import { InstallGuideModal } from './InstallGuideModal';
 import { AutomationRunner } from './AutomationRunner';
 import { MessageAnnouncer } from './MessageAnnouncer';
 import { SyncAnnouncer } from './SyncProgressView';
@@ -43,7 +44,8 @@ const MapView = dynamic(
  * shows the header, swaps the connect panel for the sidebar + chat once
  * connected, and mounts the management modals and the bottom action bar —
  * which carries the radio's ambient state, its occasional actions and its
- * notifications — only while connected. Nothing is drawn over the app: the
+ * notifications — only while connected. The install guide is the exception,
+ * since the connect screen opens it too. Nothing is drawn over the app: the
  * screen-reader announcers below are the only session-wide surfaces left, and
  * they render nothing visible.
  */
@@ -55,6 +57,7 @@ export function AppShell() {
   const activeConvo = useMeshStore((s) => s.activeConvo);
   const commandPaletteOpen = useMeshStore((s) => s.commandPaletteOpen);
   const modalOpen = useMeshStore((s) => s.openModals > 0);
+  const installGuideOpen = useMeshStore((s) => s.installGuideOpen);
   const connected = status === 'connected';
   const reconnecting = status === 'reconnecting';
   // A dropped link keeps the app mounted (chats stay visible) under a blocking
@@ -128,6 +131,7 @@ export function AppShell() {
           <AutomationRunner />
         </>
       )}
+      {installGuideOpen && <InstallGuideModal />}
       <SyncAnnouncer />
       <MessageAnnouncer />
       <NoticeAnnouncer />

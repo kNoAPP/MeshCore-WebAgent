@@ -158,6 +158,7 @@ export function useCommandSearch(query: string): CommandGroup[] {
   const managedNode = useMeshStore((s) => s.managedNode);
   const adminSessions = useMeshStore((s) => s.adminSessions);
   const advertising = useMeshStore((s) => s.advertising);
+  const appInstalled = useMeshStore((s) => s.appInstalled);
 
   // Rebuild indexes only when the underlying slices (or language, which drives
   // fallback labels) change — not on every keystroke.
@@ -284,9 +285,17 @@ export function useCommandSearch(query: string): CommandGroup[] {
   );
 
   // Switching to the value that is already active is a no-op, so only the
-  // alternatives are offered.
+  // alternatives are offered — and installing only while not installed.
   const displayActionRecords = useMemo<ActionRecord[]>(() => {
     const records: ActionRecord[] = [];
+    if (!appInstalled) {
+      records.push({
+        id: 'action:installApp',
+        label: t('command.action.installApp'),
+        keywords: t('command.actionKeywords.installApp'),
+        action: { type: 'run', run: { kind: 'installApp' } },
+      });
+    }
     for (const l of SUPPORTED_LOCALES) {
       if (l === locale) continue;
       records.push({
@@ -309,7 +318,7 @@ export function useCommandSearch(query: string): CommandGroup[] {
     }
     return records;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locale, unitSystem, language]);
+  }, [locale, unitSystem, appInstalled, language]);
 
   // One row per contact per applicable verb, so "reset route on Gold-Saddle"
   // ranks as a single result instead of needing the Manage modal.

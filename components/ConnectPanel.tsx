@@ -4,12 +4,20 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { AlertTriangle, Bluetooth, PlugZap, Usb, Wifi } from 'lucide-react';
+import {
+  AlertTriangle,
+  Bluetooth,
+  MonitorDown,
+  PlugZap,
+  Usb,
+  Wifi,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMeshCore } from '@/hooks/useMeshCore';
 import { getGrantedPorts } from '@/lib/meshcore/transports';
 import { useMeshStore, type ConnectFailure } from '@/store/meshStore';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
+import { installApp } from '@/lib/pwa/install';
 import { version } from '@/package.json';
 import { SyncDialog } from './SyncDialog';
 
@@ -354,8 +362,10 @@ function ReconnectFailedCard({
 
 function ConnectFooter() {
   const { t } = useTranslation();
+  const installed = useMeshStore((s) => s.appInstalled);
   return (
     <footer className='absolute right-4 bottom-4 flex flex-col items-end gap-0.5 text-right text-[11px] text-text2'>
+      {!installed && <InstallRow />}
       <span>{t('connect.footer.createdBy')}</span>
       <span>{t('connect.footer.license')}</span>
       <span>
@@ -370,6 +380,39 @@ function ConnectFooter() {
         · v{version}
       </span>
     </footer>
+  );
+}
+
+// Quiet on purpose, and never dismissible: it goes away by itself once the app
+// is installed, so no "dismissed" flag needs a home in `localStorage`.
+function InstallRow() {
+  const { t } = useTranslation();
+  const canPrompt = useMeshStore((s) => s.installPrompt !== null);
+  const setInstallGuideOpen = useMeshStore((s) => s.setInstallGuideOpen);
+  return (
+    <span className='mb-1.5 flex items-center gap-1'>
+      <button
+        type='button'
+        onClick={() => void installApp()}
+        className='flex items-center gap-1 hover:text-text hover:underline'
+      >
+        <MonitorDown size={12} aria-hidden='true' />
+        {t('install.action')}
+      </button>
+      {canPrompt && (
+        <>
+          ·
+          <button
+            type='button'
+            onClick={() => setInstallGuideOpen(true)}
+            aria-label={t('install.learnMoreLabel')}
+            className='text-accent hover:underline'
+          >
+            {t('install.learnMore')}
+          </button>
+        </>
+      )}
+    </span>
   );
 }
 

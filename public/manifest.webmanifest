@@ -1,17 +1,30 @@
 {
+  "id": "/",
   "name": "MeshCore Desktop",
   "short_name": "MeshCore",
   "description": "Message, map and manage your MeshCore LoRa radio from the browser over USB, Bluetooth or WiFi. No account, no server.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0e14",
-  "theme_color": "#0a0e14",
+  "launch_handler": { "client_mode": "focus-existing" },
+  "background_color": "#0f1117",
+  "theme_color": "#1a1d27",
   "icons": [
     {
-      "src": "/favicon.ico",
-      "sizes": "any",
-      "type": "image/x-icon"
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

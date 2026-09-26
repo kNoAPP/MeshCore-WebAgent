@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { VersionCheck } from '@/components/VersionCheck';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { SkipLink } from '@/components/SkipLink';
+import { EARLY_INSTALL_PROMPT } from '@/lib/pwa/config';
 import {
   DEFAULT_LOCALE,
   LOCALE_STORAGE_KEY,
@@ -42,16 +43,19 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   // Discord colors a link embed's side bar with this; the value is the dark
-  // `--accent`. Browsers also apply it over the manifest's `theme_color`. A
-  // plain entry ahead of per-scheme ones would shadow them, so keep it first
-  // only if Discord ignores entries that carry a `media` attribute (#451).
+  // `--accent`. Crawlers run no script, so they keep it, while the theme
+  // script below and `ThemeProvider` repaint it to the header's `--surface`
+  // for the installed app's title bar. Per-scheme `media` entries could not
+  // follow the in-app theme toggle, and Discord may ignore them (#451).
   themeColor: '#4f8ef7',
 };
 
 // Sets `data-theme` on <html> before first paint to avoid a flash of the wrong
-// theme. Mirrors `resolveInitialTheme`. Inlined (not a module) so it runs
-// synchronously ahead of hydration; the static export has no server to resolve
-// the theme on.
+// theme, and matches `theme-color` to it (see `viewport`). Mirrors
+// `resolveInitialTheme`. Inlined (not a module) so it runs synchronously ahead
+// of hydration; the static export has no server to resolve the theme on. It
+// follows the stylesheet and the `theme-color` meta in <head>, so both are
+// there to read and write.
 const themeInitScript = `
 (function () {
   var t;
@@ -66,6 +70,11 @@ const themeInitScript = `
     }
   }
   document.documentElement.dataset.theme = t;
+  var bar = document.querySelector('meta[name="theme-color"]');
+  var surface = getComputedStyle(document.documentElement)
+    .getPropertyValue('--surface')
+    .trim();
+  if (bar && surface) bar.setAttribute('content', surface);
 })();
 `;
 
@@ -96,6 +105,17 @@ const localeInitScript = `
 })();
 `;
 
+// Holds Chromium's install prompt until `lib/pwa/install` loads and adopts it.
+// It can fire before hydration reaches that module, and a missed one is not
+// fired again until the next page load. Inlined for the same reason as the
+// theme script above.
+const installPromptScript = `
+window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault();
+  window.${EARLY_INSTALL_PROMPT} = e;
+});
+`;
+
 /**
  * Next.js root layout. Sets no-cache headers (the static export is redeployed
  * on each release) and mounts the {@link VersionCheck} update prompt above
@@ -121,6 +141,7 @@ export default function RootLayout({
         <meta httpEquiv='Expires' content='0' />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <script dangerouslySetInnerHTML={{ __html: localeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: installPromptScript }} />
       </head>
       <body className='flex h-full flex-col overflow-hidden'>
         <ThemeProvider>
