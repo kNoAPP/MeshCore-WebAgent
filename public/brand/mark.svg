@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
+       (https://github.com/kNoAPP/MeshCore-Desktop) -->
+  <style>
+    .mesh { fill: #1d4ed8; fill-opacity: 0.35; }
+    .route { fill: #1d4ed8; stroke: #1d4ed8; }
+    .dest { fill: #0f1117; }
+    @media (prefers-color-scheme: dark) {
+      .mesh { fill: #4f8ef7; }
+      .route { fill: #4f8ef7; stroke: #4f8ef7; }
+      .dest { fill: #e2e8f0; }
+    }
+  </style>
+  <g class="mesh">
+    <circle cx="14" cy="14" r="5"/>
+    <circle cx="32" cy="14" r="5"/>
+    <circle cx="14" cy="32" r="5"/>
+    <circle cx="32" cy="50" r="5"/>
+    <circle cx="50" cy="50" r="5"/>
+  </g>
+  <g class="route">
+    <path d="M14 50 L32 32 L50 32 L50 14" fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="14" cy="50" r="7" stroke="none"/>
+    <circle cx="32" cy="32" r="7" stroke="none"/>
+    <circle cx="50" cy="32" r="7" stroke="none"/>
+  </g>
+  <circle class="dest" cx="50" cy="14" r="7.5"/>
+</svg>

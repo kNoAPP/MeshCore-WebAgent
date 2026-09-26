@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <!-- Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
+       (https://github.com/kNoAPP/MeshCore-Desktop) -->
+  <defs>
+    <radialGradient id="glow" cx="640" cy="320" r="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4f8ef7" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#4f8ef7" stop-opacity="0"/>
+    </radialGradient>
+    <!-- The mesh motif fades out toward the center, keeping the text clear. -->
+    <radialGradient id="fade" cx="640" cy="320" r="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0.45" stop-color="#000"/>
+      <stop offset="1" stop-color="#fff"/>
+    </radialGradient>
+    <mask id="edges">
+      <rect width="1280" height="640" fill="url(#fade)"/>
+    </mask>
+    <pattern id="grid" x="0" y="15" width="60" height="60" patternUnits="userSpaceOnUse">
+      <circle cx="30" cy="30" r="3.5" fill="#4f8ef7" fill-opacity="0.35"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="640" fill="#0f1117"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
+  <g mask="url(#edges)">
+    <rect width="1280" height="640" fill="url(#grid)"/>
+    <g fill="none" stroke="#4f8ef7" stroke-opacity="0.5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M90 585 L150 525 L210 525 L210 465"/>
+      <path d="M1190 45 L1130 105 L1070 105 L1070 165"/>
+    </g>
+    <g fill="#4f8ef7" fill-opacity="0.6">
+      <circle cx="90" cy="585" r="7"/>
+      <circle cx="150" cy="525" r="7"/>
+      <circle cx="210" cy="525" r="7"/>
+      <circle cx="1190" cy="45" r="7"/>
+      <circle cx="1130" cy="105" r="7"/>
+      <circle cx="1070" cy="105" r="7"/>
+    </g>
+    <g fill="#e2e8f0" fill-opacity="0.6">
+      <circle cx="210" cy="465" r="7.5"/>
+      <circle cx="1070" cy="165" r="7.5"/>
+    </g>
+  </g>
+  <g transform="translate(576 136) scale(2)">
+    <g fill="#4f8ef7" fill-opacity="0.35">
+      <circle cx="14" cy="14" r="5"/>
+      <circle cx="32" cy="14" r="5"/>
+      <circle cx="14" cy="32" r="5"/>
+      <circle cx="32" cy="50" r="5"/>
+      <circle cx="50" cy="50" r="5"/>
+    </g>
+    <path d="M14 50 L32 32 L50 32 L50 14" fill="none" stroke="#4f8ef7" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#4f8ef7">
+      <circle cx="14" cy="50" r="7"/>
+      <circle cx="32" cy="32" r="7"/>
+      <circle cx="50" cy="32" r="7"/>
+    </g>
+    <circle cx="50" cy="14" r="7.5" fill="#e2e8f0"/>
+  </g>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" text-anchor="middle">
+    <text x="640" y="356" font-size="80" font-weight="700" fill="#e2e8f0">Mesh<tspan fill="#4f8ef7">Core</tspan> Desktop</text>
+    <text x="640" y="418" font-size="30" fill="#8892a4">Message, map and manage your MeshCore radio from the browser.</text>
+    <text x="640" y="486" font-size="28" font-weight="600" fill="#4f8ef7">kn0.app</text>
+  </g>
+</svg>
