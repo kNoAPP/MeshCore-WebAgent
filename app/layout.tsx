@@ -41,8 +41,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Discord colors the side bar of a link embed with the first theme-color.
-  // Keep this plain brand-accent entry first if per-scheme entries are added.
+  // Discord colors a link embed's side bar with this; the value is the dark
+  // `--accent`. Browsers also apply it over the manifest's `theme_color`. A
+  // plain entry ahead of per-scheme ones would shadow them, so keep it first
+  // only if Discord ignores entries that carry a `media` attribute (#451).
   themeColor: '#4f8ef7',
 };
 
