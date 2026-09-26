@@ -15,7 +15,7 @@ Live at **[kn0.app](https://kn0.app)**
 
 ---
 
-## Why MeshCore-Desktop
+## A Better Experience
 
 - **Zero install, zero account** — Open a URL and you're talking to your radio.
   Nothing to download, no sign-up.
