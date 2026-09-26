@@ -744,8 +744,8 @@ export class MeshCoreClient {
     }
     if (type === RESP.PUSH_LOGIN_SUCCESS) {
       // A repeater/room-server accepted a login; match the pending request by
-      // its pubkey prefix and resolve it with the server-granted access level.
-      // Pushes with no matching waiter are dropped.
+      // its pubkey prefix and resolve it with the server-granted access level
+      // and the node's clock skew. Pushes with no matching waiter are dropped.
       // The skew is measured here, as the frame lands, so no scheduling delay
       // between this and the awaiting caller inflates it.
       const login = parseLoginPush(d);
