@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.2.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v2.1.0...v2.2.0) (2026-09-26)
+
+
+### Features
+
+* **login:** retry a typed repeater or room password on timeout ([#444](https://github.com/kNoAPP/MeshCore-WebAgent/issues/444)) ([63b9dcd](https://github.com/kNoAPP/MeshCore-WebAgent/commit/63b9dcd4d905c7eb2e9e9fa1d87dfb61ffdf3feb))
+* **sync:** drain messages and pull room history in the background ([#445](https://github.com/kNoAPP/MeshCore-WebAgent/issues/445)) ([88c6acb](https://github.com/kNoAPP/MeshCore-WebAgent/commit/88c6acbd95fb1551491524c9bbcd2e0152270c67))
+
+
+### Bug Fixes
+
+* **chat:** keep own-message receipt tooltips on screen ([#441](https://github.com/kNoAPP/MeshCore-WebAgent/issues/441)) ([dbd0728](https://github.com/kNoAPP/MeshCore-WebAgent/commit/dbd072857c1f0e97df4d603d6d026619b62bb10c))
+* **chat:** place replayed room posts in chronological order ([#443](https://github.com/kNoAPP/MeshCore-WebAgent/issues/443)) ([c2c2728](https://github.com/kNoAPP/MeshCore-WebAgent/commit/c2c272858bd0c8781073d624ee0b56ae0671cc12))
+
 ## [2.1.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v2.0.0...v2.1.0) (2026-09-24)
 
 
