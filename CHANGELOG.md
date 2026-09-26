@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.0](https://github.com/kNoAPP/MeshCore-Desktop/compare/v2.3.0...v2.4.0) (2026-09-26)
+
+
+### Features
+
+* **brand:** add original brand artwork ([#458](https://github.com/kNoAPP/MeshCore-Desktop/issues/458)) ([d6ee7f8](https://github.com/kNoAPP/MeshCore-Desktop/commit/d6ee7f8f68e2c6b022b8c704e92ca3dfb56e01a2))
+* **meta:** add the Open Graph preview image ([#460](https://github.com/kNoAPP/MeshCore-Desktop/issues/460)) ([6628c1c](https://github.com/kNoAPP/MeshCore-Desktop/commit/6628c1c908104c3ee1786f7a2fb1e2668a21c0ee))
+
 ## [2.3.0](https://github.com/kNoAPP/MeshCore-Desktop/compare/v2.2.0...v2.3.0) (2026-09-26)
 
 
