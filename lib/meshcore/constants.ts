@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 /**
  * Outbound command codes — the first payload byte of a frame sent to the radio.

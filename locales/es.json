@@ -103,13 +103,13 @@
     "toggle": "Cambiar tema claro/oscuro"
   },
   "title": {
-    "app": "MeshCore Companion",
-    "device": "{{device}} · MeshCore Companion",
-    "deviceUnread": "({{unread}}) {{device}} · MeshCore Companion"
+    "app": "MeshCore Desktop",
+    "device": "{{device}} · MeshCore Desktop",
+    "deviceUnread": "({{unread}}) {{device}} · MeshCore Desktop"
   },
   "notify": {
     "titleIn": "{{sender}} en {{convo}}",
-    "testTitle": "MeshCore Companion",
+    "testTitle": "MeshCore Desktop",
     "testBody": "Las notificaciones están activadas. Así se verán los mensajes nuevos.",
     "notConnected": "Sin conexión con una radio",
     "newMessageIn": "Nuevo mensaje en {{channel}}",
@@ -269,7 +269,7 @@
   },
   "desktopOnly": {
     "title": "Se requiere un ordenador de escritorio",
-    "body": "MeshCore Companion se conecta a tu radio por USB Serie y Bluetooth, funciones del navegador que no están disponibles en teléfonos ni tabletas. Abre este sitio en un ordenador de escritorio o portátil.",
+    "body": "MeshCore Desktop se conecta a tu radio por USB Serie y Bluetooth, funciones del navegador que no están disponibles en teléfonos ni tabletas. Abre este sitio en un ordenador de escritorio o portátil.",
     "appCta": "¿En un teléfono o tableta?",
     "appButton": "Obtén la app oficial de MeshCore"
   },

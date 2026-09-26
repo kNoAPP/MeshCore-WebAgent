@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 // The automation engine (task 6.4): on a matching MeshEvent it evaluates a
 // rule, optionally runs the LLM with a constrained tool set, and applies the

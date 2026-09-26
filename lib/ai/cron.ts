@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 // A tiny standard 5-field cron matcher for the automation engine's `schedule`
 // trigger (task 6.4). Fields are minute, hour, day-of-month, month, and

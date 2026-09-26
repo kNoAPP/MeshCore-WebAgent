@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 import { etc, Point } from '@noble/ed25519';
 import { PRIVATE_KEY_BYTES } from '@/lib/meshcore/constants';

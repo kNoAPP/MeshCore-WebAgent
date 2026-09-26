@@ -9,7 +9,7 @@ Only the latest release on `main` receives security fixes.
 **Do not open a public GitHub issue for security vulnerabilities.**
 
 Please report them privately via
-[GitHub Security Advisories](https://github.com/kNoAPP/MeshCore-WebAgent/security/advisories/new)
+[GitHub Security Advisories](https://github.com/kNoAPP/MeshCore-Desktop/security/advisories/new)
 or by emailing the maintainer directly (contact via GitHub profile).
 
 Include as much detail as possible:

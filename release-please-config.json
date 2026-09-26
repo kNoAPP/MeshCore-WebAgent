@@ -9,7 +9,7 @@
       "bump-patch-for-minor-pre-major": false,
       "draft": false,
       "prerelease": false,
-      "package-name": "meshcore-webagent",
+      "package-name": "meshcore-desktop",
       "extra-files": [
         {
           "type": "json",

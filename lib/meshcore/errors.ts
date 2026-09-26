@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 /** Stable codes for connect/sync failures the UI maps to localized copy. */
 export type MeshErrorCode = 'radioNoResponse';

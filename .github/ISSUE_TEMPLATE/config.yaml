@@ -1,5 +1,5 @@
 # Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-# (https://github.com/kNoAPP/MeshCore-WebAgent)
+# (https://github.com/kNoAPP/MeshCore-Desktop)
 
 blank_issues_enabled: false
 contact_links:
@@ -10,6 +10,6 @@ contact_links:
     url: https://github.com/meshcore-dev/MeshCore
     about: Issues with the radio firmware itself belong here
   - name: Security Vulnerability
-    url: https://github.com/kNoAPP/MeshCore-WebAgent/security/advisories/new
+    url: https://github.com/kNoAPP/MeshCore-Desktop/security/advisories/new
     about:
       Please report security issues privately via GitHub Security Advisories

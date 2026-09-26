@@ -1,4 +1,4 @@
-# MeshCore-WebAgent — Agent Instructions
+# MeshCore-Desktop — Agent Instructions
 
 This is the canonical instruction set for all coding agents (Claude Code, GitHub
 Copilot, and others). `CLAUDE.md` and `.github/copilot-instructions.md` defer to

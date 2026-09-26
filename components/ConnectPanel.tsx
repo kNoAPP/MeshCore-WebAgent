@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 'use client';
 
@@ -360,7 +360,7 @@ function ConnectFooter() {
       <span>{t('connect.footer.license')}</span>
       <span>
         <a
-          href='https://github.com/kNoAPP/MeshCore-WebAgent'
+          href='https://github.com/kNoAPP/MeshCore-Desktop'
           target='_blank'
           rel='noreferrer'
           className='text-accent hover:underline'

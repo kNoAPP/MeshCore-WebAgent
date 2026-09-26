@@ -1,4 +1,4 @@
-# GitHub Copilot Instructions — MeshCore-WebAgent
+# GitHub Copilot Instructions — MeshCore-Desktop
 
 All agent instructions live in [AGENTS.md](../AGENTS.md) at the repository root
 — read and follow it. It covers the project overview, stack, dev commands,

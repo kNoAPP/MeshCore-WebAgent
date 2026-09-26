@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 // Public surface of the in-browser LLM provider layer (task 6.3). Consumers
 // (the settings test chat now; the automation loop in task 6.4) import from

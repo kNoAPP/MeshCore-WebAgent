@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import type { PrivateKeyAccess } from '@/types/meshcore';

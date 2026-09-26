@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 // The MCP-shaped tool registry the automation engine (task 6.4) exposes to the
 // LLM loop and to deterministic `fixed` rule actions. Every tool is a thin

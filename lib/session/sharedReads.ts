@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 // Remote reads currently in flight, so a component that remounts mid-read joins
 // the running one instead of starting a duplicate or briefly showing a false
