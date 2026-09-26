@@ -1,7 +1,7 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
 // (https://github.com/kNoAPP/MeshCore-Desktop)
 
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { I18nProvider } from '@/components/I18nProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { VersionCheck } from '@/components/VersionCheck';
@@ -14,10 +14,36 @@ import {
 } from '@/lib/i18n/config';
 import './globals.css';
 
+// The only copy of the app name in the page metadata; the manifest is JSON
+// and keeps its own.
+const APP_NAME = 'MeshCore Desktop';
+const APP_DESCRIPTION =
+  'Message, map and manage your MeshCore LoRa radio from the browser over ' +
+  'USB, Bluetooth or WiFi. No account, no server.';
+
 export const metadata: Metadata = {
-  title: 'MeshCore Desktop',
-  description: 'Web interface for MeshCore companion radios',
+  // Link-preview crawlers ignore relative image URLs; this makes them
+  // absolute. Matches `public/CNAME`.
+  metadataBase: new URL('https://kn0.app'),
+  title: APP_NAME,
+  description: APP_DESCRIPTION,
   manifest: '/manifest.webmanifest',
+  openGraph: {
+    type: 'website',
+    siteName: APP_NAME,
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
+    url: '/',
+    locale: 'en_US',
+  },
+  // X reads the title, description and image from the Open Graph tags.
+  twitter: { card: 'summary_large_image' },
+};
+
+export const viewport: Viewport = {
+  // Discord colors the side bar of a link embed with the first theme-color.
+  // Keep this plain brand-accent entry first if per-scheme entries are added.
+  themeColor: '#4f8ef7',
 };
 
 // Sets `data-theme` on <html> before first paint to avoid a flash of the wrong

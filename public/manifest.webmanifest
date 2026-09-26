@@ -1,7 +1,7 @@
 {
   "name": "MeshCore Desktop",
   "short_name": "MeshCore",
-  "description": "Web interface for MeshCore companion radios",
+  "description": "Message, map and manage your MeshCore LoRa radio from the browser over USB, Bluetooth or WiFi. No account, no server.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
