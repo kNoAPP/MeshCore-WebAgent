@@ -92,14 +92,39 @@ assistant, a status announcer — driven by a large language model you control.
   from the browser and switchable on the connect screen
 - **Persistent history** — Messages stored in IndexedDB with AES-GCM encryption,
   restored on reconnect
-- **Fully client-side** — No server, no account, no cloud; everything runs in
-  your browser
+- **Installable desktop app** — Runs in its own window from the Start menu or
+  Dock, and opens without an internet connection
+- **Fully client-side** — No server, no account, no cloud; everything runs on
+  your computer, in a browser tab or the installed app
 
 ## Browser Requirements
 
 Web Serial (USB) and Web Bluetooth (BLE) are Chromium APIs, so **Chrome** or
 **Edge** (desktop) support everything. Firefox supports USB but not BLE. Safari
 is not supported.
+
+## Install as a desktop app
+
+MeshCore Desktop can be installed from the browser as an app with its own window
+and a Start menu, Dock or launcher entry. It's the same web app, not a separate
+download. **Chrome** and **Edge** on Windows, macOS and Linux can install it.
+
+1. Open [kn0.app](https://kn0.app).
+2. Choose **Install as a desktop app** on the connect screen, or **Install**
+   under **Settings → Display**. Or go through the browser: click the install
+   icon at the right end of the address bar, or
+   - **Chrome**: open the ⋮ menu, go to **Cast, save, and share**, and choose
+     the Install option.
+   - **Edge**: open the ⋯ menu, go to **Apps**, and choose the Install option.
+3. Confirm with **Install**. The app opens in its own window.
+
+The installed app shares the browser tab's storage, so your radios and message
+history carry over. It opens without an internet connection, and it updates
+itself through the same in-app update prompt as the site.
+
+To uninstall, open the ⋮ or ⋯ menu in the installed app and choose
+**Uninstall**, or remove it like any other app. Leave **Also clear data**
+unchecked to keep your history in the browser tab.
 
 ## Getting Started
 

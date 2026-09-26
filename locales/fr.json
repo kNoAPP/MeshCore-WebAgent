@@ -206,6 +206,7 @@
       "addNode": "Ajouter un nœud…",
       "addChannel": "Ajouter un canal…",
       "toggleTheme": "Changer de thème",
+      "installApp": "Installer comme application de bureau",
       "reboot": "Redémarrer l'appareil",
       "disconnect": "Déconnecter",
       "setLanguage": "Passer la langue en {{language}}",
@@ -224,6 +225,7 @@
       "addNode": "ajouter nouveau contact nœud importer",
       "addChannel": "ajouter nouveau canal groupe",
       "toggleTheme": "thème sombre clair apparence",
+      "installApp": "installer application bureau fenêtre pwa barre des tâches dock hors ligne",
       "reboot": "redémarrer appareil radio",
       "disconnect": "déconnecter fermer session",
       "setLanguage": "langue locale traduire",
@@ -1484,5 +1486,30 @@
     "hint": "Le rechargement déconnectera votre radio.",
     "reload": "Recharger",
     "dismiss": "Ignorer"
+  },
+  "install": {
+    "action": "Installer comme application de bureau",
+    "learnMore": "En savoir plus",
+    "learnMoreLabel": "En savoir plus sur l'application de bureau",
+    "settingsLabel": "Application de bureau",
+    "settingsButton": "Installer",
+    "guide": {
+      "title": "Installer comme application de bureau",
+      "benefitsHeading": "Ce que vous obtenez",
+      "benefit": {
+        "window": "Sa propre fenêtre, avec une icône dans la barre des tâches ou le Dock",
+        "offline": "S'ouvre sans connexion internet",
+        "data": "Les mêmes radios et le même historique que cet onglet, dans le même stockage chiffré",
+        "updates": "Se met à jour via l'invite de mise à jour habituelle, sans rien de plus à télécharger"
+      },
+      "stepsHeading": "Comment l'installer",
+      "chromeStep": "Cliquez sur l'icône d'installation à droite de la barre d'adresse, ou ouvrez le menu ⋮, allez dans Caster, enregistrer et partager, puis choisissez l'option Installer.",
+      "edgeStep": "Cliquez sur l'icône d'installation à droite de la barre d'adresse, ou ouvrez le menu ⋯, allez dans Applications, puis choisissez l'option Installer.",
+      "confirmStep": "Confirmez avec Installer. L'application s'ouvre dans sa propre fenêtre.",
+      "unsupported": "L'installation nécessite Chrome ou Edge sous Windows, macOS ou Linux, les mêmes navigateurs qui se connectent en USB et Bluetooth. Ouvrez cette page dans l'un d'eux pour l'installer.",
+      "installNow": "Installer maintenant",
+      "uninstallHeading": "Comment la désinstaller",
+      "uninstall": "Dans l'application installée, ouvrez le menu ⋮ ou ⋯ et choisissez Désinstaller, ou supprimez-la comme toute autre application de votre ordinateur. Laissez « Effacer aussi les données » décoché pour conserver l'historique de cet onglet."
+    }
   }
 }

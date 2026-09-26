@@ -206,6 +206,7 @@
       "addNode": "Knoten hinzufügen…",
       "addChannel": "Kanal hinzufügen…",
       "toggleTheme": "Design umschalten",
+      "installApp": "Als Desktop-App installieren",
       "reboot": "Gerät neu starten",
       "disconnect": "Trennen",
       "setLanguage": "Sprache auf {{language}} umstellen",
@@ -224,6 +225,7 @@
       "addNode": "neuen kontakt knoten hinzufügen importieren",
       "addChannel": "neuen kanal gruppe hinzufügen",
       "toggleTheme": "design dunkel hell darstellung",
+      "installApp": "installieren desktop app fenster pwa taskleiste dock offline",
       "reboot": "neustart gerät funkgerät",
       "disconnect": "trennen verbindung beenden",
       "setLanguage": "sprache locale übersetzen",
@@ -1484,5 +1486,30 @@
     "hint": "Beim Neuladen wird Ihr Funkgerät getrennt.",
     "reload": "Neu laden",
     "dismiss": "Ausblenden"
+  },
+  "install": {
+    "action": "Als Desktop-App installieren",
+    "learnMore": "Mehr erfahren",
+    "learnMoreLabel": "Mehr über die Desktop-App erfahren",
+    "settingsLabel": "Desktop-App",
+    "settingsButton": "Installieren",
+    "guide": {
+      "title": "Als Desktop-App installieren",
+      "benefitsHeading": "Was du bekommst",
+      "benefit": {
+        "window": "Ein eigenes Fenster mit Symbol in der Taskleiste oder im Dock",
+        "offline": "Startet auch ohne Internetverbindung",
+        "data": "Dieselben Funkgeräte und derselbe Verlauf wie in diesem Tab, im selben verschlüsselten Speicher",
+        "updates": "Aktualisiert sich über den gewohnten Update-Hinweis, ohne zusätzlichen Download"
+      },
+      "stepsHeading": "So installierst du sie",
+      "chromeStep": "Klicke auf das Installationssymbol am rechten Ende der Adressleiste, oder öffne das Menü ⋮, gehe zu Streamen, speichern und teilen und wähle die Option zum Installieren.",
+      "edgeStep": "Klicke auf das Installationssymbol am rechten Ende der Adressleiste, oder öffne das Menü ⋯, gehe zu Apps und wähle die Option zum Installieren.",
+      "confirmStep": "Bestätige mit Installieren. Die App öffnet sich in einem eigenen Fenster.",
+      "unsupported": "Zum Installieren brauchst du Chrome oder Edge unter Windows, macOS oder Linux, dieselben Browser, die sich per USB und Bluetooth verbinden. Öffne diese Seite in einem davon, um sie zu installieren.",
+      "installNow": "Jetzt installieren",
+      "uninstallHeading": "So deinstallierst du sie",
+      "uninstall": "Öffne in der installierten App das Menü ⋮ oder ⋯ und wähle Deinstallieren, oder entferne sie wie jede andere App auf deinem Computer. Lass „Auch Daten löschen“ deaktiviert, um den Verlauf dieses Tabs zu behalten."
+    }
   }
 }

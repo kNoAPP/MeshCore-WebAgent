@@ -14,6 +14,7 @@ import { useMeshCore } from '@/hooks/useMeshCore';
 import { useAdvertise } from '@/hooks/useAdvertise';
 import { fmtNum, utf8ByteLength, contactShareUri, ADV_ICON } from '@/lib/utils';
 import { flashTarget } from '@/lib/ui/flash';
+import { installApp } from '@/lib/pwa/install';
 import { handleRovingKeyDown } from '@/lib/ui/roving';
 import {
   MAX_ADVERT_NAME_BYTES,
@@ -792,6 +793,7 @@ function DisplayCard() {
   const setUnitSystem = useMeshStore((s) => s.setUnitSystem);
   const showFullPublicKeys = useMeshStore((s) => s.showFullPublicKeys);
   const setShowFullPublicKeys = useMeshStore((s) => s.setShowFullPublicKeys);
+  const installed = useMeshStore((s) => s.appInstalled);
 
   return (
     <Card
@@ -846,7 +848,42 @@ function DisplayCard() {
           <SaveStatusChip />
         </span>
       </button>
+      {!installed && <InstallRow />}
     </Card>
+  );
+}
+
+// Hidden in the installed app, and in the tab that just installed it.
+function InstallRow() {
+  const { t } = useTranslation();
+  const canPrompt = useMeshStore((s) => s.installPrompt !== null);
+  const setInstallGuideOpen = useMeshStore((s) => s.setInstallGuideOpen);
+
+  return (
+    <div className='flex items-center justify-between gap-3 border-t border-border py-1.5 text-xs'>
+      <span className='shrink-0 text-text2'>{t('install.settingsLabel')}</span>
+      <span className='flex items-center gap-2'>
+        {canPrompt && (
+          <button
+            type='button'
+            onClick={() => setInstallGuideOpen(true)}
+            aria-label={t('install.learnMoreLabel')}
+            className='text-accent hover:underline'
+          >
+            {t('install.learnMore')}
+          </button>
+        )}
+        <button
+          type='button'
+          onClick={() => void installApp()}
+          className='rounded-md bg-accent-solid px-3 py-1 text-xs font-semibold text-white hover:bg-accent-hover'
+        >
+          {t('install.settingsButton')}
+        </button>
+        {/* Nothing to save; the gutter keeps the button in line. */}
+        <SaveStatusChip />
+      </span>
+    </div>
   );
 }
 

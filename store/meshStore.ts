@@ -68,6 +68,7 @@ import {
   type NotifyPref,
 } from '@/lib/notify/pref';
 import { mergeAdvertCache } from '@/lib/map/advertCache';
+import type { BeforeInstallPromptEvent } from '@/lib/pwa/install';
 
 const AUDIT_LOG_LIMIT = 200;
 
@@ -805,6 +806,20 @@ interface MeshState {
    */
   updateAvailable: boolean;
   /**
+   * The install prompt Chromium handed over, kept to be shown from the app's
+   * own install actions; `null` when there is none (another browser, a prompt
+   * already used or dismissed, or the app is installed). Runtime-only — not a
+   * preference.
+   */
+  installPrompt: BeforeInstallPromptEvent | null;
+  /**
+   * True in the installed app's own window, and in a tab that has just
+   * installed it. The install actions are hidden then.
+   */
+  appInstalled: boolean;
+  /** Whether the "Install as a desktop app" guide dialog is open. */
+  installGuideOpen: boolean;
+  /**
    * Code for the reason the last connection attempt failed, resolved to
    * localized copy on the connect screen; `null` when there is no error to
    * show. User-cancelled device pickers never set this.
@@ -1099,6 +1114,12 @@ interface MeshActions {
   markNotificationsSeen: () => void;
   /** Raises (or dismisses) the "new version deployed" update banner. */
   setUpdateAvailable: (available: boolean) => void;
+  /** Keeps (or drops, with `null`) the captured install prompt. */
+  setInstallPrompt: (prompt: BeforeInstallPromptEvent | null) => void;
+  /** Records that the app is installed, which hides the install actions. */
+  setAppInstalled: (installed: boolean) => void;
+  /** Opens or closes the install guide dialog. */
+  setInstallGuideOpen: (open: boolean) => void;
   /** Sets (or clears, with `null`) the inline connect-screen error code. */
   setConnectError: (code: ConnectErrorCode | null) => void;
   /** Records (or clears, with `null`) the radio auto-reconnect gave up on. */
@@ -1301,6 +1322,9 @@ const initialState: MeshState = {
   notifications: [],
   notificationsSeenAt: 0,
   updateAvailable: false,
+  installPrompt: null,
+  appInstalled: false,
+  installGuideOpen: false,
   connectError: null,
   lastConnectFailure: null,
   reconnectProgress: null,
@@ -1817,6 +1841,9 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
   markNotificationsSeen: () => set({ notificationsSeenAt: notificationSeq }),
 
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
+  setInstallPrompt: (installPrompt) => set({ installPrompt }),
+  setAppInstalled: (appInstalled) => set({ appInstalled }),
+  setInstallGuideOpen: (installGuideOpen) => set({ installGuideOpen }),
   setConnectError: (code) => set({ connectError: code }),
 
   setLastConnectFailure: (lastConnectFailure) => set({ lastConnectFailure }),
@@ -2157,6 +2184,12 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       // The deployed build doesn't change with the radio, so a pending update
       // outlives the session it was noticed in.
       updateAvailable: get().updateAvailable,
+      // Browser facts, not session ones: Chromium hands the install prompt
+      // over once per page load, and the guide can be open over the connect
+      // screen, which a failed connect attempt resets under it.
+      installPrompt: get().installPrompt,
+      appInstalled: get().appInstalled,
+      installGuideOpen: get().installGuideOpen,
       // Locale is a global (pre-connect) preference kept in localStorage, not
       // per-radio session state.
       locale: get().locale,

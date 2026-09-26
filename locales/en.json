@@ -205,6 +205,7 @@
       "addNode": "Add node…",
       "addChannel": "Add channel…",
       "toggleTheme": "Toggle theme",
+      "installApp": "Install as a desktop app",
       "reboot": "Reboot device",
       "disconnect": "Disconnect",
       "setLanguage": "Switch language to {{language}}",
@@ -223,6 +224,7 @@
       "addNode": "add new contact node peer import",
       "addChannel": "add new channel group",
       "toggleTheme": "theme dark light appearance toggle",
+      "installApp": "install desktop app window pwa taskbar dock offline",
       "reboot": "reboot restart device radio",
       "disconnect": "disconnect close session unplug",
       "setLanguage": "language locale translate",
@@ -1483,5 +1485,30 @@
     "hint": "Reloading disconnects your radio.",
     "reload": "Reload",
     "dismiss": "Dismiss"
+  },
+  "install": {
+    "action": "Install as a desktop app",
+    "learnMore": "Learn more",
+    "learnMoreLabel": "Learn more about the desktop app",
+    "settingsLabel": "Desktop app",
+    "settingsButton": "Install",
+    "guide": {
+      "title": "Install as a desktop app",
+      "benefitsHeading": "What you get",
+      "benefit": {
+        "window": "Its own window, with an icon in the taskbar or Dock",
+        "offline": "Opens without an internet connection",
+        "data": "The same radios and history as this browser tab, in the same encrypted storage",
+        "updates": "Updates itself through the usual update prompt, with nothing extra to download"
+      },
+      "stepsHeading": "How to install",
+      "chromeStep": "Click the install icon at the right end of the address bar, or open the ⋮ menu, go to Cast, save, and share, and choose the Install option.",
+      "edgeStep": "Click the install icon at the right end of the address bar, or open the ⋯ menu, go to Apps, and choose the Install option.",
+      "confirmStep": "Confirm with Install. The app opens in its own window.",
+      "unsupported": "Installing needs Chrome or Edge on Windows, macOS or Linux, the same browsers that connect over USB and Bluetooth. Open this page in one of them to install it.",
+      "installNow": "Install now",
+      "uninstallHeading": "How to uninstall",
+      "uninstall": "In the installed app, open the ⋮ or ⋯ menu and choose Uninstall, or remove it like any other app on your computer. Leave “Also clear data” unchecked to keep your history for this browser tab."
+    }
   }
 }
