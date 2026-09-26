@@ -1,4 +1,4 @@
-<img src="public/brand/social-card.png" alt="MeshCore Desktop — Message, map and manage your MeshCore radio from the browser." width="100%" />
+<img src="public/brand/social-card.svg" alt="MeshCore Desktop — Message, map and manage your MeshCore radio from the browser." width="100%" />
 
 # MeshCore-Desktop
 
