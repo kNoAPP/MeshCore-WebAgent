@@ -186,25 +186,33 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
       }
 
       for (let i = 1; i <= total; i++) {
+        // Another sign-in may have claimed the node while this cycle sat
+        // between attempts — the connect-time room sync starts one on any
+        // room it finds logged out — so wait it out rather than send over it.
+        // A login that resolved meanwhile, that one or the node answering
+        // late, is the outcome already.
+        let settled = await settledLogin(prefix);
+        if (!live()) return;
         // Two timeouts have condemned the stored route, so let the last attempt
         // flood rather than repeat the same lost path. Mirrors
         // `applyRoutePolicy`'s two-failures-then-reset: one loss is not enough
         // to throw away a path every other message to this node also uses.
-        if (i === total && total > 1 && liveContact().outPathLen !== NO_PATH) {
+        if (
+          !isAuthedLogin(settled) &&
+          i === total &&
+          total > 1 &&
+          liveContact().outPathLen !== NO_PATH
+        ) {
           // Quiet, like the attempts around it: the user asked to open a node,
           // not to reset its route, so this one stays part of the sign-in the
           // gate is already narrating.
           await resetPathRef.current(liveContact(), true);
           if (!live()) return;
+          // The reset is an await of its own, so settle again: nothing may
+          // claim the node between this check and the send.
+          settled = await settledLogin(prefix);
+          if (!live()) return;
         }
-        // Another sign-in may have claimed the node while this cycle sat
-        // between attempts — the connect-time room sync starts one on any
-        // room it finds logged out — so wait it out rather than send over it.
-        // A login that resolved meanwhile, that one or the node answering
-        // late, is the outcome already. Checked last, after every other
-        // await, so nothing can claim the node between here and the send.
-        const settled = await settledLogin(prefix);
-        if (!live()) return;
         if (isAuthedLogin(settled)) {
           setFailure(null);
           break;

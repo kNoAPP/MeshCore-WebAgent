@@ -228,6 +228,11 @@ async function signInRoom(
   for (let i = 1; i <= LOGIN_ATTEMPTS; i++) {
     if (!alive()) return false;
     const stale = useMeshStore.getState().contacts[prefix];
+    // Checked before the reset as well as after it, so a sign-in the room view
+    // has in flight doesn't lose the route it is using.
+    if (useMeshStore.getState().adminSessions[prefix]?.login === 'pending') {
+      return false;
+    }
     if (i === LOGIN_ATTEMPTS && stale && stale.outPathLen !== NO_PATH) {
       // Best-effort: a failed reset leaves the path in place, and the last
       // attempt still goes out on it.
@@ -270,11 +275,17 @@ async function signInRoom(
   return false;
 }
 
-const inboundCount = (list: Message[] | undefined): number =>
-  list?.reduce((n, m) => (m.own ? n : n + 1), 0) ?? 0;
+// How many of a feed's posts are replayed history: inbound, and written before
+// the pull began. A live post already raised its own notice and says nothing
+// about whether the replay has stalled.
+const replayedCount = (prefix: string, list: Message[] | undefined): number =>
+  list?.reduce(
+    (n, m) => (!m.own && isReplayedRoomPost(prefix, m.timestamp) ? n + 1 : n),
+    0,
+  ) ?? 0;
 
-// Waits until the room's feed has gone ROOM_REPLAY_QUIET_MS without an inbound
-// post, or the session ends, and resolves with how many posts landed.
+// Waits until the room's feed has gone ROOM_REPLAY_QUIET_MS without a replayed
+// post, or the session ends, and resolves with how many landed.
 function replayQuiet(prefix: string, alive: () => boolean): Promise<number> {
   const id = roomConvoId(prefix);
   let posts = 0;
@@ -283,7 +294,7 @@ function replayQuiet(prefix: string, alive: () => boolean): Promise<number> {
     const list = state.msgHistory[id];
     const before = prev.msgHistory[id];
     if (list === before) return;
-    const added = inboundCount(list) - inboundCount(before);
+    const added = replayedCount(prefix, list) - replayedCount(prefix, before);
     if (added <= 0) return;
     posts += added;
     lastAt = Date.now();
