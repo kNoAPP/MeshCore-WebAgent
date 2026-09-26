@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="currentColor">
+  <!-- Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
+       (https://github.com/kNoAPP/MeshCore-Desktop) -->
+  <circle cx="14" cy="14" r="3.5"/>
+  <circle cx="32" cy="14" r="3.5"/>
+  <circle cx="14" cy="32" r="3.5"/>
+  <circle cx="32" cy="50" r="3.5"/>
+  <circle cx="50" cy="50" r="3.5"/>
+  <path d="M14 50 L32 32 L50 32 L50 14" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="14" cy="50" r="7"/>
+  <circle cx="32" cy="32" r="7"/>
+  <circle cx="50" cy="32" r="7"/>
+  <circle cx="50" cy="14" r="8"/>
+</svg>
