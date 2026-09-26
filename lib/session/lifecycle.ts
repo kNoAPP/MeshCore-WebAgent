@@ -55,7 +55,7 @@ export function clearSessionState(): void {
   store.setDeviceClock(null);
   store.setDeviceBattery(null);
   // Same reason, one surface over: the action bar's quick link names the
-  // newest message we know of, and the reconnect drain lands its whole
+  // newest message we know of, and the reconnect drain starts landing its
   // backlog while the status is still 'reconnecting' — too early to update
   // it. Retract it rather than let it name a pre-drop arrival the sidebar's
   // unread badges already contradict.

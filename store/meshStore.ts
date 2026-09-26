@@ -685,14 +685,14 @@ interface MeshState {
    */
   latestInbound: LatestInbound | null;
   /**
-   * Whether the background drain is still catching up on an offline queue too
-   * large for the connect-time pass.
+   * Whether the background drain is still catching up on an offline queue —
+   * the one waiting at connect, or one too large for a single pass.
    *
    * @remarks Indeterminate by necessity — the companion protocol has no
    * queue-depth query, so there is no remaining count or fraction to report.
    * While it is set, arrivals are collapsed into one summary instead of each
-   * raising its own notification. Session state, cleared by `reset()` and
-   * never persisted.
+   * raising its own notification, and are withheld from automation. Session
+   * state, cleared by `reset()` and never persisted.
    */
   backlogDraining: boolean;
   /**

@@ -5,7 +5,7 @@
 
 import { useCallback, useRef } from 'react';
 import { MeshCoreClient } from '@/lib/meshcore/client';
-import { PickerDismissedError, PushTimeoutError } from '@/lib/meshcore/errors';
+import { PickerDismissedError } from '@/lib/meshcore/errors';
 import {
   createUSBTransport,
   createBLETransport,
@@ -85,7 +85,11 @@ import {
   ADVERT_LOC_POLICY,
   MAX_CHANNEL_SLOTS,
 } from '@/lib/meshcore/constants';
-import { saveRepeaterCred } from '@/lib/meshcore/adminCreds';
+import {
+  isReplayedRoomPost,
+  loginNode,
+  signInRememberedRooms,
+} from '@/lib/session/remoteLogin';
 import { isErrorReply } from '@/lib/meshcore/repeaterConfig';
 import {
   toHex,
@@ -250,7 +254,6 @@ export function useMeshCore() {
     restoreAdvertCache,
     restoreAutomationRules,
     restorePreferences,
-    setAdminLogin,
     setRepeaterStatus,
     setNodeTelemetry,
     setActiveConvo,
@@ -305,7 +308,7 @@ export function useMeshCore() {
           // screen reporting a radio that is already gone. The test is the
           // session, not the status: `init` hands back before
           // `setStatus('connected')`, and the key derivation in between is
-          // PBKDF2 at 100k iterations, so a short overflow drain can finish
+          // PBKDF2 at 100k iterations, so a short connect-time drain can finish
           // inside that window and a status test would silently drop its
           // summary. `c` stays the store's client from before `init` until a
           // teardown replaces it, which is exactly the span that should
@@ -366,8 +369,9 @@ export function useMeshCore() {
             const visible = isConvoVisible(state, id);
             addMessage(id, enriched);
             if (state.backlogDraining) backlogDelivered++;
-            // `c.init()` drains the radio's backlog while the connect screen is
-            // still up, where a "go to this conversation" cue leads nowhere —
+            // The backlog drain starts before 'connected' — `c.init()` hands
+            // back first — and a message landing while the connect screen is
+            // still up has nowhere for a "go to this conversation" cue to lead;
             // the action bar isn't mounted either. Those messages stay unread
             // instead.
             if (state.status === 'connected') {
@@ -393,7 +397,7 @@ export function useMeshCore() {
               // desktop banner still only cover a conversation that is off
               // screen — and, while the backlog drains, not even then. That
               // drain runs past 'connected', so without this the exemption
-              // above would stop at the connect-time pass and the rest of a
+              // above would stop at the connect screen and the rest of a
               // 300-message queue would take a row each, pushing every other
               // notice out of a 50-row drawer. One summary covers them when
               // the drain ends.
@@ -427,7 +431,11 @@ export function useMeshCore() {
               }
             }
             // Emit after the store update so subscribers see a settled world.
-            emit({ type: 'message', msg: enriched });
+            // A backlog arrival is withheld: automation is live-only, and a
+            // message queued on the radio can be hours old — replying to it
+            // now is worse than not acting (docs/design/ai-automation.md §5).
+            if (!state.backlogDraining)
+              emit({ type: 'message', msg: enriched });
           } else if (msg.kind === 'direct' && msg.pubkeyPrefix) {
             const contact = c.lookupContact(msg.pubkeyPrefix);
             // A v3 frame's prefix can be longer than the one stored for the
@@ -465,9 +473,14 @@ export function useMeshCore() {
             };
             const state = useMeshStore.getState();
             const visible = isConvoVisible(state, id);
+            // A room's history, replayed by the connect-time pull, is old
+            // news: it raises no arrival cues (the pull ends with a summary
+            // instead) and is withheld from automation, which is live-only.
+            const replayed =
+              isRoom && isReplayedRoomPost(prefix, enriched.timestamp);
             addMessage(id, enriched);
             if (state.backlogDraining) backlogDelivered++;
-            if (state.status === 'connected') {
+            if (state.status === 'connected' && !replayed) {
               const room = contact?.name || prefix.slice(0, 8);
               const convo: ActiveConvo = {
                 kind: isRoom ? 'room' : 'direct',
@@ -503,7 +516,9 @@ export function useMeshCore() {
                 notifyArrival(convo, sender, msg.text);
               }
             }
-            emit({ type: 'message', msg: enriched });
+            // Withheld during the backlog, as on the channel branch above.
+            if (!state.backlogDraining && !replayed)
+              emit({ type: 'message', msg: enriched });
           }
         },
         // A drop only triggers the reconnect loop once we're fully connected; a
@@ -782,6 +797,10 @@ export function useMeshCore() {
         // above that rejects tears the session down as a failed connect, and
         // the card (and the tab it pre-selects) has to survive that.
         setLastConnectFailure(null);
+        // Room history rides on a login, so each remembered room is signed in
+        // to once the offline queue has drained — in the background, like the
+        // drain itself.
+        void signInRememberedRooms(c, sessionAlive);
         return true;
       } catch (err) {
         setSyncProgress(null);
@@ -1092,114 +1111,19 @@ export function useMeshCore() {
   );
 
   /**
-   * Logs in to a repeater/room server for remote admin. Marks the session
-   * `pending`, then on success the granted level, or `loggedOut` on failure
-   * (surfaced as a notification). A room server's own reported role wins,
-   * because it is what decides whether the member may post; a repeater's is
-   * ignored in favour of the level the user selected (`kind`), since a
-   * blank/guest login re-uses an admin-enrolled node's stored ACL role and
-   * would otherwise show a guest session as admin. When `remember` is set, the
-   * password is persisted encrypted per-radio in the `secrets` store (never in
-   * the store, prefs blob, or localStorage); otherwise it is not persisted.
-   *
-   * @param quiet - suppress the *timeout* notice, for a caller that shows the
-   * outcome itself. An automatic retry cycle sets it on every attempt but its
-   * last, so one unreachable node speaks once rather than once per attempt.
-   * A rejection the radio reported still speaks: it ends such a cycle at once,
-   * so its message has no later attempt to carry it.
-   * @returns how the attempt ended, so a caller can retry only the transient
-   * shape. See {@link RepeaterLoginOutcome}.
+   * Logs in to a repeater/room server for remote admin, on this session's
+   * client. See {@link loginNode}.
    */
   const repeaterLogin = useCallback(
-    async (
+    (
       contact: Contact,
       password: string,
       kind: LoginKind,
       remember: boolean,
       quiet = false,
-    ): Promise<RepeaterLoginOutcome> => {
-      if (!canTransmit(client)) return 'offline';
-      setAdminLogin(contact.pubkeyPrefix, 'pending');
-      try {
-        const { access: granted, clockSkewSecs } = await client.login(
-          contact,
-          password,
-        );
-        // A drop during login can tear the session down; don't revive it.
-        if (!canTransmit(client)) return 'offline';
-        // A room grants three roles and the middle one (the room password)
-        // is what decides whether the composer may post, so its
-        // server-reported role is authoritative. A repeater reflects the
-        // level the user chose instead: it re-uses your existing ACL role for
-        // a blank/guest login, so an admin-enrolled node would otherwise
-        // report admin even when you intended a read-only guest session. The
-        // node still enforces real permissions either way.
-        const isRoom = contact.advType === ADV_TYPE_ROOM;
-        setAdminLogin(
-          contact.pubkeyPrefix,
-          (isRoom && granted) || kind,
-          clockSkewSecs ?? undefined,
-        );
-        // The radio stays connected to a room it logged into, so its posts
-        // keep arriving on later connects before any login measures the
-        // room again: the deferred backlog drain, and pushes landing before
-        // the room is reopened. Carrying the skew in the persisted advert
-        // cache gives `roomPostTime` a measurement for those. (The drain pass
-        // inside `init` runs before the cache is restored and goes without,
-        // but `restoreHistory` puts the saved history ahead of those posts.)
-        const cached =
-          useMeshStore.getState().advertCache[contact.pubkeyPrefix];
-        if (isRoom && cached && clockSkewSecs !== null) {
-          cacheAdverts({
-            [contact.pubkeyPrefix]: { ...cached, clockSkewSecs },
-          });
-        }
-        // Only a successful login is ever remembered, so a wrong password can't
-        // be persisted. The credential lives solely in the encrypted per-radio
-        // secrets store — never the store, prefs blob, or localStorage.
-        if (remember) {
-          void saveRepeaterCred(contact.pubkeyPrefix, {
-            access: kind,
-            password,
-          });
-        }
-        return 'ok';
-      } catch (err) {
-        // A disconnect/drop rejects the pending login and runs its own
-        // teardown; don't clobber that outcome with a stale login error. A full
-        // disconnect already cleared the slice (leave it gone); a transient
-        // drop keeps the entry, so just clear its `pending` spinner silently.
-        if (!canTransmit(client)) {
-          if (useMeshStore.getState().adminSessions[contact.pubkeyPrefix]) {
-            setAdminLogin(contact.pubkeyPrefix, 'loggedOut');
-          }
-          return 'offline';
-        }
-        setAdminLogin(contact.pubkeyPrefix, 'loggedOut');
-        // The node never answered — the raw "Timeout waiting for push from
-        // <prefix>" says nothing a user can act on, so name the two causes it
-        // actually has instead.
-        const timedOut = err instanceof PushTimeoutError;
-        // `quiet` covers only the silence a retry cycle is about to answer for
-        // itself. A reported rejection stops that cycle where it stands, so
-        // swallowing its message would lose the one thing that explains why.
-        if (!quiet || !timedOut) {
-          notify({
-            level: 'error',
-            text: timedOut
-              ? i18n.t('notify.repeaterLoginTimedOut', {
-                  name: contact.name || contact.pubkeyPrefix.slice(0, 8),
-                })
-              : i18n.t('notify.repeaterLoginFailed', {
-                  error: (err as Error).message,
-                }),
-            key: `repeaterLogin:${contact.pubkeyPrefix}`,
-          });
-        }
-        return timedOut ? 'timeout' : 'failed';
-      }
-    },
-    [client, setAdminLogin, cacheAdverts, notify],
+    ): Promise<RepeaterLoginOutcome> =>
+      loginNode(client, contact, password, kind, remember, quiet),
+    [client],
   );
 
   /**

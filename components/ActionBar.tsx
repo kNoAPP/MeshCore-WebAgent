@@ -125,10 +125,10 @@ function TransientNotice() {
   );
 }
 
-// The connect-time drain is capped so the UI comes up promptly, and a deeper
-// offline queue finishes in the background. This is the only standing sign
-// that it is still running — without it the remainder arrives unannounced,
-// since the arrivals themselves are collapsed into one summary at the end.
+// The radio's offline queue is drained in the background after connect, so the
+// UI comes up without waiting on it. This is the only standing sign that it is
+// still running — without it the backlog arrives unannounced, since the
+// arrivals themselves are collapsed into one summary at the end.
 //
 // Indeterminate by necessity: the companion protocol has no queue-depth query,
 // so neither a percentage nor a remaining count is knowable. The spinner says
