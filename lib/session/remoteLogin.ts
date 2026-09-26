@@ -225,14 +225,17 @@ async function signInRoom(
   prefix: string,
   alive: () => boolean,
 ): Promise<boolean> {
+  const start = useMeshStore.getState().adminSessions[prefix]?.login;
   for (let i = 1; i <= LOGIN_ATTEMPTS; i++) {
     if (!alive()) return false;
     const stale = useMeshStore.getState().contacts[prefix];
+    const now = useMeshStore.getState().adminSessions[prefix]?.login;
     // Checked before the reset as well as after it, so a sign-in the room view
-    // has in flight doesn't lose the route it is using.
-    if (useMeshStore.getState().adminSessions[prefix]?.login === 'pending') {
-      return false;
-    }
+    // has in flight doesn't lose the route it is using. One that already won
+    // during this round's backoff signed us in: its login set the replay off
+    // just as ours would have.
+    if (now === 'pending') return false;
+    if (!isAuthedLogin(start) && isAuthedLogin(now)) return true;
     if (i === LOGIN_ATTEMPTS && stale && stale.outPathLen !== NO_PATH) {
       // Best-effort: a failed reset leaves the path in place, and the last
       // attempt still goes out on it.
