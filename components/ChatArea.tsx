@@ -251,8 +251,9 @@ export function ChatArea() {
   // up, or by a jump — or -1 for just the newest page. An index rather than a
   // tail count because history grows at the end: an index survives an incoming
   // message untouched, where a count would have to grow on every one to hold
-  // the same messages mounted. A replayed room post can land mid-list, which
-  // at worst mounts one more message above the window.
+  // the same messages mounted. A replayed room post can land above the user's
+  // own newest posts, which mounts one more message above the window for each
+  // such post.
   const [messageWindow, setMessageWindow] = useState({ convoId, start: -1 });
   const sameConvo = messageWindow.convoId === convoId;
   const openedStart = sameConvo ? messageWindow.start : -1;

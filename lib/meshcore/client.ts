@@ -16,7 +16,7 @@ import type {
   SendReceipt,
   RawRxPacket,
   RepeaterStatus,
-  RepeaterAccess,
+  RemoteLogin,
   NodeTelemetry,
   NeighborsPage,
   AclEntry,
@@ -345,7 +345,7 @@ export class MeshCoreClient {
   // Login and status replies arrive as unsolicited pushes long after the SENT
   // receipt, so they can't ride the `handlers` queue. Each is matched back to
   // its request by the target's 6-byte pubkey prefix (hex).
-  private loginWaiters = new Map<string, PushWaiter<RepeaterAccess | null>>();
+  private loginWaiters = new Map<string, PushWaiter<RemoteLogin>>();
   private statusWaiters = new Map<string, PushWaiter<RepeaterStatus>>();
   private telemetryWaiters = new Map<string, PushWaiter<NodeTelemetry>>();
   // Binary requests correlate by the tag from their SENT receipt instead of by
@@ -746,9 +746,17 @@ export class MeshCoreClient {
       // A repeater/room-server accepted a login; match the pending request by
       // its pubkey prefix and resolve it with the server-granted access level.
       // Pushes with no matching waiter are dropped.
+      // The skew is measured here, as the frame lands, so no scheduling delay
+      // between this and the awaiting caller inflates it.
       const login = parseLoginPush(d);
       if (login)
-        this.settlePush(this.loginWaiters, login.pubkeyPrefix, login.access);
+        this.settlePush(this.loginWaiters, login.pubkeyPrefix, {
+          access: login.access,
+          clockSkewSecs:
+            login.serverTime === null
+              ? null
+              : login.serverTime - Math.floor(Date.now() / 1000),
+        });
       return;
     }
     if (type === RESP.PUSH_STATUS_RESPONSE) {
@@ -1267,17 +1275,13 @@ export class MeshCoreClient {
    * over a multi-hop path), not the fixed command timeout. An empty password is
    * a valid guest login.
    * @returns the access level the server granted, decoded from the success
-   * push — the server decides this from the password, so it is authoritative.
-   * `null` when the response is a legacy `"OK"` that cannot report the role, in
-   * which case the caller falls back to the level it attempted.
+   * push — the server decides this from the password, so it is authoritative
+   * — and the node's clock skew against ours. See {@link RemoteLogin}.
    * @throws if the radio answers `ERR`, or no success push arrives in time (a
    * wrong password typically produces no response, so it surfaces as a
    * timeout).
    */
-  async login(
-    contact: Contact,
-    password: string,
-  ): Promise<RepeaterAccess | null> {
+  async login(contact: Contact, password: string): Promise<RemoteLogin> {
     return this.remoteRequest(
       this.loginWaiters,
       contact.pubkeyBytes,

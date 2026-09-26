@@ -151,14 +151,20 @@ function arrivedAt(): number {
 // When a room post was written, on our clock. The frame carries the room's
 // clock at posting — a login replays the room's stored history, so it is not
 // the send time — and the user's own posts carry ours; the two must agree for
-// `addMessage` to slot a replayed post between them. The room's measured
-// advert skew converts it, and the arrival clamp covers a fast room clock
-// nobody has measured yet: no post was written after it reached us.
+// `addMessage` to slot a replayed post between them. The skew the login
+// measured converts it — taken just before the replay it applies to — with the
+// room's advert skew as the fallback for firmware whose login reports no
+// clock. The arrival clamp covers a fast clock neither has measured: no post
+// was written after it reached us.
 function roomPostTime(stamp: number | undefined, prefix: string): number {
   const now = arrivedAt();
   if (!stamp) return now;
-  const skew = useMeshStore.getState().advertCache[prefix]?.clockSkewSecs;
-  return Math.min(stamp - (skew ?? 0), now);
+  const state = useMeshStore.getState();
+  const skew =
+    state.adminSessions[prefix]?.clockSkewSecs ??
+    state.advertCache[prefix]?.clockSkewSecs ??
+    0;
+  return Math.min(stamp - skew, now);
 }
 
 // How many messages the background drain has handed over since it started.
@@ -1115,7 +1121,10 @@ export function useMeshCore() {
       if (!canTransmit(client)) return 'offline';
       setAdminLogin(contact.pubkeyPrefix, 'pending');
       try {
-        const granted = await client.login(contact, password);
+        const { access: granted, clockSkewSecs } = await client.login(
+          contact,
+          password,
+        );
         // A drop during login can tear the session down; don't revive it.
         if (!canTransmit(client)) return 'offline';
         // A room grants three roles and the middle one (the room password)
@@ -1126,7 +1135,11 @@ export function useMeshCore() {
         // report admin even when you intended a read-only guest session. The
         // node still enforces real permissions either way.
         const isRoom = contact.advType === ADV_TYPE_ROOM;
-        setAdminLogin(contact.pubkeyPrefix, (isRoom && granted) || kind);
+        setAdminLogin(
+          contact.pubkeyPrefix,
+          (isRoom && granted) || kind,
+          clockSkewSecs ?? undefined,
+        );
         // Only a successful login is ever remembered, so a wrong password can't
         // be persisted. The credential lives solely in the encrypted per-radio
         // secrets store — never the store, prefs blob, or localStorage.

@@ -516,6 +516,14 @@ export interface AdminSession {
    * age of their own.
    */
   statusAt?: number;
+  /**
+   * The node's clock skew as measured by the login that opened this session
+   * (`RemoteLogin.clockSkewSecs`); absent when the response carried no
+   * timestamp. A room's post stamps are its own clock, and a room replays its
+   * backlog right after a login, so this is the freshest offset there is for
+   * placing those posts.
+   */
+  clockSkewSecs?: number;
   cli: CliLine[];
   /**
    * Commands the user submitted at this repeater's console, oldest first and
@@ -975,8 +983,9 @@ interface MeshActions {
    */
   restorePreferences: (raw: unknown, explicit?: boolean) => void;
   /**
-   * Adds a message to a conversation: appended in arrival order, except that a
-   * room post is placed by its `timestamp` among the messages already there.
+   * Adds a message to a conversation: appended in arrival order, except that an
+   * inbound room post is placed by its `timestamp` before any of the user's own
+   * newer posts at the end of the list.
    *
    * @remarks A room server replays its stored posts after a login, one at a
    * time and each stamped with when it was posted, so a post from days ago can
@@ -1154,8 +1163,17 @@ interface MeshActions {
   /** Kill switch: disable the master switch and clear the staged queue. */
   killSwitch: () => void;
 
-  /** Sets a repeater admin session's login state (creates it if new). */
-  setAdminLogin: (prefix: string, login: AdminLoginState) => void;
+  /**
+   * Sets a repeater admin session's login state (creates it if new).
+   *
+   * @param clockSkewSecs - the node's measured skew, recorded as
+   * {@link AdminSession.clockSkewSecs}; omit to keep the session's current one.
+   */
+  setAdminLogin: (
+    prefix: string,
+    login: AdminLoginState,
+    clockSkewSecs?: number,
+  ) => void;
   /** Stores the latest decoded status for a repeater's admin session. */
   /**
    * Records a repeater's status reply against its admin session, stamping
@@ -1932,7 +1950,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
     set({ automationEnabled: false, stagedActions: [] });
   },
 
-  setAdminLogin: (prefix, login) =>
+  setAdminLogin: (prefix, login, clockSkewSecs) =>
     set((state) => {
       const session = state.adminSessions[prefix] ?? {
         login,
@@ -1940,6 +1958,7 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
         token: nextAdminSessionToken(),
       };
       const next: AdminSession = { ...session, login };
+      if (clockSkewSecs !== undefined) next.clockSkewSecs = clockSkewSecs;
       // The role can change without the token doing so, and the access list is
       // the one cached read that requires `admin`. Dropping it on the way out
       // is what makes the next admin login read the node again rather than show
@@ -2189,13 +2208,19 @@ function byTimestamp(msgs: Message[]): Message[] {
     .map((k) => k.msg);
 }
 
-// Places a message for `addMessage`. A room post goes after the last message
-// not newer than it; ties and timestamp-less neighbors stop the walk, so equal
-// stamps keep arrival order. Everything else appends.
+// Places a message for `addMessage`. A room post moves back only past the
+// user's own newer posts, never past another room post: the room pushes its
+// backlog oldest first, so room posts already arrive in order, and bounding
+// the walk keeps a misjudged clock from burying a live post in old history.
+// Ties stop the walk, so equal stamps keep arrival order. The user's own
+// sends are the newest thing there is, and everything else, append.
 function insertMessage(id: string, msgs: Message[], msg: Message): Message[] {
   let at = msgs.length;
-  if (id.startsWith(roomConvoId('')) && msg.timestamp !== undefined) {
-    while (at > 0 && (msgs[at - 1].timestamp ?? 0) > msg.timestamp) at--;
+  if (id.startsWith(roomConvoId('')) && !msg.own && msg.timestamp) {
+    const ts = msg.timestamp;
+    while (at > 0 && msgs[at - 1].own && (msgs[at - 1].timestamp ?? 0) > ts) {
+      at--;
+    }
   }
   return [...msgs.slice(0, at), msg, ...msgs.slice(at)];
 }
