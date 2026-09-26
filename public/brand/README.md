@@ -31,8 +31,7 @@ the sender (bottom left) to the lit destination (top right).
 | `lockup-dark.svg`  | 360×64   | The mark beside the name, for dark backgrounds. The name is live text, with "Core" in the accent to match the in-app `Wordmark`.                                                                                                                                                                       |
 | `lockup-light.svg` | 360×64   | The same lockup for light backgrounds.                                                                                                                                                                                                                                                                 |
 | `app-icon.svg`     | 512×512  | Square, full-bleed icon master with its own dark background. Source for the app icon PNGs, the maskable icon and the favicon. The mark stays inside the maskable safe zone, a centered circle 80% of the icon's width.                                                                                 |
-| `social-card.svg`  | 1200×630 | Link-preview (Open Graph) master: the mark, the name, a tagline and a mesh motif. The text stays in the center, clear of the motif at the edges.                                                                                                                                                       |
-| `social-card.png`  |          | Export of `social-card.svg`.                                                                                                                                                                                                                                                                           |
+| `social-card.svg`  | 1200×630 | Link-preview (Open Graph) master: the mark, the name, a tagline and a mesh motif. The text stays in the center, clear of the motif at the edges. Exported to `app/opengraph-image.png`, which Next.js serves as the page's Open Graph and X image.                                                     |
 | `repo-social.svg`  | 1280×640 | GitHub repository social preview master, which also shows the `kn0.app` address.                                                                                                                                                                                                                       |
 | `repo-social.png`  |          | Export of `repo-social.svg`, to upload under the repository's Settings → General → Social preview.                                                                                                                                                                                                     |
 
@@ -42,7 +41,7 @@ The PNGs are exported with [sharp](https://sharp.pixelplumbing.com/), which the
 repository already installs through Next.js. From the repository root:
 
 ```bash
-node -e "const s = require('sharp'); for (const n of ['social-card', 'repo-social']) s('public/brand/' + n + '.svg').png({ compressionLevel: 9 }).toFile('public/brand/' + n + '.png')"
+node -e "const s = require('sharp'); s('public/brand/social-card.svg').png({ compressionLevel: 9 }).toFile('app/opengraph-image.png'); s('public/brand/repo-social.svg').png({ compressionLevel: 9 }).toFile('public/brand/repo-social.png')"
 ```
 
 The text is live, so it renders in whichever face the exporting machine has
