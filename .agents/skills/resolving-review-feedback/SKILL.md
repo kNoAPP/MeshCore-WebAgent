@@ -1,6 +1,6 @@
 ---
 # Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-# (https://github.com/kNoAPP/MeshCore-WebAgent)
+# (https://github.com/kNoAPP/MeshCore-Desktop)
 
 name: resolving-review-feedback
 description: >
@@ -51,7 +51,7 @@ Work through every unresolved review thread one at a time:
            }
          }
        }
-     }' -f owner=kNoAPP -f repo=MeshCore-WebAgent -F pr="$PR"
+     }' -f owner=kNoAPP -f repo=MeshCore-Desktop -F pr="$PR"
 
    # Reply to a thread, then resolve it
    gh api graphql -f query='

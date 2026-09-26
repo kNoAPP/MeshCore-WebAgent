@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 // Provider-agnostic types for the in-browser LLM layer (task 6.3). A concrete
 // provider (see anthropic.ts) implements {@link LLMProvider} by translating

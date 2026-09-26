@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 import i18n from '@/lib/i18n';
 import { bearingDeg, compassKey, haversineKm, microToDeg } from '@/lib/utils';

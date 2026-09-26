@@ -1,4 +1,4 @@
-# Contributing to MeshCore-WebAgent
+# Contributing to MeshCore-Desktop
 
 Thanks for your interest in contributing. Here's everything you need to get
 started.
@@ -18,8 +18,8 @@ started.
 ## Development Setup
 
 ```bash
-git clone https://github.com/kNoAPP/MeshCore-WebAgent.git
-cd MeshCore-WebAgent
+git clone https://github.com/kNoAPP/MeshCore-Desktop.git
+cd MeshCore-Desktop
 npm install
 npm run dev
 ```

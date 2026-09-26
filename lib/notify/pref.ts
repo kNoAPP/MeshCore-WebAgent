@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 /** What an incoming message must be before it earns a notification. */
 export const NOTIFY_MODES = ['off', 'mentions', 'all'] as const;

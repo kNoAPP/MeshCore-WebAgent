@@ -1,5 +1,5 @@
 # Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-# (https://github.com/kNoAPP/MeshCore-WebAgent)
+# (https://github.com/kNoAPP/MeshCore-Desktop)
 
 name: Deploy
 
@@ -48,8 +48,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(jq -r .version package.json)
-          zip -r meshcore-webagent-v${VERSION}.zip out/
-          gh release upload v${VERSION} meshcore-webagent-v${VERSION}.zip
+          zip -r meshcore-desktop-v${VERSION}.zip out/
+          gh release upload v${VERSION} meshcore-desktop-v${VERSION}.zip
 
   deploy:
     name: Deploy to GitHub Pages

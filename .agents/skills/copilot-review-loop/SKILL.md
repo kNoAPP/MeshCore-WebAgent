@@ -1,6 +1,6 @@
 ---
 # Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-# (https://github.com/kNoAPP/MeshCore-WebAgent)
+# (https://github.com/kNoAPP/MeshCore-Desktop)
 
 name: copilot-review-loop
 description: >
@@ -138,7 +138,7 @@ gh api graphql -f query='
         reviews(last:100){ nodes{ author{login} state commit{oid} } }
       }
     }
-  }' -f owner=kNoAPP -f repo=MeshCore-WebAgent -F pr="$PR" \
+  }' -f owner=kNoAPP -f repo=MeshCore-Desktop -F pr="$PR" \
   --jq '.data.repository.pullRequest
         | .headRefOid as $head
         | [.reviews.nodes[] | select(.author.login | test("copilot"; "i"))] | last
@@ -288,7 +288,7 @@ gh api graphql --paginate -f query='
         }
       }
     }
-  }' -f owner=kNoAPP -f repo=MeshCore-WebAgent -F pr="$PR" \
+  }' -f owner=kNoAPP -f repo=MeshCore-Desktop -F pr="$PR" \
   --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length'
 ```
 

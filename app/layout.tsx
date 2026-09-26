@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 import type { Metadata } from 'next';
 import { I18nProvider } from '@/components/I18nProvider';
@@ -15,7 +15,7 @@ import {
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'MeshCore Companion',
+  title: 'MeshCore Desktop',
   description: 'Web interface for MeshCore companion radios',
   manifest: '/manifest.webmanifest',
 };

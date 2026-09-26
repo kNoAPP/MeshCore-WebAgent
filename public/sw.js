@@ -1,7 +1,7 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
-// MeshCore Companion service worker. Gives the app an offline-capable shell so
+// MeshCore Desktop service worker. Gives the app an offline-capable shell so
 // the page loads after a cold reload with no network. Strategy:
 //   - /version.json   → always network (never cached); drives the in-app
 //                       update prompt, so it must reflect the live deploy.

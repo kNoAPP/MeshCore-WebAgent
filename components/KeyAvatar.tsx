@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 import { IDENTITY_TEXT_CLASS } from '@/lib/identity/accent';
 import { KEY_GLYPH_SIZE, keyGlyph } from '@/lib/identity/keyGlyph';

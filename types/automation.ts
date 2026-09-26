@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 // Shapes for the in-browser automation engine (task 6.4): user-defined rules
 // that react to live mesh events, optionally run an LLM, and take radio actions

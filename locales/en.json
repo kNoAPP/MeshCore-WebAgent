@@ -102,13 +102,13 @@
     "toggle": "Toggle light/dark theme"
   },
   "title": {
-    "app": "MeshCore Companion",
-    "device": "{{device}} · MeshCore Companion",
-    "deviceUnread": "({{unread}}) {{device}} · MeshCore Companion"
+    "app": "MeshCore Desktop",
+    "device": "{{device}} · MeshCore Desktop",
+    "deviceUnread": "({{unread}}) {{device}} · MeshCore Desktop"
   },
   "notify": {
     "titleIn": "{{sender}} in {{convo}}",
-    "testTitle": "MeshCore Companion",
+    "testTitle": "MeshCore Desktop",
     "testBody": "Notifications are on. New messages will look like this.",
     "notConnected": "Not connected to a radio",
     "newMessageIn": "New message in {{channel}}",
@@ -268,7 +268,7 @@
   },
   "desktopOnly": {
     "title": "Desktop required",
-    "body": "MeshCore Companion connects to your radio over USB Serial and Bluetooth — browser features that aren't available on phones or tablets. Please open this site on a desktop or laptop computer.",
+    "body": "MeshCore Desktop connects to your radio over USB Serial and Bluetooth — browser features that aren't available on phones or tablets. Please open this site on a desktop or laptop computer.",
     "appCta": "On a phone or tablet?",
     "appButton": "Get the official MeshCore app"
   },

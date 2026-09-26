@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 // A tiny, synchronous, tab-scoped pub/sub bus that re-emits the mesh events the
 // automation engine (task 6.4) reacts to. It is fed from the existing

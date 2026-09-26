@@ -1,10 +1,10 @@
 # Identity Derivation from a Recovery Phrase
 
 > Status: **Frozen** · Implements
-> [#358](https://github.com/kNoAPP/MeshCore-WebAgent/issues/358),
-> [#363](https://github.com/kNoAPP/MeshCore-WebAgent/issues/363) and
-> [#359](https://github.com/kNoAPP/MeshCore-WebAgent/issues/359) · Epic
-> [#353](https://github.com/kNoAPP/MeshCore-WebAgent/issues/353)
+> [#358](https://github.com/kNoAPP/MeshCore-Desktop/issues/358),
+> [#363](https://github.com/kNoAPP/MeshCore-Desktop/issues/363) and
+> [#359](https://github.com/kNoAPP/MeshCore-Desktop/issues/359) · Epic
+> [#353](https://github.com/kNoAPP/MeshCore-Desktop/issues/353)
 >
 > This document is a contract. It says how a BIP-39 recovery phrase becomes
 > MeshCore radio identities. Another client that follows it should derive the

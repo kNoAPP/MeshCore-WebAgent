@@ -1,5 +1,5 @@
 // Required Notice: Copyright 2026 Knoban LLC. All rights reserved.
-// (https://github.com/kNoAPP/MeshCore-WebAgent)
+// (https://github.com/kNoAPP/MeshCore-Desktop)
 
 import { useMeshStore, canPostToRoom } from '@/store/meshStore';
 import { canTransmit } from '@/lib/session/guards';

@@ -1,4 +1,4 @@
-# MeshCore-WebAgent
+# MeshCore-Desktop
 
 A browser-based companion client for
 [MeshCore](https://github.com/meshcore-dev/MeshCore) — a lightweight LoRa mesh
@@ -13,7 +13,7 @@ Live at **[kn0.app](https://kn0.app)**
 
 ---
 
-## Why MeshCore-WebAgent
+## Why MeshCore-Desktop
 
 - **Zero install, zero account** — Open a URL and you're talking to your radio.
   Nothing to download, no sign-up.
@@ -113,8 +113,8 @@ is not supported.
 ### Local Development
 
 ```bash
-git clone https://github.com/kNoAPP/MeshCore-WebAgent.git
-cd MeshCore-WebAgent
+git clone https://github.com/kNoAPP/MeshCore-Desktop.git
+cd MeshCore-Desktop
 npm install
 npm run dev
 ```
