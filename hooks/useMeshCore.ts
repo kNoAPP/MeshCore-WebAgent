@@ -148,6 +148,19 @@ function arrivedAt(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+// When a room post was written, on our clock. The frame carries the room's
+// clock at posting — a login replays the room's stored history, so it is not
+// the send time — and the user's own posts carry ours; the two must agree for
+// `addMessage` to slot a replayed post between them. The room's measured
+// advert skew converts it, and the arrival clamp covers a fast room clock
+// nobody has measured yet: no post was written after it reached us.
+function roomPostTime(stamp: number | undefined, prefix: string): number {
+  const now = arrivedAt();
+  if (!stamp) return now;
+  const skew = useMeshStore.getState().advertCache[prefix]?.clockSkewSecs;
+  return Math.min(stamp - (skew ?? 0), now);
+}
+
 // How many messages the background drain has handed over since it started.
 // One summary stands in for every per-message notification the drain
 // suppresses, and this is the count it reports. Module scope like the rest of
@@ -440,6 +453,9 @@ export function useMeshCore() {
               ...msg,
               pubkeyPrefix: prefix,
               senderName: sender,
+              timestamp: isRoom
+                ? roomPostTime(msg.timestamp, prefix)
+                : msg.timestamp,
             };
             const state = useMeshStore.getState();
             const visible = isConvoVisible(state, id);

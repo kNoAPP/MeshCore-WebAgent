@@ -974,6 +974,16 @@ interface MeshActions {
    * blob was still loading is newer intent than the stored value and wins.
    */
   restorePreferences: (raw: unknown, explicit?: boolean) => void;
+  /**
+   * Adds a message to a conversation: appended in arrival order, except that a
+   * room post is placed by its `timestamp` among the messages already there.
+   *
+   * @remarks A room server replays its stored posts after a login, one at a
+   * time and each stamped with when it was posted, so a post from days ago can
+   * land after one the user just sent. Channel and direct messages keep
+   * arrival order: their stamps are each sender's own unsynchronized clock,
+   * and ordering on a badly-set one would bury a live message in the past.
+   */
   addMessage: (id: string, msg: Message) => void;
   /**
    * Records the arrival the action bar's quick link points at, or retracts it
@@ -1549,7 +1559,10 @@ export const useMeshStore = create<MeshState & MeshActions>((set, get) => ({
       const keepArrival =
         enriched.own || (!visible && (state.lastArrival?.visible ?? false));
       return {
-        msgHistory: { ...state.msgHistory, [id]: [...prev, enriched] },
+        msgHistory: {
+          ...state.msgHistory,
+          [id]: insertMessage(id, prev, enriched),
+        },
         lastAppends: {
           ...state.lastAppends,
           [id]: { msgId: enriched.id as string, visible },
@@ -2174,6 +2187,17 @@ function byTimestamp(msgs: Message[]): Message[] {
     })
     .sort((a, b) => a.at - b.at)
     .map((k) => k.msg);
+}
+
+// Places a message for `addMessage`. A room post goes after the last message
+// not newer than it; ties and timestamp-less neighbors stop the walk, so equal
+// stamps keep arrival order. Everything else appends.
+function insertMessage(id: string, msgs: Message[], msg: Message): Message[] {
+  let at = msgs.length;
+  if (id.startsWith(roomConvoId('')) && msg.timestamp !== undefined) {
+    while (at > 0 && (msgs[at - 1].timestamp ?? 0) > msg.timestamp) at--;
+  }
+  return [...msgs.slice(0, at), msg, ...msgs.slice(at)];
 }
 
 /** Counts unread messages in one conversation. */

@@ -249,9 +249,10 @@ export function ChatArea() {
 
   // The oldest message index the window has been opened back to — by scrolling
   // up, or by a jump — or -1 for just the newest page. An index rather than a
-  // tail count because history only ever appends: an index survives an
-  // incoming message untouched, where a count would have to grow on every one
-  // to hold the same messages mounted.
+  // tail count because history grows at the end: an index survives an incoming
+  // message untouched, where a count would have to grow on every one to hold
+  // the same messages mounted. A replayed room post can land mid-list, which
+  // at worst mounts one more message above the window.
   const [messageWindow, setMessageWindow] = useState({ convoId, start: -1 });
   const sameConvo = messageWindow.convoId === convoId;
   const openedStart = sameConvo ? messageWindow.start : -1;
@@ -514,10 +515,15 @@ export function ChatArea() {
       // identity).
       const state = useMeshStore.getState();
       const live = convoId ? (state.msgHistory[convoId] ?? []) : [];
-      const last = live[live.length - 1];
       // Visibility as of the arrival itself, not as of this effect: focus can
       // return (freezing the unread divider) before the effect flushes.
       const arrival = convoId ? state.lastAppends[convoId] : undefined;
+      // React to the message that just landed, not to the tail: a replayed
+      // room post slots in above the user's own newer posts, and reading the
+      // tail would take it for a send and yank a reader out of history.
+      const last =
+        (arrival && live.findLast((m) => m.id === arrival.msgId)) ??
+        live[live.length - 1];
       const arrivedHidden =
         arrival != null && arrival.msgId === last?.id && !arrival.visible;
       // Same rule the store uses for `_unread`: a system note is not a message
