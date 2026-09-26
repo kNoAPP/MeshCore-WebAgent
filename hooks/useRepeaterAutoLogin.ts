@@ -11,10 +11,11 @@ import { NO_PATH } from '@/lib/meshcore/constants';
 import type { Contact, LoginKind } from '@/types/meshcore';
 
 /**
- * Automatic sign-in attempts a remembered credential gets on entering a node —
- * the initial try plus its retries. Bounded, because a node whose password
- * really did change will never answer, and an unbounded cycle would spend a
- * shared LoRa mesh's airtime proving it.
+ * Sign-in attempts a credential gets — a remembered one on entering a node, or
+ * one just typed into the form — the initial try plus its retries. Bounded,
+ * because a node whose password really did change (or was mistyped) will never
+ * answer, and an unbounded cycle would spend a shared LoRa mesh's airtime
+ * proving it.
  */
 export const LOGIN_ATTEMPTS = 3;
 
@@ -58,7 +59,10 @@ export interface RepeaterAutoLogin {
    * nothing is remembered.
    */
   retry: (resetRoute: boolean) => void;
-  /** Signs in with a password the user just typed — always a single attempt. */
+  /**
+   * Signs in with a password the user just typed, retrying a timeout like a
+   * remembered credential does, and superseding any cycle in flight.
+   */
   signIn: (password: string, kind: LoginKind, remember: boolean) => void;
   /**
    * Drops the remembered credential from memory and cancels any cycle using
@@ -73,9 +77,10 @@ const delay = (ms: number): Promise<void> =>
 
 /**
  * Drives sign-in for one repeater or room server: probes the encrypted
- * `secrets` store for a remembered credential on entry, replays it, and retries
- * a timed-out attempt up to {@link LOGIN_ATTEMPTS} times — flooding the last
- * one — before handing the user the failure and the actions to retry it.
+ * `secrets` store for a remembered credential on entry and replays it. Either
+ * that or a typed password retries a timed-out attempt up to
+ * {@link LOGIN_ATTEMPTS} times — flooding the last one — before handing the
+ * user the failure and the actions to retry it.
  *
  * @remarks
  * Only a timeout is retried. A rejection the radio reported stops the cycle at
@@ -260,13 +265,14 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
 
   const signIn = useCallback(
     (password: string, kind: LoginKind, remember: boolean) => {
-      // The user is standing here and can decide, so a typed password gets one
-      // attempt — and it supersedes whatever the automatic cycle was doing. It
-      // deliberately does *not* become the remembered credential: only a
-      // successful login is ever persisted, and treating a typed password as
-      // remembered would offer to replay a wrong one under copy promising the
-      // password is not the problem.
-      void runCycle(password, kind, remember, 1);
+      // A node at the edge of range drops a typed password's attempt as readily
+      // as a remembered one's, so it gets the same retries — at the cost of a
+      // mistyped password, which is silence on the wire too, taking the whole
+      // cycle to fail. It deliberately does *not* become the remembered
+      // credential: only a successful login is ever persisted, and treating a
+      // typed password as remembered would offer to replay a wrong one under
+      // copy promising the password is not the problem.
+      void runCycle(password, kind, remember, LOGIN_ATTEMPTS);
     },
     [runCycle],
   );
