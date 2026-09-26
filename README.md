@@ -1,3 +1,5 @@
+<img src="public/brand/social-card.png" alt="MeshCore Desktop — Message, map and manage your MeshCore radio from the browser." width="100%" />
+
 # MeshCore-Desktop
 
 A browser-based companion client for
@@ -9,7 +11,7 @@ or backend infrastructure.
 
 Live at **[kn0.app](https://kn0.app)**
 
-<img width="1840" height="1103" alt="Screenshot 2026-07-03 at 10 39 11 AM" src="https://github.com/user-attachments/assets/e5fb2f4e-2e02-4057-916a-9562d08b062d" />
+<img width="1600" height="960" alt="MeshCore Desktop chat view: channels and contacts in the sidebar, a Public channel conversation on the right" src="https://github.com/user-attachments/assets/86aedb0e-fbe3-4943-8e78-c0c8af55b067" />
 
 ---
 
