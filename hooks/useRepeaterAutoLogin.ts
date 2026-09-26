@@ -266,9 +266,12 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
   const signIn = useCallback(
     (password: string, kind: LoginKind, remember: boolean) => {
       // A node at the edge of range drops a typed password's attempt as readily
-      // as a remembered one's, so it gets the same retries — at the cost of a
-      // mistyped password, which is silence on the wire too, taking the whole
-      // cycle to fail. It deliberately does *not* become the remembered
+      // as a remembered one's, so it gets the same retries. The cost lands on a
+      // mistyped password, which is silence on the wire too: it takes the whole
+      // cycle to fail, and its last attempt resets the node's route to flood,
+      // with no reply to learn a new one from. That reset is also what
+      // reaches a node whose stored route went stale, so it applies here all
+      // the same. It deliberately does *not* become the remembered
       // credential: only a successful login is ever persisted, and treating a
       // typed password as remembered would offer to replay a wrong one under
       // copy promising the password is not the problem.

@@ -25,8 +25,8 @@ export interface RepeaterLoginGateProps {
 }
 
 /**
- * What fills the node view while it is signed out: the credential probe, the
- * automatic sign-in's progress, the failure a remembered credential hit along
+ * What fills the node view while it is signed out: the credential probe, a
+ * sign-in cycle's progress, the failure a remembered credential hit along
  * with the actions that retry it, and the manual password form.
  */
 export function RepeaterLoginGate({
