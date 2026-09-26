@@ -186,17 +186,6 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
       }
 
       for (let i = 1; i <= total; i++) {
-        // Another sign-in may have claimed the node while this cycle sat
-        // between attempts — the connect-time room sync starts one on any
-        // room it finds logged out — so wait it out rather than send over it.
-        // A login that resolved meanwhile, that one or the node answering
-        // late, is the outcome already.
-        const settled = await settledLogin(prefix);
-        if (!live()) return;
-        if (isAuthedLogin(settled)) {
-          setFailure(null);
-          break;
-        }
         // Two timeouts have condemned the stored route, so let the last attempt
         // flood rather than repeat the same lost path. Mirrors
         // `applyRoutePolicy`'s two-failures-then-reset: one loss is not enough
@@ -207,6 +196,18 @@ export function useRepeaterAutoLogin(contact: Contact): RepeaterAutoLogin {
           // gate is already narrating.
           await resetPathRef.current(liveContact(), true);
           if (!live()) return;
+        }
+        // Another sign-in may have claimed the node while this cycle sat
+        // between attempts — the connect-time room sync starts one on any
+        // room it finds logged out — so wait it out rather than send over it.
+        // A login that resolved meanwhile, that one or the node answering
+        // late, is the outcome already. Checked last, after every other
+        // await, so nothing can claim the node between here and the send.
+        const settled = await settledLogin(prefix);
+        if (!live()) return;
+        if (isAuthedLogin(settled)) {
+          setFailure(null);
+          break;
         }
         setAttempt(i);
         const outcome = await repeaterLoginRef.current(

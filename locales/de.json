@@ -118,6 +118,8 @@
     "newPostIn": "Neuer Beitrag in {{room}}",
     "caughtUp_one": "Aufgeholt · {{count}} Nachricht",
     "caughtUp_other": "Aufgeholt · {{count}} Nachrichten",
+    "roomCaughtUp_one": "{{room}} aufgeholt · {{count}} Beitrag",
+    "roomCaughtUp_other": "{{room}} aufgeholt · {{count}} Beiträge",
     "roomPostNoAccess": "Sie dürfen in diesem Raum nicht mehr veröffentlichen",
     "connected": "Verbunden — {{device}}",
     "connectionFailed": "Verbindung fehlgeschlagen",

@@ -4,11 +4,7 @@
 import type { MeshCoreClient } from '@/lib/meshcore/client';
 import { PushTimeoutError } from '@/lib/meshcore/errors';
 import { ADV_TYPE_ROOM, NO_PATH } from '@/lib/meshcore/constants';
-import {
-  loadRepeaterCred,
-  saveRepeaterCred,
-  type RememberedCred,
-} from '@/lib/meshcore/adminCreds';
+import { loadRepeaterCred, saveRepeaterCred } from '@/lib/meshcore/adminCreds';
 import { canTransmit } from '@/lib/session/guards';
 import { useMeshStore, isAuthedLogin, roomConvoId } from '@/store/meshStore';
 import i18n from '@/lib/i18n';
@@ -102,7 +98,7 @@ export async function loginNode(
   const prior = useMeshStore.getState().adminSessions[prefix];
   const renewing = isAuthedLogin(prior?.login);
   // Whether a renewal still has the session it set out to renew: a log-out
-  // deletes it, and a later login replaces its token.
+  // deletes it, and any session opened after that carries a new token.
   const renewedAway = () =>
     renewing &&
     useMeshStore.getState().adminSessions[prefix]?.token !== prior?.token;
@@ -183,16 +179,24 @@ export async function loginNode(
   }
 }
 
-// Rooms whose history the connect-time sync is pulling right now.
-const replaying = new Set<string>();
+// Rooms whose history the connect-time sync is pulling right now, each with
+// when its pull began, in epoch seconds on our clock.
+const replaying = new Map<string, number>();
 
 /**
- * Whether the connect-time sync is pulling this room's history, so a post
- * from it is most likely its replay — written while we were away — rather
- * than live traffic.
+ * Whether a room post is replayed history rather than live traffic: the
+ * connect-time sync is pulling the room, and the post was written before the
+ * pull began.
+ *
+ * @param timestamp - the post's time already converted to our clock, as
+ * `roomPostTime` gives it.
  */
-export function isReplayingRoom(prefix: string): boolean {
-  return replaying.has(prefix);
+export function isReplayedRoomPost(
+  prefix: string,
+  timestamp: number | undefined,
+): boolean {
+  const since = replaying.get(prefix);
+  return since !== undefined && timestamp !== undefined && timestamp < since;
 }
 
 // Resolves once the backlog drain is not running, at once when it already
@@ -219,7 +223,6 @@ function backlogSettled(): Promise<void> {
 async function signInRoom(
   client: MeshCoreClient,
   prefix: string,
-  cred: RememberedCred,
   alive: () => boolean,
 ): Promise<boolean> {
   for (let i = 1; i <= LOGIN_ATTEMPTS; i++) {
@@ -231,12 +234,25 @@ async function signInRoom(
       await client.resetPath(stale).catch(() => undefined);
       if (!alive()) return false;
     }
+    // Re-read before every attempt: a log-out clears the record, and a pull
+    // that outlived it would sign the user back in and store the password
+    // they just told us to forget. The two share one I/O queue, so a log-out
+    // that lands first is seen here; one that lands during the read is caught
+    // below by the session it tore down.
+    const before = useMeshStore.getState().adminSessions[prefix]?.login;
+    const cred = await loadRepeaterCred(prefix);
+    if (!cred || !alive()) return false;
     // Read after every await, and claimed by `loginNode` in the same
     // synchronous step, so the room view's cycle can't be mid-handshake when
     // this one is sent. A contact deleted meanwhile ends the round.
     const state = useMeshStore.getState();
     const contact = state.contacts[prefix];
-    if (!contact || state.adminSessions[prefix]?.login === 'pending') {
+    const login = state.adminSessions[prefix]?.login;
+    if (
+      !contact ||
+      login === 'pending' ||
+      (isAuthedLogin(before) && !isAuthedLogin(login))
+    ) {
       return false;
     }
     const outcome = await loginNode(
@@ -305,16 +321,32 @@ export async function signInRememberedRooms(
     .map((c) => c.pubkeyPrefix);
   for (const prefix of prefixes) {
     if (!alive()) return;
-    const cred = await loadRepeaterCred(prefix);
-    if (!cred) continue;
-    replaying.add(prefix);
+    if (!(await loadRepeaterCred(prefix))) continue;
+    replaying.set(prefix, Math.floor(Date.now() / 1000));
+    let pulled = 0;
     try {
       for (let round = 1; round <= ROOM_PULL_ROUNDS; round++) {
-        if (!(await signInRoom(client, prefix, cred, alive))) break;
-        if ((await replayQuiet(prefix, alive)) === 0) break;
+        if (!(await signInRoom(client, prefix, alive))) break;
+        const posts = await replayQuiet(prefix, alive);
+        if (posts === 0) break;
+        pulled += posts;
       }
     } finally {
       replaying.delete(prefix);
+    }
+    // The replay's own arrivals raise no notice of their own (see
+    // `isReplayedRoomPost`), so one summary stands in for them, as the
+    // backlog drain's does.
+    const room = useMeshStore.getState().contacts[prefix];
+    if (pulled > 0 && alive() && room) {
+      useMeshStore.getState().notify({
+        level: 'success',
+        text: i18n.t('notify.roomCaughtUp', {
+          count: pulled,
+          room: room.name || prefix.slice(0, 8),
+        }),
+        key: `roomCaughtUp:${prefix}`,
+      });
     }
   }
 }

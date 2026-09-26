@@ -86,7 +86,7 @@ import {
   MAX_CHANNEL_SLOTS,
 } from '@/lib/meshcore/constants';
 import {
-  isReplayingRoom,
+  isReplayedRoomPost,
   loginNode,
   signInRememberedRooms,
 } from '@/lib/session/remoteLogin';
@@ -473,9 +473,14 @@ export function useMeshCore() {
             };
             const state = useMeshStore.getState();
             const visible = isConvoVisible(state, id);
+            // A room's history, replayed by the connect-time pull, is old
+            // news: it raises no arrival cues (the pull ends with a summary
+            // instead) and is withheld from automation, which is live-only.
+            const replayed =
+              isRoom && isReplayedRoomPost(prefix, enriched.timestamp);
             addMessage(id, enriched);
             if (state.backlogDraining) backlogDelivered++;
-            if (state.status === 'connected') {
+            if (state.status === 'connected' && !replayed) {
               const room = contact?.name || prefix.slice(0, 8);
               const convo: ActiveConvo = {
                 kind: isRoom ? 'room' : 'direct',
@@ -511,10 +516,8 @@ export function useMeshCore() {
                 notifyArrival(convo, sender, msg.text);
               }
             }
-            // Withheld during the backlog, as on the channel branch above, and
-            // so is a room's replay while the connect-time sync pulls it: those
-            // posts were written while we were away.
-            if (!state.backlogDraining && !(isRoom && isReplayingRoom(prefix)))
+            // Withheld during the backlog, as on the channel branch above.
+            if (!state.backlogDraining && !replayed)
               emit({ type: 'message', msg: enriched });
           }
         },

@@ -117,6 +117,8 @@
     "newPostIn": "New post in {{room}}",
     "caughtUp_one": "Caught up · {{count}} message",
     "caughtUp_other": "Caught up · {{count}} messages",
+    "roomCaughtUp_one": "Caught up on {{room}} · {{count}} post",
+    "roomCaughtUp_other": "Caught up on {{room}} · {{count}} posts",
     "roomPostNoAccess": "You no longer have permission to post in this room",
     "connected": "Connected — {{device}}",
     "connectionFailed": "Connection failed",
