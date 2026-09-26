@@ -33,6 +33,7 @@ import {
   MANUAL_ADD_ON,
   MAX_CHANNEL_SLOTS,
   TXT_TYPE,
+  ADV_TYPE_ROOM,
 } from './constants';
 import {
   buildAppStart,
@@ -749,14 +750,25 @@ export class MeshCoreClient {
       // The skew is measured here, as the frame lands, so no scheduling delay
       // between this and the awaiting caller inflates it.
       const login = parseLoginPush(d);
-      if (login)
-        this.settlePush(this.loginWaiters, login.pubkeyPrefix, {
-          access: login.access,
-          clockSkewSecs:
-            login.serverTime === null
-              ? null
-              : login.serverTime - Math.floor(Date.now() / 1000),
-        });
+      if (!login) return;
+      const clockSkewSecs =
+        login.serverTime === null
+          ? null
+          : login.serverTime - Math.floor(Date.now() / 1000);
+      // A room's skew also replaces the one this session's adverts measured.
+      // Every advert refresh folds this whole log into the persisted cache,
+      // so an older measurement left here would overwrite the login's there
+      // — after a room reboot resets its clock, say, and the firmware then
+      // drops its adverts as replays so none re-measures it. Replaced rather
+      // than mutated: the store holds these same entry objects.
+      const advert = this.adverts[login.pubkeyPrefix];
+      if (advert?.advType === ADV_TYPE_ROOM && clockSkewSecs !== null) {
+        this.adverts[login.pubkeyPrefix] = { ...advert, clockSkewSecs };
+      }
+      this.settlePush(this.loginWaiters, login.pubkeyPrefix, {
+        access: login.access,
+        clockSkewSecs,
+      });
       return;
     }
     if (type === RESP.PUSH_STATUS_RESPONSE) {

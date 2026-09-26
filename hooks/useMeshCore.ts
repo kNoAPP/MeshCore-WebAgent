@@ -1140,10 +1140,13 @@ export function useMeshCore() {
           (isRoom && granted) || kind,
           clockSkewSecs ?? undefined,
         );
-        // The radio stays connected to a room it logged into, so posts keep
-        // landing in its offline queue after the tab closes and are drained
-        // at the next connect, before any login. Carrying the skew in the
-        // persisted advert cache gives `roomPostTime` a measurement then too.
+        // The radio stays connected to a room it logged into, so its posts
+        // keep arriving on later connects before any login measures the
+        // room again: the deferred backlog drain, and pushes landing before
+        // the room is reopened. Carrying the skew in the persisted advert
+        // cache gives `roomPostTime` a measurement for those. (The drain pass
+        // inside `init` runs before the cache is restored and goes without,
+        // but `restoreHistory` puts the saved history ahead of those posts.)
         const cached =
           useMeshStore.getState().advertCache[contact.pubkeyPrefix];
         if (isRoom && cached && clockSkewSecs !== null) {
