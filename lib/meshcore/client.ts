@@ -16,7 +16,7 @@ import type {
   SendReceipt,
   RawRxPacket,
   RepeaterStatus,
-  RepeaterAccess,
+  RemoteLogin,
   NodeTelemetry,
   NeighborsPage,
   AclEntry,
@@ -33,6 +33,7 @@ import {
   MANUAL_ADD_ON,
   MAX_CHANNEL_SLOTS,
   TXT_TYPE,
+  ADV_TYPE_ROOM,
 } from './constants';
 import {
   buildAppStart,
@@ -345,7 +346,7 @@ export class MeshCoreClient {
   // Login and status replies arrive as unsolicited pushes long after the SENT
   // receipt, so they can't ride the `handlers` queue. Each is matched back to
   // its request by the target's 6-byte pubkey prefix (hex).
-  private loginWaiters = new Map<string, PushWaiter<RepeaterAccess | null>>();
+  private loginWaiters = new Map<string, PushWaiter<RemoteLogin>>();
   private statusWaiters = new Map<string, PushWaiter<RepeaterStatus>>();
   private telemetryWaiters = new Map<string, PushWaiter<NodeTelemetry>>();
   // Binary requests correlate by the tag from their SENT receipt instead of by
@@ -744,11 +745,30 @@ export class MeshCoreClient {
     }
     if (type === RESP.PUSH_LOGIN_SUCCESS) {
       // A repeater/room-server accepted a login; match the pending request by
-      // its pubkey prefix and resolve it with the server-granted access level.
-      // Pushes with no matching waiter are dropped.
+      // its pubkey prefix and resolve it with the server-granted access level
+      // and the node's clock skew. Pushes with no matching waiter are dropped.
+      // The skew is measured here, as the frame lands, so no scheduling delay
+      // between this and the awaiting caller inflates it.
       const login = parseLoginPush(d);
-      if (login)
-        this.settlePush(this.loginWaiters, login.pubkeyPrefix, login.access);
+      if (!login) return;
+      const clockSkewSecs =
+        login.serverTime === null
+          ? null
+          : login.serverTime - Math.floor(Date.now() / 1000);
+      // A room's skew also replaces the one this session's adverts measured.
+      // Every advert refresh folds this whole log into the persisted cache,
+      // so an older measurement left here would overwrite the login's there
+      // — after a room reboot resets its clock, say, and the firmware then
+      // drops its adverts as replays so none re-measures it. Replaced rather
+      // than mutated: the store holds these same entry objects.
+      const advert = this.adverts[login.pubkeyPrefix];
+      if (advert?.advType === ADV_TYPE_ROOM && clockSkewSecs !== null) {
+        this.adverts[login.pubkeyPrefix] = { ...advert, clockSkewSecs };
+      }
+      this.settlePush(this.loginWaiters, login.pubkeyPrefix, {
+        access: login.access,
+        clockSkewSecs,
+      });
       return;
     }
     if (type === RESP.PUSH_STATUS_RESPONSE) {
@@ -1267,17 +1287,13 @@ export class MeshCoreClient {
    * over a multi-hop path), not the fixed command timeout. An empty password is
    * a valid guest login.
    * @returns the access level the server granted, decoded from the success
-   * push — the server decides this from the password, so it is authoritative.
-   * `null` when the response is a legacy `"OK"` that cannot report the role, in
-   * which case the caller falls back to the level it attempted.
+   * push — the server decides this from the password, so it is authoritative
+   * — and the node's clock skew against ours. See {@link RemoteLogin}.
    * @throws if the radio answers `ERR`, or no success push arrives in time (a
    * wrong password typically produces no response, so it surfaces as a
    * timeout).
    */
-  async login(
-    contact: Contact,
-    password: string,
-  ): Promise<RepeaterAccess | null> {
+  async login(contact: Contact, password: string): Promise<RemoteLogin> {
     return this.remoteRequest(
       this.loginWaiters,
       contact.pubkeyBytes,

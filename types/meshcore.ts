@@ -104,7 +104,7 @@ export interface Message {
   kind: MessageKind;
   text: string;
   own?: boolean;
-  timestamp?: number;
+  timestamp?: number; // epoch secs; the sender's clock, but ours for own and room posts
   channelIdx?: number;
   pubkeyPrefix?: string;
   authorPrefix?: string; // signed message's 4-byte author pubkey prefix (hex); a room post's real sender
@@ -413,6 +413,22 @@ export interface AclEntry {
  * are treated as able to post.
  */
 export type RepeaterAccess = 'admin' | 'readWrite' | 'guest';
+
+/** A repeater/room server's acceptance of a login. */
+export interface RemoteLogin {
+  /**
+   * The role the server granted, or `null` when a legacy response cannot
+   * report one and the caller falls back to the level it attempted.
+   */
+  access: RepeaterAccess | null;
+  /**
+   * How far the node's clock runs ahead of ours, in seconds (negative when
+   * behind): the server timestamp in `PUSH_LOGIN_SUCCESS` minus our clock when
+   * the push landed, so it includes the reply's flight time. `null` when the
+   * response carries no timestamp (legacy firmware).
+   */
+  clockSkewSecs: number | null;
+}
 
 /**
  * Which password a repeater/room login is attempting. Only these two are

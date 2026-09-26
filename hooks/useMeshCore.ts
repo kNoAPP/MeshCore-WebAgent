@@ -148,6 +148,25 @@ function arrivedAt(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+// When a room post was written, on our clock. The frame carries the room's
+// clock at posting — a login replays the room's stored history, so it is not
+// the send time — and the user's own posts carry ours; the two must agree for
+// `addMessage` to slot a replayed post between them. The skew the login
+// measured converts it — taken just before the replay it applies to — with the
+// room's advert skew as the fallback for firmware whose login reports no
+// clock. The arrival clamp covers a fast clock neither has measured: no post
+// was written after it reached us.
+function roomPostTime(stamp: number | undefined, prefix: string): number {
+  const now = arrivedAt();
+  if (!stamp) return now;
+  const state = useMeshStore.getState();
+  const skew =
+    state.adminSessions[prefix]?.clockSkewSecs ??
+    state.advertCache[prefix]?.clockSkewSecs ??
+    0;
+  return Math.min(stamp - skew, now);
+}
+
 // How many messages the background drain has handed over since it started.
 // One summary stands in for every per-message notification the drain
 // suppresses, and this is the count it reports. Module scope like the rest of
@@ -440,6 +459,9 @@ export function useMeshCore() {
               ...msg,
               pubkeyPrefix: prefix,
               senderName: sender,
+              timestamp: isRoom
+                ? roomPostTime(msg.timestamp, prefix)
+                : msg.timestamp,
             };
             const state = useMeshStore.getState();
             const visible = isConvoVisible(state, id);
@@ -1099,7 +1121,10 @@ export function useMeshCore() {
       if (!canTransmit(client)) return 'offline';
       setAdminLogin(contact.pubkeyPrefix, 'pending');
       try {
-        const granted = await client.login(contact, password);
+        const { access: granted, clockSkewSecs } = await client.login(
+          contact,
+          password,
+        );
         // A drop during login can tear the session down; don't revive it.
         if (!canTransmit(client)) return 'offline';
         // A room grants three roles and the middle one (the room password)
@@ -1110,7 +1135,25 @@ export function useMeshCore() {
         // report admin even when you intended a read-only guest session. The
         // node still enforces real permissions either way.
         const isRoom = contact.advType === ADV_TYPE_ROOM;
-        setAdminLogin(contact.pubkeyPrefix, (isRoom && granted) || kind);
+        setAdminLogin(
+          contact.pubkeyPrefix,
+          (isRoom && granted) || kind,
+          clockSkewSecs ?? undefined,
+        );
+        // The radio stays connected to a room it logged into, so its posts
+        // keep arriving on later connects before any login measures the
+        // room again: the deferred backlog drain, and pushes landing before
+        // the room is reopened. Carrying the skew in the persisted advert
+        // cache gives `roomPostTime` a measurement for those. (The drain pass
+        // inside `init` runs before the cache is restored and goes without,
+        // but `restoreHistory` puts the saved history ahead of those posts.)
+        const cached =
+          useMeshStore.getState().advertCache[contact.pubkeyPrefix];
+        if (isRoom && cached && clockSkewSecs !== null) {
+          cacheAdverts({
+            [contact.pubkeyPrefix]: { ...cached, clockSkewSecs },
+          });
+        }
         // Only a successful login is ever remembered, so a wrong password can't
         // be persisted. The credential lives solely in the encrypted per-radio
         // secrets store — never the store, prefs blob, or localStorage.
@@ -1156,7 +1199,7 @@ export function useMeshCore() {
         return timedOut ? 'timeout' : 'failed';
       }
     },
-    [client, setAdminLogin, notify],
+    [client, setAdminLogin, cacheAdverts, notify],
   );
 
   /**

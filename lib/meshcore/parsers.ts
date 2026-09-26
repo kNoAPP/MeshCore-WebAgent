@@ -570,14 +570,27 @@ export function parseTelemetryResponse(d: Uint8Array): NodeTelemetry | null {
  * `2` as a read-only `guest`, while a zero-byte `"OK"` cannot report the
  * granted role, so `access` is `null` and the caller falls back to the level it
  * attempted.
- * @returns the prefix and granted access (`null` when the response cannot
- * report a role), or null if the frame is too short.
+ *
+ * The server timestamp at offset 8 is the node's own clock when it accepted
+ * the login (the response's leading `now`, which the companion firmware
+ * forwards as the frame's tag).
+ * @returns the prefix, granted access (`null` when the response cannot report
+ * a role), and server timestamp in epoch seconds (`null` when absent or
+ * unset), or null if the frame is too short.
+ * @see `onContactResponse` in the firmware's `companion_radio/MyMesh.cpp`.
  */
-export function parseLoginPush(
-  d: Uint8Array,
-): { pubkeyPrefix: string; access: RepeaterAccess | null } | null {
+export function parseLoginPush(d: Uint8Array): {
+  pubkeyPrefix: string;
+  access: RepeaterAccess | null;
+  serverTime: number | null;
+} | null {
   if (d.length < 8) return null;
   const pubkeyPrefix = hexBytes(d, 2, 8);
+  const serverTime =
+    d.length >= 12
+      ? new DataView(d.buffer, d.byteOffset, d.byteLength).getUint32(8, true) ||
+        null
+      : null;
   // Modern firmware appends the ACL permissions byte at offset 12; its low two
   // bits hold the authoritative role.
   if (d.length > 12) {
@@ -588,14 +601,14 @@ export function parseLoginPush(
         : role === PERM_ACL_READ_WRITE
           ? 'readWrite'
           : 'guest';
-    return { pubkeyPrefix, access };
+    return { pubkeyPrefix, access, serverTime };
   }
   // Legacy response: byte 1 is the only signal (1 = admin, 2 = read-only guest
   // on room servers). Zero cannot report the granted role, so leave it
   // undetermined for the caller to fall back on the attempted level.
   const access: RepeaterAccess | null =
     d[1] === 1 ? 'admin' : d[1] === 2 ? 'guest' : null;
-  return { pubkeyPrefix, access };
+  return { pubkeyPrefix, access, serverTime };
 }
 
 /**
