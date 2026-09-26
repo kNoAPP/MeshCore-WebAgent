@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.3.0](https://github.com/kNoAPP/MeshCore-Desktop/compare/v2.2.0...v2.3.0) (2026-09-26)
+
+
+### Features
+
+* **meta:** add Open Graph and Twitter link-preview metadata ([#456](https://github.com/kNoAPP/MeshCore-Desktop/issues/456)) ([1bcca5e](https://github.com/kNoAPP/MeshCore-Desktop/commit/1bcca5e7cc978813e625f8bf10d5eef4924d5a16))
+
 ## [2.2.0](https://github.com/kNoAPP/MeshCore-WebAgent/compare/v2.1.0...v2.2.0) (2026-09-26)
 
 
