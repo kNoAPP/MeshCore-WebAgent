@@ -981,7 +981,7 @@ interface MeshActions {
    * @remarks A room server replays its stored posts after a login, one at a
    * time and each stamped with when it was posted, so a post from days ago can
    * land after one the user just sent. Channel and direct messages keep
-   * arrival order: their stamps are each sender's own unsynchronized clock,
+   * arrival order: their stamps are each sender's own clock, often never set,
    * and ordering on a badly-set one would bury a live message in the past.
    */
   addMessage: (id: string, msg: Message) => void;
